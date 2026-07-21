@@ -12,6 +12,12 @@ import {
   type CheckpointGeometryConfig,
   type CheckpointGeometryResult,
 } from "../checkpoint/generator";
+import { type StoneGeometryResult } from "../geometry/stone-builder";
+import {
+  createPillarGeometry,
+  type PillarGeometryConfig,
+} from "../pillar/generator";
+import { createPillarPlacements } from "../pillar/layout";
 
 const MATERIAL_OUTPUT_RESOLUTION = 512;
 export const DEFAULT_MATERIAL_SCALE = 1;
@@ -44,6 +50,18 @@ export const DEFAULT_ILLUMINATION_CONFIG: Readonly<IlluminationConfig> = {
   crackShadow: 1,
 };
 
+export interface PillarSetStats {
+  pillarCount: number;
+  stoneCount: number;
+  vertexCount: number;
+  triangleCount: number;
+}
+
+type PillarSceneEntry = {
+  mesh: THREE.Mesh;
+  wireframe: THREE.LineSegments<THREE.WireframeGeometry, THREE.LineBasicMaterial>;
+};
+
 export class MainScene {
   readonly scene = new THREE.Scene();
   private readonly fallbackMaterial: THREE.MeshStandardMaterial;
@@ -52,20 +70,25 @@ export class MainScene {
     THREE.WireframeGeometry,
     THREE.LineBasicMaterial
   >;
+  private readonly pillarGroup = new THREE.Group();
+  private readonly pillarWireframeGroup = new THREE.Group();
+  private readonly pillarEntries: PillarSceneEntry[] = [];
   private readonly sunLight: THREE.DirectionalLight;
   private readonly hemisphereLight: THREE.HemisphereLight;
   private readonly sunShadow: CSMShadowNode;
-  private vertexNormalsHelper: VertexNormalsHelper | null = null;
+  private readonly vertexNormalsHelpers: VertexNormalsHelper[] = [];
   private vertexNormalsVisible = false;
   private vertexNormalsSize: number;
-  private currentStats: Omit<CheckpointGeometryResult, "geometry">;
+  private currentCheckpointStats: Omit<CheckpointGeometryResult, "geometry">;
+  private currentPillarStats: PillarSetStats = emptyPillarStats();
+  private surfaceMaterial: THREE.Material;
   private materialRuntime: MaterialGraphRuntime | null = null;
   private stopListeningForMaterialRebuild: (() => void) | null = null;
   private materialScale = DEFAULT_MATERIAL_SCALE;
   private ambientOcclusionStrength = DEFAULT_ILLUMINATION_CONFIG.ambientOcclusion;
   private crackShadowStrength = DEFAULT_ILLUMINATION_CONFIG.crackShadow;
 
-  constructor(config: CheckpointGeometryConfig) {
+  constructor(config: CheckpointGeometryConfig, pillarConfig: PillarGeometryConfig) {
     this.scene.background = new THREE.Color(0x171714);
     this.vertexNormalsSize = config.radius * 0.04;
 
@@ -77,6 +100,7 @@ export class MainScene {
       metalness: 0,
       vertexColors: true,
     });
+    this.surfaceMaterial = this.fallbackMaterial;
     this.checkpoint = new THREE.Mesh(result.geometry, this.fallbackMaterial);
     this.checkpoint.castShadow = true;
     this.checkpoint.receiveShadow = true;
@@ -85,8 +109,14 @@ export class MainScene {
       new THREE.LineBasicMaterial({ color: 0xd8d8d8 }),
     );
     this.checkpointWireframe.visible = false;
-    this.currentStats = geometryStats(result);
-    this.scene.add(this.checkpoint, this.checkpointWireframe);
+    this.currentCheckpointStats = geometryStats(result);
+    this.scene.add(
+      this.checkpoint,
+      this.checkpointWireframe,
+      this.pillarGroup,
+      this.pillarWireframeGroup,
+    );
+    this.rebuildPillars(config, pillarConfig);
 
     this.sunLight = new THREE.DirectionalLight();
     this.sunLight.castShadow = true;
@@ -163,32 +193,102 @@ export class MainScene {
     this.checkpoint.geometry = result.geometry;
     this.checkpointWireframe.geometry = new THREE.WireframeGeometry(result.geometry);
     this.vertexNormalsSize = config.radius * 0.04;
-    this.rebuildVertexNormalsHelper();
-    this.currentStats = geometryStats(result);
+    this.rebuildVertexNormalsHelpers();
+    this.currentCheckpointStats = geometryStats(result);
     previousGeometry.dispose();
     previousWireframeGeometry.dispose();
 
     return result;
   }
 
+  rebuildPillars(
+    checkpointConfig: CheckpointGeometryConfig,
+    pillarConfig: PillarGeometryConfig,
+  ): PillarSetStats {
+    this.disposePillars();
+
+    const stats = emptyPillarStats();
+    const placements = createPillarPlacements(checkpointConfig, pillarConfig);
+
+    for (const placement of placements) {
+      const result = createPillarGeometry({
+        ...pillarConfig,
+        seed: placement.seed,
+      });
+      this.applyMaterialScale(result.geometry);
+      this.applyAmbientOcclusion(result.geometry);
+      this.applyBakedShadow(result.geometry);
+
+      const mesh = new THREE.Mesh(result.geometry, this.surfaceMaterial);
+      mesh.position.set(placement.x, placement.y, placement.z);
+      mesh.rotation.y = placement.rotationY;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      const wireframe = new THREE.LineSegments(
+        new THREE.WireframeGeometry(result.geometry),
+        new THREE.LineBasicMaterial({ color: 0xd8d8d8 }),
+      );
+      wireframe.position.copy(mesh.position);
+      wireframe.rotation.copy(mesh.rotation);
+      wireframe.visible = this.checkpointWireframe.visible;
+      mesh.visible = this.checkpoint.visible;
+      this.pillarGroup.add(mesh);
+      this.pillarWireframeGroup.add(wireframe);
+      this.pillarEntries.push({ mesh, wireframe });
+
+      stats.pillarCount += 1;
+      stats.stoneCount += result.stoneCount;
+      stats.vertexCount += result.vertexCount;
+      stats.triangleCount += result.triangleCount;
+    }
+
+    this.currentPillarStats = stats;
+    this.rebuildVertexNormalsHelpers();
+    return { ...stats };
+  }
+
   getGeometryStats(): Omit<CheckpointGeometryResult, "geometry"> {
-    return this.currentStats;
+    return this.currentCheckpointStats;
+  }
+
+  getPillarStats(): PillarSetStats {
+    return { ...this.currentPillarStats };
+  }
+
+  getCompositionBounds(): THREE.Box3 {
+    this.scene.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(this.checkpoint);
+
+    for (const entry of this.pillarEntries) {
+      bounds.expandByObject(entry.mesh);
+    }
+
+    return bounds;
   }
 
   setMaterialScale(scale: number): void {
     this.materialScale = scale;
     this.materialRuntime?.surface.setScale(scale);
     this.applyMaterialScale(this.checkpoint.geometry);
+
+    for (const entry of this.pillarEntries) {
+      this.applyMaterialScale(entry.mesh.geometry);
+    }
   }
 
   setWireframe(enabled: boolean): void {
     this.checkpoint.visible = !enabled;
     this.checkpointWireframe.visible = enabled;
+
+    for (const entry of this.pillarEntries) {
+      entry.mesh.visible = !enabled;
+      entry.wireframe.visible = enabled;
+    }
   }
 
   setVertexNormalsVisible(enabled: boolean): void {
     this.vertexNormalsVisible = enabled;
-    this.rebuildVertexNormalsHelper();
+    this.rebuildVertexNormalsHelpers();
   }
 
   setIllumination(config: IlluminationConfig): void {
@@ -215,6 +315,11 @@ export class MainScene {
     this.crackShadowStrength = THREE.MathUtils.clamp(config.crackShadow, 0, 1);
     this.applyAmbientOcclusion(this.checkpoint.geometry);
     this.applyBakedShadow(this.checkpoint.geometry);
+
+    for (const entry of this.pillarEntries) {
+      this.applyAmbientOcclusion(entry.mesh.geometry);
+      this.applyBakedShadow(entry.mesh.geometry);
+    }
   }
 
   update(_deltaTime: number): void {
@@ -232,13 +337,12 @@ export class MainScene {
     this.stopListeningForMaterialRebuild = null;
     this.materialRuntime?.dispose();
     this.materialRuntime = null;
+    this.disposePillars();
     this.fallbackMaterial.dispose();
     this.checkpoint.geometry.dispose();
     this.checkpointWireframe.geometry.dispose();
     this.checkpointWireframe.material.dispose();
-    this.vertexNormalsHelper?.removeFromParent();
-    this.vertexNormalsHelper?.dispose();
-    this.vertexNormalsHelper = null;
+    this.disposeVertexNormalsHelpers();
     this.sunShadow.dispose();
     this.sunLight.dispose();
   }
@@ -285,7 +389,12 @@ export class MainScene {
     const material = runtime.getNodeMaterial();
     material.vertexColors = true;
     material.needsUpdate = true;
+    this.surfaceMaterial = material;
     this.checkpoint.material = material;
+
+    for (const entry of this.pillarEntries) {
+      entry.mesh.material = material;
+    }
   }
 
   private applyMaterialScale(geometry: THREE.BufferGeometry): void {
@@ -307,30 +416,64 @@ export class MainScene {
     attribute.needsUpdate = true;
   }
 
-  private rebuildVertexNormalsHelper(): void {
-    this.vertexNormalsHelper?.removeFromParent();
-    this.vertexNormalsHelper?.dispose();
-    this.vertexNormalsHelper = null;
+  private rebuildVertexNormalsHelpers(): void {
+    this.disposeVertexNormalsHelpers();
 
     if (!this.vertexNormalsVisible) {
       return;
     }
 
-    this.vertexNormalsHelper = new VertexNormalsHelper(
+    const meshes = [
       this.checkpoint,
-      this.vertexNormalsSize,
-      0x22d3ee,
-    );
-    this.scene.add(this.vertexNormalsHelper);
+      ...this.pillarEntries.map((entry) => entry.mesh),
+    ];
+
+    for (const mesh of meshes) {
+      const helper = new VertexNormalsHelper(mesh, this.vertexNormalsSize, 0x22d3ee);
+      this.vertexNormalsHelpers.push(helper);
+      this.scene.add(helper);
+    }
+  }
+
+  private disposeVertexNormalsHelpers(): void {
+    for (const helper of this.vertexNormalsHelpers) {
+      helper.removeFromParent();
+      helper.dispose();
+    }
+
+    this.vertexNormalsHelpers.length = 0;
+  }
+
+  private disposePillars(): void {
+    this.disposeVertexNormalsHelpers();
+
+    for (const entry of this.pillarEntries) {
+      entry.mesh.removeFromParent();
+      entry.mesh.geometry.dispose();
+      entry.wireframe.removeFromParent();
+      entry.wireframe.geometry.dispose();
+      entry.wireframe.material.dispose();
+    }
+
+    this.pillarEntries.length = 0;
   }
 }
 
 function geometryStats(
-  result: CheckpointGeometryResult,
+  result: StoneGeometryResult,
 ): Omit<CheckpointGeometryResult, "geometry"> {
   return {
     stoneCount: result.stoneCount,
     vertexCount: result.vertexCount,
     triangleCount: result.triangleCount,
+  };
+}
+
+function emptyPillarStats(): PillarSetStats {
+  return {
+    pillarCount: 0,
+    stoneCount: 0,
+    vertexCount: 0,
+    triangleCount: 0,
   };
 }

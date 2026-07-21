@@ -4,6 +4,12 @@ A low-poly procedural checkpoint generator for Three.js. It builds a seeded,
 one-to-four-way stone crossing with a three-tier circular center and merges the
 result into one geometry.
 
+Every enabled entrance is flanked by a pair of procedural masonry pillars at
+the junction between the circular checkpoint and its approach. Pillars have a
+stepped base, subdivided shaft, and a capital composed of a neck, cornice, and
+cap. One shared pillar configuration controls the set, while a direction/side
+seed produces stable variation for every individual post.
+
 Use the in-browser controls to adjust its overall radius, entry layout, paving
 density, and restrained stone variation.
 
@@ -11,6 +17,12 @@ Top-edge detail is generated per configuration as either hard edges or a
 seeded planar chamfer. Chamfer width varies independently along each stone edge,
 while depth and variation remain configurable. Only the top perimeter is
 clipped; the vertical and bottom edges stay hard.
+
+The pillar controls expose total height, shaft width, base-step count, vertical
+shaft courses, and cross-section subdivisions. Their stone gap, size variation,
+displacement, seed, and bevel controls are independent of the checkpoint. The
+checkpoint and pillar meshes remain separate but share the active stone
+material, lighting, view helpers, and camera framing.
 
 The checkpoint surface is loaded from `public/materials/stone.json` through
 `material-designer-runtime` and baked at 512px. The generated mesh uses hard
@@ -50,3 +62,12 @@ npm run dev:proxy -- my-name
 ```
 
 Caddy must be installed and available on `PATH`.
+
+## Validation
+
+Run the deterministic geometry checks and production build with:
+
+```sh
+npm test
+npm run build
+```

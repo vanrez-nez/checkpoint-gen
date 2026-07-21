@@ -10,10 +10,15 @@ import {
   type CheckpointGeometryResult,
 } from "./checkpoint/generator";
 import {
+  DEFAULT_PILLAR_CONFIG,
+  type PillarGeometryConfig,
+} from "./pillar/generator";
+import {
   DEFAULT_MATERIAL_SCALE,
   DEFAULT_ILLUMINATION_CONFIG,
   MainScene,
   type IlluminationConfig,
+  type PillarSetStats,
 } from "./scene/main";
 import {
   StatsBladeApi,
@@ -31,11 +36,22 @@ const checkpointConfig: CheckpointGeometryConfig = {
   entries: { ...DEFAULT_CHECKPOINT_CONFIG.entries },
 };
 
+const pillarConfig: PillarGeometryConfig = {
+  ...DEFAULT_PILLAR_CONFIG,
+};
+
 const illuminationConfig: IlluminationConfig = {
   ...DEFAULT_ILLUMINATION_CONFIG,
 };
 
 const geometryStats = {
+  stones: 0,
+  vertices: 0,
+  triangles: 0,
+};
+
+const pillarStats = {
+  pillars: 0,
   stones: 0,
   vertices: 0,
   triangles: 0,
@@ -65,8 +81,7 @@ renderer.shadowMap.enabled = true;
 const controls = new OrbitControls(camera, sceneCanvas);
 controls.enableDamping = true;
 
-const mainScene = new MainScene(checkpointConfig);
-frameCheckpoint();
+const mainScene = new MainScene(checkpointConfig, pillarConfig);
 
 try {
   await mainScene.loadStoneMaterial(
@@ -77,13 +92,27 @@ try {
   console.error("Stone material failed to load; using the fallback material.", error);
 }
 
-const pane = new Pane({ container: paneHost, title: "Checkpoint" });
+const pane = new Pane({ container: paneHost, title: "Checkpoint + Pillars" });
 pane.registerPlugin(StatsPanePluginBundle);
 const stats = pane.addBlade({ view: "stats" }) as StatsBladeApi;
 const rendererBackend = renderer.backend as { isWebGPUBackend?: boolean };
 stats.setRenderer(rendererBackend.isWebGPUBackend === true ? "WebGPU" : "WebGL2");
+const tabs = pane.addTab({
+  pages: [
+    { title: "Checkpoint" },
+    { title: "Pillars" },
+    { title: "Scene" },
+  ],
+});
+const checkpointTab = tabs.pages[0];
+const pillarTab = tabs.pages[1];
+const sceneTab = tabs.pages[2];
 
-const viewFolder = pane.addFolder({ title: "View" });
+if (!checkpointTab || !pillarTab || !sceneTab) {
+  throw new Error("Failed to create control tabs.");
+}
+
+const viewFolder = sceneTab.addFolder({ title: "View" });
 viewFolder.addBinding(params, "wireframe").on("change", () => {
   mainScene.setWireframe(params.wireframe);
 });
@@ -93,14 +122,14 @@ viewFolder.addBinding(params, "vertexNormals", {
   mainScene.setVertexNormalsVisible(params.vertexNormals);
 });
 
-const layoutFolder = pane.addFolder({ title: "Layout" });
+const layoutFolder = checkpointTab.addFolder({ title: "Layout" });
 layoutFolder.addBinding(checkpointConfig, "radius", {
   min: 1,
   max: 10,
   step: 0.1,
 }).on("change", () => {
-  rebuildCheckpoint();
-  frameCheckpoint();
+  rebuildCheckpointAndPillars();
+  frameComposition();
 });
 layoutFolder.addBinding(checkpointConfig, "rowsPerTier", {
   label: "rows / tier",
@@ -113,21 +142,27 @@ layoutFolder.addBinding(checkpointConfig, "entryWidthRatio", {
   min: 0.25,
   max: 1.5,
   step: 0.01,
-}).on("change", rebuildCheckpoint);
+}).on("change", () => {
+  rebuildCheckpointAndPillars();
+  frameComposition();
+});
 layoutFolder.addBinding(checkpointConfig, "entryLengthRatio", {
   label: "entry length",
   min: 0.25,
   max: 3,
   step: 0.05,
-}).on("change", rebuildCheckpoint);
+}).on("change", () => {
+  rebuildCheckpoint();
+  frameComposition();
+});
 
-const entriesFolder = pane.addFolder({ title: "Entries" });
+const entriesFolder = checkpointTab.addFolder({ title: "Entries" });
 bindEntry(entriesFolder, "north");
 bindEntry(entriesFolder, "east");
 bindEntry(entriesFolder, "south");
 bindEntry(entriesFolder, "west");
 
-const edgesFolder = pane.addFolder({ title: "Entry Edges" });
+const edgesFolder = checkpointTab.addFolder({ title: "Entry Edges" });
 edgesFolder.addBinding(checkpointConfig, "entryFadeRatio", {
   label: "fade length",
   min: 0.1,
@@ -147,15 +182,7 @@ edgesFolder.addBinding(checkpointConfig, "entryEndHeightRatio", {
   step: 0.01,
 }).on("change", rebuildCheckpoint);
 
-const stonesFolder = pane.addFolder({ title: "Stones" });
-stonesFolder.addBinding(params, "materialScale", {
-  label: "material scale",
-  min: 0.1,
-  max: 4,
-  step: 0.05,
-}).on("change", () => {
-  mainScene.setMaterialScale(params.materialScale);
-});
+const stonesFolder = checkpointTab.addFolder({ title: "Stones" });
 stonesFolder.addBinding(checkpointConfig, "seed", {
   min: 0,
   max: 9999,
@@ -185,7 +212,7 @@ stonesFolder.addBinding(checkpointConfig, "tierRiseRatio", {
   step: 0.005,
 }).on("change", rebuildCheckpoint);
 
-const bevelFolder = pane.addFolder({ title: "Bevel" });
+const bevelFolder = checkpointTab.addFolder({ title: "Bevel" });
 bevelFolder.addBinding(checkpointConfig, "bevelEnabled", {
   label: "enabled",
 }).on("change", rebuildCheckpoint);
@@ -208,7 +235,104 @@ bevelFolder.addBinding(checkpointConfig, "bevelVariation", {
   step: 0.01,
 }).on("change", rebuildCheckpoint);
 
-const illuminationFolder = pane.addFolder({ title: "Illumination" });
+const pillarLayoutFolder = pillarTab.addFolder({ title: "Layout" });
+pillarLayoutFolder.addBinding(pillarConfig, "height", {
+  min: 1,
+  max: 12,
+  step: 0.1,
+}).on("change", () => {
+  rebuildPillars();
+  frameComposition();
+});
+pillarLayoutFolder.addBinding(pillarConfig, "shaftWidth", {
+  label: "shaft width",
+  min: 0.1,
+  max: 3,
+  step: 0.01,
+}).on("change", () => {
+  rebuildPillars();
+  frameComposition();
+});
+pillarLayoutFolder.addBinding(pillarConfig, "baseSteps", {
+  label: "base steps",
+  min: 1,
+  max: 4,
+  step: 1,
+}).on("change", () => {
+  rebuildPillars();
+  frameComposition();
+});
+pillarLayoutFolder.addBinding(pillarConfig, "shaftCourses", {
+  label: "shaft courses",
+  min: 1,
+  max: 8,
+  step: 1,
+}).on("change", rebuildPillars);
+pillarLayoutFolder.addBinding(pillarConfig, "shaftSubdivisions", {
+  label: "shaft subdivisions",
+  min: 1,
+  max: 4,
+  step: 1,
+}).on("change", rebuildPillars);
+
+const pillarStonesFolder = pillarTab.addFolder({ title: "Stones" });
+pillarStonesFolder.addBinding(pillarConfig, "seed", {
+  min: 0,
+  max: 9999,
+  step: 1,
+}).on("change", rebuildPillars);
+pillarStonesFolder.addBinding(pillarConfig, "stoneGapRatio", {
+  label: "gap",
+  min: 0.002,
+  max: 0.04,
+  step: 0.001,
+}).on("change", rebuildPillars);
+pillarStonesFolder.addBinding(pillarConfig, "sizeVariation", {
+  label: "size variation",
+  min: 0.05,
+  max: 0.4,
+  step: 0.01,
+}).on("change", rebuildPillars);
+pillarStonesFolder.addBinding(pillarConfig, "displacement", {
+  min: 0.01,
+  max: 0.2,
+  step: 0.01,
+}).on("change", rebuildPillars);
+
+const pillarBevelFolder = pillarTab.addFolder({ title: "Bevel" });
+pillarBevelFolder.addBinding(pillarConfig, "bevelEnabled", {
+  label: "enabled",
+}).on("change", rebuildPillars);
+pillarBevelFolder.addBinding(pillarConfig, "bevelWidthRatio", {
+  label: "width",
+  min: 0.02,
+  max: 0.3,
+  step: 0.01,
+}).on("change", rebuildPillars);
+pillarBevelFolder.addBinding(pillarConfig, "bevelDepthRatio", {
+  label: "depth",
+  min: 0.05,
+  max: 0.6,
+  step: 0.01,
+}).on("change", rebuildPillars);
+pillarBevelFolder.addBinding(pillarConfig, "bevelVariation", {
+  label: "variation",
+  min: 0,
+  max: 0.6,
+  step: 0.01,
+}).on("change", rebuildPillars);
+
+const materialFolder = sceneTab.addFolder({ title: "Material" });
+materialFolder.addBinding(params, "materialScale", {
+  label: "material scale",
+  min: 0.1,
+  max: 4,
+  step: 0.05,
+}).on("change", () => {
+  mainScene.setMaterialScale(params.materialScale);
+});
+
+const illuminationFolder = sceneTab.addFolder({ title: "Illumination" });
 illuminationFolder.addBinding(illuminationConfig, "keyIntensity", {
   label: "sun intensity",
   min: 0,
@@ -255,11 +379,17 @@ illuminationFolder.addBinding(illuminationConfig, "groundColor", {
   label: "ground color",
 }).on("change", updateIllumination);
 
-const metricsFolder = pane.addFolder({ title: "Geometry", expanded: false });
+const metricsFolder = checkpointTab.addFolder({ title: "Geometry", expanded: false });
 metricsFolder.addBinding(geometryStats, "stones", { readonly: true });
 metricsFolder.addBinding(geometryStats, "vertices", { readonly: true });
 metricsFolder.addBinding(geometryStats, "triangles", { readonly: true });
+const pillarMetricsFolder = pillarTab.addFolder({ title: "Geometry", expanded: false });
+pillarMetricsFolder.addBinding(pillarStats, "pillars", { readonly: true });
+pillarMetricsFolder.addBinding(pillarStats, "stones", { readonly: true });
+pillarMetricsFolder.addBinding(pillarStats, "vertices", { readonly: true });
+pillarMetricsFolder.addBinding(pillarStats, "triangles", { readonly: true });
 updateGeometryStats(mainScene.getGeometryStats());
+updatePillarStats(mainScene.getPillarStats());
 
 const timer = new THREE.Timer();
 timer.connect(document);
@@ -295,12 +425,24 @@ function bindEntry(
       return;
     }
 
-    rebuildCheckpoint();
+    rebuildCheckpointAndPillars();
+    frameComposition();
   });
 }
 
 function rebuildCheckpoint(): void {
   updateGeometryStats(mainScene.rebuild(checkpointConfig));
+  pane.refresh();
+}
+
+function rebuildPillars(): void {
+  updatePillarStats(mainScene.rebuildPillars(checkpointConfig, pillarConfig));
+  pane.refresh();
+}
+
+function rebuildCheckpointAndPillars(): void {
+  updateGeometryStats(mainScene.rebuild(checkpointConfig));
+  updatePillarStats(mainScene.rebuildPillars(checkpointConfig, pillarConfig));
   pane.refresh();
 }
 
@@ -316,16 +458,33 @@ function updateGeometryStats(
   geometryStats.triangles = result.triangleCount;
 }
 
-function frameCheckpoint(): void {
-  const visibleRadius = checkpointConfig.radius * (1 + checkpointConfig.entryLengthRatio);
-  camera.position.set(visibleRadius * 0.82, visibleRadius * 1.05, visibleRadius * 0.82);
-  controls.target.set(0, checkpointConfig.radius * 0.08, 0);
+function updatePillarStats(result: PillarSetStats): void {
+  pillarStats.pillars = result.pillarCount;
+  pillarStats.stones = result.stoneCount;
+  pillarStats.vertices = result.vertexCount;
+  pillarStats.triangles = result.triangleCount;
+}
+
+function frameComposition(): void {
+  const bounds = mainScene.getCompositionBounds();
+  const center = bounds.getCenter(new THREE.Vector3());
+  const sphere = bounds.getBoundingSphere(new THREE.Sphere());
+  const direction = new THREE.Vector3(0.82, 1.05, 0.82).normalize();
+  const halfFov = THREE.MathUtils.degToRad(camera.fov * 0.5);
+  const distance = Math.max(sphere.radius / Math.sin(halfFov), 1) * 1.15;
+  camera.position.copy(center).addScaledVector(direction, distance);
+  camera.near = Math.max(distance * 0.002, 0.01);
+  camera.far = Math.max(distance + sphere.radius * 4, 200);
+  camera.updateProjectionMatrix();
+  controls.target.copy(center);
   controls.update();
+  mainScene.updateShadowFrustums();
 }
 
 window.addEventListener("resize", resize);
 window.addEventListener("beforeunload", dispose, { once: true });
 resize();
+frameComposition();
 void renderer.setAnimationLoop(animate);
 
 function dispose(): void {
