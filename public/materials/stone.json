@@ -1,0 +1,81 @@
+{
+  "version": 2,
+  "metadata": { "title": "Stone" },
+  "nodes": [
+    {
+      "id": "coord",
+      "type": "tex-coordinate",
+      "params": {},
+      "position": { "x": 40, "y": 200 },
+      "enabled": true
+    },
+    {
+      "id": "fbmBase",
+      "type": "fbm",
+      "params": { "scale": 2.4, "octaves": 5, "lacunarity": 2.0, "gain": 0.55 },
+      "position": { "x": 300, "y": 100 },
+      "enabled": true
+    },
+    {
+      "id": "ramp",
+      "type": "color-ramp",
+      "params": { "colorA": "#4a443c", "colorB": "#9a938a", "low": 0.25, "high": 0.8 },
+      "position": { "x": 560, "y": 100 },
+      "enabled": true
+    },
+    {
+      "id": "fbmBump",
+      "type": "fbm",
+      "params": { "scale": 6.5, "octaves": 6, "lacunarity": 2.2, "gain": 0.6 },
+      "position": { "x": 300, "y": 320 },
+      "enabled": true
+    },
+    {
+      "id": "nrm",
+      "type": "normal-from-height",
+      "params": { "strength": 0.12 },
+      "position": { "x": 560, "y": 320 },
+      "enabled": true
+    },
+    {
+      "id": "rampDetail",
+      "type": "color-ramp",
+      "params": { "colorA": "#24221e", "colorB": "#c3baae", "low": 0.4, "high": 0.6 },
+      "position": { "x": 560, "y": 500 },
+      "enabled": true
+    },
+    {
+      "id": "blendDetail",
+      "type": "blend",
+      "params": { "mode": "mix", "opacity": 0.65 },
+      "position": { "x": 800, "y": 100 },
+      "enabled": true
+    },
+    {
+      "id": "pr",
+      "type": "principled-bsdf",
+      "params": { "roughness": 0.92, "metallic": 0.0 },
+      "position": { "x": 820, "y": 200 },
+      "enabled": true
+    },
+    {
+      "id": "out",
+      "type": "material-output",
+      "params": {},
+      "position": { "x": 1080, "y": 200 },
+      "enabled": true
+    }
+  ],
+  "edges": [
+    { "fromNode": "coord", "fromOutput": "object", "toNode": "fbmBase", "toInput": "coord" },
+    { "fromNode": "coord", "fromOutput": "object", "toNode": "fbmBump", "toInput": "coord" },
+    { "fromNode": "fbmBase", "fromOutput": "field", "toNode": "ramp", "toInput": "field" },
+    { "fromNode": "ramp", "fromOutput": "color", "toNode": "blendDetail", "toInput": "a" },
+    { "fromNode": "fbmBump", "fromOutput": "field", "toNode": "rampDetail", "toInput": "field" },
+    { "fromNode": "rampDetail", "fromOutput": "color", "toNode": "blendDetail", "toInput": "b" },
+    { "fromNode": "rampDetail", "fromOutput": "color", "toNode": "nrm", "toInput": "height" },
+    { "fromNode": "blendDetail", "fromOutput": "color", "toNode": "pr", "toInput": "baseColor" },
+    { "fromNode": "nrm", "fromOutput": "normal", "toNode": "pr", "toInput": "normal" },
+    { "fromNode": "pr", "fromOutput": "bsdf", "toNode": "out", "toInput": "surface" }
+  ]
+}
