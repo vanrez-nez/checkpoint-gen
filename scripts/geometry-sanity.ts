@@ -7,6 +7,10 @@ import {
   type CheckpointGeometryConfig,
 } from "../src/checkpoint/generator";
 import {
+  DEFAULT_FIRE_BOWL_CONFIG,
+  createFireBowlGeometry,
+} from "../src/fire-bowl/generator";
+import {
   DEFAULT_PILLAR_CONFIG,
   createPillarGeometry,
   getPillarBaseWidth,
@@ -19,19 +23,70 @@ const checkpointConfig: CheckpointGeometryConfig = {
 };
 const pillarConfig: PillarGeometryConfig = {
   ...DEFAULT_PILLAR_CONFIG,
+  fireBowl: { ...DEFAULT_PILLAR_CONFIG.fireBowl },
 };
 
 const checkpoint = createCheckpointGeometry(checkpointConfig);
 const pillar = createPillarGeometry(pillarConfig);
+const barePillar = createPillarGeometry({
+  ...pillarConfig,
+  fireBowl: { ...pillarConfig.fireBowl, enabled: false },
+});
+const fireBowl = createFireBowlGeometry(
+  { ...DEFAULT_FIRE_BOWL_CONFIG },
+  pillarConfig.shaftWidth,
+);
 assertValidGeometry(checkpoint.geometry, "checkpoint");
 assertValidGeometry(pillar.geometry, "pillar");
-assert.equal(pillar.geometry.boundingBox?.min.y, 0);
-assert.ok(Math.abs((pillar.geometry.boundingBox?.max.y ?? 0) - pillarConfig.height) < 1e-6);
+assertValidGeometry(barePillar.geometry, "bare pillar");
+assertValidGeometry(fireBowl.geometry, "fire bowl");
+assert.ok(Math.abs(barePillar.geometry.boundingBox?.min.y ?? 1) < 1e-6);
+assert.ok(Math.abs((barePillar.geometry.boundingBox?.max.y ?? 0) - pillarConfig.height) < 1e-6);
 const defaultBaseHalfWidth = getPillarBaseWidth(pillarConfig) * 0.5;
-assert.ok(Math.abs((pillar.geometry.boundingBox?.min.x ?? 0) + defaultBaseHalfWidth) < 1e-6);
-assert.ok(Math.abs((pillar.geometry.boundingBox?.max.x ?? 0) - defaultBaseHalfWidth) < 1e-6);
-assert.ok(Math.abs((pillar.geometry.boundingBox?.min.z ?? 0) + defaultBaseHalfWidth) < 1e-6);
-assert.ok(Math.abs((pillar.geometry.boundingBox?.max.z ?? 0) - defaultBaseHalfWidth) < 1e-6);
+assert.ok(Math.abs((barePillar.geometry.boundingBox?.min.x ?? 0) + defaultBaseHalfWidth) < 1e-6);
+assert.ok(Math.abs((barePillar.geometry.boundingBox?.max.x ?? 0) - defaultBaseHalfWidth) < 1e-6);
+assert.ok(Math.abs((barePillar.geometry.boundingBox?.min.z ?? 0) + defaultBaseHalfWidth) < 1e-6);
+assert.ok(Math.abs((barePillar.geometry.boundingBox?.max.z ?? 0) - defaultBaseHalfWidth) < 1e-6);
+assert.equal(fireBowl.supportCount, 8);
+assert.equal(fireBowl.footCount, 4);
+assert.equal(pillar.fireBowlVertexCount, fireBowl.vertexCount);
+assert.equal(pillar.fireBowlTriangleCount, fireBowl.triangleCount);
+assert.equal(pillar.geometry.groups.length, 2);
+assert.equal(pillar.geometry.groups[0]?.materialIndex, 0);
+assert.equal(pillar.geometry.groups[1]?.materialIndex, 1);
+assert.equal(
+  pillar.geometry.groups.reduce((sum, group) => sum + group.count, 0),
+  pillar.geometry.index?.count,
+);
+assert.equal(barePillar.geometry.groups.length, 1);
+assert.equal(barePillar.geometry.groups[0]?.materialIndex, 0);
+assert.equal(barePillar.fireBowlVertexCount, 0);
+assert.equal(barePillar.fireBowlTriangleCount, 0);
+assert.ok(Math.abs(groupMinimumY(pillar.geometry, 1) - pillarConfig.height) < 1e-6);
+assert.equal(
+  (pillar.geometry.userData.baseUvs as Float32Array).length,
+  pillar.geometry.getAttribute("uv").count * 2,
+);
+assert.equal(
+  (pillar.geometry.userData.vertexAoBase as Float32Array).length,
+  pillar.geometry.getAttribute("vertexAo").count,
+);
+
+const detailedFireBowl = createFireBowlGeometry(
+  { ...DEFAULT_FIRE_BOWL_CONFIG, radialSegments: 64 },
+  pillarConfig.shaftWidth,
+);
+const scaledFireBowl = createFireBowlGeometry(
+  { ...DEFAULT_FIRE_BOWL_CONFIG, scale: DEFAULT_FIRE_BOWL_CONFIG.scale * 2 },
+  pillarConfig.shaftWidth,
+);
+assert.ok(detailedFireBowl.vertexCount > fireBowl.vertexCount);
+assert.ok(detailedFireBowl.triangleCount > fireBowl.triangleCount);
+assert.ok(Math.abs(
+  (scaledFireBowl.geometry.boundingBox?.max.x ?? 0)
+    / (fireBowl.geometry.boundingBox?.max.x ?? 1)
+    - 2,
+) < 1e-6);
 
 const repeatedPillar = createPillarGeometry(pillarConfig);
 assert.deepEqual(
@@ -160,6 +215,14 @@ assert.throws(
   /height/,
 );
 assert.throws(
+  () => createFireBowlGeometry({ ...DEFAULT_FIRE_BOWL_CONFIG, scale: 0.49 }, 1),
+  /scale/,
+);
+assert.throws(
+  () => createFireBowlGeometry({ ...DEFAULT_FIRE_BOWL_CONFIG, radialSegments: 18 }, 1),
+  /radial segments/,
+);
+assert.throws(
   () => createCheckpointGeometry({ ...checkpointConfig, entryCount: 0 }),
   /Entry count/,
 );
@@ -171,6 +234,10 @@ assert.throws(
 for (const result of [
   checkpoint,
   pillar,
+  barePillar,
+  fireBowl,
+  detailedFireBowl,
+  scaledFireBowl,
   repeatedPillar,
   changedSeed,
   hardEdges,
@@ -208,4 +275,21 @@ function assertValidGeometry(geometry: THREE.BufferGeometry, label: string): voi
   assert.ok(Array.from(index.array).every((value) => value >= 0 && value < position.count));
   assert.ok(geometry.boundingBox && !geometry.boundingBox.isEmpty());
   assert.ok(geometry.boundingSphere && Number.isFinite(geometry.boundingSphere.radius));
+}
+
+function groupMinimumY(geometry: THREE.BufferGeometry, materialIndex: number): number {
+  const group = geometry.groups.find((candidate) => candidate.materialIndex === materialIndex);
+  const position = geometry.getAttribute("position");
+  const index = geometry.index;
+
+  assert.ok(group, `Geometry must contain material group ${materialIndex}.`);
+  assert.ok(index, "Geometry must be indexed.");
+
+  let minimum = Number.POSITIVE_INFINITY;
+
+  for (let offset = group.start; offset < group.start + group.count; offset += 1) {
+    minimum = Math.min(minimum, position.getY(index.getX(offset)));
+  }
+
+  return minimum;
 }

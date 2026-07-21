@@ -36,6 +36,7 @@ const checkpointConfig: CheckpointGeometryConfig = {
 
 const pillarConfig: PillarGeometryConfig = {
   ...DEFAULT_PILLAR_CONFIG,
+  fireBowl: { ...DEFAULT_PILLAR_CONFIG.fireBowl },
 };
 
 const illuminationConfig: IlluminationConfig = {
@@ -51,6 +52,12 @@ const geometryStats = {
 const pillarStats = {
   pillars: 0,
   stones: 0,
+  vertices: 0,
+  triangles: 0,
+};
+
+const fireBowlStats = {
+  bowls: 0,
   vertices: 0,
   triangles: 0,
 };
@@ -87,7 +94,22 @@ try {
     `${import.meta.env.BASE_URL}materials/stone.json`,
   );
 } catch (error) {
-  console.error("Stone material failed to load; using the fallback material.", error);
+  console.error(
+    "Stone material failed to load; using the fallback material.",
+    error,
+  );
+}
+
+try {
+  await mainScene.loadIronMaterial(
+    renderer,
+    `${import.meta.env.BASE_URL}materials/hammered-iron.json`,
+  );
+} catch (error) {
+  console.error(
+    "Iron material failed to load; using the fallback material.",
+    error,
+  );
 }
 
 const pane = new Pane({ container: paneHost, title: "Checkpoint + Pillars" });
@@ -99,14 +121,16 @@ const tabs = pane.addTab({
   pages: [
     { title: "Checkpoint" },
     { title: "Pillars" },
+    { title: "Fire Bowl" },
     { title: "Scene" },
   ],
 });
 const checkpointTab = tabs.pages[0];
 const pillarTab = tabs.pages[1];
-const sceneTab = tabs.pages[2];
+const fireBowlTab = tabs.pages[2];
+const sceneTab = tabs.pages[3];
 
-if (!checkpointTab || !pillarTab || !sceneTab) {
+if (!checkpointTab || !pillarTab || !fireBowlTab || !sceneTab) {
   throw new Error("Failed to create control tabs.");
 }
 
@@ -325,6 +349,26 @@ pillarBevelFolder.addBinding(pillarConfig, "bevelVariation", {
   step: 0.01,
 }).on("change", rebuildPillars);
 
+const fireBowlFolder = fireBowlTab.addFolder({ title: "Geometry" });
+fireBowlFolder.addBinding(pillarConfig.fireBowl, "enabled").on("change", () => {
+  rebuildPillars();
+  frameComposition();
+});
+fireBowlFolder.addBinding(pillarConfig.fireBowl, "scale", {
+  min: 0.5,
+  max: 2,
+  step: 0.05,
+}).on("change", () => {
+  rebuildPillars();
+  frameComposition();
+});
+fireBowlFolder.addBinding(pillarConfig.fireBowl, "radialSegments", {
+  label: "radial detail",
+  min: 16,
+  max: 64,
+  step: 4,
+}).on("change", rebuildPillars);
+
 const materialFolder = sceneTab.addFolder({ title: "Material" });
 materialFolder.addBinding(params, "materialScale", {
   label: "material scale",
@@ -391,6 +435,10 @@ pillarMetricsFolder.addBinding(pillarStats, "pillars", { readonly: true });
 pillarMetricsFolder.addBinding(pillarStats, "stones", { readonly: true });
 pillarMetricsFolder.addBinding(pillarStats, "vertices", { readonly: true });
 pillarMetricsFolder.addBinding(pillarStats, "triangles", { readonly: true });
+const fireBowlMetricsFolder = fireBowlTab.addFolder({ title: "Stats", expanded: false });
+fireBowlMetricsFolder.addBinding(fireBowlStats, "bowls", { readonly: true });
+fireBowlMetricsFolder.addBinding(fireBowlStats, "vertices", { readonly: true });
+fireBowlMetricsFolder.addBinding(fireBowlStats, "triangles", { readonly: true });
 updateGeometryStats(mainScene.getGeometryStats());
 updatePillarStats(mainScene.getPillarStats());
 
@@ -448,6 +496,9 @@ function updatePillarStats(result: PillarSetStats): void {
   pillarStats.stones = result.stoneCount;
   pillarStats.vertices = result.vertexCount;
   pillarStats.triangles = result.triangleCount;
+  fireBowlStats.bowls = pillarConfig.fireBowl.enabled ? result.pillarCount : 0;
+  fireBowlStats.vertices = result.fireBowlVertexCount;
+  fireBowlStats.triangles = result.fireBowlTriangleCount;
 }
 
 function frameComposition(): void {

@@ -55,6 +55,8 @@ export interface PillarSetStats {
   stoneCount: number;
   vertexCount: number;
   triangleCount: number;
+  fireBowlVertexCount: number;
+  fireBowlTriangleCount: number;
 }
 
 type PillarSceneEntry = {
@@ -64,7 +66,8 @@ type PillarSceneEntry = {
 
 export class MainScene {
   readonly scene = new THREE.Scene();
-  private readonly fallbackMaterial: THREE.MeshStandardMaterial;
+  private readonly fallbackStoneMaterial: THREE.MeshStandardMaterial;
+  private readonly fallbackIronMaterial: THREE.MeshStandardMaterial;
   private readonly checkpoint: THREE.Mesh;
   private readonly checkpointWireframe: THREE.LineSegments<
     THREE.WireframeGeometry,
@@ -81,9 +84,12 @@ export class MainScene {
   private vertexNormalsSize: number;
   private currentCheckpointStats: Omit<CheckpointGeometryResult, "geometry">;
   private currentPillarStats: PillarSetStats = emptyPillarStats();
-  private surfaceMaterial: THREE.Material;
-  private materialRuntime: MaterialGraphRuntime | null = null;
-  private stopListeningForMaterialRebuild: (() => void) | null = null;
+  private stoneSurfaceMaterial: THREE.Material;
+  private ironSurfaceMaterial: THREE.Material;
+  private stoneMaterialRuntime: MaterialGraphRuntime | null = null;
+  private ironMaterialRuntime: MaterialGraphRuntime | null = null;
+  private stopListeningForStoneRebuild: (() => void) | null = null;
+  private stopListeningForIronRebuild: (() => void) | null = null;
   private materialScale = DEFAULT_MATERIAL_SCALE;
   private ambientOcclusionStrength = DEFAULT_ILLUMINATION_CONFIG.ambientOcclusion;
   private crackShadowStrength = DEFAULT_ILLUMINATION_CONFIG.crackShadow;
@@ -94,14 +100,21 @@ export class MainScene {
 
     const result = createCheckpointGeometry(config);
     this.applyMaterialScale(result.geometry);
-    this.fallbackMaterial = new THREE.MeshStandardMaterial({
+    this.fallbackStoneMaterial = new THREE.MeshStandardMaterial({
       color: 0xa99b81,
       roughness: 0.92,
       metalness: 0,
       vertexColors: true,
     });
-    this.surfaceMaterial = this.fallbackMaterial;
-    this.checkpoint = new THREE.Mesh(result.geometry, this.fallbackMaterial);
+    this.fallbackIronMaterial = new THREE.MeshStandardMaterial({
+      color: 0x242729,
+      roughness: 0.58,
+      metalness: 0.95,
+      vertexColors: true,
+    });
+    this.stoneSurfaceMaterial = this.fallbackStoneMaterial;
+    this.ironSurfaceMaterial = this.fallbackIronMaterial;
+    this.checkpoint = new THREE.Mesh(result.geometry, this.fallbackStoneMaterial);
     this.checkpoint.castShadow = true;
     this.checkpoint.receiveShadow = true;
     this.checkpointWireframe = new THREE.LineSegments(
@@ -143,43 +156,27 @@ export class MainScene {
     renderer: WebGPURenderer,
     documentUrl: string,
   ): Promise<void> {
-    const response = await fetch(documentUrl);
+    const runtime = await this.loadMaterialRuntime(renderer, documentUrl, "Stone");
+    this.stopListeningForStoneRebuild?.();
+    this.stoneMaterialRuntime?.dispose();
+    this.stoneMaterialRuntime = runtime;
+    this.useStoneRuntimeMaterial(runtime);
+    this.stopListeningForStoneRebuild = runtime.surface.onRebuilt(() => {
+      this.useStoneRuntimeMaterial(runtime);
+    });
+  }
 
-    if (!response.ok) {
-      throw new Error(`Failed to load stone material: ${response.status} ${response.statusText}`);
-    }
-
-    const sourceDocument = await response.json() as MaterialGraphDocument;
-    const document = migrateMaterialDocument(sourceDocument);
-    const outputNode = document.nodes.find((node) => node.type === "material-output");
-
-    if (!outputNode) {
-      throw new Error("Stone material document has no material output node.");
-    }
-
-    outputNode.params.outputResolution = String(MATERIAL_OUTPUT_RESOLUTION);
-
-    const runtime = new MaterialGraphRuntime({
-      document,
-      source: documentUrl,
-    }).setRenderer(renderer);
-    runtime.surface.setBackend("offline");
-    runtime.surface.setTriplanar(false);
-    runtime.surface.setScale(this.materialScale);
-
-    await runtime.refresh();
-
-    if (runtime.lastError) {
-      runtime.dispose();
-      throw new Error(`Stone material failed to compile: ${runtime.lastError}`);
-    }
-
-    this.stopListeningForMaterialRebuild?.();
-    this.materialRuntime?.dispose();
-    this.materialRuntime = runtime;
-    this.useRuntimeMaterial(runtime);
-    this.stopListeningForMaterialRebuild = runtime.surface.onRebuilt(() => {
-      this.useRuntimeMaterial(runtime);
+  async loadIronMaterial(
+    renderer: WebGPURenderer,
+    documentUrl: string,
+  ): Promise<void> {
+    const runtime = await this.loadMaterialRuntime(renderer, documentUrl, "Iron");
+    this.stopListeningForIronRebuild?.();
+    this.ironMaterialRuntime?.dispose();
+    this.ironMaterialRuntime = runtime;
+    this.useIronRuntimeMaterial(runtime);
+    this.stopListeningForIronRebuild = runtime.surface.onRebuilt(() => {
+      this.useIronRuntimeMaterial(runtime);
     });
   }
 
@@ -219,7 +216,10 @@ export class MainScene {
       this.applyAmbientOcclusion(result.geometry);
       this.applyBakedShadow(result.geometry);
 
-      const mesh = new THREE.Mesh(result.geometry, this.surfaceMaterial);
+      const mesh = new THREE.Mesh(result.geometry, [
+        this.stoneSurfaceMaterial,
+        this.ironSurfaceMaterial,
+      ]);
       mesh.position.set(placement.x, placement.y, placement.z);
       mesh.rotation.y = placement.rotationY;
       mesh.castShadow = true;
@@ -240,6 +240,8 @@ export class MainScene {
       stats.stoneCount += result.stoneCount;
       stats.vertexCount += result.vertexCount;
       stats.triangleCount += result.triangleCount;
+      stats.fireBowlVertexCount += result.fireBowlVertexCount;
+      stats.fireBowlTriangleCount += result.fireBowlTriangleCount;
     }
 
     this.currentPillarStats = stats;
@@ -268,7 +270,8 @@ export class MainScene {
 
   setMaterialScale(scale: number): void {
     this.materialScale = scale;
-    this.materialRuntime?.surface.setScale(scale);
+    this.stoneMaterialRuntime?.surface.setScale(scale);
+    this.ironMaterialRuntime?.surface.setScale(scale);
     this.applyMaterialScale(this.checkpoint.geometry);
 
     for (const entry of this.pillarEntries) {
@@ -333,12 +336,17 @@ export class MainScene {
   }
 
   dispose(): void {
-    this.stopListeningForMaterialRebuild?.();
-    this.stopListeningForMaterialRebuild = null;
-    this.materialRuntime?.dispose();
-    this.materialRuntime = null;
+    this.stopListeningForStoneRebuild?.();
+    this.stopListeningForStoneRebuild = null;
+    this.stopListeningForIronRebuild?.();
+    this.stopListeningForIronRebuild = null;
+    this.stoneMaterialRuntime?.dispose();
+    this.stoneMaterialRuntime = null;
+    this.ironMaterialRuntime?.dispose();
+    this.ironMaterialRuntime = null;
     this.disposePillars();
-    this.fallbackMaterial.dispose();
+    this.fallbackStoneMaterial.dispose();
+    this.fallbackIronMaterial.dispose();
     this.checkpoint.geometry.dispose();
     this.checkpointWireframe.geometry.dispose();
     this.checkpointWireframe.material.dispose();
@@ -385,16 +393,66 @@ export class MainScene {
     attribute.needsUpdate = true;
   }
 
-  private useRuntimeMaterial(runtime: MaterialGraphRuntime): void {
+  private useStoneRuntimeMaterial(runtime: MaterialGraphRuntime): void {
     const material = runtime.getNodeMaterial();
     material.vertexColors = true;
     material.needsUpdate = true;
-    this.surfaceMaterial = material;
+    this.stoneSurfaceMaterial = material;
     this.checkpoint.material = material;
+    this.refreshPillarMaterials();
+  }
 
+  private useIronRuntimeMaterial(runtime: MaterialGraphRuntime): void {
+    const material = runtime.getNodeMaterial();
+    material.vertexColors = true;
+    material.needsUpdate = true;
+    this.ironSurfaceMaterial = material;
+    this.refreshPillarMaterials();
+  }
+
+  private refreshPillarMaterials(): void {
     for (const entry of this.pillarEntries) {
-      entry.mesh.material = material;
+      entry.mesh.material = [this.stoneSurfaceMaterial, this.ironSurfaceMaterial];
     }
+  }
+
+  private async loadMaterialRuntime(
+    renderer: WebGPURenderer,
+    documentUrl: string,
+    label: string,
+  ): Promise<MaterialGraphRuntime> {
+    const response = await fetch(documentUrl);
+
+    if (!response.ok) {
+      throw new Error(`Failed to load ${label.toLowerCase()} material: ${response.status} ${response.statusText}`);
+    }
+
+    const sourceDocument = await response.json() as MaterialGraphDocument;
+    const document = migrateMaterialDocument(sourceDocument);
+    const outputNode = document.nodes.find((node) => node.type === "material-output");
+
+    if (!outputNode) {
+      throw new Error(`${label} material document has no material output node.`);
+    }
+
+    outputNode.params.outputResolution = String(MATERIAL_OUTPUT_RESOLUTION);
+
+    const runtime = new MaterialGraphRuntime({
+      document,
+      source: documentUrl,
+    }).setRenderer(renderer);
+    runtime.surface.setBackend("offline");
+    runtime.surface.setTriplanar(false);
+    runtime.surface.setScale(this.materialScale);
+
+    await runtime.refresh();
+
+    if (runtime.lastError) {
+      runtime.dispose();
+      throw new Error(`${label} material failed to compile: ${runtime.lastError}`);
+    }
+
+    return runtime;
   }
 
   private applyMaterialScale(geometry: THREE.BufferGeometry): void {
@@ -475,5 +533,7 @@ function emptyPillarStats(): PillarSetStats {
     stoneCount: 0,
     vertexCount: 0,
     triangleCount: 0,
+    fireBowlVertexCount: 0,
+    fireBowlTriangleCount: 0,
   };
 }

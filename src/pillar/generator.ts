@@ -1,4 +1,11 @@
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import {
+  DEFAULT_FIRE_BOWL_CONFIG,
+  createFireBowlGeometry,
+  validateFireBowlConfig,
+  type FireBowlConfig,
+} from "../fire-bowl/generator";
 import {
   StoneGeometryBuilder,
   createRandom,
@@ -20,9 +27,13 @@ export interface PillarGeometryConfig extends StoneDetailConfig {
   stoneGapRatio: number;
   sizeVariation: number;
   displacement: number;
+  fireBowl: FireBowlConfig;
 }
 
-export interface PillarGeometryResult extends StoneGeometryResult {}
+export interface PillarGeometryResult extends StoneGeometryResult {
+  fireBowlVertexCount: number;
+  fireBowlTriangleCount: number;
+}
 
 export const DEFAULT_PILLAR_CONFIG: Readonly<PillarGeometryConfig> = {
   height: 1,
@@ -38,6 +49,7 @@ export const DEFAULT_PILLAR_CONFIG: Readonly<PillarGeometryConfig> = {
   bevelDepthRatio: 0.3,
   bevelVariation: 0.6,
   seed: 1381,
+  fireBowl: { ...DEFAULT_FIRE_BOWL_CONFIG },
 };
 
 type MasonryLayer = {
@@ -73,7 +85,54 @@ export function createPillarGeometry(
     addMasonryLayer(builder, config, layer);
   }
 
-  return finalizeStoneGeometry(builder);
+  const pillar = finalizeStoneGeometry(builder);
+
+  if (!config.fireBowl.enabled) {
+    const indexCount = pillar.geometry.index?.count ?? 0;
+    pillar.geometry.clearGroups();
+    pillar.geometry.addGroup(0, indexCount, 0);
+    return {
+      ...pillar,
+      fireBowlVertexCount: 0,
+      fireBowlTriangleCount: 0,
+    };
+  }
+
+  const fireBowl = createFireBowlGeometry(config.fireBowl, config.shaftWidth);
+  fireBowl.geometry.translate(0, config.height, 0);
+  const geometry = mergeGeometries([pillar.geometry, fireBowl.geometry], true);
+
+  if (!geometry) {
+    pillar.geometry.dispose();
+    fireBowl.geometry.dispose();
+    throw new Error("Failed to merge pillar and fire bowl geometry.");
+  }
+
+  geometry.userData.baseUvs = concatenateFloat32(
+    pillar.geometry.userData.baseUvs,
+    fireBowl.geometry.userData.baseUvs,
+  );
+  geometry.userData.vertexAoBase = concatenateFloat32(
+    pillar.geometry.userData.vertexAoBase,
+    fireBowl.geometry.userData.vertexAoBase,
+  );
+  geometry.userData.bakedShadowBase = concatenateFloat32(
+    pillar.geometry.userData.bakedShadowBase,
+    fireBowl.geometry.userData.bakedShadowBase,
+  );
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  pillar.geometry.dispose();
+  fireBowl.geometry.dispose();
+
+  return {
+    geometry,
+    stoneCount: pillar.stoneCount,
+    vertexCount: geometry.getAttribute("position").count,
+    triangleCount: (geometry.index?.count ?? 0) / 3,
+    fireBowlVertexCount: fireBowl.vertexCount,
+    fireBowlTriangleCount: fireBowl.triangleCount,
+  };
 }
 
 export function getPillarBaseWidth(config: PillarGeometryConfig): number {
@@ -323,6 +382,19 @@ function validateConfig(config: PillarGeometryConfig): void {
   if (!Number.isInteger(config.seed)) {
     throw new RangeError("Seed must be an integer.");
   }
+
+  validateFireBowlConfig(config.fireBowl, config.shaftWidth);
+}
+
+function concatenateFloat32(a: unknown, b: unknown): Float32Array {
+  if (!(a instanceof Float32Array) || !(b instanceof Float32Array)) {
+    throw new TypeError("Merged geometry is missing Float32 base attributes.");
+  }
+
+  const result = new Float32Array(a.length + b.length);
+  result.set(a, 0);
+  result.set(b, a.length);
+  return result;
 }
 
 function assertRange(value: number, min: number, max: number, label: string): void {
