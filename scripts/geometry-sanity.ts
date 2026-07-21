@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import * as THREE from "three";
+import { createPolarEntryFrames } from "../src/checkpoint/entries";
 import {
   DEFAULT_CHECKPOINT_CONFIG,
   createCheckpointGeometry,
@@ -15,7 +16,6 @@ import { createPillarPlacements } from "../src/pillar/layout";
 
 const checkpointConfig: CheckpointGeometryConfig = {
   ...DEFAULT_CHECKPOINT_CONFIG,
-  entries: { ...DEFAULT_CHECKPOINT_CONFIG.entries },
 };
 const pillarConfig: PillarGeometryConfig = {
   ...DEFAULT_PILLAR_CONFIG,
@@ -107,36 +107,45 @@ for (const [index, result] of extremePillars.entries()) {
   assertValidGeometry(result.geometry, `extreme pillar ${index + 1}`);
 }
 
-const northOnly: CheckpointGeometryConfig = {
+const singleEntry: CheckpointGeometryConfig = {
   ...checkpointConfig,
-  entries: { north: true, east: false, south: false, west: false },
+  entryCount: 1,
 };
-const northPlacements = createPillarPlacements(northOnly, pillarConfig);
+const singleEntryPlacements = createPillarPlacements(singleEntry, pillarConfig);
 const allPlacements = createPillarPlacements(checkpointConfig, pillarConfig);
-assert.equal(northPlacements.length, 2);
-assert.equal(allPlacements.length, 8);
-assert.equal(new Set(allPlacements.map((placement) => placement.label)).size, 8);
-assert.equal(new Set(allPlacements.map((placement) => placement.seed)).size, 8);
-assert.ok(northPlacements.every((placement) => Number.isFinite(placement.x)));
-assert.ok(northPlacements.every((placement) => Number.isFinite(placement.y)));
-assert.ok(northPlacements.every((placement) => Number.isFinite(placement.z)));
+assert.equal(singleEntryPlacements.length, 2);
+assert.equal(allPlacements.length, checkpointConfig.entryCount * 2);
+assert.equal(
+  new Set(allPlacements.map((placement) => placement.label)).size,
+  allPlacements.length,
+);
+assert.equal(
+  new Set(allPlacements.map((placement) => placement.seed)).size,
+  allPlacements.length,
+);
+assert.ok(singleEntryPlacements.every((placement) => Number.isFinite(placement.x)));
+assert.ok(singleEntryPlacements.every((placement) => Number.isFinite(placement.y)));
+assert.ok(singleEntryPlacements.every((placement) => Number.isFinite(placement.z)));
+
+const threeEntryFrames = createPolarEntryFrames(3);
+const threeEntryCheckpoint = createCheckpointGeometry({ ...checkpointConfig, entryCount: 3 });
+assertValidGeometry(threeEntryCheckpoint.geometry, "three-entry checkpoint");
+assert.ok(Math.abs(threeEntryFrames[0]?.angle ?? 1) < 1e-12);
+assert.ok(Math.abs((threeEntryFrames[1]?.angle ?? 0) - Math.PI * 2 / 3) < 1e-12);
+assert.ok(Math.abs((threeEntryFrames[2]?.angle ?? 0) - Math.PI * 4 / 3) < 1e-12);
 
 const entryHalfWidth = checkpointConfig.radius * checkpointConfig.entryWidthRatio * 0.5;
 const baseHalfWidth = defaultBaseHalfWidth;
 const junctionDistance = Math.sqrt(
   checkpointConfig.radius ** 2 - entryHalfWidth ** 2,
 );
-const placementFrames = {
-  north: { axisX: 0, axisZ: 1, lateralX: 1, lateralZ: 0 },
-  east: { axisX: 1, axisZ: 0, lateralX: 0, lateralZ: -1 },
-  south: { axisX: 0, axisZ: -1, lateralX: -1, lateralZ: 0 },
-  west: { axisX: -1, axisZ: 0, lateralX: 0, lateralZ: 1 },
-};
-
 for (const placement of allPlacements) {
-  const frame = placementFrames[placement.direction];
-  const axial = placement.x * frame.axisX + placement.z * frame.axisZ;
-  const lateral = placement.x * frame.lateralX + placement.z * frame.lateralZ;
+  const axisX = Math.sin(placement.angle);
+  const axisZ = Math.cos(placement.angle);
+  const lateralX = Math.cos(placement.angle);
+  const lateralZ = -Math.sin(placement.angle);
+  const axial = placement.x * axisX + placement.z * axisZ;
+  const lateral = placement.x * lateralX + placement.z * lateralZ;
   assert.ok(Math.abs(axial - baseHalfWidth - junctionDistance) < 1e-9);
   assert.ok(Math.abs(Math.abs(lateral) - baseHalfWidth - entryHalfWidth) < 1e-9);
   assert.equal(placement.y, 0);
@@ -150,6 +159,14 @@ assert.throws(
   () => createPillarGeometry({ ...pillarConfig, height: 0 }),
   /height/,
 );
+assert.throws(
+  () => createCheckpointGeometry({ ...checkpointConfig, entryCount: 0 }),
+  /Entry count/,
+);
+assert.throws(
+  () => createCheckpointGeometry({ ...checkpointConfig, entryCount: 9 }),
+  /Entry count/,
+);
 
 for (const result of [
   checkpoint,
@@ -160,6 +177,7 @@ for (const result of [
   moreCourses,
   moreSubdivisions,
   moreSteps,
+  threeEntryCheckpoint,
   ...extremePillars,
 ]) {
   result.geometry.dispose();

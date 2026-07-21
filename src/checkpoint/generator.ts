@@ -10,13 +10,15 @@ import {
   type StoneDetailConfig,
   type StoneGeometryResult,
 } from "../geometry/stone-builder";
-
-export type CardinalDirection = "north" | "east" | "south" | "west";
+import {
+  createPolarEntryFrames,
+  type PolarEntryFrame,
+} from "./entries";
 
 export interface CheckpointGeometryConfig extends StoneDetailConfig {
   radius: number;
   rowsPerTier: number;
-  entries: Record<CardinalDirection, boolean>;
+  entryCount: number;
   entryWidthRatio: number;
   entryLengthRatio: number;
   entryFadeRatio: number;
@@ -33,12 +35,7 @@ export interface CheckpointGeometryResult extends StoneGeometryResult {}
 export const DEFAULT_CHECKPOINT_CONFIG: Readonly<CheckpointGeometryConfig> = {
   radius: 3,
   rowsPerTier: 4,
-  entries: {
-    north: true,
-    east: true,
-    south: true,
-    west: true,
-  },
+  entryCount: 4,
   entryWidthRatio: 0.35,
   entryLengthRatio: 0.6,
   entryFadeRatio: 0.5,
@@ -55,27 +52,12 @@ export const DEFAULT_CHECKPOINT_CONFIG: Readonly<CheckpointGeometryConfig> = {
   seed: 741,
 };
 
-type DirectionFrame = {
-  axisX: number;
-  axisZ: number;
-  lateralX: number;
-  lateralZ: number;
-};
-
-const DIRECTIONS: readonly CardinalDirection[] = ["north", "east", "south", "west"];
 const TIER_COUNT = 3;
 const CENTER_RADIUS_RATIO = 0.14;
 const STONE_HEIGHT_RATIO = 0.045;
 const CENTER_HEIGHT_RATIO = 0.2;
 const CENTER_BURY_DEPTH_RATIO = 0.025;
 const MIN_RING_SEGMENTS = 6;
-const DIRECTION_FRAMES: Record<CardinalDirection, DirectionFrame> = {
-  north: { axisX: 0, axisZ: 1, lateralX: 1, lateralZ: 0 },
-  east: { axisX: 1, axisZ: 0, lateralX: 0, lateralZ: -1 },
-  south: { axisX: 0, axisZ: -1, lateralX: -1, lateralZ: 0 },
-  west: { axisX: -1, axisZ: 0, lateralX: 0, lateralZ: 1 },
-};
-
 export function createCheckpointGeometry(
   config: CheckpointGeometryConfig,
 ): CheckpointGeometryResult {
@@ -99,10 +81,8 @@ export function createCheckpointGeometry(
     gap,
   );
 
-  for (const direction of DIRECTIONS) {
-    if (config.entries[direction]) {
-      addEntry(builder, config, direction, radialStep, stoneHeight, gap);
-    }
+  for (const frame of createPolarEntryFrames(config.entryCount)) {
+    addEntry(builder, config, frame, radialStep, stoneHeight, gap);
   }
 
   addCenterStone(builder, config, centerRadius, stoneHeight, tierRise);
@@ -166,7 +146,7 @@ function addCircularPlate(
 function addEntry(
   builder: StoneGeometryBuilder,
   config: CheckpointGeometryConfig,
-  direction: CardinalDirection,
+  frame: PolarEntryFrame,
   targetCellSize: number,
   stoneHeight: number,
   gap: number,
@@ -174,8 +154,7 @@ function addEntry(
   const width = config.radius * config.entryWidthRatio;
   const length = config.radius * config.entryLengthRatio;
   const laneCount = Math.max(2, Math.round(width / (targetCellSize * 1.2)));
-  const frame = DIRECTION_FRAMES[direction];
-  const random = createRandom(hashSeed(config.seed, `entry-${direction}`));
+  const random = createRandom(hashSeed(config.seed, `entry-${frame.index}`));
   const laneWidths = normalizedSpans(laneCount, width, config.sizeVariation, random);
   const fadeStart = 1 - config.entryFadeRatio;
   let lateral = -width * 0.5;
@@ -266,7 +245,7 @@ function addEntry(
 function addEntryStone(
   builder: StoneGeometryBuilder,
   config: CheckpointGeometryConfig,
-  frame: DirectionFrame,
+  frame: PolarEntryFrame,
   random: () => number,
   startA: number,
   startB: number,
@@ -346,16 +325,14 @@ function addCenterStone(
 }
 
 function validateConfig(config: CheckpointGeometryConfig): void {
-  const entryCount = DIRECTIONS.filter((direction) => config.entries[direction]).length;
-
   if (!Number.isFinite(config.radius) || config.radius <= 0) {
     throw new RangeError("Checkpoint radius must be greater than zero.");
   }
   if (!Number.isInteger(config.rowsPerTier) || config.rowsPerTier < 1 || config.rowsPerTier > 4) {
     throw new RangeError("Rows per tier must be an integer from 1 to 4.");
   }
-  if (entryCount < 1) {
-    throw new RangeError("A checkpoint requires at least one entry.");
+  if (!Number.isInteger(config.entryCount) || config.entryCount < 1 || config.entryCount > 8) {
+    throw new RangeError("Entry count must be an integer from 1 to 8.");
   }
 
   assertRange(config.entryWidthRatio, 0.25, 1.5, "Entry width ratio");
@@ -433,7 +410,7 @@ function circleBoundary(radius: number, lateral: number): number {
   return Math.sqrt(Math.max(radius * radius - lateral * lateral, 0));
 }
 
-function localToWorld(frame: DirectionFrame, axial: number, lateral: number): Point2 {
+function localToWorld(frame: PolarEntryFrame, axial: number, lateral: number): Point2 {
   return {
     x: frame.axisX * axial + frame.lateralX * lateral,
     z: frame.axisZ * axial + frame.lateralZ * lateral,

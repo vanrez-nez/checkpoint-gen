@@ -1,13 +1,14 @@
 # Checkpoint Gen
 
 A low-poly procedural checkpoint generator for Three.js. It builds a seeded,
-one-to-four-way stone crossing with a three-tier circular center and merges the
-result into one geometry.
+one-to-eight-way stone crossing with a three-tier circular center and merges the
+result into one geometry. Entries use polar coordinates: the first points north
+and the rest are distributed at equal angles around the checkpoint.
 
-Every enabled entrance is flanked by a pair of procedural masonry pillars at
+Every entrance is flanked by a pair of procedural masonry pillars at
 the junction between the circular checkpoint and its approach. Pillars have a
 stepped base, subdivided shaft, and a capital composed of a neck, cornice, and
-cap. One shared pillar configuration controls the set, while a direction/side
+cap. One shared pillar configuration controls the set, while an entry/side
 seed produces stable variation for every individual post.
 
 Use the in-browser controls to adjust its overall radius, entry layout, paving

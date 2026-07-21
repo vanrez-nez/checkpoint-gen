@@ -1,7 +1,5 @@
-import {
-  type CardinalDirection,
-  type CheckpointGeometryConfig,
-} from "../checkpoint/generator";
+import { createPolarEntryFrames } from "../checkpoint/entries";
+import { type CheckpointGeometryConfig } from "../checkpoint/generator";
 import {
   derivePillarSeed,
   getPillarBaseWidth,
@@ -11,7 +9,8 @@ import {
 export type PillarSide = "left" | "right";
 
 export interface PillarPlacement {
-  direction: CardinalDirection;
+  entryIndex: number;
+  angle: number;
   side: PillarSide;
   label: string;
   seed: number;
@@ -20,22 +19,6 @@ export interface PillarPlacement {
   z: number;
   rotationY: number;
 }
-
-type DirectionFrame = {
-  axisX: number;
-  axisZ: number;
-  lateralX: number;
-  lateralZ: number;
-  rotationY: number;
-};
-
-const DIRECTIONS: readonly CardinalDirection[] = ["north", "east", "south", "west"];
-const DIRECTION_FRAMES: Record<CardinalDirection, DirectionFrame> = {
-  north: { axisX: 0, axisZ: 1, lateralX: 1, lateralZ: 0, rotationY: 0 },
-  east: { axisX: 1, axisZ: 0, lateralX: 0, lateralZ: -1, rotationY: Math.PI * 0.5 },
-  south: { axisX: 0, axisZ: -1, lateralX: -1, lateralZ: 0, rotationY: Math.PI },
-  west: { axisX: -1, axisZ: 0, lateralX: 0, lateralZ: 1, rotationY: -Math.PI * 0.5 },
-};
 
 export function createPillarPlacements(
   checkpoint: CheckpointGeometryConfig,
@@ -50,18 +33,13 @@ export function createPillarPlacements(
     0,
   )) + baseHalfWidth;
 
-  for (const direction of DIRECTIONS) {
-    if (!checkpoint.entries[direction]) {
-      continue;
-    }
-
-    const frame = DIRECTION_FRAMES[direction];
-
+  for (const frame of createPolarEntryFrames(checkpoint.entryCount)) {
     for (const side of ["left", "right"] as const) {
       const sideSign = side === "left" ? -1 : 1;
-      const label = `${direction}-${side}`;
+      const label = `entry-${frame.index}-${side}`;
       placements.push({
-        direction,
+        entryIndex: frame.index,
+        angle: frame.angle,
         side,
         label,
         seed: derivePillarSeed(pillar.seed, label),

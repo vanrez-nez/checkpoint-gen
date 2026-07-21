@@ -5,7 +5,6 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Pane } from "tweakpane";
 import {
   DEFAULT_CHECKPOINT_CONFIG,
-  type CardinalDirection,
   type CheckpointGeometryConfig,
   type CheckpointGeometryResult,
 } from "./checkpoint/generator";
@@ -33,7 +32,6 @@ const params = {
 
 const checkpointConfig: CheckpointGeometryConfig = {
   ...DEFAULT_CHECKPOINT_CONFIG,
-  entries: { ...DEFAULT_CHECKPOINT_CONFIG.entries },
 };
 
 const pillarConfig: PillarGeometryConfig = {
@@ -157,10 +155,15 @@ layoutFolder.addBinding(checkpointConfig, "entryLengthRatio", {
 });
 
 const entriesFolder = checkpointTab.addFolder({ title: "Entries" });
-bindEntry(entriesFolder, "north");
-bindEntry(entriesFolder, "east");
-bindEntry(entriesFolder, "south");
-bindEntry(entriesFolder, "west");
+entriesFolder.addBinding(checkpointConfig, "entryCount", {
+  label: "count",
+  min: 1,
+  max: 8,
+  step: 1,
+}).on("change", () => {
+  rebuildCheckpointAndPillars();
+  frameComposition();
+});
 
 const edgesFolder = checkpointTab.addFolder({ title: "Entry Edges" });
 edgesFolder.addBinding(checkpointConfig, "entryFadeRatio", {
@@ -410,24 +413,6 @@ function animate(timestamp?: number): void {
   controls.update();
   renderer.render(mainScene.scene, camera);
   stats.end();
-}
-
-function bindEntry(
-  folder: ReturnType<Pane["addFolder"]>,
-  direction: CardinalDirection,
-): void {
-  folder.addBinding(checkpointConfig.entries, direction).on("change", () => {
-    const activeEntries = Object.values(checkpointConfig.entries).filter(Boolean).length;
-
-    if (activeEntries === 0) {
-      checkpointConfig.entries[direction] = true;
-      pane.refresh();
-      return;
-    }
-
-    rebuildCheckpointAndPillars();
-    frameComposition();
-  });
 }
 
 function rebuildCheckpoint(): void {
