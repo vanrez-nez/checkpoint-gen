@@ -13,6 +13,10 @@ import {
   type PillarGeometryConfig,
 } from "./pillar/generator";
 import {
+  DEFAULT_FIRE_CONFIG,
+  type FireConfig,
+} from "./fire/vertex-cone";
+import {
   DEFAULT_MATERIAL_SCALE,
   DEFAULT_ILLUMINATION_CONFIG,
   MainScene,
@@ -39,6 +43,10 @@ const pillarConfig: PillarGeometryConfig = {
   fireBowl: { ...DEFAULT_PILLAR_CONFIG.fireBowl },
 };
 
+const fireConfig: FireConfig = {
+  ...DEFAULT_FIRE_CONFIG,
+};
+
 const illuminationConfig: IlluminationConfig = {
   ...DEFAULT_ILLUMINATION_CONFIG,
 };
@@ -60,6 +68,11 @@ const fireBowlStats = {
   bowls: 0,
   vertices: 0,
   triangles: 0,
+  flames: 0,
+  flameVertices: 0,
+  flameTriangles: 0,
+  flameDraws: 0,
+  glowLights: 0,
 };
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -86,7 +99,7 @@ renderer.shadowMap.enabled = true;
 const controls = new OrbitControls(camera, sceneCanvas);
 controls.enableDamping = true;
 
-const mainScene = new MainScene(checkpointConfig, pillarConfig);
+const mainScene = new MainScene(checkpointConfig, pillarConfig, fireConfig);
 
 try {
   await mainScene.loadStoneMaterial(
@@ -369,6 +382,80 @@ fireBowlFolder.addBinding(pillarConfig.fireBowl, "radialSegments", {
   step: 4,
 }).on("change", rebuildPillars);
 
+const flameFolder = fireBowlTab.addFolder({ title: "Flame" });
+flameFolder.addBinding(fireConfig, "enabled").on("change", rebuildFireGeometry);
+flameFolder.addBinding(fireConfig, "scale", {
+  min: 0.1,
+  max: 5,
+  step: 0.05,
+}).on("change", rebuildFireGeometry);
+flameFolder.addBinding(fireConfig, "radius", {
+  min: 0.01,
+  max: 1,
+  step: 0.005,
+}).on("change", rebuildFireGeometry);
+flameFolder.addBinding(fireConfig, "height", {
+  min: 0.02,
+  max: 2,
+  step: 0.01,
+}).on("change", rebuildFireGeometry);
+flameFolder.addBinding(fireConfig, "baseHeight", {
+  label: "base height",
+  min: 0,
+  max: 1,
+  step: 0.005,
+}).on("change", rebuildFireGeometry);
+flameFolder.addBinding(fireConfig, "radialSegments", {
+  label: "radial detail",
+  min: 16,
+  max: 64,
+  step: 4,
+}).on("change", rebuildFireEffects);
+flameFolder.addBinding(fireConfig, "speed", {
+  min: 0,
+  max: 10,
+  step: 0.1,
+}).on("change", rebuildFireEffects);
+flameFolder.addBinding(fireConfig, "noiseScale", {
+  label: "noise scale",
+  min: 0.5,
+  max: 12,
+  step: 0.1,
+}).on("change", rebuildFireEffects);
+flameFolder.addBinding(fireConfig, "turbulence", {
+  min: 0,
+  max: 2,
+  step: 0.05,
+}).on("change", rebuildFireEffects);
+flameFolder.addBinding(fireConfig, "intensity", {
+  min: 0,
+  max: 5,
+  step: 0.05,
+}).on("change", rebuildFireEffects);
+
+const glowFolder = fireBowlTab.addFolder({ title: "Glow" });
+glowFolder.addBinding(fireConfig, "glowEnabled", {
+  label: "enabled",
+}).on("change", rebuildFireEffects);
+glowFolder.addBinding(fireConfig, "glowIntensity", {
+  label: "intensity",
+  min: 0,
+  max: 20,
+  step: 0.1,
+}).on("change", rebuildFireEffects);
+glowFolder.addBinding(fireConfig, "glowDistance", {
+  label: "distance",
+  min: 0.1,
+  max: 10,
+  step: 0.1,
+}).on("change", rebuildFireEffects);
+glowFolder.addBinding(fireConfig, "glowFlicker", {
+  label: "flicker",
+  min: 0,
+  max: 0.5,
+  step: 0.01,
+}).on("change", rebuildFireEffects);
+
 const materialFolder = sceneTab.addFolder({ title: "Material" });
 materialFolder.addBinding(params, "materialScale", {
   label: "material scale",
@@ -437,8 +524,31 @@ pillarMetricsFolder.addBinding(pillarStats, "vertices", { readonly: true });
 pillarMetricsFolder.addBinding(pillarStats, "triangles", { readonly: true });
 const fireBowlMetricsFolder = fireBowlTab.addFolder({ title: "Stats", expanded: false });
 fireBowlMetricsFolder.addBinding(fireBowlStats, "bowls", { readonly: true });
-fireBowlMetricsFolder.addBinding(fireBowlStats, "vertices", { readonly: true });
-fireBowlMetricsFolder.addBinding(fireBowlStats, "triangles", { readonly: true });
+fireBowlMetricsFolder.addBinding(fireBowlStats, "vertices", {
+  label: "bowl vertices",
+  readonly: true,
+});
+fireBowlMetricsFolder.addBinding(fireBowlStats, "triangles", {
+  label: "bowl triangles",
+  readonly: true,
+});
+fireBowlMetricsFolder.addBinding(fireBowlStats, "flames", { readonly: true });
+fireBowlMetricsFolder.addBinding(fireBowlStats, "flameVertices", {
+  label: "flame vertices",
+  readonly: true,
+});
+fireBowlMetricsFolder.addBinding(fireBowlStats, "flameTriangles", {
+  label: "flame triangles",
+  readonly: true,
+});
+fireBowlMetricsFolder.addBinding(fireBowlStats, "flameDraws", {
+  label: "flame draws",
+  readonly: true,
+});
+fireBowlMetricsFolder.addBinding(fireBowlStats, "glowLights", {
+  label: "glow lights",
+  readonly: true,
+});
 updateGeometryStats(mainScene.getGeometryStats());
 updatePillarStats(mainScene.getPillarStats());
 
@@ -469,13 +579,35 @@ function rebuildCheckpoint(): void {
 }
 
 function rebuildPillars(): void {
-  updatePillarStats(mainScene.rebuildPillars(checkpointConfig, pillarConfig));
+  updatePillarStats(mainScene.rebuildPillars(
+    checkpointConfig,
+    pillarConfig,
+    fireConfig,
+  ));
   pane.refresh();
+}
+
+function rebuildFireEffects(): void {
+  updatePillarStats(mainScene.rebuildFireEffects(
+    checkpointConfig,
+    pillarConfig,
+    fireConfig,
+  ));
+  pane.refresh();
+}
+
+function rebuildFireGeometry(): void {
+  rebuildFireEffects();
+  frameComposition();
 }
 
 function rebuildCheckpointAndPillars(): void {
   updateGeometryStats(mainScene.rebuild(checkpointConfig));
-  updatePillarStats(mainScene.rebuildPillars(checkpointConfig, pillarConfig));
+  updatePillarStats(mainScene.rebuildPillars(
+    checkpointConfig,
+    pillarConfig,
+    fireConfig,
+  ));
   pane.refresh();
 }
 
@@ -499,6 +631,11 @@ function updatePillarStats(result: PillarSetStats): void {
   fireBowlStats.bowls = pillarConfig.fireBowl.enabled ? result.pillarCount : 0;
   fireBowlStats.vertices = result.fireBowlVertexCount;
   fireBowlStats.triangles = result.fireBowlTriangleCount;
+  fireBowlStats.flames = result.flameCount;
+  fireBowlStats.flameVertices = result.flameVertexCount;
+  fireBowlStats.flameTriangles = result.flameTriangleCount;
+  fireBowlStats.flameDraws = result.flameDrawCallCount;
+  fireBowlStats.glowLights = result.glowLightCount;
 }
 
 function frameComposition(): void {

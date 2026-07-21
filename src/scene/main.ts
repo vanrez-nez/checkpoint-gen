@@ -12,12 +12,20 @@ import {
   type CheckpointGeometryConfig,
   type CheckpointGeometryResult,
 } from "../checkpoint/generator";
+import {
+  VertexConeFireBatch,
+  validateFireConfig,
+  type FireConfig,
+} from "../fire/vertex-cone";
 import { type StoneGeometryResult } from "../geometry/stone-builder";
 import {
   createPillarGeometry,
   type PillarGeometryConfig,
 } from "../pillar/generator";
-import { createPillarPlacements } from "../pillar/layout";
+import {
+  createPillarPlacements,
+  type PillarPlacement,
+} from "../pillar/layout";
 
 const MATERIAL_OUTPUT_RESOLUTION = 512;
 export const DEFAULT_MATERIAL_SCALE = 1;
@@ -25,6 +33,8 @@ const CSM_CASCADES = 3;
 const CSM_MAX_FAR = 80;
 const CSM_LIGHT_MARGIN = 20;
 const SHADOW_MAP_SIZE = 1024;
+const MAX_FIRE_FLAMES = 16;
+const FIRE_GLOW_COLOR = 0xff5a12;
 
 export interface IlluminationConfig {
   keyColor: string;
@@ -57,11 +67,23 @@ export interface PillarSetStats {
   triangleCount: number;
   fireBowlVertexCount: number;
   fireBowlTriangleCount: number;
+  flameCount: number;
+  flameVertexCount: number;
+  flameTriangleCount: number;
+  flameDrawCallCount: number;
+  glowLightCount: number;
 }
 
 type PillarSceneEntry = {
   mesh: THREE.Mesh;
   wireframe: THREE.LineSegments<THREE.WireframeGeometry, THREE.LineBasicMaterial>;
+};
+
+type FireGlowEntry = {
+  light: THREE.PointLight;
+  baseIntensity: number;
+  phase: number;
+  flicker: number;
 };
 
 export class MainScene {
@@ -76,6 +98,8 @@ export class MainScene {
   private readonly pillarGroup = new THREE.Group();
   private readonly pillarWireframeGroup = new THREE.Group();
   private readonly pillarEntries: PillarSceneEntry[] = [];
+  private readonly fireBatch: VertexConeFireBatch;
+  private readonly fireGlowEntries: FireGlowEntry[] = [];
   private readonly sunLight: THREE.DirectionalLight;
   private readonly hemisphereLight: THREE.HemisphereLight;
   private readonly sunShadow: CSMShadowNode;
@@ -93,10 +117,20 @@ export class MainScene {
   private materialScale = DEFAULT_MATERIAL_SCALE;
   private ambientOcclusionStrength = DEFAULT_ILLUMINATION_CONFIG.ambientOcclusion;
   private crackShadowStrength = DEFAULT_ILLUMINATION_CONFIG.crackShadow;
+  private fireTime = 0;
+  private wireframeVisible = false;
 
-  constructor(config: CheckpointGeometryConfig, pillarConfig: PillarGeometryConfig) {
+  constructor(
+    config: CheckpointGeometryConfig,
+    pillarConfig: PillarGeometryConfig,
+    fireConfig: FireConfig,
+  ) {
     this.scene.background = new THREE.Color(0x171714);
     this.vertexNormalsSize = config.radius * 0.04;
+    this.fireBatch = new VertexConeFireBatch(
+      fireConfig.radialSegments,
+      MAX_FIRE_FLAMES,
+    );
 
     const result = createCheckpointGeometry(config);
     this.applyMaterialScale(result.geometry);
@@ -128,8 +162,9 @@ export class MainScene {
       this.checkpointWireframe,
       this.pillarGroup,
       this.pillarWireframeGroup,
+      this.fireBatch.object,
     );
-    this.rebuildPillars(config, pillarConfig);
+    this.rebuildPillars(config, pillarConfig, fireConfig);
 
     this.sunLight = new THREE.DirectionalLight();
     this.sunLight.castShadow = true;
@@ -201,6 +236,7 @@ export class MainScene {
   rebuildPillars(
     checkpointConfig: CheckpointGeometryConfig,
     pillarConfig: PillarGeometryConfig,
+    fireConfig: FireConfig,
   ): PillarSetStats {
     this.disposePillars();
 
@@ -244,9 +280,27 @@ export class MainScene {
       stats.fireBowlTriangleCount += result.fireBowlTriangleCount;
     }
 
+    Object.assign(
+      stats,
+      this.applyFireEffects(checkpointConfig, pillarConfig, fireConfig, placements),
+    );
+
     this.currentPillarStats = stats;
     this.rebuildVertexNormalsHelpers();
     return { ...stats };
+  }
+
+  rebuildFireEffects(
+    checkpointConfig: CheckpointGeometryConfig,
+    pillarConfig: PillarGeometryConfig,
+    fireConfig: FireConfig,
+  ): PillarSetStats {
+    const placements = createPillarPlacements(checkpointConfig, pillarConfig);
+    Object.assign(
+      this.currentPillarStats,
+      this.applyFireEffects(checkpointConfig, pillarConfig, fireConfig, placements),
+    );
+    return { ...this.currentPillarStats };
   }
 
   getGeometryStats(): Omit<CheckpointGeometryResult, "geometry"> {
@@ -265,6 +319,8 @@ export class MainScene {
       bounds.expandByObject(entry.mesh);
     }
 
+    this.fireBatch.expandBounds(bounds);
+
     return bounds;
   }
 
@@ -280,8 +336,14 @@ export class MainScene {
   }
 
   setWireframe(enabled: boolean): void {
+    this.wireframeVisible = enabled;
     this.checkpoint.visible = !enabled;
     this.checkpointWireframe.visible = enabled;
+    this.fireBatch.setSceneVisible(!enabled);
+
+    for (const entry of this.fireGlowEntries) {
+      entry.light.visible = !enabled;
+    }
 
     for (const entry of this.pillarEntries) {
       entry.mesh.visible = !enabled;
@@ -325,8 +387,17 @@ export class MainScene {
     }
   }
 
-  update(_deltaTime: number): void {
-    // Scene update hook. Keep object transforms static until scene logic needs motion.
+  update(deltaTime: number): void {
+    this.fireTime += deltaTime;
+
+    for (const entry of this.fireGlowEntries) {
+      const slow = Math.sin(this.fireTime * 8 + entry.phase) * entry.flicker * 2 / 3;
+      const fast = Math.sin(this.fireTime * 19 + entry.phase * 1.7)
+        * entry.flicker / 3;
+      entry.light.intensity = entry.baseIntensity * (
+        1 - entry.flicker * 2 / 3 + slow + fast
+      );
+    }
   }
 
   updateShadowFrustums(): void {
@@ -345,6 +416,9 @@ export class MainScene {
     this.ironMaterialRuntime?.dispose();
     this.ironMaterialRuntime = null;
     this.disposePillars();
+    this.disposeFireGlowLights();
+    this.fireBatch.object.removeFromParent();
+    this.fireBatch.dispose();
     this.fallbackStoneMaterial.dispose();
     this.fallbackIronMaterial.dispose();
     this.checkpoint.geometry.dispose();
@@ -515,6 +589,133 @@ export class MainScene {
 
     this.pillarEntries.length = 0;
   }
+
+  private rebuildFireGlowLights(
+    pillarConfig: PillarGeometryConfig,
+    fireConfig: FireConfig,
+    placements: readonly PillarPlacement[],
+  ): void {
+    if (
+      !pillarConfig.fireBowl.enabled
+      || !fireConfig.enabled
+      || !fireConfig.glowEnabled
+    ) {
+      this.disposeFireGlowLights();
+      return;
+    }
+
+    const placementsByEntry = new Map<number, PillarPlacement[]>();
+
+    for (const placement of placements) {
+      const entryPlacements = placementsByEntry.get(placement.entryIndex) ?? [];
+      entryPlacements.push(placement);
+      placementsByEntry.set(placement.entryIndex, entryPlacements);
+    }
+
+    const groupedPlacements = [...placementsByEntry.entries()];
+
+    while (this.fireGlowEntries.length > groupedPlacements.length) {
+      const entry = this.fireGlowEntries.pop();
+      entry?.light.removeFromParent();
+      entry?.light.dispose();
+    }
+
+    while (this.fireGlowEntries.length < groupedPlacements.length) {
+      const light = new THREE.PointLight(FIRE_GLOW_COLOR, 0, 0, 2);
+      light.castShadow = false;
+      this.scene.add(light);
+      this.fireGlowEntries.push({
+        light,
+        baseIntensity: 0,
+        phase: 0,
+        flicker: 0,
+      });
+    }
+
+    for (let index = 0; index < groupedPlacements.length; index += 1) {
+      const group = groupedPlacements[index];
+      const glowEntry = this.fireGlowEntries[index];
+
+      if (!group || !glowEntry) {
+        continue;
+      }
+
+      const [entryIndex, entryPlacements] = group;
+      const x = entryPlacements.reduce((sum, placement) => sum + placement.x, 0)
+        / entryPlacements.length;
+      const y = entryPlacements.reduce((sum, placement) => sum + placement.y, 0)
+        / entryPlacements.length;
+      const z = entryPlacements.reduce((sum, placement) => sum + placement.z, 0)
+        / entryPlacements.length;
+      const { light } = glowEntry;
+      light.name = `Fire glow entry ${entryIndex + 1}`;
+      light.color.setHex(FIRE_GLOW_COLOR);
+      light.intensity = fireConfig.glowIntensity;
+      light.distance = fireConfig.glowDistance;
+      light.decay = 2;
+      light.position.set(
+        x,
+        y
+          + pillarConfig.height
+          + fireConfig.baseHeight
+          + fireConfig.height * fireConfig.scale * 0.35,
+        z,
+      );
+      light.visible = !this.wireframeVisible;
+      glowEntry.baseIntensity = fireConfig.glowIntensity;
+      glowEntry.phase = entryIndex * 1.7;
+      glowEntry.flicker = fireConfig.glowFlicker;
+    }
+  }
+
+  private applyFireEffects(
+    _checkpointConfig: CheckpointGeometryConfig,
+    pillarConfig: PillarGeometryConfig,
+    fireConfig: FireConfig,
+    placements: readonly PillarPlacement[],
+  ): Pick<
+    PillarSetStats,
+    | "flameCount"
+    | "flameVertexCount"
+    | "flameTriangleCount"
+    | "flameDrawCallCount"
+    | "glowLightCount"
+  > {
+    validateFireConfig(fireConfig);
+    const flameStats = this.fireBatch.update({
+      enabled: pillarConfig.fireBowl.enabled && fireConfig.enabled,
+      scale: fireConfig.scale,
+      radius: fireConfig.radius,
+      height: fireConfig.height,
+      baseHeight: fireConfig.baseHeight,
+      speed: fireConfig.speed,
+      noiseScale: fireConfig.noiseScale,
+      turbulence: fireConfig.turbulence,
+      intensity: fireConfig.intensity,
+      pillarHeight: pillarConfig.height,
+      radialSegments: fireConfig.radialSegments,
+      placements,
+    });
+    this.fireBatch.setSceneVisible(!this.wireframeVisible);
+    this.rebuildFireGlowLights(pillarConfig, fireConfig, placements);
+
+    return {
+      flameCount: flameStats.flameCount,
+      flameVertexCount: flameStats.vertexCount,
+      flameTriangleCount: flameStats.triangleCount,
+      flameDrawCallCount: flameStats.drawCallCount,
+      glowLightCount: this.fireGlowEntries.length,
+    };
+  }
+
+  private disposeFireGlowLights(): void {
+    for (const entry of this.fireGlowEntries) {
+      entry.light.removeFromParent();
+      entry.light.dispose();
+    }
+
+    this.fireGlowEntries.length = 0;
+  }
 }
 
 function geometryStats(
@@ -535,5 +736,10 @@ function emptyPillarStats(): PillarSetStats {
     triangleCount: 0,
     fireBowlVertexCount: 0,
     fireBowlTriangleCount: 0,
+    flameCount: 0,
+    flameVertexCount: 0,
+    flameTriangleCount: 0,
+    flameDrawCallCount: 0,
+    glowLightCount: 0,
   };
 }

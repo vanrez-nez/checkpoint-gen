@@ -17,6 +17,13 @@ rings, eight curved support straps, and four feet. Its parts are merged into the
 pillar buffer geometry as a second material group, so each pillar remains one
 mesh while stone and iron retain independent surfaces.
 
+Every enabled bowl contains an animated vertex-displaced cone flame ported from
+the sibling `cheap-fire` experiment. All flames share one instanced mesh,
+geometry, and TSL material, so the complete set renders in one draw call. The
+two scrolling FBM samples run only in the vertex stage; interpolated heat drives
+the fragment color ramp without per-pixel noise. One unshadowed flickering point
+light per entrance provides a localized glow for its pair of bowls.
+
 Use the in-browser controls to adjust its overall radius, entry layout, paving
 density, and restrained stone variation.
 
@@ -32,8 +39,12 @@ checkpoint and pillar meshes remain separate but share the active stone
 material, lighting, view helpers, and camera framing.
 
 The Fire Bowl tab controls whether bowls are generated, their overall scale,
-and radial detail. It also reports the combined fire-bowl vertex and triangle
-counts across all pillars.
+and radial detail. Separate Flame controls set visibility, overall scale,
+radius, height, base height, radial detail, animation speed, noise scale,
+turbulence, and intensity; these values do not inherit the bowl scale. Glow
+controls independently expose visibility, intensity, distance, and flicker. The tab also reports the combined
+fire-bowl vertex and triangle counts across all pillars, the instanced flame
+workload and draw count, and the number of entry-paired glow lights.
 
 The checkpoint surface is loaded from `public/materials/stone.json` through
 `material-designer-runtime` and baked at 512px. The generated mesh uses hard
