@@ -148,7 +148,7 @@ try {
 try {
   await mainScene.loadOfferingMaterial(
     renderer,
-    `${import.meta.env.BASE_URL}materials/volcanic-stone.json`,
+    `${import.meta.env.BASE_URL}materials/stone.json`,
   );
 } catch (error) {
   console.error(
@@ -539,7 +539,7 @@ const offeringMaterialFolder = offeringTab.addFolder({ title: "Material" });
 offeringMaterialFolder.addBinding(offeringConfig, "materialScale", {
   label: "material scale",
   min: 0.1,
-  max: 4,
+  max: 8,
   step: 0.05,
 }).on("change", updateOfferingConfig);
 

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createBoxProjectedUvs } from "../geometry/stone-builder";
+import { computeVertexAo } from "./ambient-occlusion";
 
 export interface OfferingConfig {
   enabled: boolean;
@@ -14,7 +15,7 @@ export const DEFAULT_OFFERING_CONFIG: Readonly<OfferingConfig> = {
   pedestalFit: 1.105,
   verticalOffset: 0,
   rotationDegrees: 0,
-  materialScale: 4,
+  materialScale: 6,
 };
 
 export interface OfferingAttachment {
@@ -36,7 +37,9 @@ export function prepareOfferingGeometry(geometry: THREE.BufferGeometry): void {
   }
 
   const vertexCount = geometry.getAttribute("position").count;
-  const vertexAo = new Float32Array(vertexCount).fill(1);
+  // Bake real self-occlusion so folds/creases darken like the stone geometry,
+  // whose AO is baked per-vertex by its builder.
+  const vertexAo = computeVertexAo(geometry);
   const bakedShadow = new Float32Array(vertexCount).fill(1);
   const vertexColors = new Float32Array(vertexCount * 3).fill(1);
   // Prefer the model's authored UVs (a real atlas unwrap) when present; fall back
@@ -143,7 +146,7 @@ export function validateOfferingConfig(config: OfferingConfig): void {
   assertRange(config.pedestalFit, 0.1, 1.5, "Offering pedestal fit");
   assertRange(config.verticalOffset, -1, 1, "Offering vertical offset");
   assertRange(config.rotationDegrees, -180, 180, "Offering rotation");
-  assertRange(config.materialScale, 0.1, 4, "Offering material scale");
+  assertRange(config.materialScale, 0.1, 8, "Offering material scale");
 }
 
 function assertRange(value: number, min: number, max: number, label: string): void {

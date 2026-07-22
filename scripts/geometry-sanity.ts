@@ -135,7 +135,7 @@ assert.throws(
   /pedestal fit/,
 );
 assert.throws(
-  () => validateOfferingConfig({ ...DEFAULT_OFFERING_CONFIG, materialScale: 4.1 }),
+  () => validateOfferingConfig({ ...DEFAULT_OFFERING_CONFIG, materialScale: 8.1 }),
   /material scale/,
 );
 
