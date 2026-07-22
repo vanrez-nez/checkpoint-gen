@@ -70,7 +70,7 @@ const flatCenterCheckpoint = createCheckpointGeometry({
   bevelEnabled: false,
 });
 const flatCenterPositions = flatCenterCheckpoint.geometry.getAttribute("position");
-const centerVertexCount = 8 + 8 * 4;
+const centerVertexCount = 4 + 4 * 4; // square center: 4 top + 4 sides × 4
 const centerStart = flatCenterPositions.count - centerVertexCount;
 
 for (let index = centerStart; index < flatCenterPositions.count; index += 1) {

@@ -58,8 +58,12 @@ export const DEFAULT_CHECKPOINT_CONFIG: Readonly<CheckpointGeometryConfig> = {
 const TIER_COUNT = 3;
 const CENTER_RADIUS_RATIO = 0.14;
 const STONE_HEIGHT_RATIO = 0.045;
-const CENTER_HEIGHT_RATIO = 0.1;
+const CENTER_HEIGHT_RATIO = 0.01;
 const CENTER_BURY_DEPTH_RATIO = 0.025;
+// Half-side of the square center block, as a fraction of the center radius.
+// Tuned so the block's top footprint matches the Xochipilli statue's square
+// base (≈0.69·centerRadius at the default pedestal fit) with a small reveal.
+const CENTER_SQUARE_HALF_RATIO = 0.6;
 const MIN_RING_SEGMENTS = 6;
 export function createCheckpointGeometry(
   config: CheckpointGeometryConfig,
@@ -315,26 +319,24 @@ function addCenterStone(
   stoneHeight: number,
   tierRise: number,
 ): number {
-  const random = createRandom(hashSeed(config.seed, "center"));
-  const segmentCount = 8;
-  const points: Point2[] = [];
   const innerTierTop = stoneHeight + (TIER_COUNT - 1) * tierRise;
   const formationHeight = config.radius * CENTER_HEIGHT_RATIO;
-  const topY: number[] = [];
+  const centerTopY = innerTierTop + formationHeight;
 
-  for (let segment = 0; segment < segmentCount; segment += 1) {
-    const angle = (segment / segmentCount) * Math.PI * 2;
-    const radius = centerRadius * randomRange(random, 0.78, 0.94);
-    points.push({ x: Math.cos(angle) * radius, z: Math.sin(angle) * radius });
-    topY.push(innerTierTop + formationHeight * randomRange(random, 0.86, 1.08));
-  }
-
-  const centerTopY = Math.max(...topY);
+  // Axis-aligned square block (edges parallel to X/Z) so its top matches the
+  // offering statue's square base. Corners at (±half, ±half).
+  const half = centerRadius * CENTER_SQUARE_HALF_RATIO;
+  const points: Point2[] = [
+    { x: half, z: half },
+    { x: -half, z: half },
+    { x: -half, z: -half },
+    { x: half, z: -half },
+  ];
 
   builder.addStone(
     points,
     -config.radius * CENTER_BURY_DEPTH_RATIO,
-    topY.map(() => centerTopY),
+    points.map(() => centerTopY),
     formationHeight,
   );
 
