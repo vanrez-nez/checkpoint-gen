@@ -560,7 +560,7 @@ function cross2(a: Point2, b: Point2): number {
   return a.x * b.z - a.z * b.x;
 }
 
-function createBoxProjectedUvs(geometry: THREE.BufferGeometry): Float32Array {
+export function createBoxProjectedUvs(geometry: THREE.BufferGeometry): Float32Array {
   const positions = geometry.getAttribute("position");
   const normals = geometry.getAttribute("normal");
   const uvs = new Float32Array(positions.count * 2);

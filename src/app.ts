@@ -17,10 +17,15 @@ import {
   type FireConfig,
 } from "./fire/vertex-cone";
 import {
+  DEFAULT_OFFERING_CONFIG,
+  type OfferingConfig,
+} from "./offering/model";
+import {
   DEFAULT_MATERIAL_SCALE,
   DEFAULT_ILLUMINATION_CONFIG,
   MainScene,
   type IlluminationConfig,
+  type OfferingStats,
   type PillarSetStats,
 } from "./scene/main";
 import {
@@ -45,6 +50,10 @@ const pillarConfig: PillarGeometryConfig = {
 
 const fireConfig: FireConfig = {
   ...DEFAULT_FIRE_CONFIG,
+};
+
+const offeringConfig: OfferingConfig = {
+  ...DEFAULT_OFFERING_CONFIG,
 };
 
 const illuminationConfig: IlluminationConfig = {
@@ -75,6 +84,12 @@ const fireBowlStats = {
   glowLights: 0,
 };
 
+const offeringStats = {
+  meshes: 0,
+  vertices: 0,
+  triangles: 0,
+};
+
 const app = document.querySelector<HTMLDivElement>("#app");
 
 if (!app) {
@@ -99,7 +114,12 @@ renderer.shadowMap.enabled = true;
 const controls = new OrbitControls(camera, sceneCanvas);
 controls.enableDamping = true;
 
-const mainScene = new MainScene(checkpointConfig, pillarConfig, fireConfig);
+const mainScene = new MainScene(
+  checkpointConfig,
+  pillarConfig,
+  fireConfig,
+  offeringConfig,
+);
 
 try {
   await mainScene.loadStoneMaterial(
@@ -125,6 +145,30 @@ try {
   );
 }
 
+try {
+  await mainScene.loadOfferingMaterial(
+    renderer,
+    `${import.meta.env.BASE_URL}materials/volcanic-stone.json`,
+  );
+} catch (error) {
+  console.error(
+    "Offering material failed to load; using the fallback material.",
+    error,
+  );
+}
+
+try {
+  await mainScene.loadOffering(
+    `${import.meta.env.BASE_URL}models/xochipilli_offering.glb`,
+    `${import.meta.env.BASE_URL}draco/`,
+  );
+} catch (error) {
+  console.error(
+    "Xochipilli offering failed to load; continuing without it.",
+    error,
+  );
+}
+
 const pane = new Pane({ container: paneHost, title: "Checkpoint + Pillars" });
 pane.registerPlugin(StatsPanePluginBundle);
 const stats = pane.addBlade({ view: "stats" }) as StatsBladeApi;
@@ -135,15 +179,17 @@ const tabs = pane.addTab({
     { title: "Checkpoint" },
     { title: "Pillars" },
     { title: "Fire Bowl" },
+    { title: "Offering" },
     { title: "Scene" },
   ],
 });
 const checkpointTab = tabs.pages[0];
 const pillarTab = tabs.pages[1];
 const fireBowlTab = tabs.pages[2];
-const sceneTab = tabs.pages[3];
+const offeringTab = tabs.pages[3];
+const sceneTab = tabs.pages[4];
 
-if (!checkpointTab || !pillarTab || !fireBowlTab || !sceneTab) {
+if (!checkpointTab || !pillarTab || !fireBowlTab || !offeringTab || !sceneTab) {
   throw new Error("Failed to create control tabs.");
 }
 
@@ -456,6 +502,47 @@ glowFolder.addBinding(fireConfig, "glowFlicker", {
   step: 0.01,
 }).on("change", rebuildFireEffects);
 
+const offeringLayoutFolder = offeringTab.addFolder({ title: "Layout" });
+offeringLayoutFolder.addBinding(offeringConfig, "enabled").on("change", () => {
+  updateOfferingConfig();
+  frameComposition();
+});
+offeringLayoutFolder.addBinding(offeringConfig, "pedestalFit", {
+  label: "pedestal fit",
+  min: 0.1,
+  max: 1.5,
+  step: 0.01,
+}).on("change", () => {
+  updateOfferingConfig();
+  frameComposition();
+});
+offeringLayoutFolder.addBinding(offeringConfig, "verticalOffset", {
+  label: "vertical offset",
+  min: -1,
+  max: 1,
+  step: 0.01,
+}).on("change", () => {
+  updateOfferingConfig();
+  frameComposition();
+});
+offeringLayoutFolder.addBinding(offeringConfig, "rotationDegrees", {
+  label: "rotation",
+  min: -180,
+  max: 180,
+  step: 1,
+}).on("change", () => {
+  updateOfferingConfig();
+  frameComposition();
+});
+
+const offeringMaterialFolder = offeringTab.addFolder({ title: "Material" });
+offeringMaterialFolder.addBinding(offeringConfig, "materialScale", {
+  label: "material scale",
+  min: 0.1,
+  max: 4,
+  step: 0.05,
+}).on("change", updateOfferingConfig);
+
 const materialFolder = sceneTab.addFolder({ title: "Material" });
 materialFolder.addBinding(params, "materialScale", {
   label: "material scale",
@@ -549,8 +636,13 @@ fireBowlMetricsFolder.addBinding(fireBowlStats, "glowLights", {
   label: "glow lights",
   readonly: true,
 });
+const offeringMetricsFolder = offeringTab.addFolder({ title: "Geometry", expanded: false });
+offeringMetricsFolder.addBinding(offeringStats, "meshes", { readonly: true });
+offeringMetricsFolder.addBinding(offeringStats, "vertices", { readonly: true });
+offeringMetricsFolder.addBinding(offeringStats, "triangles", { readonly: true });
 updateGeometryStats(mainScene.getGeometryStats());
 updatePillarStats(mainScene.getPillarStats());
+updateOfferingStats(mainScene.getOfferingStats());
 
 const timer = new THREE.Timer();
 timer.connect(document);
@@ -615,6 +707,10 @@ function updateIllumination(): void {
   mainScene.setIllumination(illuminationConfig);
 }
 
+function updateOfferingConfig(): void {
+  mainScene.setOfferingConfig(offeringConfig);
+}
+
 function updateGeometryStats(
   result: Omit<CheckpointGeometryResult, "geometry">,
 ): void {
@@ -636,6 +732,12 @@ function updatePillarStats(result: PillarSetStats): void {
   fireBowlStats.flameTriangles = result.flameTriangleCount;
   fireBowlStats.flameDraws = result.flameDrawCallCount;
   fireBowlStats.glowLights = result.glowLightCount;
+}
+
+function updateOfferingStats(result: OfferingStats): void {
+  offeringStats.meshes = result.meshCount;
+  offeringStats.vertices = result.vertexCount;
+  offeringStats.triangles = result.triangleCount;
 }
 
 function frameComposition(): void {

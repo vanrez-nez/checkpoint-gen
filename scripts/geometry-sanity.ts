@@ -24,6 +24,13 @@ import {
   type PillarGeometryConfig,
 } from "../src/pillar/generator";
 import { createPillarPlacements } from "../src/pillar/layout";
+import {
+  DEFAULT_OFFERING_CONFIG,
+  calculateOfferingSupportCenter,
+  calculateOfferingTransform,
+  prepareOfferingGeometry,
+  validateOfferingConfig,
+} from "../src/offering/model";
 import { MainScene } from "../src/scene/main";
 
 const checkpointConfig: CheckpointGeometryConfig = {
@@ -51,6 +58,113 @@ assertValidGeometry(checkpoint.geometry, "checkpoint");
 assertValidGeometry(pillar.geometry, "pillar");
 assertValidGeometry(barePillar.geometry, "bare pillar");
 assertValidGeometry(fireBowl.geometry, "fire bowl");
+assert.ok(Math.abs(
+  (checkpoint.geometry.boundingBox?.max.y ?? 0) - checkpoint.centerTopY,
+) < 1e-6);
+assert.ok(Math.abs(
+  checkpoint.centerDiameter - checkpointConfig.radius * 0.28,
+) < 1e-12);
+
+const flatCenterCheckpoint = createCheckpointGeometry({
+  ...checkpointConfig,
+  bevelEnabled: false,
+});
+const flatCenterPositions = flatCenterCheckpoint.geometry.getAttribute("position");
+const centerVertexCount = 8 + 8 * 4;
+const centerStart = flatCenterPositions.count - centerVertexCount;
+
+for (let index = centerStart; index < flatCenterPositions.count; index += 1) {
+  const y = flatCenterPositions.getY(index);
+
+  if (y > 0) {
+    assert.ok(Math.abs(y - flatCenterCheckpoint.centerTopY) < 1e-6);
+  }
+}
+
+const offeringGeometry = new THREE.BoxGeometry(2, 4, 1);
+offeringGeometry.deleteAttribute("uv");
+prepareOfferingGeometry(offeringGeometry);
+assert.equal(offeringGeometry.getAttribute("uv").count, offeringGeometry.getAttribute("position").count);
+assert.equal(offeringGeometry.getAttribute("vertexAo").count, offeringGeometry.getAttribute("position").count);
+assert.equal(offeringGeometry.getAttribute("color").count, offeringGeometry.getAttribute("position").count);
+assert.equal(
+  (offeringGeometry.userData.baseUvs as Float32Array).length,
+  offeringGeometry.getAttribute("position").count * 2,
+);
+
+const offeringBounds = new THREE.Box3(
+  new THREE.Vector3(-1, -2, -0.5),
+  new THREE.Vector3(1, 2, 0.5),
+);
+const offeringTransform = calculateOfferingTransform(offeringBounds, checkpoint);
+assert.ok(Math.abs(
+  offeringTransform.scale * 2
+    - checkpoint.centerDiameter * DEFAULT_OFFERING_CONFIG.pedestalFit,
+) < 1e-12);
+assert.ok(Math.abs(
+  offeringTransform.position.y + offeringBounds.min.y * offeringTransform.scale
+    - checkpoint.centerTopY,
+) < 1e-12);
+assert.ok(Math.abs(offeringTransform.position.x) < 1e-12);
+assert.ok(Math.abs(offeringTransform.position.z) < 1e-12);
+assert.equal(offeringTransform.rotationY, 0);
+
+const adjustedOfferingTransform = calculateOfferingTransform(
+  offeringBounds,
+  checkpoint,
+  {
+    ...DEFAULT_OFFERING_CONFIG,
+    pedestalFit: 1.1,
+    verticalOffset: 0.25,
+    rotationDegrees: 90,
+    materialScale: 2,
+  },
+);
+assert.ok(Math.abs(
+  adjustedOfferingTransform.scale * 2 - checkpoint.centerDiameter * 1.1,
+) < 1e-12);
+assert.ok(Math.abs(
+  adjustedOfferingTransform.position.y
+    + offeringBounds.min.y * adjustedOfferingTransform.scale
+    - checkpoint.centerTopY
+    - 0.25,
+) < 1e-12);
+assert.ok(Math.abs(adjustedOfferingTransform.rotationY - Math.PI * 0.5) < 1e-12);
+assert.throws(
+  () => validateOfferingConfig({ ...DEFAULT_OFFERING_CONFIG, pedestalFit: 0 }),
+  /pedestal fit/,
+);
+assert.throws(
+  () => validateOfferingConfig({ ...DEFAULT_OFFERING_CONFIG, materialScale: 4.1 }),
+  /material scale/,
+);
+
+const offsetOffering = new THREE.Group();
+const offeringBaseGeometry = new THREE.BoxGeometry(2, 1, 2);
+const offeringUpperGeometry = new THREE.BoxGeometry(4, 3, 2);
+const offeringBaseMesh = new THREE.Mesh(offeringBaseGeometry);
+const offeringUpperMesh = new THREE.Mesh(offeringUpperGeometry);
+offeringBaseMesh.position.set(-2, 0.5, 0);
+offeringUpperMesh.position.set(1, 2.5, 0);
+offsetOffering.add(offeringBaseMesh, offeringUpperMesh);
+offsetOffering.updateMatrixWorld(true);
+const offsetOfferingBounds = new THREE.Box3().setFromObject(offsetOffering);
+const supportCenter = calculateOfferingSupportCenter(
+  offsetOffering,
+  offsetOfferingBounds,
+);
+assert.ok(Math.abs(supportCenter.x + 2) < 1e-12);
+assert.ok(Math.abs(supportCenter.z) < 1e-12);
+const supportAlignedTransform = calculateOfferingTransform(
+  offsetOfferingBounds,
+  checkpoint,
+  { ...DEFAULT_OFFERING_CONFIG },
+  supportCenter,
+);
+assert.ok(Math.abs(
+  supportAlignedTransform.position.x
+    + supportCenter.x * supportAlignedTransform.scale,
+) < 1e-12);
 assert.ok(Math.abs(barePillar.geometry.boundingBox?.min.y ?? 1) < 1e-6);
 assert.ok(Math.abs((barePillar.geometry.boundingBox?.max.y ?? 0) - pillarConfig.height) < 1e-6);
 const defaultBaseHalfWidth = getPillarBaseWidth(pillarConfig) * 0.5;
@@ -459,10 +573,14 @@ for (const result of [
   moreSubdivisions,
   moreSteps,
   threeEntryCheckpoint,
+  flatCenterCheckpoint,
   ...extremePillars,
 ]) {
   result.geometry.dispose();
 }
+offeringGeometry.dispose();
+offeringBaseGeometry.dispose();
+offeringUpperGeometry.dispose();
 
 console.log(
   `Geometry sanity passed: ${pillar.stoneCount} stones per default pillar, ${allPlacements.length} default placements.`,

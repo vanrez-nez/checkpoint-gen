@@ -2,6 +2,8 @@ import * as THREE from "three";
 import type { WebGPURenderer } from "three/webgpu";
 import { CSMShadowNode } from "three/examples/jsm/csm/CSMShadowNode.js";
 import { VertexNormalsHelper } from "three/examples/jsm/helpers/VertexNormalsHelper.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
   MaterialGraphRuntime,
   migrateMaterialDocument,
@@ -17,7 +19,14 @@ import {
   validateFireConfig,
   type FireConfig,
 } from "../fire/vertex-cone";
-import { type StoneGeometryResult } from "../geometry/stone-builder";
+import {
+  DEFAULT_OFFERING_CONFIG,
+  calculateOfferingSupportCenter,
+  calculateOfferingTransform,
+  prepareOfferingGeometry,
+  validateOfferingConfig,
+  type OfferingConfig,
+} from "../offering/model";
 import {
   createPillarGeometry,
   type PillarGeometryConfig,
@@ -74,6 +83,12 @@ export interface PillarSetStats {
   glowLightCount: number;
 }
 
+export interface OfferingStats {
+  meshCount: number;
+  vertexCount: number;
+  triangleCount: number;
+}
+
 type PillarSceneEntry = {
   mesh: THREE.Mesh;
   wireframe: THREE.LineSegments<THREE.WireframeGeometry, THREE.LineBasicMaterial>;
@@ -90,6 +105,8 @@ export class MainScene {
   readonly scene = new THREE.Scene();
   private readonly fallbackStoneMaterial: THREE.MeshStandardMaterial;
   private readonly fallbackIronMaterial: THREE.MeshStandardMaterial;
+  private readonly fallbackOfferingMaterial: THREE.MeshStandardMaterial;
+  private readonly offeringWireframeMaterial: THREE.MeshBasicMaterial;
   private readonly checkpoint: THREE.Mesh;
   private readonly checkpointWireframe: THREE.LineSegments<
     THREE.WireframeGeometry,
@@ -104,16 +121,25 @@ export class MainScene {
   private readonly hemisphereLight: THREE.HemisphereLight;
   private readonly sunShadow: CSMShadowNode;
   private readonly vertexNormalsHelpers: VertexNormalsHelper[] = [];
+  private offeringRoot: THREE.Group | null = null;
+  private offeringSourceBounds: THREE.Box3 | null = null;
+  private offeringSupportCenter: THREE.Vector3 | null = null;
+  private readonly offeringMeshes: THREE.Mesh[] = [];
   private vertexNormalsVisible = false;
   private vertexNormalsSize: number;
   private currentCheckpointStats: Omit<CheckpointGeometryResult, "geometry">;
   private currentPillarStats: PillarSetStats = emptyPillarStats();
+  private currentOfferingStats: OfferingStats = emptyOfferingStats();
+  private offeringConfig: OfferingConfig;
   private stoneSurfaceMaterial: THREE.Material;
   private ironSurfaceMaterial: THREE.Material;
+  private offeringSurfaceMaterial: THREE.Material;
   private stoneMaterialRuntime: MaterialGraphRuntime | null = null;
   private ironMaterialRuntime: MaterialGraphRuntime | null = null;
+  private offeringMaterialRuntime: MaterialGraphRuntime | null = null;
   private stopListeningForStoneRebuild: (() => void) | null = null;
   private stopListeningForIronRebuild: (() => void) | null = null;
+  private stopListeningForOfferingRebuild: (() => void) | null = null;
   private materialScale = DEFAULT_MATERIAL_SCALE;
   private ambientOcclusionStrength = DEFAULT_ILLUMINATION_CONFIG.ambientOcclusion;
   private crackShadowStrength = DEFAULT_ILLUMINATION_CONFIG.crackShadow;
@@ -124,7 +150,10 @@ export class MainScene {
     config: CheckpointGeometryConfig,
     pillarConfig: PillarGeometryConfig,
     fireConfig: FireConfig,
+    offeringConfig: OfferingConfig = { ...DEFAULT_OFFERING_CONFIG },
   ) {
+    validateOfferingConfig(offeringConfig);
+    this.offeringConfig = { ...offeringConfig };
     this.scene.background = new THREE.Color(0x171714);
     this.vertexNormalsSize = config.radius * 0.04;
     this.fireBatch = new VertexConeFireBatch(
@@ -146,8 +175,19 @@ export class MainScene {
       metalness: 0.95,
       vertexColors: true,
     });
+    this.fallbackOfferingMaterial = new THREE.MeshStandardMaterial({
+      color: 0x302a22,
+      roughness: 0.94,
+      metalness: 0.02,
+      vertexColors: true,
+    });
+    this.offeringWireframeMaterial = new THREE.MeshBasicMaterial({
+      color: 0xd8d8d8,
+      wireframe: true,
+    });
     this.stoneSurfaceMaterial = this.fallbackStoneMaterial;
     this.ironSurfaceMaterial = this.fallbackIronMaterial;
+    this.offeringSurfaceMaterial = this.fallbackOfferingMaterial;
     this.checkpoint = new THREE.Mesh(result.geometry, this.fallbackStoneMaterial);
     this.checkpoint.castShadow = true;
     this.checkpoint.receiveShadow = true;
@@ -215,6 +255,109 @@ export class MainScene {
     });
   }
 
+  async loadOfferingMaterial(
+    renderer: WebGPURenderer,
+    documentUrl: string,
+  ): Promise<void> {
+    const runtime = await this.loadMaterialRuntime(
+      renderer,
+      documentUrl,
+      "Offering",
+      this.offeringConfig.materialScale,
+    );
+    this.stopListeningForOfferingRebuild?.();
+    this.offeringMaterialRuntime?.dispose();
+    this.offeringMaterialRuntime = runtime;
+    this.useOfferingRuntimeMaterial(runtime);
+    this.stopListeningForOfferingRebuild = runtime.surface.onRebuilt(() => {
+      this.useOfferingRuntimeMaterial(runtime);
+    });
+  }
+
+  async loadOffering(modelUrl: string, decoderPath: string): Promise<void> {
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath(decoderPath);
+    dracoLoader.setWorkerLimit(1);
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader);
+
+    let scene: THREE.Group;
+
+    try {
+      scene = (await loader.loadAsync(modelUrl)).scene;
+    } finally {
+      dracoLoader.dispose();
+    }
+
+    this.disposeOffering();
+
+    const embeddedMaterials = new Set<THREE.Material>();
+    const preparedGeometries = new Set<THREE.BufferGeometry>();
+
+    scene.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) {
+        return;
+      }
+
+      const materials = Array.isArray(object.material)
+        ? object.material
+        : [object.material];
+
+      for (const material of materials) {
+        embeddedMaterials.add(material);
+      }
+
+      if (!preparedGeometries.has(object.geometry)) {
+        prepareOfferingGeometry(object.geometry);
+        this.applyMaterialScale(
+          object.geometry,
+          this.offeringConfig.materialScale,
+        );
+        this.applyAmbientOcclusion(object.geometry);
+        this.applyBakedShadow(object.geometry);
+        preparedGeometries.add(object.geometry);
+      }
+
+      object.material = this.offeringSurfaceMaterial;
+      object.castShadow = true;
+      object.receiveShadow = true;
+      this.offeringMeshes.push(object);
+    });
+
+    for (const material of embeddedMaterials) {
+      material.dispose();
+    }
+
+    if (this.offeringMeshes.length === 0) {
+      for (const geometry of preparedGeometries) {
+        geometry.dispose();
+      }
+      throw new Error("Offering model contains no meshes.");
+    }
+
+    const root = new THREE.Group();
+    root.name = "Xochipilli offering";
+    root.add(scene);
+    root.updateMatrixWorld(true);
+    const sourceBounds = new THREE.Box3().setFromObject(root);
+
+    if (sourceBounds.isEmpty()) {
+      for (const geometry of preparedGeometries) {
+        geometry.dispose();
+      }
+      this.offeringMeshes.length = 0;
+      throw new Error("Offering model has empty bounds.");
+    }
+
+    this.offeringRoot = root;
+    this.offeringSourceBounds = sourceBounds;
+    this.offeringSupportCenter = calculateOfferingSupportCenter(root, sourceBounds);
+    this.currentOfferingStats = offeringStats(this.offeringMeshes);
+    this.updateOfferingTransform();
+    this.refreshOfferingPresentation();
+    this.scene.add(root);
+  }
+
   rebuild(config: CheckpointGeometryConfig): CheckpointGeometryResult {
     const result = createCheckpointGeometry(config);
     const previousGeometry = this.checkpoint.geometry;
@@ -227,6 +370,7 @@ export class MainScene {
     this.vertexNormalsSize = config.radius * 0.04;
     this.rebuildVertexNormalsHelpers();
     this.currentCheckpointStats = geometryStats(result);
+    this.updateOfferingTransform();
     previousGeometry.dispose();
     previousWireframeGeometry.dispose();
 
@@ -311,12 +455,20 @@ export class MainScene {
     return { ...this.currentPillarStats };
   }
 
+  getOfferingStats(): OfferingStats {
+    return { ...this.currentOfferingStats };
+  }
+
   getCompositionBounds(): THREE.Box3 {
     this.scene.updateMatrixWorld(true);
     const bounds = new THREE.Box3().setFromObject(this.checkpoint);
 
     for (const entry of this.pillarEntries) {
       bounds.expandByObject(entry.mesh);
+    }
+
+    if (this.offeringRoot && this.offeringConfig.enabled) {
+      bounds.expandByObject(this.offeringRoot);
     }
 
     this.fireBatch.expandBounds(bounds);
@@ -333,6 +485,20 @@ export class MainScene {
     for (const entry of this.pillarEntries) {
       this.applyMaterialScale(entry.mesh.geometry);
     }
+
+  }
+
+  setOfferingConfig(config: OfferingConfig): void {
+    validateOfferingConfig(config);
+    this.offeringConfig = { ...config };
+    this.offeringMaterialRuntime?.surface.setScale(config.materialScale);
+
+    for (const mesh of this.offeringMeshes) {
+      this.applyMaterialScale(mesh.geometry, config.materialScale);
+    }
+
+    this.updateOfferingTransform();
+    this.refreshOfferingPresentation();
   }
 
   setWireframe(enabled: boolean): void {
@@ -340,6 +506,8 @@ export class MainScene {
     this.checkpoint.visible = !enabled;
     this.checkpointWireframe.visible = enabled;
     this.fireBatch.setSceneVisible(!enabled);
+
+    this.refreshOfferingPresentation();
 
     for (const entry of this.fireGlowEntries) {
       entry.light.visible = !enabled;
@@ -385,6 +553,11 @@ export class MainScene {
       this.applyAmbientOcclusion(entry.mesh.geometry);
       this.applyBakedShadow(entry.mesh.geometry);
     }
+
+    for (const mesh of this.offeringMeshes) {
+      this.applyAmbientOcclusion(mesh.geometry);
+      this.applyBakedShadow(mesh.geometry);
+    }
   }
 
   update(deltaTime: number): void {
@@ -411,16 +584,23 @@ export class MainScene {
     this.stopListeningForStoneRebuild = null;
     this.stopListeningForIronRebuild?.();
     this.stopListeningForIronRebuild = null;
+    this.stopListeningForOfferingRebuild?.();
+    this.stopListeningForOfferingRebuild = null;
     this.stoneMaterialRuntime?.dispose();
     this.stoneMaterialRuntime = null;
     this.ironMaterialRuntime?.dispose();
     this.ironMaterialRuntime = null;
+    this.offeringMaterialRuntime?.dispose();
+    this.offeringMaterialRuntime = null;
     this.disposePillars();
+    this.disposeOffering();
     this.disposeFireGlowLights();
     this.fireBatch.object.removeFromParent();
     this.fireBatch.dispose();
     this.fallbackStoneMaterial.dispose();
     this.fallbackIronMaterial.dispose();
+    this.fallbackOfferingMaterial.dispose();
+    this.offeringWireframeMaterial.dispose();
     this.checkpoint.geometry.dispose();
     this.checkpointWireframe.geometry.dispose();
     this.checkpointWireframe.material.dispose();
@@ -484,6 +664,14 @@ export class MainScene {
     this.refreshPillarMaterials();
   }
 
+  private useOfferingRuntimeMaterial(runtime: MaterialGraphRuntime): void {
+    const material = runtime.getNodeMaterial();
+    material.vertexColors = true;
+    material.needsUpdate = true;
+    this.offeringSurfaceMaterial = material;
+    this.refreshOfferingPresentation();
+  }
+
   private refreshPillarMaterials(): void {
     for (const entry of this.pillarEntries) {
       entry.mesh.material = [this.stoneSurfaceMaterial, this.ironSurfaceMaterial];
@@ -494,6 +682,7 @@ export class MainScene {
     renderer: WebGPURenderer,
     documentUrl: string,
     label: string,
+    scale = this.materialScale,
   ): Promise<MaterialGraphRuntime> {
     const response = await fetch(documentUrl);
 
@@ -517,7 +706,7 @@ export class MainScene {
     }).setRenderer(renderer);
     runtime.surface.setBackend("offline");
     runtime.surface.setTriplanar(false);
-    runtime.surface.setScale(this.materialScale);
+    runtime.surface.setScale(scale);
 
     await runtime.refresh();
 
@@ -529,7 +718,10 @@ export class MainScene {
     return runtime;
   }
 
-  private applyMaterialScale(geometry: THREE.BufferGeometry): void {
+  private applyMaterialScale(
+    geometry: THREE.BufferGeometry,
+    scale = this.materialScale,
+  ): void {
     const baseUvs = geometry.userData.baseUvs as Float32Array | undefined;
     const attribute = geometry.getAttribute("uv");
 
@@ -540,8 +732,8 @@ export class MainScene {
     for (let index = 0; index < attribute.count; index += 1) {
       attribute.setXY(
         index,
-        (baseUvs[index * 2] ?? 0) * this.materialScale,
-        (baseUvs[index * 2 + 1] ?? 0) * this.materialScale,
+        (baseUvs[index * 2] ?? 0) * scale,
+        (baseUvs[index * 2 + 1] ?? 0) * scale,
       );
     }
 
@@ -588,6 +780,55 @@ export class MainScene {
     }
 
     this.pillarEntries.length = 0;
+  }
+
+  private updateOfferingTransform(): void {
+    if (!this.offeringRoot || !this.offeringSourceBounds) {
+      return;
+    }
+
+    const transform = calculateOfferingTransform(
+      this.offeringSourceBounds,
+      this.currentCheckpointStats,
+      this.offeringConfig,
+      this.offeringSupportCenter ?? undefined,
+    );
+    this.offeringRoot.scale.setScalar(transform.scale);
+    this.offeringRoot.position.copy(transform.position);
+    this.offeringRoot.rotation.y = transform.rotationY;
+    this.offeringRoot.updateMatrixWorld(true);
+  }
+
+  private refreshOfferingPresentation(): void {
+    if (!this.offeringRoot) {
+      return;
+    }
+
+    this.offeringRoot.visible = this.offeringConfig.enabled;
+    const material = this.wireframeVisible
+      ? this.offeringWireframeMaterial
+      : this.offeringSurfaceMaterial;
+
+    for (const mesh of this.offeringMeshes) {
+      mesh.material = material;
+    }
+  }
+
+  private disposeOffering(): void {
+    this.offeringRoot?.removeFromParent();
+    const geometries = new Set(
+      this.offeringMeshes.map((mesh) => mesh.geometry),
+    );
+
+    for (const geometry of geometries) {
+      geometry.dispose();
+    }
+
+    this.offeringMeshes.length = 0;
+    this.offeringRoot = null;
+    this.offeringSourceBounds = null;
+    this.offeringSupportCenter = null;
+    this.currentOfferingStats = emptyOfferingStats();
   }
 
   private rebuildFireGlowLights(
@@ -719,12 +960,14 @@ export class MainScene {
 }
 
 function geometryStats(
-  result: StoneGeometryResult,
+  result: CheckpointGeometryResult,
 ): Omit<CheckpointGeometryResult, "geometry"> {
   return {
     stoneCount: result.stoneCount,
     vertexCount: result.vertexCount,
     triangleCount: result.triangleCount,
+    centerTopY: result.centerTopY,
+    centerDiameter: result.centerDiameter,
   };
 }
 
@@ -742,4 +985,26 @@ function emptyPillarStats(): PillarSetStats {
     flameDrawCallCount: 0,
     glowLightCount: 0,
   };
+}
+
+function emptyOfferingStats(): OfferingStats {
+  return {
+    meshCount: 0,
+    vertexCount: 0,
+    triangleCount: 0,
+  };
+}
+
+function offeringStats(meshes: readonly THREE.Mesh[]): OfferingStats {
+  const stats = emptyOfferingStats();
+
+  for (const mesh of meshes) {
+    const position = mesh.geometry.getAttribute("position");
+    const index = mesh.geometry.index;
+    stats.meshCount += 1;
+    stats.vertexCount += position.count;
+    stats.triangleCount += index ? index.count / 3 : position.count / 3;
+  }
+
+  return stats;
 }

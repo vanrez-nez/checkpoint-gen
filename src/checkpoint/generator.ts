@@ -30,7 +30,10 @@ export interface CheckpointGeometryConfig extends StoneDetailConfig {
   tierRiseRatio: number;
 }
 
-export interface CheckpointGeometryResult extends StoneGeometryResult {}
+export interface CheckpointGeometryResult extends StoneGeometryResult {
+  centerTopY: number;
+  centerDiameter: number;
+}
 
 export const DEFAULT_CHECKPOINT_CONFIG: Readonly<CheckpointGeometryConfig> = {
   radius: 3,
@@ -55,7 +58,7 @@ export const DEFAULT_CHECKPOINT_CONFIG: Readonly<CheckpointGeometryConfig> = {
 const TIER_COUNT = 3;
 const CENTER_RADIUS_RATIO = 0.14;
 const STONE_HEIGHT_RATIO = 0.045;
-const CENTER_HEIGHT_RATIO = 0.2;
+const CENTER_HEIGHT_RATIO = 0.1;
 const CENTER_BURY_DEPTH_RATIO = 0.025;
 const MIN_RING_SEGMENTS = 6;
 export function createCheckpointGeometry(
@@ -85,9 +88,19 @@ export function createCheckpointGeometry(
     addEntry(builder, config, frame, radialStep, stoneHeight, gap);
   }
 
-  addCenterStone(builder, config, centerRadius, stoneHeight, tierRise);
+  const centerTopY = addCenterStone(
+    builder,
+    config,
+    centerRadius,
+    stoneHeight,
+    tierRise,
+  );
 
-  return finalizeStoneGeometry(builder);
+  return {
+    ...finalizeStoneGeometry(builder),
+    centerTopY,
+    centerDiameter: centerRadius * 2,
+  };
 }
 
 function addCircularPlate(
@@ -301,7 +314,7 @@ function addCenterStone(
   centerRadius: number,
   stoneHeight: number,
   tierRise: number,
-): void {
+): number {
   const random = createRandom(hashSeed(config.seed, "center"));
   const segmentCount = 8;
   const points: Point2[] = [];
@@ -316,12 +329,16 @@ function addCenterStone(
     topY.push(innerTierTop + formationHeight * randomRange(random, 0.86, 1.08));
   }
 
+  const centerTopY = Math.max(...topY);
+
   builder.addStone(
     points,
     -config.radius * CENTER_BURY_DEPTH_RATIO,
-    topY,
+    topY.map(() => centerTopY),
     formationHeight,
   );
+
+  return centerTopY;
 }
 
 function validateConfig(config: CheckpointGeometryConfig): void {

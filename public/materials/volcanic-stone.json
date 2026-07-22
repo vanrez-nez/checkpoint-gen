@@ -1,0 +1,81 @@
+{
+  "version": 2,
+  "metadata": { "title": "Volcanic Stone" },
+  "nodes": [
+    {
+      "id": "coord",
+      "type": "tex-coordinate",
+      "params": {},
+      "position": { "x": 40, "y": 200 },
+      "enabled": true
+    },
+    {
+      "id": "fbmBase",
+      "type": "fbm",
+      "params": { "scale": 3.2, "octaves": 5, "lacunarity": 2.0, "gain": 0.54 },
+      "position": { "x": 300, "y": 100 },
+      "enabled": true
+    },
+    {
+      "id": "baseRamp",
+      "type": "color-ramp",
+      "params": { "colorA": "#11110f", "colorB": "#4b4032", "low": 0.22, "high": 0.82 },
+      "position": { "x": 560, "y": 100 },
+      "enabled": true
+    },
+    {
+      "id": "fbmDetail",
+      "type": "fbm",
+      "params": { "scale": 14.0, "octaves": 6, "lacunarity": 2.15, "gain": 0.56 },
+      "position": { "x": 300, "y": 340 },
+      "enabled": true
+    },
+    {
+      "id": "detailRamp",
+      "type": "color-ramp",
+      "params": { "colorA": "#201c17", "colorB": "#71614c", "low": 0.38, "high": 0.64 },
+      "position": { "x": 560, "y": 400 },
+      "enabled": true
+    },
+    {
+      "id": "blendDetail",
+      "type": "blend",
+      "params": { "mode": "mix", "opacity": 0.35 },
+      "position": { "x": 790, "y": 100 },
+      "enabled": true
+    },
+    {
+      "id": "normal",
+      "type": "normal-from-height",
+      "params": { "strength": 0.1 },
+      "position": { "x": 790, "y": 360 },
+      "enabled": true
+    },
+    {
+      "id": "surface",
+      "type": "principled-bsdf",
+      "params": { "roughness": 0.94, "metallic": 0.02 },
+      "position": { "x": 1030, "y": 180 },
+      "enabled": true
+    },
+    {
+      "id": "out",
+      "type": "material-output",
+      "params": {},
+      "position": { "x": 1270, "y": 180 },
+      "enabled": true
+    }
+  ],
+  "edges": [
+    { "fromNode": "coord", "fromOutput": "object", "toNode": "fbmBase", "toInput": "coord" },
+    { "fromNode": "coord", "fromOutput": "object", "toNode": "fbmDetail", "toInput": "coord" },
+    { "fromNode": "fbmBase", "fromOutput": "field", "toNode": "baseRamp", "toInput": "field" },
+    { "fromNode": "fbmDetail", "fromOutput": "field", "toNode": "detailRamp", "toInput": "field" },
+    { "fromNode": "baseRamp", "fromOutput": "color", "toNode": "blendDetail", "toInput": "a" },
+    { "fromNode": "detailRamp", "fromOutput": "color", "toNode": "blendDetail", "toInput": "b" },
+    { "fromNode": "fbmDetail", "fromOutput": "field", "toNode": "normal", "toInput": "height" },
+    { "fromNode": "blendDetail", "fromOutput": "color", "toNode": "surface", "toInput": "baseColor" },
+    { "fromNode": "normal", "fromOutput": "normal", "toNode": "surface", "toInput": "normal" },
+    { "fromNode": "surface", "fromOutput": "bsdf", "toNode": "out", "toInput": "surface" }
+  ]
+}
