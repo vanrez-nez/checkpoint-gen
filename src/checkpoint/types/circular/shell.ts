@@ -9,13 +9,17 @@ import {
   type Point2,
   type StoneDetailConfig,
   type StoneGeometryResult,
-} from "../geometry/stone-builder";
+} from "../../../geometry/stone-builder";
 import {
   createPolarEntryFrames,
   type PolarEntryFrame,
-} from "./entries";
+} from "./layout";
 
-export interface CheckpointGeometryConfig extends StoneDetailConfig {
+/**
+ * Flattened shell input. `toShellConfig` in ./config builds this from the
+ * layout, stone and bevel sections.
+ */
+export interface CircularShellConfig extends StoneDetailConfig {
   radius: number;
   rowsPerTier: number;
   entryCount: number;
@@ -30,30 +34,13 @@ export interface CheckpointGeometryConfig extends StoneDetailConfig {
   tierRiseRatio: number;
 }
 
-export interface CheckpointGeometryResult extends StoneGeometryResult {
+export interface CircularShellResult extends StoneGeometryResult {
   centerTopY: number;
   centerDiameter: number;
+  /** Vertex range occupied by the square center block, for targeted assertions. */
+  centerVertexStart: number;
+  centerVertexCount: number;
 }
-
-export const DEFAULT_CHECKPOINT_CONFIG: Readonly<CheckpointGeometryConfig> = {
-  radius: 3,
-  rowsPerTier: 4,
-  entryCount: 4,
-  entryWidthRatio: 0.35,
-  entryLengthRatio: 0.6,
-  entryFadeRatio: 0.5,
-  edgeFragmentation: 1,
-  entryEndHeightRatio: 0.04,
-  stoneGapRatio: 0.008,
-  sizeVariation: 0.4,
-  displacement: 0.03,
-  tierRiseRatio: 0.06,
-  bevelEnabled: true,
-  bevelWidthRatio: 0.03,
-  bevelDepthRatio: 0.11,
-  bevelVariation: 0.6,
-  seed: 741,
-};
 
 const TIER_COUNT = 3;
 const CENTER_RADIUS_RATIO = 0.14;
@@ -65,11 +52,17 @@ const CENTER_BURY_DEPTH_RATIO = 0.025;
 // base (≈0.69·centerRadius at the default pedestal fit) with a small reveal.
 const CENTER_SQUARE_HALF_RATIO = 0.6;
 const MIN_RING_SEGMENTS = 6;
-export function createCheckpointGeometry(
-  config: CheckpointGeometryConfig,
-): CheckpointGeometryResult {
-  validateConfig(config);
-
+/**
+ * Builds the plate, entries and center block as ONE geometry.
+ *
+ * All three must share a single StoneGeometryBuilder, in this call order:
+ * StoneGeometryBuilder seeds each chamfer with `bevel-${stoneCount}`, so
+ * splitting these into separate builders or reordering them shifts that counter
+ * and silently changes the appearance of every stone in the shell.
+ */
+export function buildCircularShell(
+  config: CircularShellConfig,
+): CircularShellResult {
   const builder = new StoneGeometryBuilder(config);
   const totalRows = TIER_COUNT * config.rowsPerTier;
   const centerRadius = config.radius * CENTER_RADIUS_RATIO;
@@ -92,24 +85,22 @@ export function createCheckpointGeometry(
     addEntry(builder, config, frame, radialStep, stoneHeight, gap);
   }
 
-  const centerTopY = addCenterStone(
-    builder,
-    config,
-    centerRadius,
-    stoneHeight,
-    tierRise,
-  );
+  const centerVertexStart = builder.positions.length / 3;
+  const centerTopY = addCenterStone(builder, config, centerRadius);
+  const centerVertexCount = builder.positions.length / 3 - centerVertexStart;
 
   return {
     ...finalizeStoneGeometry(builder),
     centerTopY,
     centerDiameter: centerRadius * 2,
+    centerVertexStart,
+    centerVertexCount,
   };
 }
 
 function addCircularPlate(
   builder: StoneGeometryBuilder,
-  config: CheckpointGeometryConfig,
+  config: CircularShellConfig,
   centerRadius: number,
   radialStep: number,
   stoneHeight: number,
@@ -162,7 +153,7 @@ function addCircularPlate(
 
 function addEntry(
   builder: StoneGeometryBuilder,
-  config: CheckpointGeometryConfig,
+  config: CircularShellConfig,
   frame: PolarEntryFrame,
   targetCellSize: number,
   stoneHeight: number,
@@ -261,7 +252,7 @@ function addEntry(
 
 function addEntryStone(
   builder: StoneGeometryBuilder,
-  config: CheckpointGeometryConfig,
+  config: CircularShellConfig,
   frame: PolarEntryFrame,
   random: () => number,
   startA: number,
@@ -312,16 +303,35 @@ function addEntryStone(
   builder.addStone(points, 0, topY, steppedHeight);
 }
 
+/**
+ * The offering mount, derived from the layout alone.
+ *
+ * Exposed separately so the composer can report the anchor without rebuilding
+ * the shell when only pillars changed; `addCenterStone` uses it too, so the
+ * two can never disagree.
+ */
+export function circularCenterMetrics(
+  radius: number,
+  tierRiseRatio: number,
+): { centerTopY: number; centerDiameter: number } {
+  const centerRadius = radius * CENTER_RADIUS_RATIO;
+  const stoneHeight = radius * STONE_HEIGHT_RATIO;
+  const tierRise = radius * tierRiseRatio;
+  const innerTierTop = stoneHeight + (TIER_COUNT - 1) * tierRise;
+
+  return {
+    centerTopY: innerTierTop + radius * CENTER_HEIGHT_RATIO,
+    centerDiameter: centerRadius * 2,
+  };
+}
+
 function addCenterStone(
   builder: StoneGeometryBuilder,
-  config: CheckpointGeometryConfig,
+  config: CircularShellConfig,
   centerRadius: number,
-  stoneHeight: number,
-  tierRise: number,
 ): number {
-  const innerTierTop = stoneHeight + (TIER_COUNT - 1) * tierRise;
   const formationHeight = config.radius * CENTER_HEIGHT_RATIO;
-  const centerTopY = innerTierTop + formationHeight;
+  const { centerTopY } = circularCenterMetrics(config.radius, config.tierRiseRatio);
 
   // Axis-aligned square block (edges parallel to X/Z) so its top matches the
   // offering statue's square base. Corners at (±half, ±half).
@@ -341,44 +351,6 @@ function addCenterStone(
   );
 
   return centerTopY;
-}
-
-function validateConfig(config: CheckpointGeometryConfig): void {
-  if (!Number.isFinite(config.radius) || config.radius <= 0) {
-    throw new RangeError("Checkpoint radius must be greater than zero.");
-  }
-  if (!Number.isInteger(config.rowsPerTier) || config.rowsPerTier < 1 || config.rowsPerTier > 4) {
-    throw new RangeError("Rows per tier must be an integer from 1 to 4.");
-  }
-  if (!Number.isInteger(config.entryCount) || config.entryCount < 1 || config.entryCount > 8) {
-    throw new RangeError("Entry count must be an integer from 1 to 8.");
-  }
-
-  assertRange(config.entryWidthRatio, 0.25, 1.5, "Entry width ratio");
-  assertRange(config.entryLengthRatio, 0.25, 3, "Entry length ratio");
-  assertRange(config.entryFadeRatio, 0.1, 0.5, "Entry fade ratio");
-  assertRange(config.edgeFragmentation, 0, 1, "Edge fragmentation");
-  assertRange(config.entryEndHeightRatio, 0.01, 1, "Entry end height ratio");
-  assertRange(config.stoneGapRatio, 0.002, 0.04, "Stone gap ratio");
-  assertRange(config.sizeVariation, 0.05, 0.4, "Size variation");
-  assertRange(config.displacement, 0.01, 0.2, "Displacement");
-  assertRange(config.tierRiseRatio, 0.005, 0.12, "Tier rise ratio");
-  if (typeof config.bevelEnabled !== "boolean") {
-    throw new TypeError("Bevel enabled must be a boolean.");
-  }
-  assertRange(config.bevelWidthRatio, 0.02, 0.3, "Bevel width ratio");
-  assertRange(config.bevelDepthRatio, 0.05, 0.6, "Bevel depth ratio");
-  assertRange(config.bevelVariation, 0, 0.6, "Bevel variation");
-
-  if (!Number.isInteger(config.seed)) {
-    throw new RangeError("Seed must be an integer.");
-  }
-}
-
-function assertRange(value: number, min: number, max: number, label: string): void {
-  if (!Number.isFinite(value) || value < min || value > max) {
-    throw new RangeError(`${label} must be between ${min} and ${max}.`);
-  }
 }
 
 function polarPoint(

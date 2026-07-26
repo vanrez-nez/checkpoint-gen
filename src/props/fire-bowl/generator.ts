@@ -1,11 +1,6 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-
-export interface FireBowlConfig {
-  enabled: boolean;
-  scale: number;
-  radialSegments: number;
-}
+import { validateFireBowlConfig, type FireBowlConfig } from "./config";
 
 export interface FireBowlGeometryResult {
   geometry: THREE.BufferGeometry;
@@ -14,12 +9,6 @@ export interface FireBowlGeometryResult {
   supportCount: number;
   footCount: number;
 }
-
-export const DEFAULT_FIRE_BOWL_CONFIG: Readonly<FireBowlConfig> = {
-  enabled: true,
-  scale: 0.5,
-  radialSegments: 16,
-};
 
 const SUPPORT_COUNT = 8;
 const FOOT_COUNT = 4;
@@ -329,25 +318,3 @@ function prepareIronPart(geometry: THREE.BufferGeometry): void {
   );
 }
 
-export function validateFireBowlConfig(
-  config: FireBowlConfig,
-  referenceWidth: number,
-): void {
-  if (typeof config.enabled !== "boolean") {
-    throw new TypeError("Fire bowl enabled must be a boolean.");
-  }
-  if (!Number.isFinite(config.scale) || config.scale < 0.5 || config.scale > 2) {
-    throw new RangeError("Fire bowl scale must be between 0.5 and 2.");
-  }
-  if (
-    !Number.isInteger(config.radialSegments)
-    || config.radialSegments < 16
-    || config.radialSegments > 64
-    || config.radialSegments % 4 !== 0
-  ) {
-    throw new RangeError("Fire bowl radial segments must be a multiple of 4 from 16 to 64.");
-  }
-  if (!Number.isFinite(referenceWidth) || referenceWidth <= 0) {
-    throw new RangeError("Fire bowl reference width must be greater than zero.");
-  }
-}

@@ -1,0 +1,287 @@
+import type { StoneDetailConfig } from "../geometry/stone-builder";
+import {
+  controlsFor,
+  type ControlSpec,
+  type RebuildScope,
+} from "./control-spec";
+
+/**
+ * Masonry tuning shared by every stone-built prop. The shell and the pillars
+ * each own an instance with their own values; only the shape and the ranges are
+ * shared.
+ */
+export interface StoneConfig {
+  seed: number;
+  gapRatio: number;
+  sizeVariation: number;
+  displacement: number;
+}
+
+/** Chamfer tuning, paired with a StoneConfig on every stone-built prop. */
+export interface BevelConfig {
+  enabled: boolean;
+  widthRatio: number;
+  depthRatio: number;
+  variation: number;
+}
+
+/** Presentation toggles that never touch geometry generation. */
+export interface ViewConfig {
+  wireframe: boolean;
+  vertexNormals: boolean;
+  materialScale: number;
+}
+
+export const DEFAULT_VIEW_CONFIG: Readonly<ViewConfig> = {
+  wireframe: false,
+  vertexNormals: false,
+  materialScale: 1,
+};
+
+/** Lighting, plus the two baked-attribute strengths driven from userData. */
+export interface IlluminationConfig {
+  keyColor: string;
+  keyIntensity: number;
+  keyAzimuth: number;
+  keyElevation: number;
+  skyColor: string;
+  groundColor: string;
+  ambientIntensity: number;
+  ambientOcclusion: number;
+  crackShadow: number;
+}
+
+export const DEFAULT_ILLUMINATION_CONFIG: Readonly<IlluminationConfig> = {
+  keyColor: "#cce2ff",
+  keyIntensity: 0.6,
+  keyAzimuth: -74,
+  keyElevation: 26,
+  skyColor: "#f3f7ff",
+  groundColor: "#4c5047",
+  ambientIntensity: 0.23,
+  ambientOcclusion: 0.75,
+  crackShadow: 1,
+};
+
+/**
+ * Colour pickers are bound by hand in the pane; only the numeric fields are
+ * spec-driven, since ControlSpec deliberately covers numbers and booleans only.
+ */
+export const ILLUMINATION_COLOR_KEYS = [
+  { key: "keyColor", label: "sun color" },
+  { key: "skyColor", label: "sky color" },
+  { key: "groundColor", label: "ground color" },
+] as const;
+
+const stone = controlsFor<StoneConfig>();
+const bevel = controlsFor<BevelConfig>();
+const view = controlsFor<ViewConfig>();
+const illumination = controlsFor<IlluminationConfig>();
+
+/**
+ * Stone controls for one owner. Scopes differ per owner (the shell rebuilds the
+ * layout section, a pillar rebuilds the pillar section) while the ranges and
+ * validation names are identical, so the table is generated rather than copied.
+ */
+export function createStoneControls(
+  scopes: readonly RebuildScope[],
+): readonly ControlSpec<StoneConfig>[] {
+  return [
+    stone.number({
+      key: "seed",
+      group: "Stones",
+      name: "Seed",
+      min: 0,
+      max: 9999,
+      step: 1,
+      integer: true,
+      scopes,
+    }),
+    stone.number({
+      key: "gapRatio",
+      label: "gap",
+      name: "Stone gap ratio",
+      group: "Stones",
+      min: 0.002,
+      max: 0.04,
+      step: 0.001,
+      scopes,
+    }),
+    stone.number({
+      key: "sizeVariation",
+      label: "size variation",
+      name: "Size variation",
+      group: "Stones",
+      min: 0.05,
+      max: 0.4,
+      step: 0.01,
+      scopes,
+    }),
+    stone.number({
+      key: "displacement",
+      label: "displacement",
+      name: "Displacement",
+      group: "Stones",
+      min: 0.01,
+      max: 0.2,
+      step: 0.01,
+      scopes,
+    }),
+  ];
+}
+
+export function createBevelControls(
+  scopes: readonly RebuildScope[],
+): readonly ControlSpec<BevelConfig>[] {
+  return [
+    bevel.boolean({
+      key: "enabled",
+      label: "enabled",
+      name: "Bevel enabled",
+      group: "Bevel",
+      scopes,
+    }),
+    bevel.number({
+      key: "widthRatio",
+      label: "width",
+      name: "Bevel width ratio",
+      group: "Bevel",
+      min: 0.02,
+      max: 0.3,
+      step: 0.01,
+      scopes,
+    }),
+    bevel.number({
+      key: "depthRatio",
+      label: "depth",
+      name: "Bevel depth ratio",
+      group: "Bevel",
+      min: 0.05,
+      max: 0.6,
+      step: 0.01,
+      scopes,
+    }),
+    bevel.number({
+      key: "variation",
+      label: "variation",
+      name: "Bevel variation",
+      group: "Bevel",
+      min: 0,
+      max: 0.6,
+      step: 0.01,
+      scopes,
+    }),
+  ];
+}
+
+export const VIEW_CONTROLS: readonly ControlSpec<ViewConfig>[] = [
+  view.boolean({ key: "wireframe", group: "View", name: "Wireframe", scopes: ["view"] }),
+  view.boolean({
+    key: "vertexNormals",
+    label: "vertex normals",
+    name: "Vertex normals",
+    group: "View",
+    scopes: ["view"],
+  }),
+  view.number({
+    key: "materialScale",
+    label: "material scale",
+    name: "Material scale",
+    group: "Material",
+    min: 0.1,
+    max: 4,
+    step: 0.05,
+    scopes: ["material"],
+  }),
+];
+
+export const ILLUMINATION_CONTROLS: readonly ControlSpec<IlluminationConfig>[] = [
+  illumination.number({
+    key: "keyIntensity",
+    label: "sun intensity",
+    name: "Sun intensity",
+    group: "Illumination",
+    min: 0,
+    max: 10,
+    step: 0.1,
+    scopes: ["illumination"],
+  }),
+  illumination.number({
+    key: "keyAzimuth",
+    label: "sun azimuth",
+    name: "Sun azimuth",
+    group: "Illumination",
+    min: -180,
+    max: 180,
+    step: 1,
+    scopes: ["illumination"],
+  }),
+  illumination.number({
+    key: "keyElevation",
+    label: "sun elevation",
+    name: "Sun elevation",
+    group: "Illumination",
+    min: 5,
+    max: 90,
+    step: 1,
+    scopes: ["illumination"],
+  }),
+  illumination.number({
+    key: "ambientIntensity",
+    label: "hemisphere intensity",
+    name: "Hemisphere intensity",
+    group: "Illumination",
+    min: 0,
+    max: 5,
+    step: 0.05,
+    scopes: ["illumination"],
+  }),
+  illumination.number({
+    key: "ambientOcclusion",
+    label: "AO strength",
+    name: "Ambient occlusion strength",
+    group: "Illumination",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    scopes: ["illumination"],
+  }),
+  illumination.number({
+    key: "crackShadow",
+    label: "crack shadow",
+    name: "Crack shadow",
+    group: "Illumination",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    scopes: ["illumination"],
+  }),
+];
+
+export function cloneIlluminationConfig(
+  source: Readonly<IlluminationConfig>,
+): IlluminationConfig {
+  return { ...source };
+}
+
+/** Flattens a stone/bevel pair into the shape the stone builder expects. */
+export function toStoneDetail(
+  stoneConfig: StoneConfig,
+  bevelConfig: BevelConfig,
+): StoneDetailConfig {
+  return {
+    seed: stoneConfig.seed,
+    bevelEnabled: bevelConfig.enabled,
+    bevelWidthRatio: bevelConfig.widthRatio,
+    bevelDepthRatio: bevelConfig.depthRatio,
+    bevelVariation: bevelConfig.variation,
+  };
+}
+
+export function cloneStoneConfig(source: Readonly<StoneConfig>): StoneConfig {
+  return { ...source };
+}
+
+export function cloneBevelConfig(source: Readonly<BevelConfig>): BevelConfig {
+  return { ...source };
+}

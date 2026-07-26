@@ -1,5 +1,6 @@
 import type { Node } from "three/webgpu";
 import * as THREE from "three/webgpu";
+import { DEFAULT_FIRE_CONFIG } from "./config";
 import {
   Fn,
   clamp,
@@ -33,26 +34,8 @@ export interface VertexConeFireConfig {
   noiseScale: number;
   turbulence: number;
   intensity: number;
-  pillarHeight: number;
   radialSegments: number;
   placements: readonly VertexConePlacement[];
-}
-
-export interface FireConfig {
-  enabled: boolean;
-  scale: number;
-  radius: number;
-  height: number;
-  baseHeight: number;
-  radialSegments: number;
-  speed: number;
-  noiseScale: number;
-  turbulence: number;
-  intensity: number;
-  glowEnabled: boolean;
-  glowIntensity: number;
-  glowDistance: number;
-  glowFlicker: number;
 }
 
 export interface VertexConeFireStats {
@@ -61,23 +44,6 @@ export interface VertexConeFireStats {
   triangleCount: number;
   drawCallCount: number;
 }
-
-export const DEFAULT_FIRE_CONFIG: Readonly<FireConfig> = {
-  enabled: true,
-  scale: 1.25,
-  radius: 0.08,
-  height: 0.43,
-  baseHeight: 0.065,
-  radialSegments: 16,
-  speed: 7,
-  noiseScale: 4.8,
-  turbulence: 2,
-  intensity: 5,
-  glowEnabled: true,
-  glowIntensity: 0.6,
-  glowDistance: 3,
-  glowFlicker: 0.25,
-};
 
 const SOURCE_RADIUS = 0.42;
 const SOURCE_HEIGHT = 1.5;
@@ -187,7 +153,7 @@ export class VertexConeFireBatch {
 
       this.transform.position.set(
         placement.x,
-        placement.y + config.pillarHeight + config.baseHeight,
+        placement.y + config.baseHeight,
         placement.z,
       );
       this.transform.rotation.set(0, 0, 0);
@@ -334,9 +300,6 @@ function validateConfig(config: VertexConeFireConfig, capacity: number): void {
   assertRange(config.noiseScale, 0.5, 12, "Fire noise scale");
   assertRange(config.turbulence, 0, 2, "Fire turbulence");
   assertRange(config.intensity, 0, 5, "Fire intensity");
-  if (!Number.isFinite(config.pillarHeight) || config.pillarHeight <= 0) {
-    throw new RangeError("Fire pillar height must be greater than zero.");
-  }
   if (config.placements.length > capacity) {
     throw new RangeError(`Fire placement count cannot exceed ${capacity}.`);
   }
@@ -346,29 +309,6 @@ function validateConfig(config: VertexConeFireConfig, capacity: number): void {
       throw new RangeError("Fire placements must contain finite coordinates.");
     }
   }
-}
-
-export function validateFireConfig(config: FireConfig): void {
-  validateRadialSegments(config.radialSegments);
-
-  if (typeof config.enabled !== "boolean") {
-    throw new TypeError("Fire enabled must be a boolean.");
-  }
-  if (typeof config.glowEnabled !== "boolean") {
-    throw new TypeError("Fire glow enabled must be a boolean.");
-  }
-
-  assertRange(config.scale, 0.1, 5, "Fire scale");
-  assertRange(config.radius, 0.01, 5, "Fire radius");
-  assertRange(config.height, 0.02, 10, "Fire height");
-  assertRange(config.baseHeight, 0, 5, "Fire base height");
-  assertRange(config.speed, 0, 10, "Fire speed");
-  assertRange(config.noiseScale, 0.5, 12, "Fire noise scale");
-  assertRange(config.turbulence, 0, 2, "Fire turbulence");
-  assertRange(config.intensity, 0, 5, "Fire intensity");
-  assertRange(config.glowIntensity, 0, 20, "Fire glow intensity");
-  assertRange(config.glowDistance, 0.1, 20, "Fire glow distance");
-  assertRange(config.glowFlicker, 0, 0.5, "Fire glow flicker");
 }
 
 function validateRadialSegments(radialSegments: number): void {

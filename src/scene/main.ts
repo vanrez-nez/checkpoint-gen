@@ -9,79 +9,37 @@ import {
   migrateMaterialDocument,
   type MaterialGraphDocument,
 } from "material-designer-runtime";
+import { CheckpointComposer } from "../checkpoint/composer";
+import type { CheckpointConfig } from "../config/checkpoint-config";
+import type { IlluminationConfig } from "../config/sections";
 import {
-  createCheckpointGeometry,
-  type CheckpointGeometryConfig,
-  type CheckpointGeometryResult,
-} from "../checkpoint/generator";
+  emptySectionStats,
+  emptyPartStats,
+  type CompositionAnchors,
+  type PartSection,
+  type PartStats,
+} from "../geometry/part";
+import { VertexConeFireBatch } from "../props/fire/vertex-cone";
+import { validateFireConfig, type FireConfig } from "../props/fire/config";
 import {
-  VertexConeFireBatch,
-  validateFireConfig,
-  type FireConfig,
-} from "../fire/vertex-cone";
-import {
-  DEFAULT_OFFERING_CONFIG,
   calculateOfferingSupportCenter,
   calculateOfferingTransform,
   prepareOfferingGeometry,
+} from "../props/offering/model";
+import {
   validateOfferingConfig,
   type OfferingConfig,
-} from "../offering/model";
-import {
-  createPillarGeometry,
-  type PillarGeometryConfig,
-} from "../pillar/generator";
-import {
-  createPillarPlacements,
-  type PillarPlacement,
-} from "../pillar/layout";
+} from "../props/offering/config";
 
 const MATERIAL_OUTPUT_RESOLUTION = 512;
-export const DEFAULT_MATERIAL_SCALE = 1;
 const CSM_CASCADES = 3;
 const CSM_MAX_FAR = 80;
 const CSM_LIGHT_MARGIN = 20;
 const SHADOW_MAP_SIZE = 1024;
 const MAX_FIRE_FLAMES = 16;
 const FIRE_GLOW_COLOR = 0xff5a12;
-
-export interface IlluminationConfig {
-  keyColor: string;
-  keyIntensity: number;
-  keyAzimuth: number;
-  keyElevation: number;
-  skyColor: string;
-  groundColor: string;
-  ambientIntensity: number;
-  ambientOcclusion: number;
-  crackShadow: number;
-}
-
-export const DEFAULT_ILLUMINATION_CONFIG: Readonly<IlluminationConfig> = {
-  keyColor: "#cce2ff",
-  keyIntensity: 0.6,
-  keyAzimuth: -74,
-  keyElevation: 26,
-  skyColor: "#f3f7ff",
-  groundColor: "#4c5047",
-  ambientIntensity: 0.23,
-  ambientOcclusion: 0.75,
-  crackShadow: 1,
-};
-
-export interface PillarSetStats {
-  pillarCount: number;
-  stoneCount: number;
-  vertexCount: number;
-  triangleCount: number;
-  fireBowlVertexCount: number;
-  fireBowlTriangleCount: number;
-  flameCount: number;
-  flameVertexCount: number;
-  flameTriangleCount: number;
-  flameDrawCallCount: number;
-  glowLightCount: number;
-}
+/** Vertex-normal helper length, as a fraction of the composition's diagonal. */
+const VERTEX_NORMAL_SIZE_RATIO = 0.008;
 
 export interface OfferingStats {
   meshCount: number;
@@ -89,10 +47,20 @@ export interface OfferingStats {
   triangleCount: number;
 }
 
-type PillarSceneEntry = {
-  mesh: THREE.Mesh;
-  wireframe: THREE.LineSegments<THREE.WireframeGeometry, THREE.LineBasicMaterial>;
-};
+export interface FlameStats {
+  count: number;
+  vertexCount: number;
+  triangleCount: number;
+  drawCallCount: number;
+}
+
+export interface CompositionStats {
+  sections: Readonly<Record<PartSection, PartStats>>;
+  totals: PartStats;
+  flames: FlameStats;
+  glowLightCount: number;
+  offering: OfferingStats;
+}
 
 type FireGlowEntry = {
   light: THREE.PointLight;
@@ -103,32 +71,29 @@ type FireGlowEntry = {
 
 export class MainScene {
   readonly scene = new THREE.Scene();
+  private readonly composer = new CheckpointComposer();
   private readonly fallbackStoneMaterial: THREE.MeshStandardMaterial;
   private readonly fallbackIronMaterial: THREE.MeshStandardMaterial;
   private readonly fallbackOfferingMaterial: THREE.MeshStandardMaterial;
   private readonly offeringWireframeMaterial: THREE.MeshBasicMaterial;
+  /** The entire generated checkpoint: shell, pillars and bowls in one mesh. */
   private readonly checkpoint: THREE.Mesh;
-  private readonly checkpointWireframe: THREE.LineSegments<
-    THREE.WireframeGeometry,
-    THREE.LineBasicMaterial
-  >;
-  private readonly pillarGroup = new THREE.Group();
-  private readonly pillarWireframeGroup = new THREE.Group();
-  private readonly pillarEntries: PillarSceneEntry[] = [];
+  private readonly wireframeMaterial: THREE.LineBasicMaterial;
+  private checkpointWireframe: THREE.LineSegments | null = null;
   private readonly fireBatch: VertexConeFireBatch;
   private readonly fireGlowEntries: FireGlowEntry[] = [];
   private readonly sunLight: THREE.DirectionalLight;
   private readonly hemisphereLight: THREE.HemisphereLight;
   private readonly sunShadow: CSMShadowNode;
-  private readonly vertexNormalsHelpers: VertexNormalsHelper[] = [];
+  private vertexNormalsHelper: VertexNormalsHelper | null = null;
   private offeringRoot: THREE.Group | null = null;
   private offeringSourceBounds: THREE.Box3 | null = null;
   private offeringSupportCenter: THREE.Vector3 | null = null;
   private readonly offeringMeshes: THREE.Mesh[] = [];
   private vertexNormalsVisible = false;
-  private vertexNormalsSize: number;
-  private currentCheckpointStats: Omit<CheckpointGeometryResult, "geometry">;
-  private currentPillarStats: PillarSetStats = emptyPillarStats();
+  private anchors: CompositionAnchors;
+  private sectionStats = emptySectionStats();
+  private totalStats = emptyPartStats();
   private currentOfferingStats: OfferingStats = emptyOfferingStats();
   private offeringConfig: OfferingConfig;
   private stoneSurfaceMaterial: THREE.Material;
@@ -140,29 +105,24 @@ export class MainScene {
   private stopListeningForStoneRebuild: (() => void) | null = null;
   private stopListeningForIronRebuild: (() => void) | null = null;
   private stopListeningForOfferingRebuild: (() => void) | null = null;
-  private materialScale = DEFAULT_MATERIAL_SCALE;
-  private ambientOcclusionStrength = DEFAULT_ILLUMINATION_CONFIG.ambientOcclusion;
-  private crackShadowStrength = DEFAULT_ILLUMINATION_CONFIG.crackShadow;
+  private materialScale: number;
+  private ambientOcclusionStrength: number;
+  private crackShadowStrength: number;
   private fireTime = 0;
   private wireframeVisible = false;
 
-  constructor(
-    config: CheckpointGeometryConfig,
-    pillarConfig: PillarGeometryConfig,
-    fireConfig: FireConfig,
-    offeringConfig: OfferingConfig = { ...DEFAULT_OFFERING_CONFIG },
-  ) {
-    validateOfferingConfig(offeringConfig);
-    this.offeringConfig = { ...offeringConfig };
+  constructor(config: CheckpointConfig) {
+    validateOfferingConfig(config.offering);
+    this.offeringConfig = { ...config.offering };
+    this.materialScale = config.view.materialScale;
+    this.ambientOcclusionStrength = config.illumination.ambientOcclusion;
+    this.crackShadowStrength = config.illumination.crackShadow;
     this.scene.background = new THREE.Color(0x171714);
-    this.vertexNormalsSize = config.radius * 0.04;
     this.fireBatch = new VertexConeFireBatch(
-      fireConfig.radialSegments,
+      config.fire.radialSegments,
       MAX_FIRE_FLAMES,
     );
 
-    const result = createCheckpointGeometry(config);
-    this.applyMaterialScale(result.geometry);
     this.fallbackStoneMaterial = new THREE.MeshStandardMaterial({
       color: 0xa99b81,
       roughness: 0.92,
@@ -185,26 +145,27 @@ export class MainScene {
       color: 0xd8d8d8,
       wireframe: true,
     });
+    this.wireframeMaterial = new THREE.LineBasicMaterial({ color: 0xd8d8d8 });
     this.stoneSurfaceMaterial = this.fallbackStoneMaterial;
     this.ironSurfaceMaterial = this.fallbackIronMaterial;
     this.offeringSurfaceMaterial = this.fallbackOfferingMaterial;
-    this.checkpoint = new THREE.Mesh(result.geometry, this.fallbackStoneMaterial);
+
+    const composition = this.composer.build(config);
+    this.anchors = composition.anchors;
+    this.sectionStats = composition.sections;
+    this.totalStats = composition.totals;
+    this.applyGeometryAttributes(composition.geometry);
+    // Always both materials, so material group 1 stays addressable even on a
+    // build with no iron parts.
+    this.checkpoint = new THREE.Mesh(composition.geometry, [
+      this.fallbackStoneMaterial,
+      this.fallbackIronMaterial,
+    ]);
+    this.checkpoint.name = "Checkpoint";
     this.checkpoint.castShadow = true;
     this.checkpoint.receiveShadow = true;
-    this.checkpointWireframe = new THREE.LineSegments(
-      new THREE.WireframeGeometry(result.geometry),
-      new THREE.LineBasicMaterial({ color: 0xd8d8d8 }),
-    );
-    this.checkpointWireframe.visible = false;
-    this.currentCheckpointStats = geometryStats(result);
-    this.scene.add(
-      this.checkpoint,
-      this.checkpointWireframe,
-      this.pillarGroup,
-      this.pillarWireframeGroup,
-      this.fireBatch.object,
-    );
-    this.rebuildPillars(config, pillarConfig, fireConfig);
+    this.scene.add(this.checkpoint, this.fireBatch.object);
+    this.applyFireEffects(config.fire);
 
     this.sunLight = new THREE.DirectionalLight();
     this.sunLight.castShadow = true;
@@ -224,7 +185,7 @@ export class MainScene {
 
     this.hemisphereLight = new THREE.HemisphereLight();
     this.scene.add(this.sunLight, this.sunLight.target, this.hemisphereLight);
-    this.setIllumination(DEFAULT_ILLUMINATION_CONFIG);
+    this.setIllumination(config.illumination);
   }
 
   async loadStoneMaterial(
@@ -358,114 +319,59 @@ export class MainScene {
     this.scene.add(root);
   }
 
-  rebuild(config: CheckpointGeometryConfig): CheckpointGeometryResult {
-    const result = createCheckpointGeometry(config);
+  /**
+   * Regenerates the requested part sections and swaps in the merged geometry.
+   * Omitting `sections` rebuilds everything.
+   */
+  rebuild(
+    config: CheckpointConfig,
+    sections?: Iterable<PartSection>,
+  ): CompositionStats {
+    const composition = this.composer.build(config, sections);
     const previousGeometry = this.checkpoint.geometry;
-    const previousWireframeGeometry = this.checkpointWireframe.geometry;
-    this.applyMaterialScale(result.geometry);
-    this.applyAmbientOcclusion(result.geometry);
-    this.applyBakedShadow(result.geometry);
-    this.checkpoint.geometry = result.geometry;
-    this.checkpointWireframe.geometry = new THREE.WireframeGeometry(result.geometry);
-    this.vertexNormalsSize = config.radius * 0.04;
-    this.rebuildVertexNormalsHelpers();
-    this.currentCheckpointStats = geometryStats(result);
+    this.applyGeometryAttributes(composition.geometry);
+    this.checkpoint.geometry = composition.geometry;
+    this.anchors = composition.anchors;
+    this.sectionStats = composition.sections;
+    this.totalStats = composition.totals;
+    // Rebuilding the wireframe on every geometry swap costs more than the
+    // geometry itself, and it is hidden almost always, so drop it and rebuild
+    // lazily if the user is actually looking at it.
+    this.invalidateWireframe();
+    this.rebuildVertexNormalsHelper();
     this.updateOfferingTransform();
+    this.applyFireEffects(config.fire);
     previousGeometry.dispose();
-    previousWireframeGeometry.dispose();
 
-    return result;
+    return this.getStats();
   }
 
-  rebuildPillars(
-    checkpointConfig: CheckpointGeometryConfig,
-    pillarConfig: PillarGeometryConfig,
-    fireConfig: FireConfig,
-  ): PillarSetStats {
-    this.disposePillars();
-
-    const stats = emptyPillarStats();
-    const placements = createPillarPlacements(checkpointConfig, pillarConfig);
-
-    for (const placement of placements) {
-      const result = createPillarGeometry({
-        ...pillarConfig,
-        seed: placement.seed,
-      });
-      this.applyMaterialScale(result.geometry);
-      this.applyAmbientOcclusion(result.geometry);
-      this.applyBakedShadow(result.geometry);
-
-      const mesh = new THREE.Mesh(result.geometry, [
-        this.stoneSurfaceMaterial,
-        this.ironSurfaceMaterial,
-      ]);
-      mesh.position.set(placement.x, placement.y, placement.z);
-      mesh.rotation.y = placement.rotationY;
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      const wireframe = new THREE.LineSegments(
-        new THREE.WireframeGeometry(result.geometry),
-        new THREE.LineBasicMaterial({ color: 0xd8d8d8 }),
-      );
-      wireframe.position.copy(mesh.position);
-      wireframe.rotation.copy(mesh.rotation);
-      wireframe.visible = this.checkpointWireframe.visible;
-      mesh.visible = this.checkpoint.visible;
-      this.pillarGroup.add(mesh);
-      this.pillarWireframeGroup.add(wireframe);
-      this.pillarEntries.push({ mesh, wireframe });
-
-      stats.pillarCount += 1;
-      stats.stoneCount += result.stoneCount;
-      stats.vertexCount += result.vertexCount;
-      stats.triangleCount += result.triangleCount;
-      stats.fireBowlVertexCount += result.fireBowlVertexCount;
-      stats.fireBowlTriangleCount += result.fireBowlTriangleCount;
-    }
-
-    Object.assign(
-      stats,
-      this.applyFireEffects(checkpointConfig, pillarConfig, fireConfig, placements),
-    );
-
-    this.currentPillarStats = stats;
-    this.rebuildVertexNormalsHelpers();
-    return { ...stats };
+  /** Retunes flames and glow lights without touching geometry. */
+  updateFireEffects(config: CheckpointConfig): CompositionStats {
+    this.applyFireEffects(config.fire);
+    return this.getStats();
   }
 
-  rebuildFireEffects(
-    checkpointConfig: CheckpointGeometryConfig,
-    pillarConfig: PillarGeometryConfig,
-    fireConfig: FireConfig,
-  ): PillarSetStats {
-    const placements = createPillarPlacements(checkpointConfig, pillarConfig);
-    Object.assign(
-      this.currentPillarStats,
-      this.applyFireEffects(checkpointConfig, pillarConfig, fireConfig, placements),
-    );
-    return { ...this.currentPillarStats };
-  }
+  getStats(): CompositionStats {
+    const flames = this.fireBatch.getStats();
 
-  getGeometryStats(): Omit<CheckpointGeometryResult, "geometry"> {
-    return this.currentCheckpointStats;
-  }
-
-  getPillarStats(): PillarSetStats {
-    return { ...this.currentPillarStats };
-  }
-
-  getOfferingStats(): OfferingStats {
-    return { ...this.currentOfferingStats };
+    return {
+      sections: this.sectionStats,
+      totals: this.totalStats,
+      flames: {
+        count: flames.flameCount,
+        vertexCount: flames.vertexCount,
+        triangleCount: flames.triangleCount,
+        drawCallCount: flames.drawCallCount,
+      },
+      glowLightCount: this.fireGlowEntries.length,
+      offering: { ...this.currentOfferingStats },
+    };
   }
 
   getCompositionBounds(): THREE.Box3 {
     this.scene.updateMatrixWorld(true);
     const bounds = new THREE.Box3().setFromObject(this.checkpoint);
-
-    for (const entry of this.pillarEntries) {
-      bounds.expandByObject(entry.mesh);
-    }
 
     if (this.offeringRoot && this.offeringConfig.enabled) {
       bounds.expandByObject(this.offeringRoot);
@@ -481,11 +387,6 @@ export class MainScene {
     this.stoneMaterialRuntime?.surface.setScale(scale);
     this.ironMaterialRuntime?.surface.setScale(scale);
     this.applyMaterialScale(this.checkpoint.geometry);
-
-    for (const entry of this.pillarEntries) {
-      this.applyMaterialScale(entry.mesh.geometry);
-    }
-
   }
 
   setOfferingConfig(config: OfferingConfig): void {
@@ -504,24 +405,23 @@ export class MainScene {
   setWireframe(enabled: boolean): void {
     this.wireframeVisible = enabled;
     this.checkpoint.visible = !enabled;
-    this.checkpointWireframe.visible = enabled;
     this.fireBatch.setSceneVisible(!enabled);
-
     this.refreshOfferingPresentation();
 
     for (const entry of this.fireGlowEntries) {
       entry.light.visible = !enabled;
     }
 
-    for (const entry of this.pillarEntries) {
-      entry.mesh.visible = !enabled;
-      entry.wireframe.visible = enabled;
+    if (enabled) {
+      this.ensureWireframe().visible = true;
+    } else if (this.checkpointWireframe) {
+      this.checkpointWireframe.visible = false;
     }
   }
 
   setVertexNormalsVisible(enabled: boolean): void {
     this.vertexNormalsVisible = enabled;
-    this.rebuildVertexNormalsHelpers();
+    this.rebuildVertexNormalsHelper();
   }
 
   setIllumination(config: IlluminationConfig): void {
@@ -548,11 +448,6 @@ export class MainScene {
     this.crackShadowStrength = THREE.MathUtils.clamp(config.crackShadow, 0, 1);
     this.applyAmbientOcclusion(this.checkpoint.geometry);
     this.applyBakedShadow(this.checkpoint.geometry);
-
-    for (const entry of this.pillarEntries) {
-      this.applyAmbientOcclusion(entry.mesh.geometry);
-      this.applyBakedShadow(entry.mesh.geometry);
-    }
 
     for (const mesh of this.offeringMeshes) {
       this.applyAmbientOcclusion(mesh.geometry);
@@ -592,7 +487,6 @@ export class MainScene {
     this.ironMaterialRuntime = null;
     this.offeringMaterialRuntime?.dispose();
     this.offeringMaterialRuntime = null;
-    this.disposePillars();
     this.disposeOffering();
     this.disposeFireGlowLights();
     this.fireBatch.object.removeFromParent();
@@ -602,11 +496,19 @@ export class MainScene {
     this.fallbackOfferingMaterial.dispose();
     this.offeringWireframeMaterial.dispose();
     this.checkpoint.geometry.dispose();
-    this.checkpointWireframe.geometry.dispose();
-    this.checkpointWireframe.material.dispose();
-    this.disposeVertexNormalsHelpers();
+    this.invalidateWireframe();
+    this.wireframeMaterial.dispose();
+    this.disposeVertexNormalsHelper();
+    this.composer.dispose();
     this.sunShadow.dispose();
     this.sunLight.dispose();
+  }
+
+  /** Re-derives the live attributes the sliders drive off `userData`. */
+  private applyGeometryAttributes(geometry: THREE.BufferGeometry): void {
+    this.applyMaterialScale(geometry);
+    this.applyAmbientOcclusion(geometry);
+    this.applyBakedShadow(geometry);
   }
 
   private applyAmbientOcclusion(geometry: THREE.BufferGeometry): void {
@@ -647,13 +549,34 @@ export class MainScene {
     attribute.needsUpdate = true;
   }
 
+  private applyMaterialScale(
+    geometry: THREE.BufferGeometry,
+    scale = this.materialScale,
+  ): void {
+    const baseUvs = geometry.userData.baseUvs as Float32Array | undefined;
+    const attribute = geometry.getAttribute("uv");
+
+    if (!baseUvs || !(attribute instanceof THREE.BufferAttribute)) {
+      return;
+    }
+
+    for (let index = 0; index < attribute.count; index += 1) {
+      attribute.setXY(
+        index,
+        (baseUvs[index * 2] ?? 0) * scale,
+        (baseUvs[index * 2 + 1] ?? 0) * scale,
+      );
+    }
+
+    attribute.needsUpdate = true;
+  }
+
   private useStoneRuntimeMaterial(runtime: MaterialGraphRuntime): void {
     const material = runtime.getNodeMaterial();
     material.vertexColors = true;
     material.needsUpdate = true;
     this.stoneSurfaceMaterial = material;
-    this.checkpoint.material = material;
-    this.refreshPillarMaterials();
+    this.refreshCheckpointMaterials();
   }
 
   private useIronRuntimeMaterial(runtime: MaterialGraphRuntime): void {
@@ -661,7 +584,7 @@ export class MainScene {
     material.vertexColors = true;
     material.needsUpdate = true;
     this.ironSurfaceMaterial = material;
-    this.refreshPillarMaterials();
+    this.refreshCheckpointMaterials();
   }
 
   private useOfferingRuntimeMaterial(runtime: MaterialGraphRuntime): void {
@@ -672,10 +595,11 @@ export class MainScene {
     this.refreshOfferingPresentation();
   }
 
-  private refreshPillarMaterials(): void {
-    for (const entry of this.pillarEntries) {
-      entry.mesh.material = [this.stoneSurfaceMaterial, this.ironSurfaceMaterial];
-    }
+  private refreshCheckpointMaterials(): void {
+    this.checkpoint.material = [
+      this.stoneSurfaceMaterial,
+      this.ironSurfaceMaterial,
+    ];
   }
 
   private async loadMaterialRuntime(
@@ -718,78 +642,68 @@ export class MainScene {
     return runtime;
   }
 
-  private applyMaterialScale(
-    geometry: THREE.BufferGeometry,
-    scale = this.materialScale,
-  ): void {
-    const baseUvs = geometry.userData.baseUvs as Float32Array | undefined;
-    const attribute = geometry.getAttribute("uv");
+  private ensureWireframe(): THREE.LineSegments {
+    if (!this.checkpointWireframe) {
+      this.checkpointWireframe = new THREE.LineSegments(
+        new THREE.WireframeGeometry(this.checkpoint.geometry),
+        this.wireframeMaterial,
+      );
+      this.checkpointWireframe.name = "Checkpoint wireframe";
+      this.scene.add(this.checkpointWireframe);
+    }
 
-    if (!baseUvs || !(attribute instanceof THREE.BufferAttribute)) {
+    return this.checkpointWireframe;
+  }
+
+  private invalidateWireframe(): void {
+    if (!this.checkpointWireframe) {
       return;
     }
 
-    for (let index = 0; index < attribute.count; index += 1) {
-      attribute.setXY(
-        index,
-        (baseUvs[index * 2] ?? 0) * scale,
-        (baseUvs[index * 2 + 1] ?? 0) * scale,
-      );
-    }
+    this.checkpointWireframe.removeFromParent();
+    this.checkpointWireframe.geometry.dispose();
+    this.checkpointWireframe = null;
 
-    attribute.needsUpdate = true;
+    if (this.wireframeVisible) {
+      this.ensureWireframe().visible = true;
+    }
   }
 
-  private rebuildVertexNormalsHelpers(): void {
-    this.disposeVertexNormalsHelpers();
+  private rebuildVertexNormalsHelper(): void {
+    this.disposeVertexNormalsHelper();
 
     if (!this.vertexNormalsVisible) {
       return;
     }
 
-    const meshes = [
+    // Derived from the composition rather than a type-specific radius, so this
+    // works for any checkpoint type.
+    const size = new THREE.Box3()
+      .setFromObject(this.checkpoint)
+      .getSize(new THREE.Vector3())
+      .length() * VERTEX_NORMAL_SIZE_RATIO;
+    this.vertexNormalsHelper = new VertexNormalsHelper(
       this.checkpoint,
-      ...this.pillarEntries.map((entry) => entry.mesh),
-    ];
-
-    for (const mesh of meshes) {
-      const helper = new VertexNormalsHelper(mesh, this.vertexNormalsSize, 0x22d3ee);
-      this.vertexNormalsHelpers.push(helper);
-      this.scene.add(helper);
-    }
+      size,
+      0x22d3ee,
+    );
+    this.scene.add(this.vertexNormalsHelper);
   }
 
-  private disposeVertexNormalsHelpers(): void {
-    for (const helper of this.vertexNormalsHelpers) {
-      helper.removeFromParent();
-      helper.dispose();
-    }
-
-    this.vertexNormalsHelpers.length = 0;
-  }
-
-  private disposePillars(): void {
-    this.disposeVertexNormalsHelpers();
-
-    for (const entry of this.pillarEntries) {
-      entry.mesh.removeFromParent();
-      entry.mesh.geometry.dispose();
-      entry.wireframe.removeFromParent();
-      entry.wireframe.geometry.dispose();
-      entry.wireframe.material.dispose();
-    }
-
-    this.pillarEntries.length = 0;
+  private disposeVertexNormalsHelper(): void {
+    this.vertexNormalsHelper?.removeFromParent();
+    this.vertexNormalsHelper?.dispose();
+    this.vertexNormalsHelper = null;
   }
 
   private updateOfferingTransform(): void {
-    if (!this.offeringRoot || !this.offeringSourceBounds) {
+    if (!this.offeringRoot || !this.offeringSourceBounds || !this.anchors.offering) {
       return;
     }
 
     const transform = calculateOfferingTransform(
       this.offeringSourceBounds,
-      this.currentCheckpointStats,
+      this.anchors.offering,
       this.offeringConfig,
       this.offeringSupportCenter ?? undefined,
     );
@@ -831,37 +745,41 @@ export class MainScene {
     this.currentOfferingStats = emptyOfferingStats();
   }
 
-  private rebuildFireGlowLights(
-    pillarConfig: PillarGeometryConfig,
-    fireConfig: FireConfig,
-    placements: readonly PillarPlacement[],
-  ): void {
-    if (
-      !pillarConfig.fireBowl.enabled
-      || !fireConfig.enabled
-      || !fireConfig.glowEnabled
-    ) {
-      this.disposeFireGlowLights();
-      return;
-    }
+  /**
+   * Positions flames and glow lights from the generator's anchors. Bowls being
+   * disabled yields no anchors at all, so only `fire.enabled` needs checking.
+   */
+  private applyFireEffects(fireConfig: FireConfig): void {
+    validateFireConfig(fireConfig);
+    this.fireBatch.update({
+      enabled: fireConfig.enabled,
+      scale: fireConfig.scale,
+      radius: fireConfig.radius,
+      height: fireConfig.height,
+      baseHeight: fireConfig.baseHeight,
+      speed: fireConfig.speed,
+      noiseScale: fireConfig.noiseScale,
+      turbulence: fireConfig.turbulence,
+      intensity: fireConfig.intensity,
+      radialSegments: fireConfig.radialSegments,
+      placements: this.anchors.flames,
+    });
+    this.fireBatch.setSceneVisible(!this.wireframeVisible);
+    this.rebuildFireGlowLights(fireConfig);
+  }
 
-    const placementsByEntry = new Map<number, PillarPlacement[]>();
+  private rebuildFireGlowLights(fireConfig: FireConfig): void {
+    const anchors = fireConfig.enabled && fireConfig.glowEnabled
+      ? this.anchors.glows
+      : [];
 
-    for (const placement of placements) {
-      const entryPlacements = placementsByEntry.get(placement.entryIndex) ?? [];
-      entryPlacements.push(placement);
-      placementsByEntry.set(placement.entryIndex, entryPlacements);
-    }
-
-    const groupedPlacements = [...placementsByEntry.entries()];
-
-    while (this.fireGlowEntries.length > groupedPlacements.length) {
+    while (this.fireGlowEntries.length > anchors.length) {
       const entry = this.fireGlowEntries.pop();
       entry?.light.removeFromParent();
       entry?.light.dispose();
     }
 
-    while (this.fireGlowEntries.length < groupedPlacements.length) {
+    while (this.fireGlowEntries.length < anchors.length) {
       const light = new THREE.PointLight(FIRE_GLOW_COLOR, 0, 0, 2);
       light.castShadow = false;
       this.scene.add(light);
@@ -873,80 +791,32 @@ export class MainScene {
       });
     }
 
-    for (let index = 0; index < groupedPlacements.length; index += 1) {
-      const group = groupedPlacements[index];
+    for (let index = 0; index < anchors.length; index += 1) {
+      const anchor = anchors[index];
       const glowEntry = this.fireGlowEntries[index];
 
-      if (!group || !glowEntry) {
+      if (!anchor || !glowEntry) {
         continue;
       }
 
-      const [entryIndex, entryPlacements] = group;
-      const x = entryPlacements.reduce((sum, placement) => sum + placement.x, 0)
-        / entryPlacements.length;
-      const y = entryPlacements.reduce((sum, placement) => sum + placement.y, 0)
-        / entryPlacements.length;
-      const z = entryPlacements.reduce((sum, placement) => sum + placement.z, 0)
-        / entryPlacements.length;
       const { light } = glowEntry;
-      light.name = `Fire glow entry ${entryIndex + 1}`;
+      light.name = `Fire glow ${anchor.label}`;
       light.color.setHex(FIRE_GLOW_COLOR);
       light.intensity = fireConfig.glowIntensity;
       light.distance = fireConfig.glowDistance;
       light.decay = 2;
       light.position.set(
-        x,
-        y
-          + pillarConfig.height
+        anchor.x,
+        anchor.y
           + fireConfig.baseHeight
           + fireConfig.height * fireConfig.scale * 0.35,
-        z,
+        anchor.z,
       );
       light.visible = !this.wireframeVisible;
       glowEntry.baseIntensity = fireConfig.glowIntensity;
-      glowEntry.phase = entryIndex * 1.7;
+      glowEntry.phase = index * 1.7;
       glowEntry.flicker = fireConfig.glowFlicker;
     }
-  }
-
-  private applyFireEffects(
-    _checkpointConfig: CheckpointGeometryConfig,
-    pillarConfig: PillarGeometryConfig,
-    fireConfig: FireConfig,
-    placements: readonly PillarPlacement[],
-  ): Pick<
-    PillarSetStats,
-    | "flameCount"
-    | "flameVertexCount"
-    | "flameTriangleCount"
-    | "flameDrawCallCount"
-    | "glowLightCount"
-  > {
-    validateFireConfig(fireConfig);
-    const flameStats = this.fireBatch.update({
-      enabled: pillarConfig.fireBowl.enabled && fireConfig.enabled,
-      scale: fireConfig.scale,
-      radius: fireConfig.radius,
-      height: fireConfig.height,
-      baseHeight: fireConfig.baseHeight,
-      speed: fireConfig.speed,
-      noiseScale: fireConfig.noiseScale,
-      turbulence: fireConfig.turbulence,
-      intensity: fireConfig.intensity,
-      pillarHeight: pillarConfig.height,
-      radialSegments: fireConfig.radialSegments,
-      placements,
-    });
-    this.fireBatch.setSceneVisible(!this.wireframeVisible);
-    this.rebuildFireGlowLights(pillarConfig, fireConfig, placements);
-
-    return {
-      flameCount: flameStats.flameCount,
-      flameVertexCount: flameStats.vertexCount,
-      flameTriangleCount: flameStats.triangleCount,
-      flameDrawCallCount: flameStats.drawCallCount,
-      glowLightCount: this.fireGlowEntries.length,
-    };
   }
 
   private disposeFireGlowLights(): void {
@@ -957,34 +827,6 @@ export class MainScene {
 
     this.fireGlowEntries.length = 0;
   }
-}
-
-function geometryStats(
-  result: CheckpointGeometryResult,
-): Omit<CheckpointGeometryResult, "geometry"> {
-  return {
-    stoneCount: result.stoneCount,
-    vertexCount: result.vertexCount,
-    triangleCount: result.triangleCount,
-    centerTopY: result.centerTopY,
-    centerDiameter: result.centerDiameter,
-  };
-}
-
-function emptyPillarStats(): PillarSetStats {
-  return {
-    pillarCount: 0,
-    stoneCount: 0,
-    vertexCount: 0,
-    triangleCount: 0,
-    fireBowlVertexCount: 0,
-    fireBowlTriangleCount: 0,
-    flameCount: 0,
-    flameVertexCount: 0,
-    flameTriangleCount: 0,
-    flameDrawCallCount: 0,
-    glowLightCount: 0,
-  };
 }
 
 function emptyOfferingStats(): OfferingStats {

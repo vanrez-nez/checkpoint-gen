@@ -1,22 +1,11 @@
 import * as THREE from "three";
-import { createBoxProjectedUvs } from "../geometry/stone-builder";
+import { createBoxProjectedUvs } from "../../geometry/stone-builder";
+import {
+  DEFAULT_OFFERING_CONFIG,
+  validateOfferingConfig,
+  type OfferingConfig,
+} from "./config";
 import { computeVertexAo } from "./ambient-occlusion";
-
-export interface OfferingConfig {
-  enabled: boolean;
-  pedestalFit: number;
-  verticalOffset: number;
-  rotationDegrees: number;
-  materialScale: number;
-}
-
-export const DEFAULT_OFFERING_CONFIG: Readonly<OfferingConfig> = {
-  enabled: true,
-  pedestalFit: 1.105,
-  verticalOffset: 0,
-  rotationDegrees: 0,
-  materialScale: 6,
-};
 
 export interface OfferingAttachment {
   centerTopY: number;
@@ -138,19 +127,3 @@ export function calculateOfferingSupportCenter(
   );
 }
 
-export function validateOfferingConfig(config: OfferingConfig): void {
-  if (typeof config.enabled !== "boolean") {
-    throw new TypeError("Offering enabled must be a boolean.");
-  }
-
-  assertRange(config.pedestalFit, 0.1, 1.5, "Offering pedestal fit");
-  assertRange(config.verticalOffset, -1, 1, "Offering vertical offset");
-  assertRange(config.rotationDegrees, -180, 180, "Offering rotation");
-  assertRange(config.materialScale, 0.1, 8, "Offering material scale");
-}
-
-function assertRange(value: number, min: number, max: number, label: string): void {
-  if (!Number.isFinite(value) || value < min || value > max) {
-    throw new RangeError(`${label} must be between ${min} and ${max}.`);
-  }
-}
