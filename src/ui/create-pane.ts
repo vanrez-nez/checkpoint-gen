@@ -1,15 +1,15 @@
 import { Pane } from "tweakpane";
 import type { BladeApi, FolderApi, TabPageApi } from "@tweakpane/core";
 import {
-  checkpointTypeOptions,
-  getCheckpointType,
-  listCheckpointTypes,
-} from "../checkpoint/registry";
-import type { PropId } from "../checkpoint/type";
+  structureOptions,
+  getStructure,
+  listStructures,
+} from "../structure/registry";
+import type { PropId } from "../structure/definition";
 import {
   sectionsForScopes,
-  type CheckpointConfig,
-} from "../config/checkpoint-config";
+  type StructureConfig,
+} from "../config/structure-config";
 import type { RebuildScope } from "../config/control-spec";
 import {
   ILLUMINATION_COLOR_KEYS,
@@ -26,6 +26,7 @@ import {
   PILLAR_LAYOUT_CONTROLS,
   PILLAR_STONE_CONTROLS,
 } from "../props/pillar/config";
+import { emptyPartStats, type PartSection, type PartStats } from "../geometry/part";
 import type { MainScene } from "../scene/main";
 import { StatsBladeApi, StatsPanePluginBundle } from "../tweak-pane/stats-blade";
 import {
@@ -34,12 +35,18 @@ import {
   findControl,
   type BoundControl,
 } from "./binder";
-import { createStatMirrors, statRow, type StatMirrors, type StatRow } from "./stats";
+import {
+  createStatMirrors,
+  statRow,
+  summarizeDiagnostics,
+  type StatMirrors,
+  type StatRow,
+} from "./stats";
 import { VisibilityRegistry } from "./visibility";
 
 export interface ControlPaneOptions {
   container: HTMLElement;
-  config: CheckpointConfig;
+  config: StructureConfig;
   scene: MainScene;
   rendererLabel: string;
   onReframe: () => void;
@@ -55,7 +62,7 @@ const SHARED_BEVEL_CONTROLS = createBevelControls(["layout"]);
 
 export function createControlPane(options: ControlPaneOptions): ControlPane {
   const { container, config, scene, rendererLabel, onReframe } = options;
-  const pane = new Pane({ container, title: "Checkpoint" });
+  const pane = new Pane({ container, title: "Structure" });
   pane.registerPlugin(StatsPanePluginBundle);
   const stats = pane.addBlade({ view: "stats" }) as StatsBladeApi;
   stats.setRenderer(rendererLabel);
@@ -66,7 +73,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
   // Global state, so it sits above the tab bar rather than inside a tab.
   pane.addBinding(config, "typeId", {
     label: "type",
-    options: checkpointTypeOptions(),
+    options: structureOptions(),
   }).on("change", () => {
     // Every section belongs to the previous type's layout, so rebuild all.
     dispatch(["layout", "pillars", "bowls", "fire", "offering"], true);
@@ -74,20 +81,20 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
 
   const tabs = pane.addTab({
     pages: [
-      { title: "Checkpoint" },
+      { title: "Structure" },
       { title: "Pillars" },
       { title: "Fire" },
       { title: "Offering" },
       { title: "Scene" },
     ],
   });
-  const [checkpointTab, pillarTab, fireTab, offeringTab, sceneTab] = tabs.pages;
+  const [structureTab, pillarTab, fireTab, offeringTab, sceneTab] = tabs.pages;
 
-  if (!checkpointTab || !pillarTab || !fireTab || !offeringTab || !sceneTab) {
+  if (!structureTab || !pillarTab || !fireTab || !offeringTab || !sceneTab) {
     throw new Error("Failed to create control tabs.");
   }
 
-  buildCheckpointTab(checkpointTab);
+  buildStructureTab(structureTab);
   buildPillarTab(pillarTab);
   buildFireTab(fireTab);
   buildOfferingTab(offeringTab);
@@ -103,16 +110,18 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     },
   };
 
-  function activeType() {
-    return getCheckpointType(config.typeId);
+  function activeStructure() {
+    return getStructure(config.typeId);
   }
 
   function usesProp(prop: PropId): boolean {
-    return activeType().props.includes(prop);
+    return activeStructure().props.includes(prop);
   }
 
   function dispatch(scopes: readonly RebuildScope[], reframe: boolean): void {
-    const sections = sectionsForScopes(scopes);
+    // Resolved against the active structure, since a scope maps to whichever
+    // sections that structure declares rather than to a fixed set.
+    const sections = sectionsForScopes(scopes, activeStructure());
 
     if (sections.size > 0) {
       scene.rebuild(config, sections);
@@ -132,6 +141,8 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     if (scopes.includes("view")) {
       scene.setWireframe(config.view.wireframe);
       scene.setVertexNormalsVisible(config.view.vertexNormals);
+      scene.setGreybox(config.view.greybox);
+      scene.setPatchDebugVisible(config.view.patchDebug);
     }
 
     refreshStats();
@@ -143,16 +154,17 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
   }
 
   function refreshStats(): void {
-    applyStats(mirrors, scene.getStats());
+    applyStats(mirrors, scene.getStats(), activeStructure().sections[0] ?? "");
     pane.refresh();
   }
 
-  function buildCheckpointTab(page: TabPageApi): void {
+  function buildStructureTab(page: TabPageApi): void {
     const folders = createFolderRegistry();
 
-    // One layout group per registered type, gated on the active type. A new
-    // type contributes its folders here purely from its layoutControls table.
-    for (const definition of listCheckpointTypes()) {
+    // One layout group per registered structure, gated on the active one. A new
+    // structure contributes its folders here purely from its layoutControls
+    // table, including any control that gates on one of its own fields.
+    for (const definition of listStructures()) {
       const layout = config.layouts[definition.id] ?? definition.cloneLayout();
       config.layouts[definition.id] = layout;
       const bound = bindControls(
@@ -162,10 +174,15 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
         dispatch,
         folders,
       );
-      visibility.addBlades(
-        bound.map((control) => control.binding),
-        (current) => current.typeId === definition.id,
-      );
+
+      for (const control of bound) {
+        const { visibleWhen } = control.spec;
+        visibility.addBlades(
+          [control.binding],
+          (current) => current.typeId === definition.id
+            && (visibleWhen === undefined || visibleWhen(layout)),
+        );
+      }
     }
 
     const stone = bindControls(page, config.stone, SHARED_STONE_CONTROLS, dispatch, folders);
@@ -183,9 +200,10 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
 
     autoHideFolders(folders);
     addStatsFolder(page, "Geometry", [
-      statRow(mirrors.shell, "stones", "stones"),
-      statRow(mirrors.shell, "vertices", "vertices"),
-      statRow(mirrors.shell, "triangles", "triangles"),
+      statRow(mirrors.structure, "stones", "stones"),
+      statRow(mirrors.structure, "vertices", "vertices"),
+      statRow(mirrors.structure, "triangles", "triangles"),
+      statRow(mirrors.validation, "status", "validation"),
     ]);
   }
 
@@ -332,7 +350,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
    * type does not use gets an explanatory line instead of looking broken.
    */
   function addTabNote(page: TabPageApi, visible: () => boolean): void {
-    const note = { note: "Not used by this checkpoint type" };
+    const note = { note: "Not used by this structure" };
     const binding = page.addBinding(note, "note", {
       label: "",
       readonly: true,
@@ -348,9 +366,10 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     const folder = page.addFolder({ title, expanded: false });
 
     for (const row of rows) {
-      // Stat mirrors are all number-valued; the cast keeps addBinding's key
-      // inference from collapsing to never on the erased `object` target.
-      folder.addBinding(row.target as Record<string, number>, row.key, {
+      // The cast keeps addBinding's key inference from collapsing to never on
+      // the erased `object` target. Rows are numbers apart from the validation
+      // line, which Tweakpane renders as a readonly string just as happily.
+      folder.addBinding(row.target as Record<string, number | string>, row.key, {
         label: row.label,
         readonly: true,
       });
@@ -358,17 +377,27 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
   }
 }
 
-function applyStats(mirrors: StatMirrors, stats: ReturnType<MainScene["getStats"]>): void {
-  mirrors.shell.stones = stats.sections.layout.stoneCount;
-  mirrors.shell.vertices = stats.sections.layout.vertexCount;
-  mirrors.shell.triangles = stats.sections.layout.triangleCount;
-  mirrors.pillars.parts = stats.sections.pillars.partCount;
-  mirrors.pillars.stones = stats.sections.pillars.stoneCount;
-  mirrors.pillars.vertices = stats.sections.pillars.vertexCount;
-  mirrors.pillars.triangles = stats.sections.pillars.triangleCount;
-  mirrors.bowls.parts = stats.sections.fireBowls.partCount;
-  mirrors.bowls.vertices = stats.sections.fireBowls.vertexCount;
-  mirrors.bowls.triangles = stats.sections.fireBowls.triangleCount;
+function applyStats(
+  mirrors: StatMirrors,
+  stats: ReturnType<MainScene["getStats"]>,
+  primarySection: PartSection,
+): void {
+  // Section names are per-structure now, so a lookup can legitimately miss —
+  // the mass structure has no "pillars" section and never will.
+  const section = (name: PartSection): PartStats =>
+    stats.sections[name] ?? emptyPartStats();
+
+  const primary = section(primarySection);
+  mirrors.structure.stones = primary.stoneCount;
+  mirrors.structure.vertices = primary.vertexCount;
+  mirrors.structure.triangles = primary.triangleCount;
+  mirrors.pillars.parts = section("pillars").partCount;
+  mirrors.pillars.stones = section("pillars").stoneCount;
+  mirrors.pillars.vertices = section("pillars").vertexCount;
+  mirrors.pillars.triangles = section("pillars").triangleCount;
+  mirrors.bowls.parts = section("fireBowls").partCount;
+  mirrors.bowls.vertices = section("fireBowls").vertexCount;
+  mirrors.bowls.triangles = section("fireBowls").triangleCount;
   mirrors.flames.count = stats.flames.count;
   mirrors.flames.vertices = stats.flames.vertexCount;
   mirrors.flames.triangles = stats.flames.triangleCount;
@@ -377,6 +406,7 @@ function applyStats(mirrors: StatMirrors, stats: ReturnType<MainScene["getStats"
   mirrors.offering.meshes = stats.offering.meshCount;
   mirrors.offering.vertices = stats.offering.vertexCount;
   mirrors.offering.triangles = stats.offering.triangleCount;
+  mirrors.validation.status = summarizeDiagnostics(stats.diagnostics);
   mirrors.totals.parts = stats.totals.partCount;
   mirrors.totals.stones = stats.totals.stoneCount;
   mirrors.totals.vertices = stats.totals.vertexCount;

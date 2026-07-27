@@ -52,15 +52,11 @@ export function bindControls<T extends object>(
 ): BoundControl<T>[] {
   return specs.map((spec) => {
     const folder = resolveFolder(parent, registry, spec.group);
-    const params = spec.kind === "number"
-      ? {
-        label: spec.label ?? spec.key,
-        min: spec.min,
-        max: spec.max,
-        step: spec.step,
-      }
-      : { label: spec.label ?? spec.key };
-    const binding = folder.addBinding(target, spec.key, params) as BindingApi;
+    const binding = folder.addBinding(
+      target,
+      spec.key,
+      { label: spec.label ?? spec.key, ...bindingParams(spec) },
+    ) as BindingApi;
 
     binding.on("change", () => {
       dispatch(spec.scopes ?? [], spec.reframe === true);
@@ -68,6 +64,30 @@ export function bindControls<T extends object>(
 
     return { spec, binding };
   });
+}
+
+/** The pane parameters a spec's kind implies, beyond its label. */
+function bindingParams<T>(spec: ControlSpec<T>): Record<string, unknown> {
+  switch (spec.kind) {
+    case "number":
+      return { min: spec.min, max: spec.max, step: spec.step };
+    case "list":
+      return { options: spec.options };
+    case "point2":
+      return {
+        picker: "inline",
+        expanded: true,
+        x: { min: spec.min, max: spec.max, step: spec.step },
+        y: {
+          min: spec.min,
+          max: spec.max,
+          step: spec.step,
+          inverted: spec.invertY === true,
+        },
+      };
+    case "boolean":
+      return {};
+  }
 }
 
 /** Finds a bound control by key, for attaching a visibility rule to it. */

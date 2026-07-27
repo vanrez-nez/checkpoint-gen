@@ -30,7 +30,7 @@ export interface PillarPartsResult {
  * Builds the pillar and fire-bowl parts for a set of placements.
  *
  * This is where the pillar/bowl coupling lives — a bowl is sized from the
- * pillar's shaft width and mounted at its height — so checkpoint types only
+ * pillar's shaft width and mounted at its height — so structures only
  * have to decide *where* pillars go.
  *
  * Anchors are always returned in full; `sections` only gates geometry work, so

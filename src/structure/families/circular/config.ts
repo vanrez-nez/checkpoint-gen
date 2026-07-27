@@ -36,20 +36,6 @@ export const DEFAULT_CIRCULAR_LAYOUT: Readonly<CircularLayoutConfig> = {
   tierRiseRatio: 0.06,
 };
 
-export const DEFAULT_CIRCULAR_STONE: Readonly<StoneConfig> = {
-  seed: 741,
-  gapRatio: 0.008,
-  sizeVariation: 0.4,
-  displacement: 0.03,
-};
-
-export const DEFAULT_CIRCULAR_BEVEL: Readonly<BevelConfig> = {
-  enabled: true,
-  widthRatio: 0.03,
-  depthRatio: 0.11,
-  variation: 0.6,
-};
-
 const control = controlsFor<CircularLayoutConfig>();
 
 export const CIRCULAR_LAYOUT_CONTROLS: readonly ControlSpec<CircularLayoutConfig>[] = [

@@ -1,22 +1,24 @@
 import type * as THREE from "three";
-import type { CheckpointConfig } from "../config/checkpoint-config";
+import type { StructureConfig } from "../config/structure-config";
 import { mergeParts } from "../geometry/merge-parts";
 import {
-  PART_SECTIONS,
   emptyCompositionAnchors,
   type CompositionAnchors,
   type GeometryPart,
   type PartSection,
   type PartStats,
 } from "../geometry/part";
-import { getCheckpointType } from "./registry";
+import type { StructureGraph } from "./kernel/graph";
+import { getStructure } from "./registry";
 
 export interface CompositionResult {
-  /** One geometry for the whole checkpoint, with coalesced material groups. */
+  /** One geometry for the whole structure, with coalesced material groups. */
   readonly geometry: THREE.BufferGeometry;
   readonly anchors: CompositionAnchors;
   readonly sections: Readonly<Record<PartSection, PartStats>>;
   readonly totals: PartStats;
+  /** The semantic layer, for structures that resolve one. */
+  readonly graph: StructureGraph | null;
 }
 
 /**
@@ -26,21 +28,30 @@ export interface CompositionResult {
  * most-dragged controls, so callers pass the sections their change actually
  * invalidated (see SECTIONS_BY_SCOPE) and the rest are reused from cache.
  */
-export class CheckpointComposer {
+export class StructureComposer {
   private readonly cache = new Map<PartSection, GeometryPart[]>();
   private anchors: CompositionAnchors = emptyCompositionAnchors();
+  private graph: StructureGraph | null = null;
   private builtTypeId: string | null = null;
 
   build(
-    config: CheckpointConfig,
+    config: StructureConfig,
     sections?: Iterable<PartSection>,
   ): CompositionResult {
-    const definition = getCheckpointType(config.typeId);
+    const definition = getStructure(config.typeId);
     // A type switch invalidates every cached part regardless of what the caller
-    // asked for, since the parts belong to the previous type's layout.
-    const requested = this.builtTypeId === config.typeId
-      ? new Set<PartSection>(sections ?? PART_SECTIONS)
-      : new Set<PartSection>(PART_SECTIONS);
+    // asked for, since the parts belong to the previous type's layout. The old
+    // type's sections are dropped wholesale rather than by name, because the
+    // incoming type may not declare them at all.
+    const typeChanged = this.builtTypeId !== config.typeId;
+
+    if (typeChanged) {
+      this.disposeAll();
+    }
+
+    const requested = typeChanged
+      ? new Set<PartSection>(definition.sections)
+      : new Set<PartSection>(sections ?? definition.sections);
     this.builtTypeId = config.typeId;
 
     const layout = config.layouts[config.typeId] ?? definition.cloneLayout();
@@ -65,7 +76,7 @@ export class CheckpointComposer {
 
       if (!bucket) {
         throw new Error(
-          `Checkpoint type "${definition.id}" returned a "${part.section}" part that was not requested.`,
+          `Structure "" returned a "${part.section}" part that was not requested.`,
         );
       }
 
@@ -73,15 +84,19 @@ export class CheckpointComposer {
     }
 
     this.anchors = result.anchors;
+    this.graph = result.graph ?? null;
 
-    const ordered = PART_SECTIONS.flatMap((section) => this.cache.get(section) ?? []);
-    const merged = mergeParts(ordered);
+    const ordered = definition.sections.flatMap(
+      (section) => this.cache.get(section) ?? [],
+    );
+    const merged = mergeParts(ordered, definition.sections);
 
     return {
       geometry: merged.geometry,
       anchors: this.anchors,
       sections: merged.sections,
       totals: merged.totals,
+      graph: this.graph,
     };
   }
 
@@ -89,14 +104,23 @@ export class CheckpointComposer {
     return this.anchors;
   }
 
+  getGraph(): StructureGraph | null {
+    return this.graph;
+  }
+
   dispose(): void {
-    for (const section of PART_SECTIONS) {
+    this.disposeAll();
+    this.anchors = emptyCompositionAnchors();
+    this.graph = null;
+    this.builtTypeId = null;
+  }
+
+  private disposeAll(): void {
+    for (const section of [...this.cache.keys()]) {
       this.disposeSection(section);
     }
 
     this.cache.clear();
-    this.anchors = emptyCompositionAnchors();
-    this.builtTypeId = null;
   }
 
   private disposeSection(section: PartSection): void {

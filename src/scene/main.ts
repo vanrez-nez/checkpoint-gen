@@ -9,8 +9,11 @@ import {
   migrateMaterialDocument,
   type MaterialGraphDocument,
 } from "material-designer-runtime";
-import { CheckpointComposer } from "../checkpoint/composer";
-import type { CheckpointConfig } from "../config/checkpoint-config";
+import { StructureComposer } from "../structure/composer";
+import { createPatchOverlay, type PatchOverlay } from "../structure/kernel/debug-overlay";
+import type { StructureGraph } from "../structure/kernel/graph";
+import type { Diagnostic } from "../structure/kernel/validate";
+import type { StructureConfig } from "../config/structure-config";
 import type { IlluminationConfig } from "../config/sections";
 import {
   emptySectionStats,
@@ -60,6 +63,8 @@ export interface CompositionStats {
   flames: FlameStats;
   glowLightCount: number;
   offering: OfferingStats;
+  /** Structural diagnostics from the last build, empty for structures without a graph. */
+  diagnostics: readonly Diagnostic[];
 }
 
 type FireGlowEntry = {
@@ -71,15 +76,16 @@ type FireGlowEntry = {
 
 export class MainScene {
   readonly scene = new THREE.Scene();
-  private readonly composer = new CheckpointComposer();
+  private readonly composer = new StructureComposer();
+  private readonly greyboxMaterial: THREE.MeshStandardMaterial;
   private readonly fallbackStoneMaterial: THREE.MeshStandardMaterial;
   private readonly fallbackIronMaterial: THREE.MeshStandardMaterial;
   private readonly fallbackOfferingMaterial: THREE.MeshStandardMaterial;
   private readonly offeringWireframeMaterial: THREE.MeshBasicMaterial;
-  /** The entire generated checkpoint: shell, pillars and bowls in one mesh. */
-  private readonly checkpoint: THREE.Mesh;
+  /** The entire generated structure, merged into one mesh. */
+  private readonly structure: THREE.Mesh;
   private readonly wireframeMaterial: THREE.LineBasicMaterial;
-  private checkpointWireframe: THREE.LineSegments | null = null;
+  private structureWireframe: THREE.LineSegments | null = null;
   private readonly fireBatch: VertexConeFireBatch;
   private readonly fireGlowEntries: FireGlowEntry[] = [];
   private readonly sunLight: THREE.DirectionalLight;
@@ -91,6 +97,10 @@ export class MainScene {
   private offeringSupportCenter: THREE.Vector3 | null = null;
   private readonly offeringMeshes: THREE.Mesh[] = [];
   private vertexNormalsVisible = false;
+  private greyboxEnabled = false;
+  private patchDebugVisible = false;
+  private patchOverlay: PatchOverlay | null = null;
+  private graph: StructureGraph | null = null;
   private anchors: CompositionAnchors;
   private sectionStats = emptySectionStats();
   private totalStats = emptyPartStats();
@@ -111,7 +121,7 @@ export class MainScene {
   private fireTime = 0;
   private wireframeVisible = false;
 
-  constructor(config: CheckpointConfig) {
+  constructor(config: StructureConfig) {
     validateOfferingConfig(config.offering);
     this.offeringConfig = { ...config.offering };
     this.materialScale = config.view.materialScale;
@@ -145,6 +155,13 @@ export class MainScene {
       color: 0xd8d8d8,
       wireframe: true,
     });
+    // Deliberately featureless: no vertex colours, no baked AO, nothing that
+    // could flatter a shape. Only form reads through it.
+    this.greyboxMaterial = new THREE.MeshStandardMaterial({
+      color: 0xb4b4b4,
+      roughness: 1,
+      metalness: 0,
+    });
     this.wireframeMaterial = new THREE.LineBasicMaterial({ color: 0xd8d8d8 });
     this.stoneSurfaceMaterial = this.fallbackStoneMaterial;
     this.ironSurfaceMaterial = this.fallbackIronMaterial;
@@ -152,19 +169,20 @@ export class MainScene {
 
     const composition = this.composer.build(config);
     this.anchors = composition.anchors;
+    this.graph = composition.graph;
     this.sectionStats = composition.sections;
     this.totalStats = composition.totals;
     this.applyGeometryAttributes(composition.geometry);
     // Always both materials, so material group 1 stays addressable even on a
     // build with no iron parts.
-    this.checkpoint = new THREE.Mesh(composition.geometry, [
+    this.structure = new THREE.Mesh(composition.geometry, [
       this.fallbackStoneMaterial,
       this.fallbackIronMaterial,
     ]);
-    this.checkpoint.name = "Checkpoint";
-    this.checkpoint.castShadow = true;
-    this.checkpoint.receiveShadow = true;
-    this.scene.add(this.checkpoint, this.fireBatch.object);
+    this.structure.name = "Structure";
+    this.structure.castShadow = true;
+    this.structure.receiveShadow = true;
+    this.scene.add(this.structure, this.fireBatch.object);
     this.applyFireEffects(config.fire);
 
     this.sunLight = new THREE.DirectionalLight();
@@ -324,20 +342,22 @@ export class MainScene {
    * Omitting `sections` rebuilds everything.
    */
   rebuild(
-    config: CheckpointConfig,
+    config: StructureConfig,
     sections?: Iterable<PartSection>,
   ): CompositionStats {
     const composition = this.composer.build(config, sections);
-    const previousGeometry = this.checkpoint.geometry;
+    const previousGeometry = this.structure.geometry;
     this.applyGeometryAttributes(composition.geometry);
-    this.checkpoint.geometry = composition.geometry;
+    this.structure.geometry = composition.geometry;
     this.anchors = composition.anchors;
+    this.graph = composition.graph;
     this.sectionStats = composition.sections;
     this.totalStats = composition.totals;
     // Rebuilding the wireframe on every geometry swap costs more than the
     // geometry itself, and it is hidden almost always, so drop it and rebuild
     // lazily if the user is actually looking at it.
     this.invalidateWireframe();
+    this.rebuildPatchOverlay();
     this.rebuildVertexNormalsHelper();
     this.updateOfferingTransform();
     this.applyFireEffects(config.fire);
@@ -347,7 +367,7 @@ export class MainScene {
   }
 
   /** Retunes flames and glow lights without touching geometry. */
-  updateFireEffects(config: CheckpointConfig): CompositionStats {
+  updateFireEffects(config: StructureConfig): CompositionStats {
     this.applyFireEffects(config.fire);
     return this.getStats();
   }
@@ -366,12 +386,13 @@ export class MainScene {
       },
       glowLightCount: this.fireGlowEntries.length,
       offering: { ...this.currentOfferingStats },
+      diagnostics: this.graph?.diagnostics ?? [],
     };
   }
 
   getCompositionBounds(): THREE.Box3 {
     this.scene.updateMatrixWorld(true);
-    const bounds = new THREE.Box3().setFromObject(this.checkpoint);
+    const bounds = new THREE.Box3().setFromObject(this.structure);
 
     if (this.offeringRoot && this.offeringConfig.enabled) {
       bounds.expandByObject(this.offeringRoot);
@@ -386,7 +407,7 @@ export class MainScene {
     this.materialScale = scale;
     this.stoneMaterialRuntime?.surface.setScale(scale);
     this.ironMaterialRuntime?.surface.setScale(scale);
-    this.applyMaterialScale(this.checkpoint.geometry);
+    this.applyMaterialScale(this.structure.geometry);
   }
 
   setOfferingConfig(config: OfferingConfig): void {
@@ -404,7 +425,7 @@ export class MainScene {
 
   setWireframe(enabled: boolean): void {
     this.wireframeVisible = enabled;
-    this.checkpoint.visible = !enabled;
+    this.structure.visible = !enabled;
     this.fireBatch.setSceneVisible(!enabled);
     this.refreshOfferingPresentation();
 
@@ -414,14 +435,34 @@ export class MainScene {
 
     if (enabled) {
       this.ensureWireframe().visible = true;
-    } else if (this.checkpointWireframe) {
-      this.checkpointWireframe.visible = false;
+    } else if (this.structureWireframe) {
+      this.structureWireframe.visible = false;
     }
   }
 
   setVertexNormalsVisible(enabled: boolean): void {
     this.vertexNormalsVisible = enabled;
     this.rebuildVertexNormalsHelper();
+  }
+
+  /**
+   * Swaps the surface materials for a neutral matte. Massing is a decision about
+   * proportion and silhouette, and a convincing stone surface makes it much
+   * harder to see whether the proportions are actually right.
+   */
+  setGreybox(enabled: boolean): void {
+    this.greyboxEnabled = enabled;
+    this.refreshStructureMaterials();
+  }
+
+  setPatchDebugVisible(enabled: boolean): void {
+    this.patchDebugVisible = enabled;
+    this.rebuildPatchOverlay();
+  }
+
+  /** The semantic layer behind the current geometry, when there is one. */
+  getGraph(): StructureGraph | null {
+    return this.graph;
   }
 
   setIllumination(config: IlluminationConfig): void {
@@ -446,8 +487,8 @@ export class MainScene {
       1,
     );
     this.crackShadowStrength = THREE.MathUtils.clamp(config.crackShadow, 0, 1);
-    this.applyAmbientOcclusion(this.checkpoint.geometry);
-    this.applyBakedShadow(this.checkpoint.geometry);
+    this.applyAmbientOcclusion(this.structure.geometry);
+    this.applyBakedShadow(this.structure.geometry);
 
     for (const mesh of this.offeringMeshes) {
       this.applyAmbientOcclusion(mesh.geometry);
@@ -491,11 +532,14 @@ export class MainScene {
     this.disposeFireGlowLights();
     this.fireBatch.object.removeFromParent();
     this.fireBatch.dispose();
+    this.patchOverlay?.dispose();
+    this.patchOverlay = null;
+    this.greyboxMaterial.dispose();
     this.fallbackStoneMaterial.dispose();
     this.fallbackIronMaterial.dispose();
     this.fallbackOfferingMaterial.dispose();
     this.offeringWireframeMaterial.dispose();
-    this.checkpoint.geometry.dispose();
+    this.structure.geometry.dispose();
     this.invalidateWireframe();
     this.wireframeMaterial.dispose();
     this.disposeVertexNormalsHelper();
@@ -576,7 +620,7 @@ export class MainScene {
     material.vertexColors = true;
     material.needsUpdate = true;
     this.stoneSurfaceMaterial = material;
-    this.refreshCheckpointMaterials();
+    this.refreshStructureMaterials();
   }
 
   private useIronRuntimeMaterial(runtime: MaterialGraphRuntime): void {
@@ -584,7 +628,7 @@ export class MainScene {
     material.vertexColors = true;
     material.needsUpdate = true;
     this.ironSurfaceMaterial = material;
-    this.refreshCheckpointMaterials();
+    this.refreshStructureMaterials();
   }
 
   private useOfferingRuntimeMaterial(runtime: MaterialGraphRuntime): void {
@@ -595,11 +639,22 @@ export class MainScene {
     this.refreshOfferingPresentation();
   }
 
-  private refreshCheckpointMaterials(): void {
-    this.checkpoint.material = [
-      this.stoneSurfaceMaterial,
-      this.ironSurfaceMaterial,
-    ];
+  private refreshStructureMaterials(): void {
+    this.structure.material = this.greyboxEnabled
+      ? [this.greyboxMaterial, this.greyboxMaterial]
+      : [this.stoneSurfaceMaterial, this.ironSurfaceMaterial];
+  }
+
+  private rebuildPatchOverlay(): void {
+    this.patchOverlay?.dispose();
+    this.patchOverlay = null;
+
+    if (!this.patchDebugVisible || !this.graph) {
+      return;
+    }
+
+    this.patchOverlay = createPatchOverlay(this.graph);
+    this.scene.add(this.patchOverlay.object);
   }
 
   private async loadMaterialRuntime(
@@ -643,26 +698,26 @@ export class MainScene {
   }
 
   private ensureWireframe(): THREE.LineSegments {
-    if (!this.checkpointWireframe) {
-      this.checkpointWireframe = new THREE.LineSegments(
-        new THREE.WireframeGeometry(this.checkpoint.geometry),
+    if (!this.structureWireframe) {
+      this.structureWireframe = new THREE.LineSegments(
+        new THREE.WireframeGeometry(this.structure.geometry),
         this.wireframeMaterial,
       );
-      this.checkpointWireframe.name = "Checkpoint wireframe";
-      this.scene.add(this.checkpointWireframe);
+      this.structureWireframe.name = "Structure wireframe";
+      this.scene.add(this.structureWireframe);
     }
 
-    return this.checkpointWireframe;
+    return this.structureWireframe;
   }
 
   private invalidateWireframe(): void {
-    if (!this.checkpointWireframe) {
+    if (!this.structureWireframe) {
       return;
     }
 
-    this.checkpointWireframe.removeFromParent();
-    this.checkpointWireframe.geometry.dispose();
-    this.checkpointWireframe = null;
+    this.structureWireframe.removeFromParent();
+    this.structureWireframe.geometry.dispose();
+    this.structureWireframe = null;
 
     if (this.wireframeVisible) {
       this.ensureWireframe().visible = true;
@@ -677,13 +732,13 @@ export class MainScene {
     }
 
     // Derived from the composition rather than a type-specific radius, so this
-    // works for any checkpoint type.
+    // works for any structure.
     const size = new THREE.Box3()
-      .setFromObject(this.checkpoint)
+      .setFromObject(this.structure)
       .getSize(new THREE.Vector3())
       .length() * VERTEX_NORMAL_SIZE_RATIO;
     this.vertexNormalsHelper = new VertexNormalsHelper(
-      this.checkpoint,
+      this.structure,
       size,
       0x22d3ee,
     );

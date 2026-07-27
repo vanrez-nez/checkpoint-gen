@@ -1,0 +1,103 @@
+import type { LocalFrame, Orientation } from "./frame";
+
+/**
+ * The semantic rectangular surface every structure system resolves into.
+ *
+ * A patch is not a mesh. It is a bounded surface with a stable parametric domain
+ * (`u`, `v` in [0, 1] plus `d` along the normal), an architectural role, named
+ * edges, and the neighbours it shares boundaries with. Tessellation, masonry,
+ * materials and damage are all readers of patches; none of them writes back.
+ * That direction is what keeps an art change from invalidating the topology it
+ * was applied to.
+ */
+
+/**
+ * Patch roles are open strings rather than a closed union, because rules query
+ * roles and tags rather than switching on a fixed list, and every later phase
+ * introduces roles this one has never heard of. The names below are the ones the
+ * mass system emits; treat them as vocabulary, not as an exhaustive type.
+ */
+export type PatchRole = string;
+
+export const PATCH_ROLES = {
+  groundInterface: "ground_interface",
+  basePlinth: "base_plinth",
+  verticalFacade: "vertical_facade",
+  batteredFacade: "battered_facade",
+  terrace: "terrace",
+  transitionBand: "transition_band",
+  summitFloor: "summit_floor",
+} as const;
+
+/**
+ * How `u`, `v` and `d` map to world space. `planar` is a flat rectangle;
+ * `battered` leans the surface back along its normal as `v` rises; `stepped`
+ * resolves `v` to discrete levels. Later phases add evaluators without changing
+ * how features address the surface.
+ */
+export type PatchEvaluator = "planar" | "battered" | "stepped" | "custom";
+
+/** A named patch boundary, first-class because trims follow boundaries. */
+export interface PatchEdge {
+  readonly id: string;
+  readonly orientation: Orientation;
+  /** Set by later phases; a plinth, coping, cornice or parapet along this edge. */
+  readonly treatment: string | null;
+}
+
+export interface PatchEdges {
+  readonly uMin: PatchEdge;
+  readonly uMax: PatchEdge;
+  readonly vMin: PatchEdge;
+  readonly vMax: PatchEdge;
+}
+
+/** A normalised subdomain a feature or a child system is allowed to occupy. */
+export interface PatchRegion {
+  readonly id: string;
+  readonly uRange: readonly [number, number];
+  readonly vRange: readonly [number, number];
+  /** Higher wins when two regions want the same ground. */
+  readonly priority: number;
+  readonly tags: readonly string[];
+}
+
+/**
+ * An operation applied to a region of a patch. Reserved: the mass system emits
+ * none, and the operation pipeline that consumes these arrives in the next
+ * phase. The field exists now so that phase adds behaviour rather than schema.
+ */
+export interface PatchFeature {
+  readonly id: string;
+  readonly operation: string;
+  readonly regionId: string | null;
+  readonly order: number;
+}
+
+/** A placement point a child entity can attach to. Reserved, as above. */
+export interface PatchAnchor {
+  readonly id: string;
+  readonly kind: string;
+  readonly u: number;
+  readonly v: number;
+  readonly d: number;
+}
+
+export interface Patch {
+  readonly id: string;
+  readonly role: PatchRole;
+  readonly frame: LocalFrame;
+  readonly dimensions: {
+    readonly u: number;
+    readonly v: number;
+    readonly thickness: number;
+  };
+  readonly evaluator: PatchEvaluator;
+  readonly edges: PatchEdges;
+  /** Ids of patches sharing a boundary. Always symmetric — see `linkPatches`. */
+  readonly adjacency: readonly string[];
+  readonly regions: readonly PatchRegion[];
+  readonly features: readonly PatchFeature[];
+  readonly anchors: readonly PatchAnchor[];
+  readonly tags: readonly string[];
+}

@@ -1,0 +1,953 @@
+{
+  "schemaVersion": "1.0",
+  "id": "structure",
+  "units": "meters",
+  "seeds": {
+    "massing": 3564796313,
+    "plan": 285855743,
+    "facade": 32680959,
+    "construction": 36520146,
+    "material": 435251876,
+    "condition": 4133963318
+  },
+  "site": {
+    "upAxis": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+    },
+    "frontAxis": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+    },
+    "groundY": 0
+  },
+  "masses": [
+    {
+      "id": "structure/mass_main",
+      "footprint": {
+        "minX": -12,
+        "maxX": 12,
+        "minZ": -9,
+        "maxZ": 9
+      },
+      "baseTreatment": "none",
+      "bands": [
+        {
+          "id": "structure/mass_main/band_01",
+          "index": 0,
+          "bottomY": 0,
+          "topY": 1.2,
+          "rise": 1.2,
+          "lower": {
+            "minX": -12,
+            "maxX": 12,
+            "minZ": -9,
+            "maxZ": 9
+          },
+          "upper": {
+            "minX": -12,
+            "maxX": 12,
+            "minZ": -9,
+            "maxZ": 9
+          },
+          "wallProfile": "vertical",
+          "surfaceRole": "vertical_facade",
+          "upperTransition": "walkable_terrace",
+          "walkable": true
+        },
+        {
+          "id": "structure/mass_main/band_02",
+          "index": 1,
+          "bottomY": 1.2,
+          "topY": 2.4,
+          "rise": 1.2,
+          "lower": {
+            "minX": -9.6,
+            "maxX": 9.6,
+            "minZ": -7.2,
+            "maxZ": 7.2
+          },
+          "upper": {
+            "minX": -9.6,
+            "maxX": 9.6,
+            "minZ": -7.2,
+            "maxZ": 7.2
+          },
+          "wallProfile": "vertical",
+          "surfaceRole": "vertical_facade",
+          "upperTransition": "none",
+          "walkable": false
+        }
+      ],
+      "summit": {
+        "y": 2.4,
+        "rect": {
+          "minX": -9.6,
+          "maxX": 9.6,
+          "minZ": -7.2,
+          "maxZ": 7.2
+        },
+        "buildable": {
+          "minX": -8.4,
+          "maxX": 8.4,
+          "minZ": -6,
+          "maxZ": 6
+        },
+        "treatment": "open_floor",
+        "patchId": "structure/mass_main/band_02/summit_floor"
+      },
+      "totalHeight": 2.4,
+      "patchIds": [
+        "structure/mass_main/band_01/facade_front",
+        "structure/mass_main/band_01/facade_rear",
+        "structure/mass_main/band_01/facade_side_positive_u",
+        "structure/mass_main/band_01/facade_side_negative_u",
+        "structure/mass_main/band_02/facade_front",
+        "structure/mass_main/band_02/facade_rear",
+        "structure/mass_main/band_02/facade_side_positive_u",
+        "structure/mass_main/band_02/facade_side_negative_u"
+      ]
+    }
+  ],
+  "patches": [
+    {
+      "id": "structure/mass_main/ground_interface",
+      "role": "ground_interface",
+      "frame": {
+        "origin": {
+          "x": -12,
+          "y": 0,
+          "z": -9
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "normal": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "uLength": 24,
+        "vLength": 18
+      },
+      "dimensions": {
+        "u": 24,
+        "v": 18,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/ground_interface/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/ground_interface/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/ground_interface/edge_v_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/ground_interface/edge_v_max",
+          "orientation": "front",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_01/facade_front",
+        "structure/mass_main/band_01/facade_rear",
+        "structure/mass_main/band_01/facade_side_negative_u",
+        "structure/mass_main/band_01/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "traversable",
+        "exterior"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_01/facade_front",
+      "role": "vertical_facade",
+      "frame": {
+        "origin": {
+          "x": -12,
+          "y": 0,
+          "z": 9
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "uLength": 24,
+        "vLength": 1.2
+      },
+      "dimensions": {
+        "u": 24,
+        "v": 1.2,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_01/facade_front/edge_u_min",
+          "orientation": "front",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_01/facade_front/edge_u_max",
+          "orientation": "front",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_01/facade_front/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_01/facade_front/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_01/facade_rear",
+        "structure/mass_main/band_01/facade_side_negative_u",
+        "structure/mass_main/band_01/terrace",
+        "structure/mass_main/ground_interface"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "front"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_01/facade_rear",
+      "role": "vertical_facade",
+      "frame": {
+        "origin": {
+          "x": 12,
+          "y": 0,
+          "z": -9
+        },
+        "uAxis": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "uLength": 24,
+        "vLength": 1.2
+      },
+      "dimensions": {
+        "u": 24,
+        "v": 1.2,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_01/facade_rear/edge_u_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_01/facade_rear/edge_u_max",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_01/facade_rear/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_01/facade_rear/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_01/facade_front",
+        "structure/mass_main/band_01/facade_side_positive_u",
+        "structure/mass_main/band_01/terrace",
+        "structure/mass_main/ground_interface"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "rear"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_01/facade_side_positive_u",
+      "role": "vertical_facade",
+      "frame": {
+        "origin": {
+          "x": 12,
+          "y": 0,
+          "z": 9
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 18,
+        "vLength": 1.2
+      },
+      "dimensions": {
+        "u": 18,
+        "v": 1.2,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_01/facade_side_positive_u/edge_u_min",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_01/facade_side_positive_u/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_01/facade_side_positive_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_01/facade_side_positive_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_01/facade_rear",
+        "structure/mass_main/band_01/facade_side_negative_u",
+        "structure/mass_main/band_01/terrace",
+        "structure/mass_main/ground_interface"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "sidePositiveU"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_01/facade_side_negative_u",
+      "role": "vertical_facade",
+      "frame": {
+        "origin": {
+          "x": -12,
+          "y": 0,
+          "z": -9
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 18,
+        "vLength": 1.2
+      },
+      "dimensions": {
+        "u": 18,
+        "v": 1.2,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_01/facade_side_negative_u/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_01/facade_side_negative_u/edge_u_max",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_01/facade_side_negative_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_01/facade_side_negative_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_01/facade_front",
+        "structure/mass_main/band_01/facade_side_positive_u",
+        "structure/mass_main/band_01/terrace",
+        "structure/mass_main/ground_interface"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "sideNegativeU"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_01/terrace",
+      "role": "terrace",
+      "frame": {
+        "origin": {
+          "x": -12,
+          "y": 1.2,
+          "z": -9
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "normal": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "uLength": 24,
+        "vLength": 18
+      },
+      "dimensions": {
+        "u": 24,
+        "v": 18,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_01/terrace/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_01/terrace/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_01/terrace/edge_v_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_01/terrace/edge_v_max",
+          "orientation": "front",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_01/facade_front",
+        "structure/mass_main/band_01/facade_rear",
+        "structure/mass_main/band_01/facade_side_negative_u",
+        "structure/mass_main/band_01/facade_side_positive_u",
+        "structure/mass_main/band_02/facade_front",
+        "structure/mass_main/band_02/facade_rear",
+        "structure/mass_main/band_02/facade_side_negative_u",
+        "structure/mass_main/band_02/facade_side_positive_u"
+      ],
+      "regions": [
+        {
+          "id": "structure/mass_main/band_01/terrace/covered",
+          "uRange": [
+            0.1,
+            0.9
+          ],
+          "vRange": [
+            0.1,
+            0.9
+          ],
+          "priority": 100,
+          "tags": [
+            "occupied",
+            "no_build"
+          ]
+        }
+      ],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "traversable",
+        "exterior"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_02/facade_front",
+      "role": "vertical_facade",
+      "frame": {
+        "origin": {
+          "x": -9.6,
+          "y": 1.2,
+          "z": 7.2
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "uLength": 19.2,
+        "vLength": 1.2
+      },
+      "dimensions": {
+        "u": 19.2,
+        "v": 1.2,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_02/facade_front/edge_u_min",
+          "orientation": "front",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_02/facade_front/edge_u_max",
+          "orientation": "front",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_02/facade_front/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_02/facade_front/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_01/terrace",
+        "structure/mass_main/band_02/facade_rear",
+        "structure/mass_main/band_02/facade_side_negative_u",
+        "structure/mass_main/band_02/summit_floor"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "front"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_02/facade_rear",
+      "role": "vertical_facade",
+      "frame": {
+        "origin": {
+          "x": 9.6,
+          "y": 1.2,
+          "z": -7.2
+        },
+        "uAxis": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "uLength": 19.2,
+        "vLength": 1.2
+      },
+      "dimensions": {
+        "u": 19.2,
+        "v": 1.2,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_02/facade_rear/edge_u_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_02/facade_rear/edge_u_max",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_02/facade_rear/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_02/facade_rear/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_01/terrace",
+        "structure/mass_main/band_02/facade_front",
+        "structure/mass_main/band_02/facade_side_positive_u",
+        "structure/mass_main/band_02/summit_floor"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "rear"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_02/facade_side_positive_u",
+      "role": "vertical_facade",
+      "frame": {
+        "origin": {
+          "x": 9.6,
+          "y": 1.2,
+          "z": 7.2
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 14.4,
+        "vLength": 1.2
+      },
+      "dimensions": {
+        "u": 14.4,
+        "v": 1.2,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_02/facade_side_positive_u/edge_u_min",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_02/facade_side_positive_u/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_02/facade_side_positive_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_02/facade_side_positive_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_01/terrace",
+        "structure/mass_main/band_02/facade_rear",
+        "structure/mass_main/band_02/facade_side_negative_u",
+        "structure/mass_main/band_02/summit_floor"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "sidePositiveU"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_02/facade_side_negative_u",
+      "role": "vertical_facade",
+      "frame": {
+        "origin": {
+          "x": -9.6,
+          "y": 1.2,
+          "z": -7.2
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 14.4,
+        "vLength": 1.2
+      },
+      "dimensions": {
+        "u": 14.4,
+        "v": 1.2,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_02/facade_side_negative_u/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_02/facade_side_negative_u/edge_u_max",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_02/facade_side_negative_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_02/facade_side_negative_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_01/terrace",
+        "structure/mass_main/band_02/facade_front",
+        "structure/mass_main/band_02/facade_side_positive_u",
+        "structure/mass_main/band_02/summit_floor"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "sideNegativeU"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_02/summit_floor",
+      "role": "summit_floor",
+      "frame": {
+        "origin": {
+          "x": -9.6,
+          "y": 2.4,
+          "z": -7.2
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "normal": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "uLength": 19.2,
+        "vLength": 14.4
+      },
+      "dimensions": {
+        "u": 19.2,
+        "v": 14.4,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_02/summit_floor/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_02/summit_floor/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_02/summit_floor/edge_v_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_02/summit_floor/edge_v_max",
+          "orientation": "front",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_02/facade_front",
+        "structure/mass_main/band_02/facade_rear",
+        "structure/mass_main/band_02/facade_side_negative_u",
+        "structure/mass_main/band_02/facade_side_positive_u"
+      ],
+      "regions": [
+        {
+          "id": "structure/mass_main/band_02/summit_floor/buildable",
+          "uRange": [
+            0.0625,
+            0.9375
+          ],
+          "vRange": [
+            0.083333,
+            0.916667
+          ],
+          "priority": 10,
+          "tags": [
+            "buildable"
+          ]
+        },
+        {
+          "id": "structure/mass_main/band_02/summit_floor/forecourt",
+          "uRange": [
+            0.0625,
+            0.9375
+          ],
+          "vRange": [
+            0.708333,
+            0.916667
+          ],
+          "priority": 100,
+          "tags": [
+            "circulation",
+            "stair_arrival",
+            "no_build"
+          ]
+        },
+        {
+          "id": "structure/mass_main/band_02/summit_floor/building_pad",
+          "uRange": [
+            0.0625,
+            0.9375
+          ],
+          "vRange": [
+            0.083333,
+            0.708333
+          ],
+          "priority": 50,
+          "tags": [
+            "buildable",
+            "superstructure"
+          ]
+        }
+      ],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "traversable",
+        "exterior",
+        "buildable"
+      ]
+    }
+  ],
+  "connectors": [],
+  "cells": [],
+  "frames": [],
+  "roofs": [],
+  "attachments": [],
+  "damage": [],
+  "diagnostics": []
+}

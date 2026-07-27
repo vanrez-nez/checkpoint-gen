@@ -10,15 +10,19 @@ export const MATERIAL_SLOTS = ["stone", "iron"] as const;
 export type MaterialSlot = (typeof MATERIAL_SLOTS)[number];
 
 /**
- * Rebuild granularity. A checkpoint type emits parts tagged by section so the
- * composer can regenerate just the sections whose configuration changed.
+ * Rebuild granularity. A type emits parts tagged by section so the composer can
+ * regenerate just the sections whose configuration changed.
+ *
+ * Section names are open rather than a fixed union: each type declares its own
+ * list, and the composer, the stats and the merge ordering all read that list.
+ * A masonry checkpoint's sections ("layout", "pillars", "fireBowls") and a mass
+ * structure's ("mass") have nothing in common, and neither should have to know
+ * the other exists.
  */
-export const PART_SECTIONS = ["layout", "pillars", "fireBowls"] as const;
-
-export type PartSection = (typeof PART_SECTIONS)[number];
+export type PartSection = string;
 
 /**
- * A local-space chunk of a checkpoint composition.
+ * A local-space chunk of a structure composition.
  *
  * The geometry must carry `position`, `normal`, an index, and the three
  * `userData` base arrays produced by `finalizeStoneGeometry`. Parts are cached
@@ -64,7 +68,7 @@ export interface OfferingAnchor {
  * flickering glow lights.
  */
 export interface CompositionAnchors {
-  /** Null when the active checkpoint type has no offering surface. */
+  /** Null when the active structure has no offering surface. */
   readonly offering: OfferingAnchor | null;
   /** One per fire bowl. `y` is the absolute mount height, flame base excluded. */
   readonly flames: readonly CompositionAnchor[];
@@ -84,12 +88,20 @@ export function emptyPartStats(): PartStats {
   };
 }
 
-export function emptySectionStats(): Record<PartSection, PartStats> {
-  return {
-    layout: emptyPartStats(),
-    pillars: emptyPartStats(),
-    fireBowls: emptyPartStats(),
-  };
+/**
+ * Zeroed stats for every declared section, so a section that produced nothing
+ * this build still reports zero rather than vanishing from the readout.
+ */
+export function emptySectionStats(
+  sections: Iterable<PartSection> = [],
+): Record<PartSection, PartStats> {
+  const stats: Record<PartSection, PartStats> = {};
+
+  for (const section of sections) {
+    stats[section] = emptyPartStats();
+  }
+
+  return stats;
 }
 
 export function emptyCompositionAnchors(): CompositionAnchors {

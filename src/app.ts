@@ -2,7 +2,7 @@ import "./style.css";
 import * as THREE from "three";
 import { WebGPURenderer } from "three/webgpu";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { createDefaultCheckpointConfig } from "./config/checkpoint-config";
+import { createDefaultStructureConfig } from "./config/structure-config";
 import { MainScene } from "./scene/main";
 import { createControlPane } from "./ui/create-pane";
 
@@ -20,7 +20,7 @@ if (!canvas || !paneHost) {
 }
 
 const sceneCanvas = canvas;
-const config = createDefaultCheckpointConfig();
+const config = createDefaultStructureConfig();
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
 const renderer = new WebGPURenderer({ canvas: sceneCanvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));

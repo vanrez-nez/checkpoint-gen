@@ -4,7 +4,13 @@
  * `pane.refresh()`.
  */
 export interface StatMirrors {
-  shell: { stones: number; vertices: number; triangles: number };
+  /**
+   * The active structure's own geometry, read from its first declared section.
+   * Sections are declared in merge order and a structure's shell comes first, so
+   * this reports the circular checkpoint's paving and the mass structure's
+   * massing without either of them being named here.
+   */
+  structure: { stones: number; vertices: number; triangles: number };
   pillars: { parts: number; stones: number; vertices: number; triangles: number };
   bowls: { parts: number; vertices: number; triangles: number };
   flames: {
@@ -16,6 +22,13 @@ export interface StatMirrors {
   };
   offering: { meshes: number; vertices: number; triangles: number };
   totals: { parts: number; stones: number; vertices: number; triangles: number };
+  /**
+   * The structural validator's verdict on the last build, in one line. Errors
+   * and repairs are reported while tuning rather than only in the test suite,
+   * because a repaired build is one whose result differs from what was asked
+   * for, and that is exactly what you need to see while asking for it.
+   */
+  validation: { status: string };
 }
 
 export interface StatRow {
@@ -26,13 +39,46 @@ export interface StatRow {
 
 export function createStatMirrors(): StatMirrors {
   return {
-    shell: { stones: 0, vertices: 0, triangles: 0 },
+    structure: { stones: 0, vertices: 0, triangles: 0 },
     pillars: { parts: 0, stones: 0, vertices: 0, triangles: 0 },
     bowls: { parts: 0, vertices: 0, triangles: 0 },
     flames: { count: 0, vertices: 0, triangles: 0, draws: 0, glowLights: 0 },
     offering: { meshes: 0, vertices: 0, triangles: 0 },
     totals: { parts: 0, stones: 0, vertices: 0, triangles: 0 },
+    validation: { status: "ok" },
   };
+}
+
+/**
+ * One line for the whole diagnostic list: the worst severity present, how many
+ * there are, and the first message, since that is almost always the one that
+ * explains the rest.
+ */
+export function summarizeDiagnostics(
+  diagnostics: readonly {
+    readonly severity: "error" | "warning" | "notice";
+    readonly message: string;
+    readonly resolved?: string;
+  }[],
+): string {
+  if (diagnostics.length === 0) {
+    return "ok";
+  }
+
+  for (const severity of ["error", "warning", "notice"] as const) {
+    const matching = diagnostics.filter((entry) => entry.severity === severity);
+    const first = matching[0];
+
+    if (!first) {
+      continue;
+    }
+
+    const count = matching.length > 1 ? ` (${matching.length})` : "";
+    const resolution = first.resolved === undefined ? "" : ` → ${first.resolved}`;
+    return `${severity}${count}: ${first.message}${resolution}`;
+  }
+
+  return "ok";
 }
 
 export function statRow(target: object, key: string, label: string): StatRow {

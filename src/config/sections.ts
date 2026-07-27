@@ -25,16 +25,49 @@ export interface BevelConfig {
   variation: number;
 }
 
+/**
+ * Baseline masonry, shared by every structure that opts into the `stone` and
+ * `bevel` props. These values were tuned against the circular checkpoint, which
+ * is the default structure; a structure that declares neither prop never reads
+ * them.
+ */
+export const DEFAULT_STONE_CONFIG: Readonly<StoneConfig> = {
+  seed: 741,
+  gapRatio: 0.008,
+  sizeVariation: 0.4,
+  displacement: 0.03,
+};
+
+export const DEFAULT_BEVEL_CONFIG: Readonly<BevelConfig> = {
+  enabled: true,
+  widthRatio: 0.03,
+  depthRatio: 0.11,
+  variation: 0.6,
+};
+
 /** Presentation toggles that never touch geometry generation. */
 export interface ViewConfig {
   wireframe: boolean;
   vertexNormals: boolean;
+  /**
+   * Replaces the surface materials with a neutral matte, so massing can be
+   * judged on silhouette and proportion rather than on how the stone reads.
+   */
+  greybox: boolean;
+  /**
+   * Draws the semantic layer: one frame per patch, coloured by role. Without it
+   * only the silhouette is visible, and the patches are the part that actually
+   * has to be right.
+   */
+  patchDebug: boolean;
   materialScale: number;
 }
 
 export const DEFAULT_VIEW_CONFIG: Readonly<ViewConfig> = {
   wireframe: false,
   vertexNormals: false,
+  greybox: false,
+  patchDebug: false,
   materialScale: 1,
 };
 
@@ -180,6 +213,20 @@ export const VIEW_CONTROLS: readonly ControlSpec<ViewConfig>[] = [
     key: "vertexNormals",
     label: "vertex normals",
     name: "Vertex normals",
+    group: "View",
+    scopes: ["view"],
+  }),
+  view.boolean({
+    key: "greybox",
+    label: "greybox shading",
+    name: "Greybox shading",
+    group: "View",
+    scopes: ["view"],
+  }),
+  view.boolean({
+    key: "patchDebug",
+    label: "patch debug",
+    name: "Patch debug",
     group: "View",
     scopes: ["view"],
   }),

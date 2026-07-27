@@ -1,37 +1,42 @@
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { CheckpointComposer } from "../src/checkpoint/composer";
+import { StructureComposer } from "../src/structure/composer";
 import {
-  CHECKPOINT_TYPES,
-  checkpointTypeOptions,
-  getCheckpointType,
-  listCheckpointTypes,
-} from "../src/checkpoint/registry";
+  DEFAULT_STRUCTURE_ID,
+  STRUCTURES,
+  structureOptions,
+  getStructure,
+  listStructures,
+} from "../src/structure/registry";
 import {
-  DEFAULT_CIRCULAR_BEVEL,
   DEFAULT_CIRCULAR_LAYOUT,
-  DEFAULT_CIRCULAR_STONE,
   CIRCULAR_LAYOUT_CONTROLS,
   toShellConfig,
   validateCircularLayout,
-} from "../src/checkpoint/types/circular/config";
+} from "../src/structure/families/circular/config";
+import {
+  DEFAULT_MASS_LAYOUT,
+  MASS_LAYOUT_CONTROLS,
+} from "../src/structure/families/mass/config";
 import {
   createCircularPlacements,
   createPolarEntryFrames,
-} from "../src/checkpoint/types/circular/layout";
+} from "../src/structure/families/circular/layout";
 import {
   buildCircularShell,
   circularCenterMetrics,
-} from "../src/checkpoint/types/circular/shell";
+} from "../src/structure/families/circular/shell";
 import {
-  createDefaultCheckpointConfig,
+  createDefaultStructureConfig,
   sectionsForScopes,
-} from "../src/config/checkpoint-config";
+} from "../src/config/structure-config";
 import { validateControls, type ControlSpec } from "../src/config/control-spec";
 import {
   ILLUMINATION_CONTROLS,
   VIEW_CONTROLS,
+  DEFAULT_BEVEL_CONFIG,
   DEFAULT_ILLUMINATION_CONFIG,
+  DEFAULT_STONE_CONFIG,
   DEFAULT_VIEW_CONFIG,
   createBevelControls,
   createStoneControls,
@@ -81,13 +86,13 @@ import {
 } from "../src/props/offering/model";
 import { MainScene } from "../src/scene/main";
 
-const config = createDefaultCheckpointConfig();
+const config = createDefaultStructureConfig();
 const layout = DEFAULT_CIRCULAR_LAYOUT;
 const pillarConfig = config.pillar;
 
 // --- shell -----------------------------------------------------------------
 const shell = buildCircularShell(
-  toShellConfig(layout, DEFAULT_CIRCULAR_STONE, DEFAULT_CIRCULAR_BEVEL),
+  toShellConfig(layout, DEFAULT_STONE_CONFIG, DEFAULT_BEVEL_CONFIG),
 );
 const pillar = createPillarGeometry(
   toPillarGeometryConfig(pillarConfig, pillarConfig.stone.seed),
@@ -114,8 +119,8 @@ assert.ok(Math.abs(centerMetrics.centerDiameter - shell.centerDiameter) < 1e-12)
 // be the tail of the buffer, which only held while it was the last stone added.
 const flatCenterShell = buildCircularShell(toShellConfig(
   layout,
-  DEFAULT_CIRCULAR_STONE,
-  { ...DEFAULT_CIRCULAR_BEVEL, enabled: false },
+  DEFAULT_STONE_CONFIG,
+  { ...DEFAULT_BEVEL_CONFIG, enabled: false },
 ));
 const flatCenterPositions = flatCenterShell.geometry.getAttribute("position");
 assert.equal(flatCenterShell.centerVertexCount, 4 + 4 * 4);
@@ -357,8 +362,8 @@ assert.ok(Math.abs((threeEntryFrames[2]?.angle ?? 0) - Math.PI * 4 / 3) < 1e-12)
 assertValidGeometry(
   buildCircularShell(toShellConfig(
     { ...layout, entryCount: 3 },
-    DEFAULT_CIRCULAR_STONE,
-    DEFAULT_CIRCULAR_BEVEL,
+    DEFAULT_STONE_CONFIG,
+    DEFAULT_BEVEL_CONFIG,
   )).geometry,
   "three-entry shell",
 );
@@ -402,7 +407,13 @@ const syntheticIron = createSyntheticPart(
 );
 const syntheticStoneCount = syntheticStoneGeometry.getAttribute("position").count;
 const syntheticIronCount = syntheticIronGeometry.getAttribute("position").count;
-const syntheticMerge = mergeParts([syntheticIron, syntheticStone]);
+// Declaring the sections up front is what makes an empty section report zero
+// instead of disappearing from the stats.
+const CIRCULAR_SECTIONS: readonly PartSection[] = ["layout", "pillars", "fireBowls"];
+const syntheticMerge = mergeParts(
+  [syntheticIron, syntheticStone],
+  CIRCULAR_SECTIONS,
+);
 const syntheticPositions = syntheticMerge.geometry.getAttribute("position");
 const syntheticIndex = syntheticMerge.geometry.getIndex();
 
@@ -503,7 +514,7 @@ assert.ok(
 
 // A single-slot composition still emits one full-coverage group, because a mesh
 // with an array material draws nothing when the geometry has no groups.
-const stoneOnlyMerge = mergeParts([syntheticStone]);
+const stoneOnlyMerge = mergeParts([syntheticStone], CIRCULAR_SECTIONS);
 assert.equal(stoneOnlyMerge.geometry.groups.length, 1);
 assert.equal(stoneOnlyMerge.geometry.groups[0]?.materialIndex, 0);
 assert.equal(stoneOnlyMerge.geometry.groups[0]?.start, 0);
@@ -539,7 +550,7 @@ assert.throws(
 );
 
 // --- composition -----------------------------------------------------------
-const composer = new CheckpointComposer();
+const composer = new StructureComposer();
 const composition = composer.build(config);
 const compositionPositions = composition.geometry.getAttribute("position");
 const compositionNormals = composition.geometry.getAttribute("normal");
@@ -700,7 +711,7 @@ assert.equal(zeroNormals, expectedZeroNormals);
 assert.ok(worstNormalError < 1e-5, `Merged normals drifted by ${worstNormalError}.`);
 
 // Building the same config twice is deterministic.
-const repeatedComposition = new CheckpointComposer().build(config);
+const repeatedComposition = new StructureComposer().build(config);
 assert.deepEqual(
   Array.from(repeatedComposition.geometry.getAttribute("position").array),
   Array.from(compositionPositions.array),
@@ -713,15 +724,15 @@ assert.deepEqual(
 // A scoped rebuild must equal a full rebuild of the same mutated config, and
 // must leave the cached shell byte-identical. This is what stands between the
 // part cache and a stale-geometry bug.
-const mutatedConfig = createDefaultCheckpointConfig();
+const mutatedConfig = createDefaultStructureConfig();
 mutatedConfig.pillar.height = 2;
-const incrementalComposer = new CheckpointComposer();
-incrementalComposer.build(createDefaultCheckpointConfig());
+const incrementalComposer = new StructureComposer();
+incrementalComposer.build(createDefaultStructureConfig());
 const incremental = incrementalComposer.build(
   mutatedConfig,
   sectionsForScopes(["pillars"]),
 );
-const fullRebuild = new CheckpointComposer().build(mutatedConfig);
+const fullRebuild = new StructureComposer().build(mutatedConfig);
 assert.deepEqual(
   Array.from(incremental.geometry.getAttribute("position").array),
   Array.from(fullRebuild.geometry.getAttribute("position").array),
@@ -736,9 +747,9 @@ for (let vertex = 0; vertex < shell.vertexCount; vertex += 1) {
 }
 
 // Bowls off collapses to a single stone group and drops every fire anchor.
-const noBowlConfig = createDefaultCheckpointConfig();
+const noBowlConfig = createDefaultStructureConfig();
 noBowlConfig.fireBowl.enabled = false;
-const noBowlComposition = new CheckpointComposer().build(noBowlConfig);
+const noBowlComposition = new StructureComposer().build(noBowlConfig);
 assert.equal(noBowlComposition.geometry.groups.length, 1);
 assert.equal(noBowlComposition.geometry.groups[0]?.materialIndex, 0);
 assert.equal(
@@ -750,16 +761,28 @@ assert.equal(noBowlComposition.anchors.flames.length, 0);
 assert.equal(noBowlComposition.anchors.glows.length, 0);
 
 // --- registry --------------------------------------------------------------
-assert.ok(listCheckpointTypes().length >= 1);
+assert.ok(listStructures().length >= 1);
 assert.equal(
-  new Set(CHECKPOINT_TYPES.map((type) => type.id)).size,
-  CHECKPOINT_TYPES.length,
-  "Checkpoint type ids must be unique.",
+  new Set(STRUCTURES.map((type) => type.id)).size,
+  STRUCTURES.length,
+  "Structure ids must be unique.",
 );
-assert.throws(() => getCheckpointType("nope"), /Unknown checkpoint type/);
-assert.deepEqual(checkpointTypeOptions(), { Circular: "circular" });
+assert.throws(() => getStructure("nope"), /Unknown structure/);
+// Every registered structure is offered, under a label of its own — asserted
+// against the registry rather than a literal list, so adding a structure does
+// not mean editing this file.
+assert.deepEqual(
+  structureOptions(),
+  Object.fromEntries(STRUCTURES.map((structure) => [structure.label, structure.id])),
+);
+assert.equal(
+  new Set(STRUCTURES.map((structure) => structure.label)).size,
+  STRUCTURES.length,
+  "Structure labels must be unique, or the dropdown loses an entry.",
+);
+assert.ok(STRUCTURES.some((structure) => structure.id === DEFAULT_STRUCTURE_ID));
 
-for (const definition of CHECKPOINT_TYPES) {
+for (const definition of STRUCTURES) {
   // Props form a dependency chain: flames need a bowl, bowls need a pillar.
   if (definition.props.includes("fire")) {
     assert.ok(definition.props.includes("fireBowl"), `${definition.id}: fire needs fireBowl`);
@@ -769,6 +792,30 @@ for (const definition of CHECKPOINT_TYPES) {
   }
   assert.ok(definition.layoutControls.length > 0, `${definition.id} has no layout controls`);
   assert.doesNotThrow(() => definition.validateLayout(definition.cloneLayout()));
+
+  // Sections are the composer's cache keys and its merge order, so a structure
+  // that declares none or repeats one would silently lose parts.
+  assert.ok(definition.sections.length > 0, `${definition.id} declares no sections`);
+  assert.equal(
+    new Set(definition.sections).size,
+    definition.sections.length,
+    `${definition.id} repeats a section`,
+  );
+
+  // A scope a structure's own controls use must resolve to that structure's own
+  // sections. This is what catches a new structure reusing a shared scope name
+  // without mapping it, which would rebuild nothing at all.
+  for (const spec of definition.layoutControls) {
+    for (const scope of spec.scopes ?? []) {
+      for (const section of sectionsForScopes([scope], definition)) {
+        assert.ok(
+          definition.sections.includes(section),
+          `${definition.id}: control "${spec.key}" scope "${scope}" resolves to `
+          + `section "${section}", which it does not declare.`,
+        );
+      }
+    }
+  }
 }
 
 // --- control specs ---------------------------------------------------------
@@ -776,8 +823,9 @@ for (const definition of CHECKPOINT_TYPES) {
 // range. This is what makes the UI/validator range drift that existed before
 // impossible to reintroduce.
 assertSpecCoverage(CIRCULAR_LAYOUT_CONTROLS, DEFAULT_CIRCULAR_LAYOUT, "circular layout");
-assertSpecCoverage(createStoneControls(["layout"]), DEFAULT_CIRCULAR_STONE, "circular stone");
-assertSpecCoverage(createBevelControls(["layout"]), DEFAULT_CIRCULAR_BEVEL, "circular bevel");
+assertSpecCoverage(MASS_LAYOUT_CONTROLS, DEFAULT_MASS_LAYOUT, "mass layout");
+assertSpecCoverage(createStoneControls(["layout"]), DEFAULT_STONE_CONFIG, "circular stone");
+assertSpecCoverage(createBevelControls(["layout"]), DEFAULT_BEVEL_CONFIG, "circular bevel");
 assertSpecCoverage(PILLAR_LAYOUT_CONTROLS, DEFAULT_PILLAR_CONFIG, "pillar layout");
 assertSpecCoverage(PILLAR_STONE_CONTROLS, DEFAULT_PILLAR_CONFIG.stone, "pillar stone");
 assertSpecCoverage(PILLAR_BEVEL_CONTROLS, DEFAULT_PILLAR_CONFIG.bevel, "pillar bevel");
@@ -926,7 +974,7 @@ assert.throws(
 fireBatch.dispose();
 
 // --- scene -----------------------------------------------------------------
-const sceneConfig = createDefaultCheckpointConfig();
+const sceneConfig = createDefaultStructureConfig();
 const scene = new MainScene(sceneConfig);
 const sceneStats = scene.getStats();
 assert.equal(sceneStats.sections.pillars.partCount, 8);
@@ -939,30 +987,30 @@ assert.equal(sceneStats.flames.vertexCount, 3_400);
 assert.equal(sceneStats.flames.triangleCount, 6_016);
 assert.equal(sceneStats.flames.drawCallCount, 1);
 assert.equal(sceneStats.glowLightCount, 4);
-// One static mesh for the whole checkpoint, where there used to be nine (the
+// One static mesh for the whole structure, where there used to be nine (the
 // plate plus one per pillar). The flame batch is instanced and stays separate.
 const staticMeshes = scene.scene.children.filter((child) => (
   child instanceof THREE.Mesh
   && !(child as THREE.InstancedMesh).isInstancedMesh
 ));
 assert.equal(staticMeshes.length, 1);
-assert.equal(staticMeshes[0]?.name, "Checkpoint");
+assert.equal(staticMeshes[0]?.name, "Structure");
 assert.equal(
   scene.scene.children.filter((child) => child.type === "PointLight").length,
   4,
 );
 assert.equal(scene.scene.getObjectByName("Fire bowl flames")?.type, "Mesh");
 
-const checkpointMesh = scene.scene.getObjectByName("Checkpoint") as THREE.Mesh;
-assert.ok(Array.isArray(checkpointMesh.material));
-assert.equal((checkpointMesh.material as THREE.Material[]).length, 2);
-assert.equal(checkpointMesh.geometry.groups.length, 2);
+const structureMesh = scene.scene.getObjectByName("Structure") as THREE.Mesh;
+assert.ok(Array.isArray(structureMesh.material));
+assert.equal((structureMesh.material as THREE.Material[]).length, 2);
+assert.equal(structureMesh.geometry.groups.length, 2);
 
 // Fire retuning must not rebuild geometry or recreate the flame batch.
 const firstGlowLight = scene.scene.children.find((child) => child.type === "PointLight");
 const flameObject = scene.scene.getObjectByName("Fire bowl flames") as THREE.Mesh;
 const flameGeometry = flameObject.geometry;
-const checkpointGeometry = checkpointMesh.geometry;
+const structureGeometry = structureMesh.geometry;
 sceneConfig.fire.speed = 5;
 sceneConfig.fire.noiseScale = 6;
 sceneConfig.fire.turbulence = 1.5;
@@ -972,14 +1020,14 @@ const tunedFireStats = scene.updateFireEffects(sceneConfig);
 assert.equal(tunedFireStats.flames.count, 8);
 assert.equal(scene.scene.getObjectByName("Fire bowl flames"), flameObject);
 assert.equal(flameObject.geometry, flameGeometry);
-assert.equal(checkpointMesh.geometry, checkpointGeometry);
+assert.equal(structureMesh.geometry, structureGeometry);
 assert.equal(
   scene.scene.children.find((child) => child.type === "PointLight"),
   firstGlowLight,
 );
 assert.equal((firstGlowLight as THREE.PointLight).intensity, 1.2);
 
-const eightEntryConfig = createDefaultCheckpointConfig();
+const eightEntryConfig = createDefaultStructureConfig();
 eightEntryConfig.layouts.circular.entryCount = 8;
 const maximumFireStats = scene.rebuild(eightEntryConfig);
 assert.equal(maximumFireStats.sections.pillars.partCount, 16);
@@ -991,7 +1039,7 @@ assert.equal(
   8,
 );
 
-const noFireConfig = createDefaultCheckpointConfig();
+const noFireConfig = createDefaultStructureConfig();
 noFireConfig.fireBowl.enabled = false;
 const noFireStats = scene.rebuild(noFireConfig);
 assert.equal(noFireStats.flames.count, 0);
@@ -1004,14 +1052,14 @@ assert.equal(
 );
 
 // Bowl size is independent of flame size.
-const scaledBowlConfig = createDefaultCheckpointConfig();
+const scaledBowlConfig = createDefaultStructureConfig();
 scaledBowlConfig.fireBowl.scale = 2;
 const independentFireStats = scene.rebuild(scaledBowlConfig);
 assert.equal(independentFireStats.flames.vertexCount, 3_400);
 assert.equal(independentFireStats.flames.triangleCount, 6_016);
 assert.equal(independentFireStats.glowLightCount, 4);
 
-const disabledFlameConfig = createDefaultCheckpointConfig();
+const disabledFlameConfig = createDefaultStructureConfig();
 disabledFlameConfig.fire.enabled = false;
 const explicitlyDisabledFireStats = scene.updateFireEffects(disabledFlameConfig);
 assert.equal(explicitlyDisabledFireStats.flames.count, 0);
@@ -1176,6 +1224,39 @@ function assertSpecCoverage<T extends object>(
       assert.ok(
         typeof value === "number" && value >= spec.min && value <= spec.max,
         `${label}: default ${spec.key}=${String(value)} outside [${spec.min}, ${spec.max}].`,
+      );
+    }
+
+    if (spec.kind === "point2") {
+      const value = defaults[spec.key] as unknown as { x: number; y: number };
+      assert.ok(
+        value && typeof value === "object",
+        `${label}: default ${spec.key} is not a point.`,
+      );
+      for (const axis of ["x", "y"] as const) {
+        assert.ok(
+          value[axis] >= spec.min && value[axis] <= spec.max,
+          `${label}: default ${spec.key}.${axis}=${String(value[axis])} outside `
+          + `[${spec.min}, ${spec.max}].`,
+        );
+      }
+    }
+
+    if (spec.kind === "list") {
+      const value = defaults[spec.key] as unknown as string;
+      const allowed = Object.values(spec.options);
+      assert.ok(
+        allowed.length > 0,
+        `${label}: list spec "${spec.key}" has no options.`,
+      );
+      assert.equal(
+        new Set(allowed).size,
+        allowed.length,
+        `${label}: list spec "${spec.key}" has duplicate option values.`,
+      );
+      assert.ok(
+        allowed.includes(value),
+        `${label}: default ${spec.key}="${String(value)}" is not a listed option.`,
       );
     }
   }

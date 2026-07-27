@@ -1,7 +1,7 @@
 import type { BladeApi, FolderApi } from "@tweakpane/core";
-import type { CheckpointConfig } from "../config/checkpoint-config";
+import type { StructureConfig } from "../config/structure-config";
 
-export type VisibilityPredicate = (config: CheckpointConfig) => boolean;
+export type VisibilityPredicate = (config: StructureConfig) => boolean;
 
 type BladeRule = {
   blade: BladeApi;
@@ -14,7 +14,7 @@ type FolderRule = {
 };
 
 /**
- * Drives control visibility from the active checkpoint type and the enable
+ * Drives control visibility from the active structure and the enable
  * flags, so the pane only ever shows controls that affect the current
  * composition.
  *
@@ -50,7 +50,7 @@ export class VisibilityRegistry {
     this.folderRules.push({ folder, children: [...children] });
   }
 
-  apply(config: CheckpointConfig): void {
+  apply(config: StructureConfig): void {
     for (const rule of this.bladeRules) {
       rule.blade.hidden = !rule.visible(config);
     }

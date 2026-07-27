@@ -1,4 +1,12 @@
-import * as THREE from "three";
+import { finalizeGeometry, type FinalizedGeometry, type Point2 } from "./finalize";
+import { createRandom, hashSeed, randomRange } from "./random";
+
+// The masonry builder was the first geometry code here, so the seeded-random and
+// buffer-finalizing helpers grew inside it. They are now shared with every other
+// builder and live in ./random and ./finalize; these re-exports keep the older
+// import sites working.
+export { createBoxProjectedUvs, type Point2 } from "./finalize";
+export { createRandom, hashSeed, normalizedSpans, randomRange } from "./random";
 
 export interface StoneDetailConfig {
   bevelEnabled: boolean;
@@ -8,14 +16,9 @@ export interface StoneDetailConfig {
   seed: number;
 }
 
-export interface StoneGeometryResult {
-  geometry: THREE.BufferGeometry;
+export interface StoneGeometryResult extends FinalizedGeometry {
   stoneCount: number;
-  vertexCount: number;
-  triangleCount: number;
 }
-
-export type Point2 = { x: number; z: number };
 
 type InsetPolygon = {
   points: Point2[];
@@ -277,73 +280,7 @@ export class StoneGeometryBuilder {
 }
 
 export function finalizeStoneGeometry(builder: StoneGeometryBuilder): StoneGeometryResult {
-  const geometry = new THREE.BufferGeometry();
-  const ambientOcclusion = new Float32Array(builder.ambientOcclusion);
-  const bakedShadow = new Float32Array(builder.bakedShadow);
-  const vertexColors = new Float32Array(bakedShadow.length * 3).fill(1);
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute(builder.positions, 3));
-  geometry.setAttribute(
-    "vertexAo",
-    new THREE.Float32BufferAttribute(ambientOcclusion.slice(), 1),
-  );
-  geometry.setAttribute("color", new THREE.Float32BufferAttribute(vertexColors, 3));
-  geometry.userData.vertexAoBase = ambientOcclusion;
-  geometry.userData.bakedShadowBase = bakedShadow;
-  geometry.setIndex(builder.indices);
-  geometry.computeVertexNormals();
-  const baseUvs = createBoxProjectedUvs(geometry);
-  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(baseUvs.slice(), 2));
-  geometry.userData.baseUvs = baseUvs;
-  geometry.computeBoundingBox();
-  geometry.computeBoundingSphere();
-
-  return {
-    geometry,
-    stoneCount: builder.stoneCount,
-    vertexCount: builder.positions.length / 3,
-    triangleCount: builder.indices.length / 3,
-  };
-}
-
-export function normalizedSpans(
-  count: number,
-  total: number,
-  variation: number,
-  random: () => number,
-): number[] {
-  const weights = Array.from(
-    { length: count },
-    () => 1 + randomRange(random, -variation, variation),
-  );
-  const weightTotal = weights.reduce((sum, value) => sum + value, 0);
-  return weights.map((weight) => (weight / weightTotal) * total);
-}
-
-export function randomRange(random: () => number, min: number, max: number): number {
-  return min + (max - min) * random();
-}
-
-export function hashSeed(seed: number, label: string): number {
-  let hash = seed | 0;
-
-  for (let index = 0; index < label.length; index += 1) {
-    hash = Math.imul(hash ^ label.charCodeAt(index), 0x45d9f3b);
-    hash ^= hash >>> 16;
-  }
-
-  return hash >>> 0;
-}
-
-export function createRandom(seed: number): () => number {
-  let state = seed >>> 0;
-
-  return () => {
-    state += 0x6d2b79f5;
-    let value = state;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
+  return { ...finalizeGeometry(builder), stoneCount: builder.stoneCount };
 }
 
 function signedArea(points: readonly Point2[]): number {
@@ -558,40 +495,4 @@ function isSafeInset(
 
 function cross2(a: Point2, b: Point2): number {
   return a.x * b.z - a.z * b.x;
-}
-
-export function createBoxProjectedUvs(geometry: THREE.BufferGeometry): Float32Array {
-  const positions = geometry.getAttribute("position");
-  const normals = geometry.getAttribute("normal");
-  const uvs = new Float32Array(positions.count * 2);
-
-  for (let index = 0; index < positions.count; index += 1) {
-    const x = positions.getX(index);
-    const y = positions.getY(index);
-    const z = positions.getZ(index);
-    const normalX = normals.getX(index);
-    const normalY = normals.getY(index);
-    const normalZ = normals.getZ(index);
-    const absoluteX = Math.abs(normalX);
-    const absoluteY = Math.abs(normalY);
-    const absoluteZ = Math.abs(normalZ);
-    let u: number;
-    let v: number;
-
-    if (absoluteY >= absoluteX && absoluteY >= absoluteZ) {
-      u = x;
-      v = z;
-    } else if (absoluteX >= absoluteZ) {
-      u = normalX < 0 ? z : -z;
-      v = y;
-    } else {
-      u = normalZ < 0 ? -x : x;
-      v = y;
-    }
-
-    uvs[index * 2] = u;
-    uvs[index * 2 + 1] = v;
-  }
-
-  return uvs;
 }

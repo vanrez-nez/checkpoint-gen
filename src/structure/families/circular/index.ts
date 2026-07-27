@@ -4,7 +4,7 @@ import {
   type GeometryPart,
 } from "../../../geometry/part";
 import { buildPillarParts } from "../../../props/pillar/build";
-import { defineCheckpointType } from "../../type";
+import { defineStructure } from "../../definition";
 import {
   CIRCULAR_LAYOUT_CONTROLS,
   DEFAULT_CIRCULAR_LAYOUT,
@@ -20,10 +20,11 @@ import { buildCircularShell, circularCenterMetrics } from "./shell";
  * The tiered circular plate: concentric paving rings, radial entries, a square
  * center block for the offering, and a flanking pillar pair per entry.
  */
-export const circularCheckpointType = defineCheckpointType<CircularLayoutConfig>({
+export const circularStructure = defineStructure<CircularLayoutConfig>({
   id: "circular",
   label: "Circular",
   props: ["stone", "bevel", "pillar", "fireBowl", "fire", "offering"],
+  sections: ["layout", "pillars", "fireBowls"],
   defaultLayout: DEFAULT_CIRCULAR_LAYOUT,
   layoutControls: CIRCULAR_LAYOUT_CONTROLS,
   cloneLayout: cloneCircularLayout,

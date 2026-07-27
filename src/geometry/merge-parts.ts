@@ -39,10 +39,17 @@ type PreparedPart = {
  * The live `uv` and `vertexAo` attributes are seeded from `userData` rather than
  * from the part's own live attributes, so a part that was already scaled or
  * dimmed by the scene cannot leak that state into the composition.
+ *
+ * `declaredSections` seeds the stats record so a section that produced no parts
+ * still reports zero. Sections observed on parts but not declared are added as
+ * they are encountered.
  */
-export function mergeParts(parts: readonly GeometryPart[]): MergedComposition {
+export function mergeParts(
+  parts: readonly GeometryPart[],
+  declaredSections: Iterable<PartSection> = [],
+): MergedComposition {
   const ordered = orderBySlot(parts);
-  const sections = emptySectionStats();
+  const sections = emptySectionStats(declaredSections);
   const totals = emptyPartStats();
 
   let vertexTotal = 0;
@@ -88,7 +95,8 @@ export function mergeParts(parts: readonly GeometryPart[]): MergedComposition {
       (slotIndexCounts.get(part.slot) ?? 0) + index.count,
     );
 
-    const sectionStats = sections[part.section];
+    const sectionStats = sections[part.section] ?? emptyPartStats();
+    sections[part.section] = sectionStats;
     sectionStats.partCount += 1;
     sectionStats.stoneCount += part.stoneCount;
     sectionStats.vertexCount += vertexCount;
