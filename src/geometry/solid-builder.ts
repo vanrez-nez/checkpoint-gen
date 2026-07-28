@@ -43,6 +43,14 @@ export interface BlockFaces {
   readonly sides: readonly boolean[];
   readonly top?: boolean;
   readonly bottom?: boolean;
+  /**
+   * Moves a retained bed closure upward inside its own block.
+   *
+   * Used for a displaced joint closure: the real bed is occupied by the course
+   * below, while the inset upward-facing ledge closes only the part exposed by
+   * an overhanging arris without becoming coplanar with that support.
+   */
+  readonly bottomInset?: number;
 }
 
 /**
@@ -139,7 +147,14 @@ export class SolidBuilder implements GeometryBuffers {
     }
 
     if (faces.bottom === true) {
-      this.addHorizontalFace(bottom, "down", shading);
+      const inset = Math.max(faces.bottomInset ?? 0, 0);
+      this.addHorizontalFace(
+        inset > 0
+          ? bottom.map((corner) => ({ ...corner, y: corner.y + inset }))
+          : bottom,
+        inset > 0 ? "up" : "down",
+        shading,
+      );
     }
 
     this.blockCount += 1;

@@ -254,6 +254,9 @@ function layCourses(
     // bedded on the course below, and drawing those undersides would put a face
     // where the eye expects solid stone.
     const onSoffit = isFirst && segment.overhang > 0;
+    const needsJointUnderside = segment.rule.displacement > 0
+      && bottomY > 1e-9;
+    const jointUndersideInset = Math.min(course.height * 0.01, 0.003);
     const shared = {
       bottomY,
       topY,
@@ -273,7 +276,13 @@ function layCourses(
       // face of the first backing ring; the facing stone's inward face points
       // into solid work and can never be seen.
       showInner: isExposedCrown,
-      showBottom: shared.showBottom || onSoffit,
+      // Displacement can move an outer arris past the course supporting it.
+      // Its underside is then visible through the bed/perpend intersection and
+      // must exist; square-set work keeps this face culled.
+      showBottom: shared.showBottom || onSoffit || needsJointUnderside,
+      bottomInset: needsJointUnderside && !onSoffit
+        ? jointUndersideInset
+        : 0,
       showTop: !(options.crowned && isLast),
       seed: masonrySeed(options.seed, `course_${course.index}`),
       courseIndex: course.index,
@@ -299,10 +308,10 @@ function layCourses(
       // A moulding's soffit is one stone reaching back over the wall, so nothing
       // under it shows a top — not the facing, and not the rings behind it.
       showTop: !(options.crowned && isLast),
-      // Only the facing course oversails the wall at a cornice. Its increased
-      // depth reaches back over the projection; the fill starts inside that
-      // reach and is supported by the wall below, so its underside is buried.
-      showBottom: false,
+      // The first backing ring can be seen behind a displaced facing joint.
+      // `layInward` limits this to that ring; deeper undersides remain buried.
+      showBottom: needsJointUnderside,
+      bottomInset: needsJointUnderside ? jointUndersideInset : 0,
       outline: insetRect(outline, uniformSetbacks(depth + segment.rule.gap)),
       seed: masonrySeed(options.seed, `inward_${course.index}`),
       courseIndex: course.index,
@@ -318,6 +327,8 @@ interface RingOptions {
   readonly seed: number;
   readonly courseIndex: number;
   readonly showBottom: boolean;
+  /** See BlockFaces.bottomInset. */
+  readonly bottomInset?: number;
   /** True only for the building's outer facing, which has no ring outside it. */
   readonly unbackedOuterFace?: boolean;
   /**
@@ -390,6 +401,7 @@ function layRing(builder: SolidBuilder, options: RingOptions): void {
         sides: [true, true, options.showInner === true, !buttedStart],
         top: options.showTop !== false,
         bottom: options.showBottom,
+        bottomInset: options.bottomInset,
       },
     );
   }
@@ -427,6 +439,7 @@ function layQuoin(
         sides: [true, true, options.showInner === true, true],
         top: options.showTop !== false,
         bottom: showBottom,
+        bottomInset: options.bottomInset,
       },
     );
   }
@@ -442,6 +455,7 @@ function layQuoin(
       sides: [true, true, options.showInner === true, false],
       top: options.showTop !== false,
       bottom: showBottom,
+      bottomInset: options.bottomInset,
     },
   );
 }
@@ -460,6 +474,8 @@ interface InwardOptions {
   readonly seed: number;
   readonly courseIndex: number;
   readonly showBottom: boolean;
+  /** See BlockFaces.bottomInset. */
+  readonly bottomInset?: number;
 }
 
 /**
@@ -520,6 +536,7 @@ function layInward(builder: SolidBuilder, options: InwardOptions): void {
       ...options,
       outline: outlines[ring]!,
       unbackedOuterFace: false,
+      showBottom: options.showBottom && ring === 0,
       // This is the closure directly behind the facing joints. Keeping its
       // exposed arris square prevents a widened outer joint from lining up with
       // a second opening into the culled centre.
@@ -551,7 +568,12 @@ function layInward(builder: SolidBuilder, options: InwardOptions): void {
   // Whatever the rings could not close: a slab too narrow for another ring,
   // divided into stones along its length so the middle of a course is laid like
   // the rest of it rather than left as one enormous slab.
-  layStrip(builder, { ...options, rect: middle, seed: masonrySeed(options.seed, "middle") });
+  layStrip(builder, {
+    ...options,
+    rect: middle,
+    showBottom: false,
+    seed: masonrySeed(options.seed, "middle"),
+  });
 }
 
 interface StripOptions {
@@ -630,11 +652,12 @@ function runOf(outline: Rect, orientation: HorizontalOrientation): Run {
  * One stone on a run: an upright box, `from`..`to` along the wall and `depth`
  * back into it.
  *
- * Upright and whole, always. The surface model this replaced sampled a course's
- * top edge separately from its bottom one so the face would follow the ideal
- * rake, which turned every stone into a trapezoid and the elevation into a
- * smooth plane with a pattern on it. Here the batter lives in where the
- * *courses* sit, not in the shape of the stones, so a stone is a stone.
+ * Whole, always. With displacement off it is an upright rectangular block. The
+ * surface model this replaced sampled a course's top edge from the ideal rake,
+ * turning every stone into a trapezoid and the elevation into a smooth plane
+ * with a pattern on it. Here the batter lives in where the *courses* sit.
+ * Displacement may roughen the two visible top arrises, but the buried pair
+ * remains seated at the exact course bed.
  */
 function stoneOn(
   run: Run,
@@ -673,6 +696,24 @@ function stoneOn(
     depth,
     options.rule.displacement,
   );
+  const verticalJitter = jointJitter;
+  const square = [pinned.start === true, pinned.end === true, pinned.end === true, pinned.start === true];
+  const jointStationAt = (corner: number) => corner === 0
+    ? from - (pinned.start === true ? 0 : options.rule.gap * 0.5)
+    : to + (pinned.end === true ? 0 : options.rule.gap * 0.5);
+  const jointRandom = (channel: string, corner: number) => createRandom(
+    masonrySeed(
+      options.seed,
+      [
+        channel,
+        run.origin.x.toFixed(9),
+        run.origin.z.toFixed(9),
+        run.along.x.toFixed(9),
+        run.along.z.toFixed(9),
+        jointStationAt(corner).toFixed(9),
+      ].join("_"),
+    ),
+  );
   const outwardNormalJitter = options.unbackedOuterFace === true
     ? normalJitter
     : Math.min(normalJitter, options.rule.gap * 0.45);
@@ -694,22 +735,8 @@ function stoneOn(
     // Circular's tangential component uses the full cell-relative amount too.
     // Key it by the shared course joint instead of by either neighboring stone:
     // both ends then move together and keep the joint open without crossing.
-    const jointStation = corner === 0
-      ? from - (pinned.start === true ? 0 : options.rule.gap * 0.5)
-      : to + (pinned.end === true ? 0 : options.rule.gap * 0.5);
-    const jointRandom = createRandom(masonrySeed(
-      options.seed,
-      [
-        "joint",
-        run.origin.x.toFixed(9),
-        run.origin.z.toFixed(9),
-        run.along.x.toFixed(9),
-        run.along.z.toFixed(9),
-        jointStation.toFixed(9),
-      ].join("_"),
-    ));
     const alongOffset = randomRange(
-      jointRandom,
+      jointRandom("joint", corner),
       -jointJitter,
       jointJitter,
     );
@@ -723,12 +750,29 @@ function stoneOn(
         + run.along.z * alongOffset,
     };
   });
-  const square = [pinned.start === true, pinned.end === true, pinned.end === true, pinned.start === true];
   const ring = cell.map((_, corner) =>
     (square[corner] === true ? dressed[corner]! : wandered[corner]!));
+  // Use the same cell-scaled amount vertically as in plan; attenuating this to
+  // Circular's subtle top-surface roughness made the Mass control visually
+  // inert. On a stacked course, downward movement would open a crack beneath
+  // the next course, so supported arrises lift from the bed while an exposed
+  // crown may wander in both directions. Joint-keyed values keep neighboring
+  // ends aligned and dressed corner ends stay seated.
+  const topY = ring.map((_, corner) => {
+    if (corner >= 2 || square[corner] === true || verticalJitter <= 0) {
+      return options.topY;
+    }
+
+    return options.topY + randomRange(
+      jointRandom("joint_y", corner),
+      options.showInner === true ? -verticalJitter : 0,
+      verticalJitter,
+    );
+  });
+
   return {
     bottom: ring.map((point) => at(point, options.bottomY)),
-    top: ring.map((point) => at(point, options.topY)),
+    top: ring.map((point, corner) => at(point, topY[corner] ?? options.topY)),
   };
 }
 

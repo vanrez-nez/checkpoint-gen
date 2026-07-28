@@ -1355,6 +1355,24 @@ buildMassShell(shellBuilder, shellBands, {
 });
 const shellFaces = readBlockFaces(shellBuilder);
 assert.ok(shellBuilder.blockCount > 200, `Only ${shellBuilder.blockCount} blocks.`);
+const displacedShellBuilder = new SolidBuilder();
+buildMassShell(displacedShellBuilder, shellBands, {
+  rule: shellRule,
+  seed: 1,
+});
+const squareTopLevels = new Set(
+  shellFaces
+    .filter((face) => faceNormal(face).y > 0.99)
+    .map((face) => face[0]!.y.toFixed(6)),
+);
+const displacedJointClosures = readBlockFaces(displacedShellBuilder).filter((face) =>
+  faceNormal(face).y > 0.99
+  && face.every((corner) => Math.abs(corner.y - face[0]!.y) < 1e-9)
+  && !squareTopLevels.has(face[0]!.y.toFixed(6)));
+assert.ok(
+  displacedJointClosures.length > 20,
+  `Only ${displacedJointClosures.length} inset bed faces close displaced joints.`,
+);
 
 // The mass is made of blocks and of nothing else — every triangle in it belongs
 // to a block face. This is the one that keeps it that way: a loft, a cap or a
@@ -1653,16 +1671,21 @@ assert.ok(
 );
 
 const movementByDisplacement: number[] = [];
+const verticalMovementByDisplacement: number[] = [];
 for (const displacement of [0.03, 0.2]) {
   const wandered = frontCorners(displacement);
   assert.equal(wandered.length, still.length, "Displacement must not change the coursing.");
 
   const xOffsets: number[] = [];
+  const yOffsets: number[] = [];
   const zOffsets: number[] = [];
   for (let face = 0; face < wandered.length; face += 1) {
     for (let corner = 0; corner < (wandered[face]?.length ?? 0); corner += 1) {
       xOffsets.push(
         (wandered[face]?.[corner]?.x ?? 0) - (still[face]?.[corner]?.x ?? 0),
+      );
+      yOffsets.push(
+        (wandered[face]?.[corner]?.y ?? 0) - (still[face]?.[corner]?.y ?? 0),
       );
       zOffsets.push(
         (wandered[face]?.[corner]?.z ?? 0) - (still[face]?.[corner]?.z ?? 0),
@@ -1673,6 +1696,8 @@ for (const displacement of [0.03, 0.2]) {
   const moved = Math.max(...offsets.map(Math.abs));
   movementByDisplacement.push(moved);
   const circularBound = displacementDistance(stillRule.depth, displacement);
+  const verticalMoved = Math.max(...yOffsets.map(Math.abs));
+  verticalMovementByDisplacement.push(verticalMoved);
   assert.ok(
     moved <= circularBound + 1e-9,
     `A corner moved ${moved.toFixed(4)}m, past the Circular-style `
@@ -1686,6 +1711,16 @@ for (const displacement of [0.03, 0.2]) {
     Math.min(...zOffsets) < 0 && Math.max(...zOffsets) > 0,
     "Corners wander only one way, so the course still reads as a plane.",
   );
+  assert.ok(
+    verticalMoved > circularBound * 0.5
+      && verticalMoved <= circularBound + 1e-9,
+    `Y displacement ${verticalMoved.toFixed(4)}m must follow the `
+    + `${circularBound.toFixed(4)}m cell-scale bound.`,
+  );
+  assert.ok(
+    Math.min(...yOffsets) >= -1e-9,
+    "A supported course moved down and opened a crack beneath the next course.",
+  );
 }
 assert.ok(
   (movementByDisplacement[1] ?? 0) > (movementByDisplacement[0] ?? 0) * 5,
@@ -1694,6 +1729,11 @@ assert.ok(
 assert.ok(
   (movementByDisplacement[1] ?? 0) > stillRule.gap * 0.65,
   "Mass displacement is still being capped by the joint gap.",
+);
+assert.ok(
+  (verticalMovementByDisplacement[1] ?? 0)
+    > (verticalMovementByDisplacement[0] ?? 0) * 5,
+  "Mass Y displacement must scale with the control instead of remaining flat.",
 );
 
 // Terraces are the top of the courses, not a floor laid on them. So every
