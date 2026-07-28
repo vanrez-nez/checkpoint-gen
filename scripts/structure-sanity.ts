@@ -28,11 +28,13 @@ import {
   divideCourses,
   divideRun,
   masonrySeed,
+  type MasonryRule,
 } from "../src/structure/kernel/masonry";
 import { hashSeed } from "../src/geometry/random";
 import { buildMassShell } from "../src/structure/mass/shell";
 import {
   findBackfaces,
+  findBuriedFaces,
   findCoincidentFaces,
   findStoneShadingBreaks,
 } from "./mesh-invariants";
@@ -51,6 +53,7 @@ import {
   patchIndex,
   serializeGraph,
   STRUCTURE_SCHEMA_VERSION,
+  type ElevationBandRecord,
   type StructureGraph,
 } from "../src/structure/kernel/graph";
 import { isValidId } from "../src/structure/kernel/ids";
@@ -1165,16 +1168,20 @@ assert.ok(
   "With a crown cornice the flight must land on the molding's outer lip.",
 );
 
-// The geometry: blocks, and nothing else, exactly like the mass. Bare, a step
-// is one block and each parapet steps with it; the topmost parapet slice is two
-// blocks because only its stretch above the summit floor may show a rear face.
+// The geometry: blocks, and nothing else, exactly like the mass. Every slice
+// is cut at its cover lines, so the count follows the decomposition: one crown
+// per step (the bare shaft between parapets presents no face and is not laid),
+// and per parapet side two pieces at the foot then three per step — pressed
+// base, balustrade wall, crown strip. Derived here from the same rules rather
+// than hard-coded, and valid for the default: no crown cornice (no exposed
+// back interval) and a parapet taller than a riser.
 const stairBareBuilder = new SolidBuilder();
 const stairBands = stairDefault.masses[0]!.bands;
 buildStair(stairBareBuilder, stairRecord, stairBands, { masonry: null, seed: 1 });
 assert.equal(
   stairBareBuilder.blockCount,
-  stairRecord.stepCount * 3 + 2,
-  "A bare stair is one block per step plus a parapet slice each side.",
+  stairRecord.stepCount + 2 * (2 + 3 * (stairRecord.stepCount - 1)),
+  "The bare stair block count no longer matches its decomposition.",
 );
 assert.equal(
   stairBareBuilder.blockFaces.length * 6,
@@ -1249,6 +1256,126 @@ assert.equal(
   findCoincidentFaces(finalizeGeometry(stairMasonryBuilder).geometry).pairs,
   0,
   "A masonry stair has two faces at the same depth.",
+);
+
+// --- buried faces ----------------------------------------------------------
+// The probe is checked against a deliberate defect before it is trusted: a
+// block whose top is emitted under another block sitting on it. The cover's
+// own underside is legitimately unemitted, so the probe must travel through
+// the cover and out its far side — which is why its reach is the thickness of
+// a covering solid, not a coplanarity tolerance.
+const buriedProbeBuilder = new SolidBuilder();
+buriedProbeBuilder.addBlock(
+  blockOf(rect(1, 1), rect(1, 1), 0, 1),
+  { sides: ALL_SIDES, top: true },
+);
+buriedProbeBuilder.addBlock(
+  blockOf(rect(1, 1), rect(1, 1), 1, 1.8),
+  { sides: ALL_SIDES, top: true },
+);
+assert.equal(
+  findBuriedFaces(finalizeGeometry(buriedProbeBuilder).geometry).faces,
+  1,
+  "The buried-face probe misses a top emitted under a block standing on it.",
+);
+assert.equal(
+  findBuriedFaces(finalizeGeometry(withOnly(
+    blockOf(rect(1, 1), rect(1, 1), 0, 1),
+    { sides: ALL_SIDES, top: true },
+  )).geometry).faces,
+  0,
+  "The buried-face probe indicts a block standing alone.",
+);
+
+// The stair decomposition's whole point: nothing bare is ever buried, and the
+// only buried masonry faces are the collars — one closure strip per slice,
+// standing behind the previous crown's open joints exactly as the mass's
+// backing ring stands behind the perpends of its facing course.
+assert.equal(
+  findBuriedFaces(stairBareGeometry).faces,
+  0,
+  "A bare stair lays a face nothing can see.",
+);
+const stairMasonryBuried = findBuriedFaces(finalizeGeometry(stairMasonryBuilder).geometry);
+assert.ok(
+  stairMasonryBuried.faces <= stairRecord.stepCount,
+  `${stairMasonryBuried.faces} buried masonry stair faces: more than its collars.`,
+);
+
+// --- stair against a corniced crown ----------------------------------------
+// The flight lands on the crown molding's outer lip, and the wall beneath the
+// lip recedes — a laterally open niche the stair's last slice backs onto. The
+// backs facing it must be real faces over exactly the exposed interval: none
+// at all reads as a view into the stair's body, and any above the cornice's
+// own springing would be coincident with the molding's front.
+const cornicedStairRecord = corniced.connectors[0]!;
+const cornicedStairBuilder = new SolidBuilder();
+buildStair(
+  cornicedStairBuilder,
+  cornicedStairRecord,
+  corniced.masses[0]!.bands,
+  { masonry: null, seed: 1 },
+);
+const cornicedStairGeometry = finalizeGeometry(cornicedStairBuilder).geometry;
+assert.equal(findCoincidentFaces(cornicedStairGeometry).pairs, 0);
+assert.equal(findBuriedFaces(cornicedStairGeometry).faces, 0);
+
+const cornicedStairBacks = readBlockFaces(cornicedStairBuilder).filter((face) =>
+  faceNormal(face).z < -0.99
+  && Math.abs(face[0]!.z - cornicedStairRecord.flightRect.minZ) < 1e-9);
+assert.ok(
+  cornicedStairBacks.some((face) =>
+    face.some((corner) => corner.y < cornicedCrown.topY - 1e-9)),
+  "The last slice shows no back to the niche under the crown cornice.",
+);
+for (const face of cornicedStairBacks) {
+  for (const corner of face) {
+    assert.ok(
+      corner.y <= cornicedCrown.cornice!.bottomY + 1e-9
+      || corner.y >= cornicedStairRecord.topY - 1e-9,
+      `A stair back at y=${corner.y} overlaps the cornice's own front.`,
+    );
+  }
+}
+
+// A parapet shallower than a riser flips the middle stretch of each slice
+// into the exposed front strip of the silhouette. Skipping it instead leaves
+// a hole on every step — which the buried and backface probes cannot see, so
+// the front coverage is asserted directly: parapet fronts must tile the same
+// height span as the caps they finish.
+const shallowParapetGraph = generateStructure(toStructureSpec({
+  ...cloneMassLayout(),
+  stairParapetHeight: 0.2,
+}));
+const shallowParapetRecord = shallowParapetGraph.connectors[0]!;
+assert.ok(shallowParapetRecord.parapet!.height < shallowParapetRecord.riser);
+const shallowParapetBuilder = new SolidBuilder();
+buildStair(
+  shallowParapetBuilder,
+  shallowParapetRecord,
+  shallowParapetGraph.masses[0]!.bands,
+  { masonry: null, seed: 1 },
+);
+const shallowParapetGeometry = finalizeGeometry(shallowParapetBuilder).geometry;
+assert.equal(findCoincidentFaces(shallowParapetGeometry).pairs, 0);
+assert.equal(findBuriedFaces(shallowParapetGeometry).faces, 0);
+
+const shallowParapetFronts = readBlockFaces(shallowParapetBuilder).filter((face) =>
+  faceNormal(face).z > 0.99
+  && face.every((corner) => corner.x > shallowParapetRecord.flightRect.maxX - 1e-9));
+const frontCoverage = shallowParapetFronts
+  .reduce((total, face) => {
+    const ys = face.map((corner) => corner.y);
+    return total + Math.max(...ys) - Math.min(...ys);
+  }, 0);
+assert.ok(
+  Math.abs(
+    frontCoverage
+    - (shallowParapetRecord.topY - shallowParapetRecord.bottomY
+      + shallowParapetRecord.parapet!.height),
+  ) < 1e-6,
+  `Parapet front strips cover ${frontCoverage}m of a stepped silhouette that `
+  + "rises the whole flight.",
 );
 
 // --- stonework -------------------------------------------------------------
@@ -1587,31 +1714,43 @@ assert.ok(shellGeometry);
 // No two surfaces at the same depth. This is the z-fighting: a horizontal plate
 // drawn out through the wall under every cornice, and a terrace paved on top of
 // the course that already carried its edge.
-// With the stones set square this is exactly zero. With displacement on, a
-// handful of independently-set faces land within the detector's millimetre of
-// each other; that is what setting stones by hand costs, and the budget is here
-// so a change that turns it back into hundreds shows up as a failure.
+// With the stones set square this is exactly zero. With displacement on it
+// measures zero today too, but a wandered arris is free to land within the
+// detector's millimetre of another face — that is what setting stones by hand
+// costs — so displaced work keeps a small budget rather than a zero.
 const squareGeometry = tessellateStructure(shellGraph, {
   masonry: { ...shellRule, displacement: 0 },
   seed: DEFAULT_MASS_STONE_CONFIG.seed,
 }).parts[0]?.geometry;
 assert.ok(squareGeometry);
-// The mass alone is exactly zero here. The flight leans on the coursed face,
-// and where they meet the two independently-jointed systems interpenetrate by
-// a tread's depth — a stair joint cheek can land within the detector's
-// millimetre of a mass perpend inside that skin. Those faces are sealed in
-// solid work on both sides and cannot be seen; the budget covers them while
-// still catching a systemic regression, which arrives as hundreds.
+// Exactly zero, stair included. The flight leans on the coursed face, but its
+// pieces are cut at their cover lines: the only stair faces that reach into
+// the mass's skin are silhouettes on planes the mass never uses, so the two
+// jointed systems no longer put faces at the same depth.
 const squareCoincidence = findCoincidentFaces(squareGeometry);
-assert.ok(
-  squareCoincidence.pairs <= 6,
+assert.equal(
+  squareCoincidence.pairs,
+  0,
   `${squareCoincidence.pairs} coplanar overlapping faces with the stones set `
   + `square, first at ${squareCoincidence.sample}.`,
 );
 
+// And nothing is laid into solid stone beyond the closures that are the point:
+// the mass's backing rings and sealed course cheeks that stop joints reading
+// as slots into nothing, the corner stones' inner faces that close the joints
+// beside their returns, and the stair's collars. The budget is the measured
+// count with a margin, so an emission heuristic that regresses shows up as
+// hundreds of new buried faces rather than as wireframe noise someone has to
+// notice.
+const squareBuried = findBuriedFaces(squareGeometry);
+assert.ok(
+  squareBuried.faces <= 560,
+  `${squareBuried.faces} faces laid into solid stone, first at ${squareBuried.sample}.`,
+);
+
 const coincidence = findCoincidentFaces(shellGeometry);
 assert.ok(
-  coincidence.pairs <= 12,
+  coincidence.pairs <= 4,
   `${coincidence.pairs} coplanar overlapping faces, first at ${coincidence.sample}.`,
 );
 
@@ -1662,6 +1801,31 @@ assert.ok(
   plainSeenIn.backfaces <= 2,
   `${plainSeenIn.backfaces} of ${plainSeenIn.shots} rays see into a plain stack, `
   + `first at ${plainSeenIn.sample}.`,
+);
+
+// Corner sightlines. Butted corners repeat the same seam on every course, so
+// any gap there stacks into a slit up the whole arris — which the
+// sphere-sampled probe above barely grazes, because the slit shows itself
+// along steep oblique sightlines into the corner. This hunt stares at every
+// corner from everywhere, and it is validated against the fault it was
+// written for: before dressed ends were cut flush to their stations and the
+// butt seam got real cheeks, it found the see-throughs on the default mass
+// that the sphere probe missed.
+const cornerLayout = cloneMassLayout();
+const cornerRule = toMasonry(cornerLayout, DEFAULT_MASS_STONE_CONFIG);
+assert.ok(cornerRule);
+assert.equal(cornerRule.cornerRule, "butted", "The corner hunt must probe butted corners.");
+const cornerGeometry = tessellateStructure(stairDefault, {
+  masonry: cornerRule,
+  seed: DEFAULT_MASS_STONE_CONFIG.seed,
+}).parts[0]?.geometry;
+assert.ok(cornerGeometry);
+const cornerHoles = findCornerSightlines(cornerGeometry, stairDefault.masses[0]!.bands);
+assert.equal(
+  cornerHoles.holes,
+  0,
+  `${cornerHoles.holes} of ${cornerHoles.shots} corner rays see through the mass, `
+  + `first at ${cornerHoles.sample}.`,
 );
 
 // Shape, on the blocks actually emitted rather than on the maths behind them.
@@ -1765,8 +1929,11 @@ assert.ok(
 // inward walls around the sealed centre and supported cornice undersides. Since
 // this builder uses four dedicated vertices per flat face, a face budget is also
 // an exact vertex-buffer budget.
+// The ratio sits a little above 3.6 since corner closures were added — the
+// start cheek at every butted seam and the facing corner stones' inner faces —
+// and well below the ~6 that re-emitting buried backing faces would produce.
 assert.ok(
-  shellBuilder.blockFaces.length < shellBuilder.blockCount * 3.6,
+  shellBuilder.blockFaces.length < shellBuilder.blockCount * 3.75,
   `${shellBuilder.blockFaces.length} faces for ${shellBuilder.blockCount} retained blocks: `
   + "buried backing faces are still being emitted.",
 );
@@ -2383,6 +2550,94 @@ function assertMatchesFixture(name: string, graph: StructureGraph): void {
     `${name}: the resolved graph changed. Review the diff, then re-record with `
     + `UPDATE_FIXTURES=1 npm test if the change was intended.`,
   );
+}
+
+/**
+ * A dense, corner-focused hunt for sightlines into the mass.
+ *
+ * Corner seams are a couple of centimetres wide and — as measured while
+ * hunting the butted-corner slits — visible mostly along steep, oblique
+ * sightlines looking *down* into the seam, which the sphere-sampled backface
+ * probe all but never takes and which no hand-aimed fan reliably reproduced.
+ * So this probe does what the eye does: it stares at the corners from
+ * everywhere. Targets scatter through a window around every band's four
+ * corner columns; directions scatter over the above-horizon hemisphere. The
+ * pseudo-random stream is a fixed LCG, so the rays are the same every run.
+ * The verdict per ray is findBackfaces': a first double-sided hit that is
+ * back-facing, with nothing for the front-sided mesh to close it, is a hole.
+ */
+function findCornerSightlines(
+  geometry: THREE.BufferGeometry,
+  bands: readonly ElevationBandRecord[],
+  rays = 20000,
+): { readonly holes: number; readonly shots: number; readonly sample: string | null } {
+  const doubleSided = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }),
+  );
+  const rendered = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({ side: THREE.FrontSide }),
+  );
+  const raycaster = new THREE.Raycaster();
+  geometry.computeBoundingBox();
+  const reach = geometry.boundingBox!.getSize(new THREE.Vector3()).length() * 0.5;
+  const corners: { readonly x: number; readonly z: number; readonly y0: number; readonly y1: number }[] = [];
+
+  for (const band of bands) {
+    for (const [x, z] of [
+      [band.lower.maxX, band.lower.maxZ],
+      [band.lower.minX, band.lower.maxZ],
+      [band.lower.maxX, band.lower.minZ],
+      [band.lower.minX, band.lower.minZ],
+    ] as const) {
+      corners.push({ x, z, y0: band.bottomY, y1: band.topY });
+    }
+  }
+
+  let state = 1234567;
+  const random = () => {
+    state = (state * 1103515245 + 12345) % 2147483648;
+    return state / 2147483648;
+  };
+  let shots = 0;
+  let holes = 0;
+  let sample: string | null = null;
+
+  for (let ray = 0; ray < rays; ray += 1) {
+    const corner = corners[Math.floor(random() * corners.length)]!;
+    const target = new THREE.Vector3(
+      corner.x + (random() - 0.5) * 1.2,
+      corner.y0 + random() * (corner.y1 - corner.y0),
+      corner.z + (random() - 0.5) * 1.2,
+    );
+    const azimuth = random() * Math.PI * 2;
+    const elevation = random() * 0.9;
+    const direction = new THREE.Vector3(
+      Math.cos(azimuth) * Math.cos(elevation),
+      -Math.sin(elevation),
+      Math.sin(azimuth) * Math.cos(elevation),
+    ).normalize();
+    const origin = target.clone().addScaledVector(direction, -reach);
+    raycaster.set(origin, direction);
+    const hit = raycaster.intersectObject(doubleSided, false)[0];
+
+    if (!hit?.face) {
+      continue;
+    }
+
+    shots += 1;
+
+    if (
+      hit.face.normal.dot(direction) > 0
+      && raycaster.intersectObject(rendered, false).length === 0
+    ) {
+      holes += 1;
+      sample ??= hit.point.toArray().map((value) => value.toFixed(2)).join(", ");
+    }
+  }
+
+  return { holes, shots, sample };
 }
 
 /** The axis-aligned bounds of everything a builder has laid, read back exactly. */

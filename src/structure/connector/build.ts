@@ -1,4 +1,4 @@
-import type { Block, SolidBuilder, Vertex3 } from "../../geometry/solid-builder";
+import type { Block, BlockFaces, SolidBuilder, Vertex3 } from "../../geometry/solid-builder";
 import { rectIsValid } from "../kernel/frame";
 import type { ElevationBandRecord, StairConnectorRecord } from "../kernel/graph";
 import { divideRun, masonrySeed, type MasonryRule } from "../kernel/masonry";
@@ -8,26 +8,29 @@ import { stairSteps, type StairStep } from "./stair";
  * The stair, laid up out of blocks.
  *
  * A step is a slice: an upright box one tread deep, standing in front of the
- * slice behind it. Stacking slices rather than resting slabs on each other is
- * what keeps every face decidable — a slice's back is always pressed against
- * the next slice and never emitted, its front is emitted whole and the part
- * below the neighbouring tread is buried inside that neighbour, and the sides
- * tile the stepped silhouette without ever overlapping. The flight needs no
- * core and no special caps: like the mass, it is blocks and nothing else.
+ * slice behind it. The law is the mass shell's: **a face is drawn only where
+ * the space just outside it is empty.** A slice knows exactly what covers it —
+ * the slice in front presses on its front up to that slice's tread, the slice
+ * behind covers its back, the mass swallows it below the profile crossing, the
+ * parapets close its ends — so each slice is cut at those cover lines and
+ * every face of every piece is either wholly visible or not emitted at all.
+ * Emitting whole faces and letting the overlap hide inside neighbouring solid
+ * was the earlier behaviour, and a third of the stair's faces were buried.
  *
- * A slice runs down to the ground only while it stands in front of the mass.
- * Where the flight converges on the faces it climbs, each slice stops one
- * riser below the point the profile swallows it — hidden stone is not laid,
- * exactly as in the mass's culled interior, and a stair sunk to bedrock
- * through the body of the pyramid would fill that body with buried faces for
- * the coincidence detectors to trip over.
+ * A slice runs down to the ground only while it stands in front of the mass;
+ * where the flight converges on the faces it climbs, it stops where the
+ * profile swallows it — hidden stone is not laid.
  *
- * With masonry on, each slice is divided along its width into stones with open
- * joints between them, so a tread reads as set stone and the joints of the
- * riser below it belong to the same stones. The stones stay square: a tread is
- * a walking surface and the flight's raking silhouette is the one line the
- * whole composition hangs on, so the wander that roughens a wall would only
- * read as broken steps here.
+ * With masonry on, only the crown of a slice — the riser-and-tread strip you
+ * can see — is divided into stones. The body below is a monolith: its joints
+ * would sit inside sealed stone. One strip of it, the collar, keeps a front
+ * face: it stands directly behind the previous crown's open joints and closes
+ * the view through them, exactly as the mass's backing ring closes the view
+ * through the perpends of the facing course.
+ *
+ * The stones stay square: a tread is a walking surface and the flight's raking
+ * silhouette is the one line the whole composition hangs on, so the wander
+ * that roughens a wall would only read as broken steps here.
  */
 
 export interface StairBuildOptions {
@@ -36,10 +39,12 @@ export interface StairBuildOptions {
   readonly seed: number;
 }
 
+const EPS = 1e-9;
+
 export function buildStair(
   builder: SolidBuilder,
   record: StairConnectorRecord,
-  /** The bands of the mass the stair climbs, for the burial profile. */
+  /** The bands of the mass the stair climbs, for burial and back exposure. */
   bands: readonly ElevationBandRecord[],
   options: StairBuildOptions,
 ): void {
@@ -49,10 +54,16 @@ export function buildStair(
 
   for (const step of steps) {
     const bottomY = sliceBottom(profile, step, record);
-    layStepSlice(builder, record, step, bottomY, options, hasParapet);
+    // Only the last slice backs onto the mass rather than onto another slice,
+    // so only it can have exposed back faces — see backExposure.
+    const back = step.index === record.stepCount - 1
+      ? backExposure(profile, record)
+      : null;
+
+    layFlightSlice(builder, record, steps, step, bottomY, options, hasParapet, back);
 
     if (record.parapet) {
-      layParapetSlices(builder, record, step, bottomY, record.parapet);
+      layParapetSlices(builder, record, steps, step, bottomY, record.parapet, back);
     }
   }
 }
@@ -106,6 +117,55 @@ function frontProfile(bands: readonly ElevationBandRecord[]): ProfileSegment[] {
 }
 
 /**
+ * The first elevation, scanning up from the ground, at which the silhouette
+ * pulls strictly inside `z` — strictly, so a vertical wall lying exactly on
+ * the plane never counts as crossed. Null when the profile never does.
+ */
+function profileCrossingUp(
+  profile: readonly ProfileSegment[],
+  z: number,
+): number | null {
+  for (const segment of profile) {
+    if (segment.z0 < z - EPS) {
+      return segment.y0;
+    }
+
+    if (segment.z1 < z - EPS) {
+      const t = (segment.z0 - z) / (segment.z0 - segment.z1);
+      return segment.y0 + t * (segment.y1 - segment.y0);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * The first elevation at or above `fromY` where the silhouette reaches back
+ * out to `z`. Within a segment the profile only narrows, so a return can only
+ * happen at a segment boundary — a terrace re-entry never occurs, but a
+ * cornice jumping back out past the plane does, and it is what bounds the
+ * exposed interval from above.
+ */
+function profileReturnY(
+  profile: readonly ProfileSegment[],
+  z: number,
+  fromY: number,
+  fallback: number,
+): number {
+  for (const segment of profile) {
+    if (segment.y0 < fromY - EPS) {
+      continue;
+    }
+
+    if (segment.z0 >= z - EPS) {
+      return segment.y0;
+    }
+  }
+
+  return fallback;
+}
+
+/**
  * Where a slice's body stops: the first elevation at which the mass's
  * silhouette pulls inside the slice's front plane. Below that, the mass itself
  * fills the slice's footprint. The *first* crossing from the ground up,
@@ -125,20 +185,7 @@ function sliceBottom(
   step: StairStep,
   record: StairConnectorRecord,
 ): number {
-  let buried = record.bottomY;
-
-  for (const segment of profile) {
-    if (segment.z0 < step.zFront - 1e-9) {
-      buried = segment.y0;
-      break;
-    }
-
-    if (segment.z1 < step.zFront - 1e-9) {
-      const t = (segment.z0 - step.zFront) / (segment.z0 - segment.z1);
-      buried = segment.y0 + t * (segment.y1 - segment.y0);
-      break;
-    }
-  }
+  const buried = profileCrossingUp(profile, step.zFront) ?? record.bottomY;
 
   return Math.min(
     Math.max(record.bottomY, buried),
@@ -146,32 +193,161 @@ function sliceBottom(
   );
 }
 
-/** One step: a monolith, or a run of stones divided along the flight's width. */
-function layStepSlice(
+/**
+ * The y-interval over which the last slice's back, at the flight's upper edge,
+ * faces open air rather than solid mass.
+ *
+ * It exists only when a crown cornice set that edge to the molding's outer lip:
+ * the wall beneath the lip recedes, leaving a laterally open niche between the
+ * stair's back plane and the facade, and the backs facing it must be real. The
+ * interval ends where the cornice itself returns to the plane — its own front
+ * faces live there, and a stair back on top of them would be a coincident
+ * pair. On vertical profiles the strict crossing never fires; on battered
+ * profiles without a cornice the silhouette stays outside the plane all the
+ * way down. Both give null, and no back is emitted below the summit.
+ */
+function backExposure(
+  profile: readonly ProfileSegment[],
+  record: StairConnectorRecord,
+): { readonly lo: number; readonly hi: number } | null {
+  const z = record.flightRect.minZ;
+  const lo = profileCrossingUp(profile, z);
+
+  if (lo === null) {
+    return null;
+  }
+
+  const hi = Math.min(profileReturnY(profile, z, lo, record.topY), record.topY);
+
+  return hi - lo > EPS ? { lo, hi } : null;
+}
+
+/** One y-span of a slice, with the faces that span presents. */
+interface FaceSpec {
+  readonly front?: boolean;
+  readonly back?: boolean;
+  /** The max-x and min-x side faces (joint cheeks, silhouettes, parapet walls). */
+  readonly maxX?: boolean;
+  readonly minX?: boolean;
+  readonly top?: boolean;
+}
+
+/**
+ * Lays one y-span of a slice, split further wherever the exposed-back interval
+ * cuts through it so `back` can hold exactly there and nowhere else. Spans
+ * with no height and pieces with no faces are not laid at all.
+ */
+function laySpan(
+  builder: SolidBuilder,
+  x0: number,
+  x1: number,
+  step: StairStep,
+  y0: number,
+  y1: number,
+  spec: FaceSpec,
+  back: { readonly lo: number; readonly hi: number } | null,
+): void {
+  const cuts = [y0, y1];
+
+  if (back) {
+    if (back.lo > y0 + EPS && back.lo < y1 - EPS) {
+      cuts.push(back.lo);
+    }
+
+    if (back.hi > y0 + EPS && back.hi < y1 - EPS) {
+      cuts.push(back.hi);
+    }
+  }
+
+  cuts.sort((a, b) => a - b);
+
+  for (let piece = 0; piece < cuts.length - 1; piece += 1) {
+    const from = cuts[piece]!;
+    const to = cuts[piece + 1]!;
+
+    if (to - from <= EPS) {
+      continue;
+    }
+
+    const exposedBack = back !== null
+      && from >= back.lo - EPS
+      && to <= back.hi + EPS;
+    const faces: BlockFaces = {
+      sides: [
+        spec.front === true,
+        spec.maxX === true,
+        (spec.back === true) || exposedBack,
+        spec.minX === true,
+      ],
+      // Only the topmost piece of the span may show the span's top.
+      top: spec.top === true && piece === cuts.length - 2,
+      bottom: false,
+    };
+
+    if (!faces.sides.some(Boolean) && faces.top !== true) {
+      continue;
+    }
+
+    builder.addBlock(slice(x0, x1, step.zBack, step.zFront, from, to), faces);
+  }
+}
+
+/**
+ * One flight slice, cut at its cover lines.
+ *
+ * The crown — from the previous slice's tread to this one's — is all that
+ * shows a front and a top, and all that is divided into stones. Below it, the
+ * bare shaft shows only its stepped-silhouette ends; the masonry shaft
+ * additionally keeps its collar strip fronted, because the previous crown's
+ * joints open onto it.
+ */
+function layFlightSlice(
   builder: SolidBuilder,
   record: StairConnectorRecord,
+  steps: readonly StairStep[],
   step: StairStep,
   bottomY: number,
   options: StairBuildOptions,
   hasParapet: boolean,
+  back: { readonly lo: number; readonly hi: number } | null,
 ): void {
   const { flightRect } = record;
   const { masonry } = options;
+  const coverTop = step.index > 0 ? steps[step.index - 1]!.topY : bottomY;
+  const ends: FaceSpec = { maxX: !hasParapet, minX: !hasParapet };
 
   if (!masonry) {
-    builder.addBlock(
-      slice(flightRect.minX, flightRect.maxX, step.zBack, step.zFront, bottomY, step.topY),
-      {
-        // Edges run front, max-x side, back, min-x side. The back is pressed
-        // against the next slice up; the sides are pressed against the
-        // parapets when there are any.
-        sides: [true, !hasParapet, false, !hasParapet],
-        top: true,
-        bottom: false,
-      },
+    laySpan(builder, flightRect.minX, flightRect.maxX, step, bottomY, coverTop, ends, back);
+    laySpan(
+      builder,
+      flightRect.minX,
+      flightRect.maxX,
+      step,
+      coverTop,
+      step.topY,
+      { ...ends, front: true, top: true },
+      back,
     );
     return;
   }
+
+  // The monolithic body: sealed below the reach of the previous crown's
+  // joints, fronted where those joints open onto it.
+  const collarBottom = Math.min(
+    Math.max(step.index > 1 ? steps[step.index - 2]!.topY : bottomY, bottomY),
+    coverTop,
+  );
+  laySpan(builder, flightRect.minX, flightRect.maxX, step, bottomY, collarBottom, ends, back);
+  laySpan(
+    builder,
+    flightRect.minX,
+    flightRect.maxX,
+    step,
+    collarBottom,
+    coverTop,
+    { ...ends, front: true },
+    back,
+  );
 
   const widths = divideRun(
     record.width,
@@ -196,68 +372,97 @@ function layStepSlice(
       continue;
     }
 
-    builder.addBlock(
-      slice(from, to, step.zBack, step.zFront, bottomY, step.topY),
-      {
-        // Both cheeks of every internal joint are drawn, as on the mass: a
-        // joint with one cheek reads as a slot into nothing. The extreme ends
-        // face the parapets, or open air when the sides are untreated.
-        sides: [
-          true,
-          last ? !hasParapet : true,
-          false,
-          first ? !hasParapet : true,
-        ],
-        top: true,
-        bottom: false,
-      },
-    );
+    laySpan(builder, from, to, step, coverTop, step.topY, {
+      front: true,
+      top: true,
+      // Both cheeks of every internal joint are drawn, as on the mass: a
+      // joint with one cheek reads as a slot into nothing. The extreme ends
+      // face the parapets, or open air when the sides are untreated.
+      maxX: last ? !hasParapet : true,
+      minX: first ? !hasParapet : true,
+    }, back);
   }
 }
 
 /**
  * The side treatment over one step: a stepped parapet is the same slice again,
- * carried one parapet-height above the tread. Only the topmost slice has a face
- * on the summit plane, and only the part of it above the summit floor is open
- * to anything — so that slice alone is laid as two blocks, the lower buried
- * against the mass and the upper presenting its back to the summit.
+ * carried one parapet-height above the tread, cut at what covers each stretch.
+ * From the ground up: pressed against the flight and the previous parapet
+ * slice (outer silhouette only), then the balustrade's inner wall above the
+ * tread, then the crown strip above the previous cap — the only part that
+ * fronts and caps. When the parapet is shallower than a riser the middle
+ * stretch flips: it is the exposed front strip of the silhouette instead of an
+ * inner wall, and skipping it outright would hole the parapet on every step.
+ * The stretch above the summit floor is the terminal, and its back faces the
+ * summit.
  */
 function layParapetSlices(
   builder: SolidBuilder,
   record: StairConnectorRecord,
+  steps: readonly StairStep[],
   step: StairStep,
   bottomY: number,
   parapet: { readonly width: number; readonly height: number },
+  back: { readonly lo: number; readonly hi: number } | null,
 ): void {
   const { flightRect, topY } = record;
-  const spans: readonly (readonly [number, number])[] = [
-    [flightRect.minX - parapet.width, flightRect.minX],
-    [flightRect.maxX, flightRect.maxX + parapet.width],
-  ];
-  const capY = step.topY + parapet.height;
   const isLast = step.index === record.stepCount - 1;
-
-  for (const [x0, x1] of spans) {
+  const capY = step.topY + parapet.height;
+  const previousCap = step.index > 0
+    ? steps[step.index - 1]!.topY + parapet.height
+    : bottomY;
+  const lower = Math.min(previousCap, step.topY);
+  const upper = Math.max(previousCap, step.topY);
+  // The terminal above the summit always shows its back — it faces open air
+  // over the floor. Below the summit the profile's exposed interval rules,
+  // exactly as on the flight. Spans never straddle the summit plane, because
+  // the tread of the last step *is* the summit, so it is always a span bound.
+  const backFor = (spanBottom: number): { readonly lo: number; readonly hi: number } | null => {
     if (!isLast) {
-      builder.addBlock(
-        slice(x0, x1, step.zBack, step.zFront, bottomY, capY),
-        { sides: [true, true, false, true], top: true, bottom: false },
-      );
-      continue;
+      return null;
     }
 
-    builder.addBlock(
-      slice(x0, x1, step.zBack, step.zFront, bottomY, topY),
-      // Capped by the block above, back buried in the mass behind the summit
-      // edge — on a vertical wall that back would be coplanar with the crown
-      // facade, which is exactly why it is never emitted.
-      { sides: [true, true, false, true], top: false, bottom: false },
-    );
-    builder.addBlock(
-      slice(x0, x1, step.zBack, step.zFront, topY, capY),
-      // The stretch above the summit floor: its back is the face the parapet
-      // terminal presents to the summit, and nothing stands behind it.
-      { sides: [true, true, true, true], top: true, bottom: false },
+    return spanBottom >= topY - EPS ? { lo: spanBottom, hi: capY } : back;
+  };
+
+  const sides: readonly (readonly [number, number, boolean])[] = [
+    // Span, and whether the inner face — the one toward the flight — is the
+    // span's max-x face.
+    [flightRect.minX - parapet.width, flightRect.minX, true],
+    [flightRect.maxX, flightRect.maxX + parapet.width, false],
+  ];
+
+  for (const [x0, x1, innerIsMaxX] of sides) {
+    const faces = (of: {
+      readonly outer?: boolean;
+      readonly inner?: boolean;
+      readonly front?: boolean;
+      readonly top?: boolean;
+    }): FaceSpec => ({
+      front: of.front,
+      top: of.top,
+      maxX: innerIsMaxX ? of.inner : of.outer,
+      minX: innerIsMaxX ? of.outer : of.inner,
+    });
+    const middle = step.topY <= previousCap
+      // The balustrade wall above the tread: inner and outer show, the front
+      // is pressed against the previous, taller parapet slice.
+      ? faces({ outer: true, inner: true })
+      // A parapet shallower than a riser: this stretch is the exposed front
+      // strip of the silhouette, its inner side still pressed on the flight.
+      : faces({ outer: true, front: true });
+
+    laySpan(builder, x0, x1, step, bottomY, lower, faces({ outer: true }), backFor(bottomY));
+    laySpan(builder, x0, x1, step, lower, upper, middle, backFor(lower));
+    laySpan(
+      builder,
+      x0,
+      x1,
+      step,
+      upper,
+      capY,
+      faces({ outer: true, inner: true, front: true, top: true }),
+      backFor(upper),
     );
   }
 }

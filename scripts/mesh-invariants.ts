@@ -281,6 +281,159 @@ export function findBackfaces(
   return { shots, backfaces, sample };
 }
 
+export interface BuriedFaceReport {
+  /** Faces whose immediate outside is the inside of another block. */
+  readonly faces: number;
+  /** Faces the probe could evaluate (axis-aligned quads). */
+  readonly checked: number;
+  /** Faces skipped because they are not axis-aligned (e.g. greybox rakes). */
+  readonly skipped: number;
+  readonly sample: string | null;
+}
+
+/**
+ * Faces emitted into solid stone: the point just outside the face is inside
+ * another block, so nothing can ever see it.
+ *
+ * The probe steps epsilon off each quad's centroid along its normal and walks
+ * that ray. If the first surface it meets is back-facing, the probe started
+ * inside a solid — the covering block's near side is legitimately unemitted
+ * (that is the whole face-culling discipline), so the ray leaves through its
+ * far side, which is why `maxDistance` must exceed the thickest covering solid
+ * rather than being a coplanarity tolerance. A first hit that is front-facing
+ * means the probe crossed open space — a joint, a slot, the sky — and the face
+ * can be seen, at least down a gap.
+ *
+ * Exact and cheap because a square-set build is axis-aligned rectangles and
+ * the probe rays run along face normals: candidates reduce to parallel planes
+ * ahead of the origin containing the probe point, an interval test per axis.
+ * Run it on square-set geometry only — displacement tilts faces (skipped) and
+ * narrows joints below epsilon (false positives).
+ *
+ * Known blind spots, accepted: opposing faces across a sealed cavity see each
+ * other front-facing and read as visible; a quad partially buried keeps its
+ * centroid verdict; a cover whose far side is also unemitted lets the probe
+ * fly through to whatever is beyond it.
+ */
+export function findBuriedFaces(
+  geometry: THREE.BufferGeometry,
+  epsilon = 0.005,
+  maxDistance = 1.0,
+): BuriedFaceReport {
+  const position = geometry.getAttribute("position");
+  const normal = geometry.getAttribute("normal");
+
+  if (position.count % 4 !== 0) {
+    throw new Error("Buried-face probe expects the four-vertex-per-face contract.");
+  }
+
+  interface AxisQuad {
+    /** Signed direction of the face normal along its axis. */
+    readonly sign: number;
+    /** Position of the face plane along its axis. */
+    readonly plane: number;
+    readonly minU: number;
+    readonly maxU: number;
+    readonly minV: number;
+    readonly maxV: number;
+  }
+
+  interface Probe {
+    readonly axis: number;
+    readonly sign: number;
+    readonly plane: number;
+    readonly u: number;
+    readonly v: number;
+    readonly centroid: readonly [number, number, number];
+  }
+
+  // The two in-plane axes for a face whose normal runs along `axis`.
+  const IN_PLANE: readonly (readonly [number, number])[] = [[1, 2], [0, 2], [0, 1]];
+  const byAxis: AxisQuad[][] = [[], [], []];
+  const probes: Probe[] = [];
+
+  for (let start = 0; start < position.count; start += 4) {
+    const facing = [normal.getX(start), normal.getY(start), normal.getZ(start)];
+    const axis = facing.map(Math.abs).indexOf(Math.max(...facing.map(Math.abs)));
+
+    if (Math.abs(facing[axis] ?? 0) < 0.999) {
+      continue;
+    }
+
+    const corners = [0, 1, 2, 3].map((corner) => [
+      position.getX(start + corner),
+      position.getY(start + corner),
+      position.getZ(start + corner),
+    ]);
+    const [uAxis, vAxis] = IN_PLANE[axis]!;
+    const us = corners.map((point) => point[uAxis]!);
+    const vs = corners.map((point) => point[vAxis]!);
+    const planes = corners.map((point) => point[axis]!);
+    const sign = Math.sign(facing[axis] ?? 1);
+    const centroid = [0, 1, 2].map(
+      (component) => corners.reduce((total, point) => total + point[component]!, 0) / 4,
+    ) as [number, number, number];
+
+    byAxis[axis]!.push({
+      sign,
+      plane: planes.reduce((total, value) => total + value, 0) / 4,
+      minU: Math.min(...us),
+      maxU: Math.max(...us),
+      minV: Math.min(...vs),
+      maxV: Math.max(...vs),
+    });
+    probes.push({
+      axis,
+      sign,
+      plane: centroid[axis]!,
+      u: centroid[uAxis]!,
+      v: centroid[vAxis]!,
+      centroid,
+    });
+  }
+
+  const totalQuads = position.count / 4;
+  let buried = 0;
+  let sample: string | null = null;
+
+  for (const probe of probes) {
+    const origin = probe.plane + probe.sign * epsilon;
+    let nearest: { readonly distance: number; readonly sign: number } | null = null;
+
+    for (const candidate of byAxis[probe.axis]!) {
+      const distance = (candidate.plane - origin) * probe.sign;
+
+      if (
+        distance <= 0
+        || distance > maxDistance
+        || (nearest && distance >= nearest.distance)
+        // Strict containment: a face merely sharing an edge in the same plane
+        // is a neighbour, not a cover.
+        || probe.u <= candidate.minU + 1e-9 || probe.u >= candidate.maxU - 1e-9
+        || probe.v <= candidate.minV + 1e-9 || probe.v >= candidate.maxV - 1e-9
+      ) {
+        continue;
+      }
+
+      nearest = { distance, sign: candidate.sign };
+    }
+
+    // A back-facing first hit: the candidate's normal continues in the probe's
+    // travel direction, so the probe met it from behind — from inside a block.
+    if (nearest && nearest.sign === probe.sign) {
+      buried += 1;
+      sample ??= probe.centroid.map((value) => value.toFixed(2)).join(", ");
+    }
+  }
+
+  return {
+    faces: buried,
+    checked: probes.length,
+    skipped: totalQuads - probes.length,
+    sample,
+  };
+}
+
 export interface ShadingReport {
   readonly worst: number;
   readonly sample: string | null;

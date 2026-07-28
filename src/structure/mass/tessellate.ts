@@ -45,10 +45,21 @@ export function tessellateStructure(
 ): TessellationResult {
   const builder = new SolidBuilder();
   const { masonry, seed } = options;
+  // The plan strip the stair permanently covers on the front elevation.
+  // Facing stones inside it never show their outer face; the shell reads the
+  // connector rather than the reverse, keeping construction a pure reader.
+  const stair = graph.connectors[0] ?? null;
+  const frontReserve = stair
+    ? {
+      minX: stair.flightRect.minX - (stair.parapet?.width ?? 0),
+      maxX: stair.flightRect.maxX + (stair.parapet?.width ?? 0),
+      minZBehind: stair.flightRect.minZ,
+    }
+    : null;
 
   for (const mass of graph.masses) {
     if (masonry) {
-      buildMassShell(builder, mass.bands, { rule: masonry, seed });
+      buildMassShell(builder, mass.bands, { rule: masonry, seed, frontReserve });
       continue;
     }
 

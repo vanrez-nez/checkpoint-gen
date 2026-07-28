@@ -73,6 +73,24 @@ const CORNICE_STONE_RATIO = 2.5;
 export interface ShellOptions {
   readonly rule: MasonryRule;
   readonly seed: number;
+  /**
+   * The plan strip a stair permanently covers on the front elevation, when one
+   * exists. Facing stones wholly behind the flight never show their outer
+   * face; everything else about them stays — their tops pave the terraces the
+   * stair does not cover, and their cheeks close the joints beside them.
+   */
+  readonly frontReserve?: FrontReserve | null;
+}
+
+export interface FrontReserve {
+  readonly minX: number;
+  readonly maxX: number;
+  /**
+   * The flight's upper edge. A course whose outline has receded behind it —
+   * the wall under a crown cornice's lip — is visible through the niche
+   * between the stair's back and the facade, and keeps its face.
+   */
+  readonly minZBehind: number;
 }
 
 /**
@@ -122,6 +140,7 @@ export function buildMassShell(
         // What stands on this band, so the courses know how much of their top is
         // open to the sky. Null means nothing does and the whole crown is floor.
         under: segment === crown ? (bands[index + 1]?.lower ?? null) : undefined,
+        frontReserve: options.frontReserve ?? null,
       });
     }
   }
@@ -195,6 +214,8 @@ interface CourseOptions {
    * does. `undefined` means this segment is buried and shows no top at all.
    */
   readonly under?: Rect | null;
+  /** See ShellOptions.frontReserve. */
+  readonly frontReserve?: FrontReserve | null;
 }
 
 /**
@@ -271,6 +292,7 @@ function layCourses(
       rule: courseRule,
       outline,
       unbackedOuterFace: true,
+      frontReserve: options.frontReserve ?? null,
       // The back of a facing stone opens onto the fill only at an exposed
       // terrace or summit. In a buried course the joint is closed by the outer
       // face of the first backing ring; the facing stone's inward face points
@@ -331,6 +353,8 @@ interface RingOptions {
   readonly bottomInset?: number;
   /** True only for the building's outer facing, which has no ring outside it. */
   readonly unbackedOuterFace?: boolean;
+  /** Set only on the facing ring; see ShellOptions.frontReserve. */
+  readonly frontReserve?: FrontReserve | null;
   /**
    * Whether the ring's inner face is exposed.
    *
@@ -375,30 +399,54 @@ function layRing(builder: SolidBuilder, options: RingOptions): void {
       continue;
     }
 
-    // A stone takes a joint at each end, except at a butted corner. There the
-    // two runs are one stone's thickness apart, so they are laid the way a
-    // quoin's two legs are: the end stone carries on to the arris and shows its
-    // return on the wall round the corner, and the next run's first stone starts
-    // a stone's depth along. Letting both reach the corner would put two stones
-    // in the same place, and their tops and undersides would fight.
+    // At a butted corner the run's last stone carries on to the arris, dressed
+    // flush, and shows its end as the return on the wall round the corner. The
+    // next run's first stone starts a stone's depth along, separated from the
+    // return by an ordinary joint — a real one, with both cheeks. It was
+    // treated as pressed instead, on the theory that the two touched; the
+    // corner insets meant they never did, and the unfaced seam beside every
+    // corner was a slot straight into the hollow of the course.
     const buttedStart = !quoined && block.from <= depth + 1e-9;
     const buttedEnd = !quoined && block.to >= run.length - 1e-9;
-    const from = block.from + (buttedStart ? 0 : joint);
+    const from = block.from + joint;
     const to = buttedEnd ? run.length : block.to - joint;
 
     if (to <= from) {
       continue;
     }
 
+    // A facing stone standing wholly behind the stair never shows its outer
+    // face — the flight is solid from its treads to the wall. Its top still
+    // paves the terrace above and its cheeks still close the joints beside it,
+    // so only the face is withheld, and only while this course has not receded
+    // behind the flight's upper edge into the visible niche under a crown
+    // molding.
+    const reserve = options.unbackedOuterFace === true
+      ? options.frontReserve ?? null
+      : null;
+    const behindStair = reserve !== null
+      && block.run === 0
+      && outline.maxZ >= reserve.minZBehind - 1e-6
+      && outline.minX + block.from >= reserve.minX - 1e-9
+      && outline.minX + block.to <= reserve.maxX + 1e-9;
+
     builder.addBlock(
       stoneOn(run, from, to, depth, options, block.seed, {
         start: buttedStart,
         end: buttedEnd,
       }),
-      // Edges run outer, end, inner, start. The start is drawn only where a
-      // joint can be seen into it.
+      // Edges run outer, end, inner, start. A corner stone on the facing ring
+      // also shows its inner face: it is the far cheek of the joint beside its
+      // return, and without it that joint looks past the stone into the
+      // course's hollow.
       {
-        sides: [true, true, options.showInner === true, !buttedStart],
+        sides: [
+          !behindStair,
+          true,
+          options.showInner === true
+            || (buttedEnd && options.unbackedOuterFace === true),
+          true,
+        ],
         top: options.showTop !== false,
         bottom: options.showBottom,
         bottomInset: options.bottomInset,
@@ -450,9 +498,12 @@ function layQuoin(
 
   builder.addBlock(
     stoneOn(nextRun, depth, wrapTo, depth, options, seed, { start: true }),
-    // Its start runs into the return above, so nothing separates them.
+    // Its start face is drawn even though the legs are one stone: the long
+    // leg's transverse inset leaves a finger-width seam between the two
+    // bodies, and a face there is the difference between a shadow line and a
+    // slit into the course.
     {
-      sides: [true, true, options.showInner === true, false],
+      sides: [true, true, options.showInner === true, true],
       top: options.showTop !== false,
       bottom: showBottom,
       bottomInset: options.bottomInset,
@@ -681,11 +732,23 @@ function stoneOn(
   // The shared Circular setting: inset off the cell by half the gap, then move
   // every plan corner by shortest-edge × displacement. Ring order is start,
   // end, end-back, start-back.
-  // An end that is dressed square keeps the inset but not the wander. Keeping the
-  // raw cell instead would leave that corner half a gap proud of every neighbour
-  // that had been inset, which is close enough for two faces to land at the same
-  // depth once the wander is added on.
   const dressed = insetAndJitter(cell, options.rule.gap, 0, createRandom(seed));
+  // A dressed end is cut to the line: it keeps the transverse inset, so its
+  // outer face stays in plane with its neighbours', but it reaches its station
+  // exactly. The radial inset alone left every pinned end half a gap short —
+  // and since a butted corner sits at the same station on every course, those
+  // shortfalls stacked into an open column up the whole arris, seen straight
+  // through from two elevations at once.
+  const flushed = (corner: number): Point2 => {
+    const raw = cell[corner]!;
+    const soft = dressed[corner]!;
+    const alongDrift = (soft.x - raw.x) * run.along.x + (soft.z - raw.z) * run.along.z;
+
+    return {
+      x: soft.x - run.along.x * alongDrift,
+      z: soft.z - run.along.z * alongDrift,
+    };
+  };
   const random = createRandom(seed);
   const cellScale = Math.min(Math.max(to - from, 0), Math.max(depth, 0));
   const normalJitter = displacementDistance(
@@ -751,7 +814,7 @@ function stoneOn(
     };
   });
   const ring = cell.map((_, corner) =>
-    (square[corner] === true ? dressed[corner]! : wandered[corner]!));
+    (square[corner] === true ? flushed(corner) : wandered[corner]!));
   // Use the same cell-scaled amount vertically as in plan; attenuating this to
   // Circular's subtle top-surface roughness made the Mass control visually
   // inert. On a stacked course, downward movement would open a crack beneath
