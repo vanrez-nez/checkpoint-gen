@@ -224,6 +224,8 @@ function layCourses(
   );
   for (const course of courses) {
     const isFirst = course.index === 0;
+    const isLast = course.index === courses.length - 1;
+    const isExposedCrown = options.under !== undefined && isLast;
     // Courses sit flush on each other. A bed joint would be a slot a stone deep
     // running the whole way round the building, and a level ray entering one
     // travels inside the wall and out the far side; dry-laid stone has no such
@@ -266,9 +268,13 @@ function layCourses(
       ...shared,
       rule: courseRule,
       outline,
-      showInner: true,
+      // The back of a facing stone opens onto the fill only at an exposed
+      // terrace or summit. In a buried course the joint is closed by the outer
+      // face of the first backing ring; the facing stone's inward face points
+      // into solid work and can never be seen.
+      showInner: isExposedCrown,
       showBottom: shared.showBottom || onSoffit,
-      showTop: !(options.crowned && course.index === courses.length - 1),
+      showTop: !(options.crowned && isLast),
       seed: masonrySeed(options.seed, `course_${course.index}`),
       courseIndex: course.index,
     });
@@ -288,11 +294,15 @@ function layCourses(
       // The top of the band's last course is its terrace or its summit, so the
       // rings out to whatever stands on it are all in daylight. Everywhere else
       // only the outermost couple can be reached.
-      exposedTop: options.under !== undefined && course.index === courses.length - 1,
+      exposedTop: isExposedCrown,
       under: options.under ?? null,
       // A moulding's soffit is one stone reaching back over the wall, so nothing
       // under it shows a top — not the facing, and not the rings behind it.
-      showTop: !(options.crowned && course.index === courses.length - 1),
+      showTop: !(options.crowned && isLast),
+      // Only the facing course oversails the wall at a cornice. Its increased
+      // depth reaches back over the projection; the fill starts inside that
+      // reach and is supported by the wall below, so its underside is buried.
+      showBottom: false,
       outline: insetRect(outline, uniformSetbacks(depth + segment.rule.gap)),
       seed: masonrySeed(options.seed, `inward_${course.index}`),
       courseIndex: course.index,
@@ -491,7 +501,7 @@ function layInward(builder: SolidBuilder, options: InwardOptions): void {
   // every ring out to the footprint of whatever stands there. The rest is stone
   // buried in stone: the middle of a course of a battered pyramid is a dozen
   // rings deep and not one of them is ever visible.
-  let visible = 0;
+  let visible = -1;
 
   for (let ring = 0; ring < outlines.length; ring += 1) {
     if (options.exposedTop === true
@@ -500,16 +510,25 @@ function layInward(builder: SolidBuilder, options: InwardOptions): void {
     }
   }
 
-  const kept = Math.min(visible + 2, outlines.length);
+  // Two rings are the minimum joint backing even when the whole crown is
+  // covered. `visible` starts at -1 so that case does not accidentally mark the
+  // outermost backing-ring top as exposed.
+  const kept = Math.min(Math.max(visible + 2, 2), outlines.length);
 
   for (let ring = 0; ring < kept; ring += 1) {
+    const topIsExposed = options.exposedTop === true && ring <= visible;
+    const innerIsExposed = topIsExposed;
+
     layRing(builder, {
       ...options,
       outline: outlines[ring]!,
-      // The innermost ring kept is the boundary of the whole course, so its
-      // inner faces are what close it now that nothing is laid behind them.
-      showInner: true,
-      showTop: options.showTop !== false && (ring <= visible || options.exposedTop !== true),
+      // A buried backing ring is capped by the course above, so neither its top
+      // nor the inner cheek of its joint can be reached. On a terrace both are
+      // visible down into the joint. The retained ring behind this one closes
+      // outward views through the perpends; an inward-facing wall around the
+      // culled centre would only be visible from inside that sealed centre.
+      showInner: innerIsExposed,
+      showTop: options.showTop !== false && topIsExposed,
       seed: masonrySeed(options.seed, `ring_${ring}`),
       courseIndex: options.courseIndex + ring,
     });
@@ -536,6 +555,10 @@ interface StripOptions {
   readonly bottomY: number;
   readonly topY: number;
   readonly ramp: HeightRamp;
+  /** False when this course is buried under another course or a moulding. */
+  readonly showTop?: boolean;
+  /** Whether this course ends at an exposed band crown. */
+  readonly exposedTop?: boolean;
   readonly showBottom: boolean;
   readonly rule: MasonryRule;
   readonly seed: number;
@@ -570,7 +593,11 @@ function layStrip(builder: SolidBuilder, options: StripOptions): void {
       boxOf(bounds, bottomY, topY),
       // Every side: the two ends face their neighbours in the strip, and the two
       // long sides face the innermost ring. All four have a joint beside them.
-      { sides: [true, true, true, true], top: true, bottom: options.showBottom },
+      {
+        sides: [true, true, true, true],
+        top: options.showTop !== false && options.exposedTop === true,
+        bottom: options.showBottom,
+      },
       options.ramp,
     );
   }

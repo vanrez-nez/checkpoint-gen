@@ -1308,6 +1308,17 @@ assert.equal(
   0,
   "The greybox has two faces at the same depth.",
 );
+const greyboxPositions = greybox.parts[0]!.geometry.getAttribute("position");
+const greyboxNormals = greybox.parts[0]!.geometry.getAttribute("normal");
+const groundY = Math.min(...shellBands.map((band) => band.bottomY));
+
+for (let vertex = 0; vertex < greyboxPositions.count; vertex += 1) {
+  assert.ok(
+    greyboxNormals.getY(vertex) > -0.9
+      || greyboxPositions.getY(vertex) > groundY + 1e-9,
+    `The greybox emits a downward face buried at ground level (vertex ${vertex}).`,
+  );
+}
 
 // Hidden stone is not laid. A course of a battered pyramid is a dozen rings deep
 // and only the outermost two can be reached — through the joints of the one in
@@ -1327,6 +1338,121 @@ assert.equal(
   0,
   "Culling reached a stone something could see.",
 );
+
+// Hidden faces are culled along with hidden stone. Keeping two backing rings is
+// necessary to close the perpends in the ring in front, but those retained
+// blocks used to emit all six sides as if they were freestanding: buried tops,
+// inward walls around the sealed centre and supported cornice undersides. Since
+// this builder uses four dedicated vertices per flat face, a face budget is also
+// an exact vertex-buffer budget.
+assert.ok(
+  shellBuilder.blockFaces.length < shellBuilder.blockCount * 3.6,
+  `${shellBuilder.blockFaces.length} faces for ${shellBuilder.blockCount} retained blocks: `
+  + "buried backing faces are still being emitted.",
+);
+assert.equal(
+  shellBuilder.positions.length / 3,
+  shellBuilder.blockFaces.length * 4,
+  "Each retained block face must account for exactly four vertices.",
+);
+
+// A buried course still needs its facing-stone tops: they are the narrow treads
+// left by the batter and the floor seen down a perpend. Its backing-ring tops
+// are entirely under the course above. On a plain vertical band that distinction
+// is exact: every non-crown top that remains must touch the outside wall line.
+const verticalLayout: MassLayoutConfig = {
+  ...SHELL_LAYOUT,
+  baseTreatment: "none",
+  bandCount: 1,
+  totalHeight: 2,
+  batterAngle: 0,
+  cornicePlacement: "none",
+};
+const verticalGraph = generateStructure(toStructureSpec(verticalLayout));
+const verticalBands = verticalGraph.masses[0]?.bands ?? [];
+const verticalBand = verticalBands[0];
+const verticalRule = toMasonry(verticalLayout, DEFAULT_STONE_CONFIG);
+const verticalRamp = rampOver(verticalBands);
+assert.ok(verticalBand && verticalRule && verticalRamp);
+const verticalBuilder = new SolidBuilder();
+buildMassShell(verticalBuilder, verticalBands, {
+  rule: { ...verticalRule, displacement: 0 },
+  seed: 1,
+  ramp: verticalRamp,
+});
+const buriedTops = readBlockFaces(verticalBuilder).filter((face) =>
+  faceNormal(face).y > 0.9 && face[0]!.y < verticalBand.topY - 1e-9);
+assert.ok(buriedTops.length > 20, "The vertical-wall probe found too few buried course tops.");
+
+for (const [index, face] of buriedTops.entries()) {
+  assert.ok(
+    face.some((corner) =>
+      Math.abs(corner.x - verticalBand.lower.minX) < 1e-9
+      || Math.abs(corner.x - verticalBand.lower.maxX) < 1e-9
+      || Math.abs(corner.z - verticalBand.lower.minZ) < 1e-9
+      || Math.abs(corner.z - verticalBand.lower.maxZ) < 1e-9),
+    `Buried top ${index} belongs to a backing ring, not the visible facing course.`,
+  );
+}
+
+// A narrow terrace may be shallower than one stone. In that case the next band
+// covers the first backing ring completely; initializing the visible-ring index
+// at zero used to keep that ring's top even though no part reached daylight.
+const shallowTerraceLayout: MassLayoutConfig = {
+  ...verticalLayout,
+  bandCount: 3,
+  totalHeight: 6,
+  summitRatio: 0.9,
+};
+const shallowTerraceGraph = generateStructure(toStructureSpec(shallowTerraceLayout));
+const shallowTerraceBands = shallowTerraceGraph.masses[0]?.bands ?? [];
+const shallowTerraceRule = toMasonry(shallowTerraceLayout, DEFAULT_STONE_CONFIG);
+const shallowTerraceRamp = rampOver(shallowTerraceBands);
+const lowerTerraceBand = shallowTerraceBands[0];
+const upperTerraceBand = shallowTerraceBands[1];
+assert.ok(shallowTerraceRule && shallowTerraceRamp && lowerTerraceBand && upperTerraceBand);
+const shallowTerraceBuilder = new SolidBuilder();
+buildMassShell(shallowTerraceBuilder, shallowTerraceBands, {
+  rule: { ...shallowTerraceRule, displacement: 0 },
+  seed: 1,
+  ramp: shallowTerraceRamp,
+});
+const shallowTerraceTops = readBlockFaces(shallowTerraceBuilder).filter((face) =>
+  faceNormal(face).y > 0.9 && Math.abs(face[0]!.y - lowerTerraceBand.topY) < 1e-9);
+assert.ok(shallowTerraceTops.length > 20, "The shallow-terrace probe found too few top faces.");
+
+for (const [index, face] of shallowTerraceTops.entries()) {
+  assert.ok(
+    face.some((corner) =>
+      corner.x < upperTerraceBand.lower.minX - 1e-9
+      || corner.x > upperTerraceBand.lower.maxX + 1e-9
+      || corner.z < upperTerraceBand.lower.minZ - 1e-9
+      || corner.z > upperTerraceBand.lower.maxZ + 1e-9),
+    `Shallow terrace top ${index} is entirely hidden by the band above.`,
+  );
+}
+
+// The first cornice course reaches out past its supporting wall and its bottom
+// is the visible soffit. The backing rings begin inside that support, so any
+// downward face contained by the springing rectangle is wholly buried.
+const soffits = shellFaces.filter((face) => faceNormal(face).y < -0.9);
+assert.ok(soffits.length > 20, "The cornice probe found too few soffit faces.");
+
+for (const [index, face] of soffits.entries()) {
+  const cornice = shellBands
+    .map((band) => band.cornice)
+    .find((candidate) =>
+      candidate !== null && Math.abs(candidate.bottomY - face[0]!.y) < 1e-9);
+  assert.ok(cornice, `Soffit ${index} does not belong to a cornice.`);
+  assert.ok(
+    face.some((corner) =>
+      corner.x < cornice.springing.minX - 1e-9
+      || corner.x > cornice.springing.maxX + 1e-9
+      || corner.z < cornice.springing.minZ - 1e-9
+      || corner.z > cornice.springing.maxZ + 1e-9),
+    `Soffit ${index} is entirely hidden by its supporting wall.`,
+  );
+}
 
 // The rake belongs to the two blocks it passes through, not to all of them.
 // Sharing it out — sampling both edges at the same fraction of their own length —
@@ -1760,8 +1886,9 @@ function massingFingerprint(graph: StructureGraph): string {
  * The centre-based test below only holds for a single convex solid: on a stepped
  * pyramid a terrace ring sits below the bounding-box centre while correctly
  * facing up. So each face is checked against what it is instead — walls point
- * away from the vertical axis, horizontal faces point up, and exactly one face
- * points down, at the bottom of the stack.
+ * away from the vertical axis, horizontal faces point up, and only an exposed
+ * overhang such as a cornice may point down. The ground interface is buried and
+ * deliberately left open.
  */
 function assertMassNormals(geometry: THREE.BufferGeometry, label: string): void {
   const position = geometry.getAttribute("position");
@@ -1774,8 +1901,6 @@ function assertMassNormals(geometry: THREE.BufferGeometry, label: string): void 
 
   const point = new THREE.Vector3();
   const facing = new THREE.Vector3();
-  let downFacing = 0;
-
   for (let index = 0; index < position.count; index += 1) {
     point.fromBufferAttribute(position, index);
     facing.fromBufferAttribute(normal, index);
@@ -1786,10 +1911,9 @@ function assertMassNormals(geometry: THREE.BufferGeometry, label: string): void 
     );
 
     if (facing.y < -0.9) {
-      downFacing += 1;
       assert.ok(
-        Math.abs(point.y - bounds.min.y) < 1e-4,
-        `${label}: vertex ${index} faces down but is not at the base.`,
+        point.y > bounds.min.y + 1e-4,
+        `${label}: vertex ${index} emits a downward face buried at the base.`,
       );
       continue;
     }
@@ -1810,7 +1934,6 @@ function assertMassNormals(geometry: THREE.BufferGeometry, label: string): void 
     );
   }
 
-  assert.ok(downFacing > 0, `${label}: the stack was never closed underneath.`);
 }
 
 /**

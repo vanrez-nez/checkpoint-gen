@@ -162,11 +162,11 @@ function layBareMass(
         {
           sides: [true, true, true, true],
           // Only the topmost piece shows its crown; whatever sits above a lower
-          // one covers it. The band above stands on this one, so its underside
-          // is drawn only where the mass meets the ground — and a moulding's
-          // underside is its soffit, which oversails the wall and is always seen.
+          // one covers it. The mass's ground face is buried and is never emitted.
+          // A moulding's underside is its soffit, which oversails the wall and
+          // remains visible around the supporting wall.
           top: isCrown,
-          bottom: (index === 0 && part === 0) || (cornice !== null && part === 1),
+          bottom: cornice !== null && part === 1,
         },
         ramp,
       );
