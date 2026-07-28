@@ -48,6 +48,8 @@ export const DEFAULT_BEVEL_CONFIG: Readonly<BevelConfig> = {
 /** Presentation toggles that never touch geometry generation. */
 export interface ViewConfig {
   wireframe: boolean;
+  /** Wireframe stroke width in pixels. Wide lines, not GL_LINES' fixed 1px. */
+  wireframeWidth: number;
   vertexNormals: boolean;
   /**
    * Replaces the surface materials with a neutral matte, so massing can be
@@ -65,6 +67,7 @@ export interface ViewConfig {
 
 export const DEFAULT_VIEW_CONFIG: Readonly<ViewConfig> = {
   wireframe: false,
+  wireframeWidth: 1.5,
   vertexNormals: false,
   greybox: false,
   patchDebug: false,
@@ -209,6 +212,17 @@ export function createBevelControls(
 
 export const VIEW_CONTROLS: readonly ControlSpec<ViewConfig>[] = [
   view.boolean({ key: "wireframe", group: "View", name: "Wireframe", scopes: ["view"] }),
+  view.number({
+    key: "wireframeWidth",
+    label: "line width",
+    name: "Wireframe line width",
+    group: "View",
+    min: 1,
+    max: 6,
+    step: 0.25,
+    scopes: ["view"],
+    visibleWhen: (config) => config.wireframe,
+  }),
   view.boolean({
     key: "vertexNormals",
     label: "vertex normals",

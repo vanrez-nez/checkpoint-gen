@@ -143,6 +143,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     }
     if (scopes.includes("view")) {
       scene.setWireframe(config.view.wireframe);
+      scene.setWireframeWidth(config.view.wireframeWidth);
       scene.setVertexNormalsVisible(config.view.vertexNormals);
       scene.setGreybox(config.view.greybox);
       scene.setPatchDebugVisible(config.view.patchDebug);

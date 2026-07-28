@@ -24,6 +24,8 @@ const ROLE_COLORS: Readonly<Record<string, number>> = {
   terrace: 0x4ade80,
   transition_band: 0xfbbf24,
   summit_floor: 0xf472b6,
+  stair_flight: 0xc084fc,
+  stair_side: 0xa78bfa,
 };
 
 const FALLBACK_COLOR = 0x94a3b8;

@@ -33,6 +33,12 @@ import {
 import type { SeedSet } from "../kernel/seed";
 import { DiagnosticCollector } from "../kernel/validate";
 import {
+  resolveStair,
+  unimplementedStairMember,
+  type ResolvedStair,
+  type StairSpec,
+} from "../connector/stair";
+import {
   IMPLEMENTED_BASE_TREATMENTS,
   IMPLEMENTED_SUMMIT_TREATMENTS,
   resolveElevation,
@@ -88,6 +94,8 @@ export interface StructureSpec {
   readonly seeds: SeedSet;
   readonly groundY: number;
   readonly mass: MassSpec;
+  /** The primary approach stair, or null for a mass with no circulation yet. */
+  readonly stair: StairSpec | null;
 }
 
 const FACADE_SEGMENT: Readonly<Record<HorizontalOrientation, string>> = {
@@ -135,6 +143,19 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     return graph.build(diagnostics.all);
   }
 
+  if (spec.stair) {
+    const unimplemented = unimplementedStairMember(spec.stair);
+
+    if (unimplemented) {
+      diagnostics.error(
+        unimplemented.code,
+        structurePath(spec.id, spec.stair.id),
+        unimplemented.message,
+      );
+      return graph.build(diagnostics.all);
+    }
+  }
+
   const footprint = resolveFootprint(spec.mass.footprint, massId, diagnostics);
 
   if (!footprint) {
@@ -169,7 +190,37 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
   const bands = plinth ? [plinth.band, ...elevation.bands] : elevation.bands;
   const groundRect = plinth ? plinth.band.lower : footprint;
 
+  // Circulation is resolved before any patch is emitted, for two reasons: a
+  // stair that cannot fit refuses the whole build the way every other refusal
+  // does, with nothing half-formed left behind; and the stair reserves ground
+  // on the facades it climbs in front of, so the reservation has to exist on
+  // each patch from the moment the patch does.
   const groundPatchId = structurePath(massId, "ground_interface");
+  const stair = spec.stair
+    ? resolveStair(
+      {
+        structureId: spec.id,
+        spec: spec.stair,
+        groundY: spec.groundY,
+        groundRect,
+        summitRect: elevation.summitRect,
+        summitY: elevation.summitY,
+        bands,
+        lowerPatchId: groundPatchId,
+        upperPatchId: structurePath(
+          massId,
+          ordinalSegment("band", spec.mass.bandCount - 1),
+          "summit_floor",
+        ),
+      },
+      diagnostics,
+    )
+    : null;
+
+  if (spec.stair && !stair) {
+    return graph.build(diagnostics.all);
+  }
+
   graph.addPatch(horizontalPatch({
     id: groundPatchId,
     role: PATCH_ROLES.groundInterface,
@@ -189,7 +240,7 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     }
 
     const next = bands[index + 1];
-    const facadeIds = emitBandFacades(graph, band);
+    const facadeIds = emitBandFacades(graph, band, stair);
 
     // A facade meets the ground or the terrace it rises from, and its two
     // neighbours around the corner.
@@ -228,6 +279,19 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     totalHeight: elevation.summitY - spec.groundY,
     patchIds: bands.flatMap((band) => bandPatchIds(band)),
   } satisfies MassRecord);
+
+  // The stair's own surfaces, once both ends it connects exist to be linked to.
+  if (stair) {
+    for (const patch of stair.patches) {
+      graph.addPatch(patch);
+    }
+
+    for (const [a, b] of stair.links) {
+      graph.link(a, b);
+    }
+
+    graph.addConnector(stair.record);
+  }
 
   return graph.build(diagnostics.all);
 }
@@ -301,6 +365,7 @@ function resolvePlinth(
 function emitBandFacades(
   graph: StructureGraphBuilder,
   band: ElevationBandRecord,
+  stair: ResolvedStair | null,
 ): string[] {
   const evaluator: PatchEvaluator = band.wallProfile === "battered"
     ? "battered"
@@ -311,6 +376,12 @@ function emitBandFacades(
     const base = rectEdge(band.lower, orientation);
     const crown = rectEdge(band.upper, orientation);
     const frame = createFacadeFrame(base, band.bottomY, band.topY, crown.start);
+    // A continuous front stair passes every band, so every front facade carries
+    // the reservation: whatever climbs in front of a wall forecloses portals,
+    // niches and optional damage on the strip behind it.
+    const regions = orientation === "front" && stair
+      ? [stairReserveRegion(id, band.lower, stair.spanX)]
+      : [];
 
     graph.addPatch({
       id,
@@ -327,7 +398,7 @@ function emitBandFacades(
       evaluator,
       edges: facadeEdges(id, orientation, band.cornice ? "cornice" : null),
       adjacency: [],
-      regions: [],
+      regions,
       features: [],
       anchors: [],
       tags: ["exterior", orientation],
@@ -335,6 +406,31 @@ function emitBandFacades(
 
     return id;
   });
+}
+
+/**
+ * The strip of a front facade the stair climbs in front of, in the facade's own
+ * domain. `u` runs along the base edge from `minX`, so the world-x span maps
+ * directly; the whole rise is reserved because a continuous flight passes the
+ * whole band.
+ */
+function stairReserveRegion(
+  facadeId: string,
+  lower: Rect,
+  spanX: readonly [number, number],
+): PatchRegion {
+  const width = rectWidth(lower);
+
+  return {
+    id: structurePath(facadeId, "stair_reserve"),
+    uRange: [
+      Math.max((spanX[0] - lower.minX) / width, 0),
+      Math.min((spanX[1] - lower.minX) / width, 1),
+    ],
+    vRange: [0, 1],
+    priority: 100,
+    tags: ["circulation", "stair", "no_build"],
+  };
 }
 
 /** The ring of a band's crown left exposed by the band above. */

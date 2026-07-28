@@ -26,6 +26,7 @@ import {
   type CornicePlacement,
   type SummitTreatment,
 } from "../../mass/elevation";
+import type { StairSideTreatment, StairSpec } from "../../connector/stair";
 
 /**
  * A named height distribution, or `custom` for one authored on the curve editor.
@@ -84,6 +85,17 @@ export interface MassLayoutConfig {
   summitTreatment: SummitTreatment;
   summitMargin: number;
   forecourtDepth: number;
+  /** The primary approach stair: one centred continuous flight, or none. */
+  stairEnabled: boolean;
+  /** Flight width as a fraction of the facade it climbs. */
+  stairWidthRatio: number;
+  /** Target rise of one step; the generator settles the exact integer count. */
+  stairRiser: number;
+  /** Target depth of one tread; widened if the flight would sink into the mass. */
+  stairTread: number;
+  stairSideTreatment: StairSideTreatment;
+  stairParapetWidth: number;
+  stairParapetHeight: number;
   seed: number;
 }
 
@@ -121,6 +133,13 @@ export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
   summitTreatment: "open_floor",
   summitMargin: 1.2,
   forecourtDepth: 3,
+  stairEnabled: true,
+  stairWidthRatio: 0.3,
+  stairRiser: 0.26,
+  stairTread: 0.32,
+  stairSideTreatment: "stepped_parapet",
+  stairParapetWidth: 0.75,
+  stairParapetHeight: 0.55,
   seed: 1,
 };
 
@@ -173,6 +192,11 @@ const SUMMIT_TREATMENT_OPTIONS: Readonly<Record<string, SummitTreatment>> = {
 const CORNER_RULE_OPTIONS: Readonly<Record<string, CornerRule>> = {
   Interlocking: "alternating_interlock",
   Butted: "butted",
+};
+
+const STAIR_SIDE_TREATMENT_OPTIONS: Readonly<Record<string, StairSideTreatment>> = {
+  None: "none",
+  "Stepped parapet": "stepped_parapet",
 };
 
 const control = controlsFor<MassLayoutConfig>();
@@ -435,6 +459,84 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     step: 0.25,
     scopes: ["layout"],
   }),
+  control.boolean({
+    key: "stairEnabled",
+    label: "enabled",
+    name: "Stair",
+    group: "Stair",
+    scopes: ["layout"],
+    // A flight projects well past the foot of the mass, so toggling it moves
+    // the extents the camera frames.
+    reframe: true,
+  }),
+  control.number({
+    key: "stairWidthRatio",
+    label: "width ratio",
+    name: "Stair width ratio",
+    group: "Stair",
+    min: 0.05,
+    max: 0.9,
+    step: 0.01,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.stairEnabled,
+  }),
+  // Riser and tread are targets, not dimensions: the generator resolves a whole
+  // number of steps and reports how far the result drifted.
+  control.number({
+    key: "stairRiser",
+    label: "riser",
+    name: "Stair riser",
+    group: "Stair",
+    min: 0.12,
+    max: 0.45,
+    step: 0.005,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.stairEnabled,
+  }),
+  control.number({
+    key: "stairTread",
+    label: "tread",
+    name: "Stair tread",
+    group: "Stair",
+    min: 0.2,
+    max: 0.6,
+    step: 0.005,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.stairEnabled,
+  }),
+  control.list({
+    key: "stairSideTreatment",
+    label: "sides",
+    name: "Stair side treatment",
+    group: "Stair",
+    options: STAIR_SIDE_TREATMENT_OPTIONS,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.stairEnabled,
+  }),
+  control.number({
+    key: "stairParapetWidth",
+    label: "parapet width",
+    name: "Stair parapet width",
+    group: "Stair",
+    min: 0.2,
+    max: 2,
+    step: 0.05,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.stairEnabled && layout.stairSideTreatment !== "none",
+  }),
+  control.number({
+    key: "stairParapetHeight",
+    label: "parapet height",
+    name: "Stair parapet height",
+    group: "Stair",
+    min: 0,
+    max: 2,
+    step: 0.05,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.stairEnabled && layout.stairSideTreatment !== "none",
+  }),
   control.number({
     key: "seed",
     label: "seed",
@@ -543,5 +645,31 @@ export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
       summitMargin: layout.summitMargin,
       forecourtDepth: layout.forecourtDepth,
     },
+    stair: toStairSpec(layout),
+  };
+}
+
+/**
+ * The stair the controls describe, or null when it is switched off. Only the
+ * dimensions are tunable from the pane; the layout, elevation mode and landing
+ * rule are this phase's single implemented members, stated here so a config
+ * that outlives the phase still says what it meant.
+ */
+function toStairSpec(layout: MassLayoutConfig): StairSpec | null {
+  if (!layout.stairEnabled) {
+    return null;
+  }
+
+  return {
+    id: "stair_primary",
+    layout: "front_centered",
+    elevationMode: "continuous",
+    landingRule: "none",
+    widthRatio: layout.stairWidthRatio,
+    targetRiser: layout.stairRiser,
+    targetTread: layout.stairTread,
+    sideTreatment: layout.stairSideTreatment,
+    parapetWidth: layout.stairParapetWidth,
+    parapetHeight: layout.stairParapetHeight,
   };
 }

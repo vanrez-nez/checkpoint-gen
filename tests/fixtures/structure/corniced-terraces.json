@@ -349,7 +349,10 @@
         "structure/mass_main/base/facade_front",
         "structure/mass_main/base/facade_rear",
         "structure/mass_main/base/facade_side_negative_u",
-        "structure/mass_main/base/facade_side_positive_u"
+        "structure/mass_main/base/facade_side_positive_u",
+        "structure/stair_primary/flight",
+        "structure/stair_primary/side_negative_u",
+        "structure/stair_primary/side_positive_u"
       ],
       "regions": [],
       "features": [],
@@ -420,7 +423,25 @@
         "structure/mass_main/base/ledge",
         "structure/mass_main/ground_interface"
       ],
-      "regions": [],
+      "regions": [
+        {
+          "id": "structure/mass_main/base/facade_front/stair_reserve",
+          "uRange": [
+            0.32,
+            0.68
+          ],
+          "vRange": [
+            0,
+            1
+          ],
+          "priority": 100,
+          "tags": [
+            "circulation",
+            "stair",
+            "no_build"
+          ]
+        }
+      ],
       "features": [],
       "anchors": [],
       "tags": [
@@ -785,7 +806,25 @@
         "structure/mass_main/band_01/ledge",
         "structure/mass_main/base/ledge"
       ],
-      "regions": [],
+      "regions": [
+        {
+          "id": "structure/mass_main/band_01/facade_front/stair_reserve",
+          "uRange": [
+            0.3125,
+            0.6875
+          ],
+          "vRange": [
+            0,
+            1
+          ],
+          "priority": 100,
+          "tags": [
+            "circulation",
+            "stair",
+            "no_build"
+          ]
+        }
+      ],
       "features": [],
       "anchors": [],
       "tags": [
@@ -1150,7 +1189,25 @@
         "structure/mass_main/band_02/facade_side_negative_u",
         "structure/mass_main/band_02/ledge"
       ],
-      "regions": [],
+      "regions": [
+        {
+          "id": "structure/mass_main/band_02/facade_front/stair_reserve",
+          "uRange": [
+            0.282031,
+            0.717969
+          ],
+          "vRange": [
+            0,
+            1
+          ],
+          "priority": 100,
+          "tags": [
+            "circulation",
+            "stair",
+            "no_build"
+          ]
+        }
+      ],
       "features": [],
       "anchors": [],
       "tags": [
@@ -1515,7 +1572,25 @@
         "structure/mass_main/band_03/facade_side_negative_u",
         "structure/mass_main/band_03/ledge"
       ],
-      "regions": [],
+      "regions": [
+        {
+          "id": "structure/mass_main/band_03/facade_front/stair_reserve",
+          "uRange": [
+            0.248575,
+            0.751425
+          ],
+          "vRange": [
+            0,
+            1
+          ],
+          "priority": 100,
+          "tags": [
+            "circulation",
+            "stair",
+            "no_build"
+          ]
+        }
+      ],
       "features": [],
       "anchors": [],
       "tags": [
@@ -1880,7 +1955,25 @@
         "structure/mass_main/band_04/facade_side_negative_u",
         "structure/mass_main/band_04/ledge"
       ],
-      "regions": [],
+      "regions": [
+        {
+          "id": "structure/mass_main/band_04/facade_front/stair_reserve",
+          "uRange": [
+            0.209846,
+            0.790154
+          ],
+          "vRange": [
+            0,
+            1
+          ],
+          "priority": 100,
+          "tags": [
+            "circulation",
+            "stair",
+            "no_build"
+          ]
+        }
+      ],
       "features": [],
       "anchors": [],
       "tags": [
@@ -2245,7 +2338,25 @@
         "structure/mass_main/band_05/facade_side_negative_u",
         "structure/mass_main/band_05/summit_floor"
       ],
-      "regions": [],
+      "regions": [
+        {
+          "id": "structure/mass_main/band_05/facade_front/stair_reserve",
+          "uRange": [
+            0.16374,
+            0.83626
+          ],
+          "vRange": [
+            0,
+            1
+          ],
+          "priority": 100,
+          "tags": [
+            "circulation",
+            "stair",
+            "no_build"
+          ]
+        }
+      ],
       "features": [],
       "anchors": [],
       "tags": [
@@ -2519,7 +2630,8 @@
         "structure/mass_main/band_05/facade_front",
         "structure/mass_main/band_05/facade_rear",
         "structure/mass_main/band_05/facade_side_negative_u",
-        "structure/mass_main/band_05/facade_side_positive_u"
+        "structure/mass_main/band_05/facade_side_positive_u",
+        "structure/stair_primary/flight"
       ],
       "regions": [
         {
@@ -2578,13 +2690,263 @@
         "exterior",
         "buildable"
       ]
+    },
+    {
+      "id": "structure/stair_primary/flight",
+      "role": "stair_flight",
+      "frame": {
+        "origin": {
+          "x": -3.75,
+          "y": 0,
+          "z": 25.383286
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 0.485583,
+          "z": -0.87419
+        },
+        "normal": {
+          "x": 0,
+          "y": 0.87419,
+          "z": 0.485583
+        },
+        "uLength": 7.5,
+        "vLength": 23.373953
+      },
+      "dimensions": {
+        "u": 7.5,
+        "v": 23.373953,
+        "thickness": 0
+      },
+      "evaluator": "stepped",
+      "edges": {
+        "uMin": {
+          "id": "structure/stair_primary/flight/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/stair_primary/flight/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/stair_primary/flight/edge_v_min",
+          "orientation": "bottom",
+          "treatment": "projecting"
+        },
+        "vMax": {
+          "id": "structure/stair_primary/flight/edge_v_max",
+          "orientation": "top",
+          "treatment": "flush"
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_05/summit_floor",
+        "structure/mass_main/ground_interface",
+        "structure/stair_primary/side_negative_u",
+        "structure/stair_primary/side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "traversable",
+        "exterior",
+        "circulation"
+      ]
+    },
+    {
+      "id": "structure/stair_primary/side_negative_u",
+      "role": "stair_side",
+      "frame": {
+        "origin": {
+          "x": -4.5,
+          "y": 0,
+          "z": 4.95
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 20.433286,
+        "vLength": 11.9
+      },
+      "dimensions": {
+        "u": 20.433286,
+        "v": 11.9,
+        "thickness": 0.75
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/stair_primary/side_negative_u/edge_u_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/stair_primary/side_negative_u/edge_u_max",
+          "orientation": "front",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/stair_primary/side_negative_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/stair_primary/side_negative_u/edge_v_max",
+          "orientation": "top",
+          "treatment": "stepped_cap"
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/ground_interface",
+        "structure/stair_primary/flight"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "sideNegativeU"
+      ]
+    },
+    {
+      "id": "structure/stair_primary/side_positive_u",
+      "role": "stair_side",
+      "frame": {
+        "origin": {
+          "x": 4.5,
+          "y": 0,
+          "z": 25.383286
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 20.433286,
+        "vLength": 11.9
+      },
+      "dimensions": {
+        "u": 20.433286,
+        "v": 11.9,
+        "thickness": 0.75
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/stair_primary/side_positive_u/edge_u_min",
+          "orientation": "front",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/stair_primary/side_positive_u/edge_u_max",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/stair_primary/side_positive_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/stair_primary/side_positive_u/edge_v_max",
+          "orientation": "top",
+          "treatment": "stepped_cap"
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/ground_interface",
+        "structure/stair_primary/flight"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "sidePositiveU"
+      ]
     }
   ],
-  "connectors": [],
+  "connectors": [
+    {
+      "id": "structure/stair_primary",
+      "kind": "stair",
+      "layout": "front_centered",
+      "elevationMode": "continuous",
+      "landingRule": "none",
+      "lowerPatchId": "structure/mass_main/ground_interface",
+      "upperPatchId": "structure/mass_main/band_05/summit_floor",
+      "direction": "front",
+      "bottomY": 0,
+      "topY": 11.35,
+      "stepCount": 44,
+      "riser": 0.257955,
+      "tread": 0.464393,
+      "run": 20.433286,
+      "width": 7.5,
+      "flightRect": {
+        "minX": -3.75,
+        "maxX": 3.75,
+        "minZ": 4.95,
+        "maxZ": 25.383286
+      },
+      "sideTreatment": "stepped_parapet",
+      "parapet": {
+        "width": 0.75,
+        "height": 0.55
+      },
+      "termination": {
+        "lower": "projecting",
+        "upper": "flush"
+      },
+      "patchIds": [
+        "structure/stair_primary/flight",
+        "structure/stair_primary/side_negative_u",
+        "structure/stair_primary/side_positive_u"
+      ]
+    }
+  ],
   "cells": [],
   "frames": [],
   "roofs": [],
   "attachments": [],
   "damage": [],
-  "diagnostics": []
+  "diagnostics": [
+    {
+      "severity": "notice",
+      "code": "stair.tread_increased",
+      "entityId": "structure/stair_primary",
+      "message": "At its requested pitch the flight would sink into the faces it climbs; the tread was widened until it clears them.",
+      "resolved": "0.4644"
+    }
+  ]
 }

@@ -7,11 +7,12 @@ import type { Diagnostic } from "./validate";
  * The resolved semantic description of one structure.
  *
  * This is the artefact every later phase reads and no later phase mutates. The
- * schema is authored ahead of the systems that fill it: containers for
- * connectors, cells, frames, roofs, attachments and damage exist and serialize
- * as empty arrays, so adding those systems changes what is inside the graph
- * without changing its shape — and the committed fixtures stay readable diffs
- * rather than wholesale rewrites.
+ * schema is authored ahead of the systems that fill it: containers for cells,
+ * frames, roofs, attachments and damage exist and serialize as empty arrays, so
+ * adding those systems changes what is inside the graph without changing its
+ * shape — and the committed fixtures stay readable diffs rather than wholesale
+ * rewrites. Connectors were the first container to be filled, by the stair
+ * system.
  */
 export const STRUCTURE_SCHEMA_VERSION = "1.0";
 
@@ -82,6 +83,54 @@ export interface SummitRecord {
   readonly patchId: string;
 }
 
+/**
+ * A resolved stair: a traversable connector between two horizontal surfaces,
+ * not a decorative pattern on a facade.
+ *
+ * Everything here is in resolved real units. The step rule the stair was asked
+ * for lives in the spec; what this records is the integer count and the riser
+ * and tread that count actually produced, because those are the numbers every
+ * later reader — tessellation, navigation, damage — places things against.
+ */
+export interface StairConnectorRecord {
+  readonly id: string;
+  readonly kind: "stair";
+  readonly layout: string;
+  readonly elevationMode: string;
+  readonly landingRule: string;
+  /** The traversable patches this connector joins. */
+  readonly lowerPatchId: string;
+  readonly upperPatchId: string;
+  readonly direction: "front";
+  readonly bottomY: number;
+  readonly topY: number;
+  readonly stepCount: number;
+  /** Resolved rise of one step: exactly `(topY - bottomY) / stepCount`. */
+  readonly riser: number;
+  readonly tread: number;
+  /** Horizontal length of the flight: exactly `stepCount * tread`. */
+  readonly run: number;
+  /** Flight width between side treatments. */
+  readonly width: number;
+  /**
+   * Plan rectangle of the flight alone. Its low-z edge is where the top riser
+   * meets the upper surface; its high-z edge is the projecting foot of the
+   * bottom step. Side treatments sit outside it.
+   */
+  readonly flightRect: Rect;
+  readonly sideTreatment: string;
+  /** Resolved side-treatment dimensions, or null when the sides are open. */
+  readonly parapet: { readonly width: number; readonly height: number } | null;
+  readonly termination: { readonly lower: string; readonly upper: string };
+  readonly patchIds: readonly string[];
+}
+
+/**
+ * Stairs are the only connector so far; ramps, passages and portals will widen
+ * this union rather than getting containers of their own.
+ */
+export type ConnectorRecord = StairConnectorRecord;
+
 export interface MassRecord {
   readonly id: string;
   readonly footprint: Rect;
@@ -100,7 +149,7 @@ export interface StructureGraph {
   readonly site: SiteRecord;
   readonly masses: readonly MassRecord[];
   readonly patches: readonly Patch[];
-  readonly connectors: readonly ReservedEntity[];
+  readonly connectors: readonly ConnectorRecord[];
   readonly cells: readonly ReservedEntity[];
   readonly frames: readonly ReservedEntity[];
   readonly roofs: readonly ReservedEntity[];
@@ -121,6 +170,7 @@ export class StructureGraphBuilder {
   private readonly order: string[] = [];
   private readonly adjacency = new Map<string, Set<string>>();
   private readonly masses: MassRecord[] = [];
+  private readonly connectors: ConnectorRecord[] = [];
 
   constructor(
     private readonly id: string,
@@ -151,6 +201,10 @@ export class StructureGraphBuilder {
     this.masses.push(mass);
   }
 
+  addConnector(connector: ConnectorRecord): void {
+    this.connectors.push(connector);
+  }
+
   has(patchId: string): boolean {
     return this.patches.has(patchId);
   }
@@ -177,7 +231,7 @@ export class StructureGraphBuilder {
       site: this.site,
       masses: this.masses,
       patches,
-      connectors: [],
+      connectors: this.connectors,
       cells: [],
       frames: [],
       roofs: [],

@@ -1,6 +1,19 @@
 import * as THREE from "three";
-import type { WebGPURenderer } from "three/webgpu";
+import { Line2NodeMaterial, type WebGPURenderer } from "three/webgpu";
+import {
+  cameraFar,
+  cameraNear,
+  cameraPosition,
+  color,
+  depth,
+  mix,
+  perspectiveDepthToViewZ,
+  smoothstep,
+  uniform,
+} from "three/tsl";
 import { CSMShadowNode } from "three/examples/jsm/csm/CSMShadowNode.js";
+import { Wireframe } from "three/examples/jsm/lines/webgpu/Wireframe.js";
+import { WireframeGeometry2 } from "three/examples/jsm/lines/WireframeGeometry2.js";
 import { VertexNormalsHelper } from "three/examples/jsm/helpers/VertexNormalsHelper.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -14,7 +27,7 @@ import { createPatchOverlay, type PatchOverlay } from "../structure/kernel/debug
 import type { StructureGraph } from "../structure/kernel/graph";
 import type { Diagnostic } from "../structure/kernel/validate";
 import type { StructureConfig } from "../config/structure-config";
-import type { IlluminationConfig } from "../config/sections";
+import { DEFAULT_VIEW_CONFIG, type IlluminationConfig } from "../config/sections";
 import {
   emptySectionStats,
   emptyPartStats,
@@ -84,8 +97,11 @@ export class MainScene {
   private readonly offeringWireframeMaterial: THREE.MeshBasicMaterial;
   /** The entire generated structure, merged into one mesh. */
   private readonly structure: THREE.Mesh;
-  private readonly wireframeMaterial: THREE.LineBasicMaterial;
-  private structureWireframe: THREE.LineSegments | null = null;
+  private readonly wireframeMaterial: Line2NodeMaterial;
+  private structureWireframe: Wireframe | null = null;
+  /** Centre and radius of the wireframed geometry, for the depth fade range. */
+  private readonly wireframeFocus = uniform(new THREE.Vector3());
+  private readonly wireframeRadius = uniform(1);
   private readonly fireBatch: VertexConeFireBatch;
   private readonly fireGlowEntries: FireGlowEntry[] = [];
   private readonly sunLight: THREE.DirectionalLight;
@@ -162,7 +178,35 @@ export class MainScene {
       roughness: 1,
       metalness: 0,
     });
-    this.wireframeMaterial = new THREE.LineBasicMaterial({ color: 0xd8d8d8 });
+    // Wide screen-space lines rather than GL_LINES: LineBasicMaterial's
+    // `linewidth` is silently ignored on every real platform, so a tunable
+    // stroke needs the fat-line path — segments expanded to camera-facing
+    // quads, in pixels regardless of zoom.
+    this.wireframeMaterial = new Line2NodeMaterial({
+      linewidth: DEFAULT_VIEW_CONFIG.wireframeWidth,
+    });
+    // Depth cueing. Every edge of the whole mass at one brightness is an
+    // unreadable lattice — the far side bleeds into the near side. The line
+    // colour fades with distance across the structure's own bounding sphere,
+    // so the facing surface stays bright and the far side recedes toward the
+    // background. The fragment's true depth is reconstructed rather than a
+    // varying interpolated, because the fat-line vertex stage positions quad
+    // corners, not line points. `lineColorNode` is the hook the material
+    // reads in place of its flat colour.
+    // The window is asymmetric around the centre because the visible surfaces
+    // live in the middle band of the sphere along the view axis — the radius is
+    // dominated by the plan extent, not the view depth. Spanning the full
+    // sphere reads as barely any cueing; ending at the centre dims even the
+    // facing surface. Three quarters in front to one quarter behind keeps the
+    // near surface bright and retires everything past the midline.
+    const viewDistance = perspectiveDepthToViewZ(depth, cameraNear, cameraFar).negate();
+    const focusDistance = cameraPosition.sub(this.wireframeFocus).length();
+    const fade = smoothstep(
+      focusDistance.sub(this.wireframeRadius.mul(0.75)),
+      focusDistance.add(this.wireframeRadius.mul(0.25)),
+      viewDistance,
+    );
+    this.wireframeMaterial.lineColorNode = mix(color(0xf0f0f0), color(0x2e2e29), fade);
     this.stoneSurfaceMaterial = this.fallbackStoneMaterial;
     this.ironSurfaceMaterial = this.fallbackIronMaterial;
     this.offeringSurfaceMaterial = this.fallbackOfferingMaterial;
@@ -445,6 +489,10 @@ export class MainScene {
     }
   }
 
+  setWireframeWidth(width: number): void {
+    this.wireframeMaterial.linewidth = width;
+  }
+
   setVertexNormalsVisible(enabled: boolean): void {
     this.vertexNormalsVisible = enabled;
     this.rebuildVertexNormalsHelper();
@@ -702,12 +750,22 @@ export class MainScene {
     return runtime;
   }
 
-  private ensureWireframe(): THREE.LineSegments {
+  private ensureWireframe(): Wireframe {
     if (!this.structureWireframe) {
-      this.structureWireframe = new THREE.LineSegments(
-        new THREE.WireframeGeometry(this.structure.geometry),
-        this.wireframeMaterial,
-      );
+      const geometry = new WireframeGeometry2(this.structure.geometry);
+      geometry.computeBoundingSphere();
+
+      // The depth fade spans this geometry's own extent, so it needs no
+      // per-frame update: the camera's side of the range moves with
+      // `cameraPosition` inside the shader.
+      const bounds = geometry.boundingSphere;
+
+      if (bounds) {
+        this.wireframeFocus.value.copy(bounds.center);
+        this.wireframeRadius.value = Math.max(bounds.radius, 1e-3);
+      }
+
+      this.structureWireframe = new Wireframe(geometry, this.wireframeMaterial);
       this.structureWireframe.name = "Structure wireframe";
       this.scene.add(this.structureWireframe);
     }

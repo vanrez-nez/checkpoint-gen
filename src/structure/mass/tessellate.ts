@@ -4,6 +4,7 @@ import { SolidBuilder } from "../../geometry/solid-builder";
 import { rectCorners, rectIsValid, type Rect } from "../kernel/frame";
 import type { ElevationBandRecord, StructureGraph } from "../kernel/graph";
 import type { MasonryRule } from "../kernel/masonry";
+import { buildStair } from "../connector/build";
 import { buildMassShell } from "./shell";
 
 /**
@@ -52,6 +53,14 @@ export function tessellateStructure(
     }
 
     layBareMass(builder, mass.bands);
+  }
+
+  // Connectors are read from the same graph and drawn with the same one
+  // primitive, so a stair is blocks exactly as its mass is. The bands are
+  // handed over for the burial profile: a slice stops where the mass it climbs
+  // swallows it.
+  for (const connector of graph.connectors) {
+    buildStair(builder, connector, graph.masses[0]?.bands ?? [], { masonry, seed });
   }
 
   const { geometry } = finalizeGeometry(builder);
@@ -201,6 +210,26 @@ export function graphExtents(graph: StructureGraph): {
             z: Math.max(max.z, rect.maxZ),
           };
       }
+    }
+  }
+
+  // A stair projects past the base of the mass it climbs, and its parapets rise
+  // past the summit it arrives on; both are part of what the structure occupies.
+  for (const connector of graph.connectors) {
+    const sideWidth = connector.parapet?.width ?? 0;
+    const capY = connector.topY + (connector.parapet?.height ?? 0);
+
+    if (min && max) {
+      min = {
+        x: Math.min(min.x, connector.flightRect.minX - sideWidth),
+        y: Math.min(min.y, connector.bottomY),
+        z: Math.min(min.z, connector.flightRect.minZ),
+      };
+      max = {
+        x: Math.max(max.x, connector.flightRect.maxX + sideWidth),
+        y: Math.max(max.y, capY),
+        z: Math.max(max.z, connector.flightRect.maxZ),
+      };
     }
   }
 

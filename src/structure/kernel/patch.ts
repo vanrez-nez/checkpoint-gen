@@ -27,6 +27,15 @@ export const PATCH_ROLES = {
   terrace: "terrace",
   transitionBand: "transition_band",
   summitFloor: "summit_floor",
+  /**
+   * One whole flight as a single stepped surface, not a patch per tread. The
+   * spec's `stair_tread`/`stair_riser` roles are the granularity the feature
+   * pipeline will address individual steps at; until that pipeline exists, a
+   * patch per tread would be sixty entries no rule can do anything with.
+   */
+  stairFlight: "stair_flight",
+  /** The outer face of a stair side treatment — a parapet's public elevation. */
+  stairSide: "stair_side",
 } as const;
 
 /**
