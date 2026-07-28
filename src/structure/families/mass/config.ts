@@ -1,17 +1,38 @@
 import {
   controlsFor,
   validateControls,
+  type BezierValue,
   type ControlSpec,
 } from "../../../config/control-spec";
-import { LINEAR_CURVE, LINEAR_HANDLES, type ShapingCurve } from "../../kernel/curve";
+import type { StoneConfig } from "../../../config/sections";
+import {
+  IMPLEMENTED_CORNER_RULES,
+  type CornerRule,
+  type MasonryRule,
+} from "../../kernel/masonry";
+import {
+  CURVE_SHAPES,
+  LINEAR_BEZIER,
+  bezierCurve,
+  type CurveShape,
+  type ShapingCurve,
+} from "../../kernel/curve";
 import { createSeedSet } from "../../kernel/seed";
 import type { StructureSpec } from "../../mass/generate";
 import { createRectangleFootprint } from "../../mass/footprint";
 import {
   wallProfileForBatter,
   type BaseTreatment,
+  type CornicePlacement,
   type SummitTreatment,
 } from "../../mass/elevation";
+
+/**
+ * A named height distribution, or `custom` for one authored on the curve editor.
+ * Presets are the kernel's generic shapes; the labels in HEIGHT_CURVE_OPTIONS
+ * are what those shapes mean when the quantity being distributed is height.
+ */
+export type HeightCurveMode = CurveShape | "custom";
 
 /**
  * The mass structure's tunable state.
@@ -21,22 +42,23 @@ import {
  * Nothing here names a style, a proportion preset or a motif — a band's rise is
  * a number, and what that number should be is a decision for later phases.
  */
-export type HeightCurveMode = "linear" | "custom";
-
 export interface MassLayoutConfig {
   footprintWidth: number;
   footprintDepth: number;
   bandCount: number;
   totalHeight: number;
   /**
-   * How the total height is shared out. `linear` gives every band the same rise;
-   * `custom` reads the two handles below as a cubic Bezier of cumulative height
-   * against band position, so a curve that climbs early gives a heavy base and
-   * one that climbs late gives a tall crown.
+   * How the total height is shared out: a named preset, or `custom` to author
+   * the curve directly. Either way it resolves to a curve of cumulative height
+   * against band position, so one that climbs early gives a heavy base and one
+   * that climbs late gives a tall crown.
    */
   heightCurve: HeightCurveMode;
-  heightCurveP1: CurveHandleValue;
-  heightCurveP2: CurveHandleValue;
+  /**
+   * `[x1, y1, x2, y2]`, as CSS `cubic-bezier`. Kept in step with the preset when
+   * one is selected, so it always states the curve in use.
+   */
+  heightCurveBezier: BezierValue;
   /** Target summit extent as a fraction of the footprint. */
   summitRatio: number;
   frontSetbackScale: number;
@@ -44,6 +66,18 @@ export interface MassLayoutConfig {
   sideSetbackScale: number;
   /** Zero is a vertical wall; there is no separate profile control. */
   batterAngle: number;
+  /** Which bands carry a crowning molding. */
+  cornicePlacement: CornicePlacement;
+  corniceProjection: number;
+  corniceHeight: number;
+  /** Set stone laid over the walls and terraces; off leaves them bare. */
+  stoneworkEnabled: boolean;
+  /** Target bed-to-bed height of a course. */
+  courseHeight: number;
+  /** Target stone length along a course. */
+  stoneWidth: number;
+  stoneDepth: number;
+  cornerRule: CornerRule;
   baseTreatment: BaseTreatment;
   baseProjection: number;
   baseHeight: number;
@@ -53,25 +87,26 @@ export interface MassLayoutConfig {
   seed: number;
 }
 
-/** A mutable curve handle, since Tweakpane writes into the bound object. */
-export interface CurveHandleValue {
-  x: number;
-  y: number;
-}
-
 export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
   footprintWidth: 24,
   footprintDepth: 18,
   bandCount: 3,
   totalHeight: 6,
-  heightCurve: "linear",
-  heightCurveP1: { ...LINEAR_HANDLES.p1 },
-  heightCurveP2: { ...LINEAR_HANDLES.p2 },
+  heightCurve: "even",
+  heightCurveBezier: [...LINEAR_BEZIER],
   summitRatio: 0.55,
   frontSetbackScale: 1,
   rearSetbackScale: 1,
   sideSetbackScale: 1,
   batterAngle: 12,
+  cornicePlacement: "none",
+  corniceProjection: 0.2,
+  corniceHeight: 0.25,
+  stoneworkEnabled: false,
+  courseHeight: 0.45,
+  stoneWidth: 1.1,
+  stoneDepth: 0.7,
+  cornerRule: "alternating_interlock",
   baseTreatment: "projected_footing",
   baseProjection: 0.5,
   baseHeight: 0.35,
@@ -82,15 +117,42 @@ export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
 };
 
 /**
+ * The presets, named for what they do to a silhouette rather than for the shape
+ * of the curve behind them. "Heavy base" is the classic diminishing-course
+ * profile; "Base and crown" gives a substantial footing and a tall top band with
+ * compressed terraces between.
+ */
+export const HEIGHT_CURVE_OPTIONS: Readonly<Record<string, HeightCurveMode>> = {
+  Linear: "even",
+  "Heavy base": "front_loaded",
+  "Tall crown": "back_loaded",
+  "Base and crown": "ends_emphasised",
+  "Tall middle": "middle_emphasised",
+  Custom: "custom",
+};
+
+/** The `[x1, y1, x2, y2]` a mode stands for, or null when it is authored. */
+export function heightCurveBezier(mode: HeightCurveMode): BezierValue | null {
+  return mode === "custom" ? null : [...CURVE_SHAPES[mode]];
+}
+
+/**
+ * Which bands take a cornice. "Terraces" leaves the crown bare so the summit
+ * reads as the top of the mass rather than as one more moulded step.
+ */
+const CORNICE_PLACEMENT_OPTIONS: Readonly<Record<string, CornicePlacement>> = {
+  None: "none",
+  "Every band": "all",
+  "Crown only": "crown",
+  "Terraces only": "terraces",
+  Alternating: "alternate",
+};
+
+/**
  * Only the implemented members are offered, so the pane cannot put the generator
  * into a state it will refuse. The unimplemented members of each vocabulary stay
  * reachable from a hand-authored config, where they produce a named error.
  */
-const HEIGHT_CURVE_OPTIONS: Readonly<Record<string, HeightCurveMode>> = {
-  Linear: "linear",
-  Custom: "custom",
-};
-
 const BASE_TREATMENT_OPTIONS: Readonly<Record<string, BaseTreatment>> = {
   None: "none",
   "Projected footing": "projected_footing",
@@ -98,6 +160,11 @@ const BASE_TREATMENT_OPTIONS: Readonly<Record<string, BaseTreatment>> = {
 
 const SUMMIT_TREATMENT_OPTIONS: Readonly<Record<string, SummitTreatment>> = {
   "Open floor": "open_floor",
+};
+
+const CORNER_RULE_OPTIONS: Readonly<Record<string, CornerRule>> = {
+  Interlocking: "alternating_interlock",
+  Butted: "butted",
 };
 
 const control = controlsFor<MassLayoutConfig>();
@@ -164,30 +231,105 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     group: "Elevation",
     options: HEIGHT_CURVE_OPTIONS,
     scopes: ["layout"],
+    // Selecting a preset writes the curve it stands for, so the stored curve is
+    // always the one in use and Custom picks up where the preset left off.
+    onChange: (layout) => {
+      const preset = heightCurveBezier(layout.heightCurve);
+
+      if (preset) {
+        layout.heightCurveBezier = preset;
+      }
+    },
   }),
-  control.point2({
-    key: "heightCurveP1",
-    label: "handle 1",
-    name: "Height curve handle 1",
+  control.bezier({
+    key: "heightCurveBezier",
+    label: "curve",
+    name: "Height curve",
     group: "Elevation",
-    min: 0,
-    max: 1,
-    step: 0.01,
-    invertY: true,
     scopes: ["layout"],
     visibleWhen: (layout) => layout.heightCurve === "custom",
   }),
-  control.point2({
-    key: "heightCurveP2",
-    label: "handle 2",
-    name: "Height curve handle 2",
-    group: "Elevation",
-    min: 0,
-    max: 1,
-    step: 0.01,
-    invertY: true,
+  control.list({
+    key: "cornicePlacement",
+    label: "bands",
+    name: "Cornice placement",
+    group: "Cornice",
+    options: CORNICE_PLACEMENT_OPTIONS,
     scopes: ["layout"],
-    visibleWhen: (layout) => layout.heightCurve === "custom",
+  }),
+  // A cornice is a trim, not a storey: the whole useful range is small, and a
+  // slider that ran to metres spent almost all of its travel on values that
+  // swallowed the wall. Zero on either reads as no cornice at all.
+  control.number({
+    key: "corniceProjection",
+    label: "projection",
+    name: "Cornice projection",
+    group: "Cornice",
+    min: 0,
+    max: 0.3,
+    step: 0.005,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.cornicePlacement !== "none",
+  }),
+  control.number({
+    key: "corniceHeight",
+    label: "height",
+    name: "Cornice height",
+    group: "Cornice",
+    min: 0,
+    max: 0.3,
+    step: 0.005,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.cornicePlacement !== "none",
+  }),
+  control.boolean({
+    key: "stoneworkEnabled",
+    label: "enabled",
+    name: "Stonework",
+    group: "Stonework",
+    scopes: ["layout"],
+  }),
+  control.number({
+    key: "courseHeight",
+    label: "course",
+    name: "Course height",
+    group: "Stonework",
+    min: 0.1,
+    max: 2,
+    step: 0.01,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.stoneworkEnabled,
+  }),
+  control.number({
+    key: "stoneWidth",
+    label: "stone",
+    name: "Stone width",
+    group: "Stonework",
+    min: 0.2,
+    max: 4,
+    step: 0.05,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.stoneworkEnabled,
+  }),
+  control.number({
+    key: "stoneDepth",
+    label: "depth",
+    name: "Stone depth",
+    group: "Stonework",
+    min: 0.15,
+    max: 2.5,
+    step: 0.05,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.stoneworkEnabled,
+  }),
+  control.list({
+    key: "cornerRule",
+    label: "corners",
+    name: "Corner rule",
+    group: "Stonework",
+    options: CORNER_RULE_OPTIONS,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.stoneworkEnabled,
   }),
   control.number({
     key: "summitRatio",
@@ -301,28 +443,61 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
 export function cloneMassLayout(
   source: Readonly<MassLayoutConfig> = DEFAULT_MASS_LAYOUT,
 ): MassLayoutConfig {
-  // The curve handles are cloned rather than shared, or the pane would write
-  // straight through a clone into the module-level defaults.
-  return {
-    ...source,
-    heightCurveP1: { ...source.heightCurveP1 },
-    heightCurveP2: { ...source.heightCurveP2 },
-  };
+  // The curve is copied rather than shared, or the pane would write straight
+  // through a clone into the module-level defaults.
+  return { ...source, heightCurveBezier: [...source.heightCurveBezier] };
 }
 
 export function validateMassLayout(layout: MassLayoutConfig): void {
   validateControls(layout, MASS_LAYOUT_CONTROLS);
 }
 
-/** The curve the height controls describe. */
+/**
+ * The curve the height controls describe.
+ *
+ * A preset is read from its own table rather than from the stored curve, so a
+ * config that was hand-edited into disagreeing with itself still generates the
+ * preset it names.
+ */
 export function toHeightCurve(layout: MassLayoutConfig): ShapingCurve {
-  return layout.heightCurve === "custom"
-    ? {
-      kind: "custom",
-      p1: { ...layout.heightCurveP1 },
-      p2: { ...layout.heightCurveP2 },
-    }
-    : LINEAR_CURVE;
+  const preset = heightCurveBezier(layout.heightCurve);
+  return bezierCurve(preset ?? layout.heightCurveBezier);
+}
+
+/**
+ * The stonework the controls describe, or null when it is switched off.
+ *
+ * The size, gap and displacement come from the shared `StoneConfig` that every
+ * stone-built prop in this project reads, not from controls of this family's
+ * own — a stone means the same thing here as it does on the circular checkpoint
+ * and on a pillar. What is particular to a coursed mass is only what a circle
+ * has no equivalent of: the bed height, how deep a stone is, and what happens at
+ * a corner.
+ *
+ * `gapRatio` is a ratio, as it is everywhere else. The circular shell measures
+ * it against its radius and a pillar against its shaft; a course measures it
+ * against the stone it is dividing.
+ */
+export function toMasonry(
+  layout: MassLayoutConfig,
+  stone: StoneConfig,
+): MasonryRule | null {
+  if (!layout.stoneworkEnabled) {
+    return null;
+  }
+
+  return {
+    pattern: "mixed_ashlar",
+    cornerRule: IMPLEMENTED_CORNER_RULES.includes(layout.cornerRule)
+      ? layout.cornerRule
+      : "butted",
+    courseHeight: layout.courseHeight,
+    stoneWidth: layout.stoneWidth,
+    depth: layout.stoneDepth,
+    sizeVariation: stone.sizeVariation,
+    gap: layout.stoneWidth * stone.gapRatio,
+    displacement: stone.displacement,
+  };
 }
 
 /** Flattens the tunable config into the shape the mass generator consumes. */
@@ -349,6 +524,11 @@ export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
       },
       batterDegrees: layout.batterAngle,
       wallProfile: wallProfileForBatter(layout.batterAngle),
+      cornice: {
+        placement: layout.cornicePlacement,
+        projection: layout.corniceProjection,
+        height: layout.corniceHeight,
+      },
       baseTreatment: layout.baseTreatment,
       baseProjection: layout.baseProjection,
       baseHeight: layout.baseHeight,

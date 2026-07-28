@@ -1,191 +1,185 @@
-import type { GeometryBuffers, Point2 } from "./finalize";
+import type { GeometryBuffers } from "./finalize";
+import { shadeAt, type HeightRamp } from "./shading";
+
+export {
+  DEFAULT_FACE_SHADING,
+  FLAT_FACE_SHADING,
+  type FaceShading,
+} from "./shading";
+
+/** A point in space. Exported because callers hand block corners in directly. */
+export type Vertex3 = { readonly x: number; readonly y: number; readonly z: number };
 
 /**
- * Shading written onto a face. These are the generated values the AO and
- * crack-shadow sliders later rescale from `userData`, not final lighting.
+ * A block: two horizontal rings of four corners, bottom and top.
+ *
+ * Both rings run **outer start, outer end, inner end, inner start** — outward
+ * face first, then round the block away from the surface it sits on. The two
+ * rings are index-aligned and independent, so a block on a battered wall is a
+ * genuine eight-cornered box with a raked outer face, and a whole band is one
+ * block of exactly the same kind.
  */
-export interface FaceShading {
-  readonly topAo: number;
-  readonly bottomAo: number;
-  readonly topShadow: number;
-  readonly bottomShadow: number;
+export interface Block {
+  readonly bottom: readonly Vertex3[];
+  readonly top: readonly Vertex3[];
 }
 
 /**
- * Matches the masonry builder's side gradient, so a greybox mass and a stone
- * prop respond to the same AO slider the same way.
+ * Which of a block's faces anything can see.
+ *
+ * Positional rather than named, because not every block has one outer face: a
+ * quoin's leg presents to two elevations, and a band drawn as a single block
+ * presents to four. An ordinary course block's edges run outer, end, inner,
+ * start. Naming them would have forced those cases to be several blocks, which
+ * is the fault this replaced.
  */
-export const DEFAULT_FACE_SHADING: FaceShading = {
-  topAo: 0.72,
-  bottomAo: 0.28,
-  topShadow: 0.38,
-  bottomShadow: 0.06,
-};
-
-/** Flat, fully-lit shading for horizontal surfaces. */
-export const FLAT_FACE_SHADING: FaceShading = {
-  topAo: 1,
-  bottomAo: 1,
-  topShadow: 1,
-  bottomShadow: 1,
-};
+export interface BlockFaces {
+  /** One flag per ring edge. Edge `i` runs from ring corner `i` to `i + 1`. */
+  readonly sides: readonly boolean[];
+  readonly top?: boolean;
+  readonly bottom?: boolean;
+}
 
 /**
- * Builds closed solids from horizontal polygons.
+ * Builds a mass out of blocks, and out of nothing else.
  *
- * The masonry builder extrudes a single polygon straight up with per-vertex top
- * heights, which cannot express a taper — a battered wall's top outline is
- * smaller than its base. This builder lofts between two separate polygons
- * instead, and emits caps and rings as their own pieces so a mass can expose
- * exactly the surfaces that are actually visible: the terrace ring left over
- * where the band above sets back, rather than two coplanar caps fighting for
- * the same depth.
+ * There is one primitive here on purpose. This builder used to offer lofts, caps
+ * and rings alongside blocks, and every one of them carried its own winding
+ * rule, its own shading argument and its own idea of where a surface belonged —
+ * so a mass came out as several kinds of geometry that met by arithmetic and
+ * disagreed wherever the arithmetic was wrong. A greybox band, the core behind a
+ * wall, a terrace slab and a single set stone are all the same shape: a box with
+ * two independent horizontal rings. They are all `addBlock` now, so there is no
+ * second way for a surface to be drawn and nothing for the block layer to fall
+ * out of step with.
  *
- * Winding is normalised on entry, so callers may pass polygons in either
- * direction; every emitted face ends up with an outward normal.
+ * Winding is normalised on entry, so callers may author rings either way round.
  */
 export class SolidBuilder implements GeometryBuffers {
   readonly positions: number[] = [];
   readonly indices: number[] = [];
   readonly ambientOcclusion: number[] = [];
   readonly bakedShadow: number[] = [];
-  /** Faces emitted so far, for stats and for seeding per-piece variation. */
-  pieceCount = 0;
+  /** Blocks laid, whichever of their faces turned out to be visible. */
+  blockCount = 0;
+  /**
+   * Where each face a block emitted begins in the vertex buffer.
+   *
+   * A block writes only the faces nothing is pressed against, so there is no
+   * stride to walk and no fixed count per block. Recording the starts is what
+   * lets the invariant suite read the faces back without assuming a layout —
+   * guessing one has misread this buffer three times. It is also the proof that
+   * every triangle in a mass belongs to a block: `blockFaces.length * 6` has to
+   * equal the index count.
+   */
+  readonly blockFaces: number[] = [];
 
   /**
-   * Side walls between two outlines. The polygons must have the same vertex
-   * count; vertex `i` of `bottom` connects to vertex `i` of `top`.
+   * One block, and only the faces of it that anything can see.
+   *
+   * `faces` is the caller's answer to one question per face: is the space just
+   * outside it empty? Where two blocks are pressed together, neither surface is
+   * emitted — that boundary is interior. Getting it wrong in either direction is
+   * visible, as a hole or as two faces at the same depth fighting, so it is
+   * decided by the layout that knows rather than guessed here.
+   *
+   * Shading is not a parameter. Every vertex takes its value from `ramp` and
+   * from which way its face points, so two blocks meeting at a height cannot
+   * disagree about the tone there.
    */
-  addLoft(
-    bottom: readonly Point2[],
-    top: readonly Point2[],
-    bottomY: number,
-    topY: number,
-    shading: FaceShading = DEFAULT_FACE_SHADING,
-  ): void {
-    if (bottom.length < 3 || bottom.length !== top.length) {
-      throw new Error(
-        "A loft requires matching outlines of at least three points.",
-      );
+  addBlock(block: Block, faces: BlockFaces, ramp: HeightRamp): void {
+    if (block.bottom.length !== 4 || block.top.length !== 4) {
+      throw new Error("A block needs four corners top and bottom.");
     }
 
-    const lower = orient(bottom);
-    const upper = orient(top, lower.reversed);
+    // Authored either way round, like every outline in this project. Reversing a
+    // ring maps edge `e` onto the reverse of edge `2 - e`, so the flags follow.
+    const flip = signedArea(block.bottom) > 0;
+    const bottom = flip ? [...block.bottom].reverse() : block.bottom;
+    const top = flip ? [...block.top].reverse() : block.top;
+    const sideAt = (edge: number) =>
+      faces.sides[flip ? (2 - edge + 4) % 4 : edge] === true;
 
-    for (let index = 0; index < lower.points.length; index += 1) {
-      const next = (index + 1) % lower.points.length;
-      const bottomCurrent = lower.points[index];
-      const bottomNext = lower.points[next];
-      const topNext = upper.points[next];
-      const topCurrent = upper.points[index];
+    for (let edge = 0; edge < 4; edge += 1) {
+      if (!sideAt(edge)) {
+        continue;
+      }
+
+      const next = (edge + 1) % 4;
+      const bottomCurrent = bottom[edge];
+      const bottomNext = bottom[next];
+      const topNext = top[next];
+      const topCurrent = top[edge];
 
       if (!bottomCurrent || !bottomNext || !topNext || !topCurrent) {
         continue;
       }
 
-      const start = this.vertexCount();
-      this.push(bottomCurrent.x, bottomY, bottomCurrent.z, shading.bottomAo, shading.bottomShadow);
-      this.push(bottomNext.x, bottomY, bottomNext.z, shading.bottomAo, shading.bottomShadow);
-      this.push(topNext.x, topY, topNext.z, shading.topAo, shading.topShadow);
-      this.push(topCurrent.x, topY, topCurrent.z, shading.topAo, shading.topShadow);
-      this.indices.push(
-        start, start + 1, start + 2,
-        start, start + 2, start + 3,
+      const low = shadeAt(ramp, bottomCurrent.y, "side");
+      const high = shadeAt(ramp, topCurrent.y, "side");
+
+      this.addFace(
+        [bottomCurrent, bottomNext, topNext, topCurrent],
+        [low.ao, low.ao, high.ao, high.ao],
+        [low.shadow, low.shadow, high.shadow, high.shadow],
       );
     }
 
-    this.pieceCount += 1;
-  }
-
-  /**
-   * A filled horizontal face. Triangulated as a fan, so the outline must be
-   * convex — every footprint in the mass system is a rectangle or a rectangle
-   * with clipped corners.
-   */
-  addCap(
-    polygon: readonly Point2[],
-    y: number,
-    facing: "up" | "down",
-    shading: FaceShading = FLAT_FACE_SHADING,
-  ): void {
-    if (polygon.length < 3) {
-      throw new Error("A cap requires at least three points.");
+    if (faces.top === true) {
+      this.addHorizontalFace(top, "up", ramp);
     }
 
-    const outline = orient(polygon);
+    if (faces.bottom === true) {
+      this.addHorizontalFace(bottom, "down", ramp);
+    }
+
+    this.blockCount += 1;
+  }
+
+  /** A block's top or bottom, shaded off the same ramp as the rest of it. */
+  private addHorizontalFace(
+    ring: readonly Vertex3[],
+    facing: "up" | "down",
+    ramp: HeightRamp,
+  ): void {
+    const [a, b, c, d] = ring;
+
+    if (!a || !b || !c || !d) {
+      return;
+    }
+
+    const { ao, shadow } = shadeAt(ramp, a.y, facing);
+
+    this.addFace(
+      facing === "up" ? [a, b, c, d] : [d, c, b, a],
+      [ao, ao, ao, ao],
+      [shadow, shadow, shadow, shadow],
+    );
+  }
+
+  /** One flat quad of a block, wound so it points out of the block. */
+  private addFace(
+    corners: readonly Vertex3[],
+    ao: readonly number[],
+    shadow: readonly number[],
+  ): void {
     const start = this.vertexCount();
-    const ao = facing === "up" ? shading.topAo : shading.bottomAo;
-    const shadow = facing === "up" ? shading.topShadow : shading.bottomShadow;
 
-    for (const point of outline.points) {
-      this.push(point.x, y, point.z, ao, shadow);
-    }
+    for (let index = 0; index < 4; index += 1) {
+      const corner = corners[index];
 
-    for (let index = 1; index < outline.points.length - 1; index += 1) {
-      if (facing === "up") {
-        this.indices.push(start, start + index, start + index + 1);
-      } else {
-        this.indices.push(start, start + index + 1, start + index);
-      }
-    }
-
-    this.pieceCount += 1;
-  }
-
-  /**
-   * The horizontal band between two nested outlines — a terrace walkway, a
-   * plinth ledge, a coping strip. Both outlines need the same vertex count, and
-   * `inner` must lie inside `outer`.
-   */
-  addRing(
-    outer: readonly Point2[],
-    inner: readonly Point2[],
-    y: number,
-    facing: "up" | "down",
-    shading: FaceShading = FLAT_FACE_SHADING,
-  ): void {
-    if (outer.length < 3 || outer.length !== inner.length) {
-      throw new Error(
-        "A ring requires matching outlines of at least three points.",
-      );
-    }
-
-    const outside = orient(outer);
-    const inside = orient(inner, outside.reversed);
-    const ao = facing === "up" ? shading.topAo : shading.bottomAo;
-    const shadow = facing === "up" ? shading.topShadow : shading.bottomShadow;
-
-    for (let index = 0; index < outside.points.length; index += 1) {
-      const next = (index + 1) % outside.points.length;
-      const outerCurrent = outside.points[index];
-      const outerNext = outside.points[next];
-      const innerNext = inside.points[next];
-      const innerCurrent = inside.points[index];
-
-      if (!outerCurrent || !outerNext || !innerNext || !innerCurrent) {
-        continue;
+      if (!corner) {
+        return;
       }
 
-      const start = this.vertexCount();
-      this.push(outerCurrent.x, y, outerCurrent.z, ao, shadow);
-      this.push(outerNext.x, y, outerNext.z, ao, shadow);
-      this.push(innerNext.x, y, innerNext.z, ao, shadow);
-      this.push(innerCurrent.x, y, innerCurrent.z, ao, shadow);
-
-      if (facing === "up") {
-        this.indices.push(
-          start, start + 1, start + 2,
-          start, start + 2, start + 3,
-        );
-      } else {
-        this.indices.push(
-          start, start + 2, start + 1,
-          start, start + 3, start + 2,
-        );
-      }
+      this.push(corner.x, corner.y, corner.z, ao[index] ?? 1, shadow[index] ?? 1);
     }
 
-    this.pieceCount += 1;
+    this.blockFaces.push(start);
+    this.indices.push(
+      start, start + 1, start + 2,
+      start, start + 2, start + 3,
+    );
   }
 
   private vertexCount(): number {
@@ -205,26 +199,13 @@ export class SolidBuilder implements GeometryBuffers {
   }
 }
 
-type OrientedPolygon = {
-  readonly points: readonly Point2[];
-  readonly reversed: boolean;
-};
-
 /**
- * Normalises an outline to the winding this builder's index order assumes:
- * negative shoelace area, which makes a fan over the outline face +Y and a side
- * quad walking it face outward.
+ * Twice the signed area of a ring in the (x, z) plane.
  *
- * `force` pins the result to a previous polygon's decision, so the two outlines
- * of a loft or a ring stay index-aligned even if one was authored the other way
- * round.
+ * Negative is the winding this builder's index order assumes: it makes a fan
+ * over the ring face +Y and a side quad walking it face outward.
  */
-function orient(polygon: readonly Point2[], force?: boolean): OrientedPolygon {
-  const reversed = force ?? signedArea(polygon) > 0;
-  return { points: reversed ? [...polygon].reverse() : polygon, reversed };
-}
-
-function signedArea(points: readonly Point2[]): number {
+function signedArea(points: readonly Vertex3[]): number {
   let area = 0;
 
   for (let index = 0; index < points.length; index += 1) {

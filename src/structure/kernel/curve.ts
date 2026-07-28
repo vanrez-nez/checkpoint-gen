@@ -24,14 +24,49 @@ export type ShapingCurve =
 
 export const LINEAR_CURVE: ShapingCurve = { kind: "linear" };
 
+export type Bezier = readonly [number, number, number, number];
+
 /**
- * Handles that reproduce a straight line, used as the starting point when
- * switching to a custom curve so the shape does not jump on the first frame.
+ * The `[x1, y1, x2, y2]` that reproduces a straight line, used as the starting
+ * point when switching to a custom curve so the shape does not jump.
  */
-export const LINEAR_HANDLES = {
-  p1: { x: 1 / 3, y: 1 / 3 },
-  p2: { x: 2 / 3, y: 2 / 3 },
-} as const;
+export const LINEAR_BEZIER: Bezier = [1 / 3, 1 / 3, 2 / 3, 2 / 3];
+
+/**
+ * Named distributions, so the common shapes are one selection rather than four
+ * numbers to arrive at by dragging.
+ *
+ * They are described by where the quantity concentrates rather than by what they
+ * are for, because a curve is reused wherever something is shared across a
+ * series — band rises here, setback falloff and bay rhythm later — and
+ * "front-loaded" means the same thing in all of them. Callers supply their own
+ * labels.
+ *
+ * Every shape is monotonic, so none of them can ask for a step of no size, and
+ * each is far enough from its neighbours to read as a different silhouette.
+ */
+export const CURVE_SHAPES = {
+  /** Equal steps throughout. */
+  even: LINEAR_BEZIER,
+  /** Steps diminish upward: about ten to one across six. */
+  front_loaded: [0.2, 0.55, 0.55, 0.95],
+  /** Steps grow upward — front-loaded, mirrored. */
+  back_loaded: [0.45, 0.05, 0.8, 0.4],
+  /** Both ends emphasised, with the run between them compressed. */
+  ends_emphasised: [0.25, 0.45, 0.75, 0.55],
+  /** The middle emphasised, tapering to shallow steps at both ends. */
+  middle_emphasised: [0.35, 0.08, 0.65, 0.92],
+} as const satisfies Record<string, Bezier>;
+
+export type CurveShape = keyof typeof CURVE_SHAPES;
+
+export const CURVE_SHAPE_IDS = Object.keys(CURVE_SHAPES) as readonly CurveShape[];
+
+/** The curve a `[x1, y1, x2, y2]` describes. */
+export function bezierCurve(bezier: Bezier): ShapingCurve {
+  const [x1, y1, x2, y2] = bezier;
+  return { kind: "custom", p1: { x: x1, y: y1 }, p2: { x: x2, y: y2 } };
+}
 
 /** Cumulative fraction at position `x`, where x and the result both span [0, 1]. */
 export function evaluateCurve(curve: ShapingCurve, x: number): number {
@@ -55,9 +90,12 @@ export function evaluateCurve(curve: ShapingCurve, x: number): number {
  * curve can leave one step almost nothing; that is an extreme shape, not a
  * mistake, and it passes without comment. A curve that actually falls asks for a
  * step of negative size, which is never what was meant — the floor rescues it
- * and `nonMonotonic` says so. Handles confined to [0, 1] can only produce the
- * first case: the cubic's slope stays non-negative across that whole square, so
- * the second is reachable only from a hand-authored curve.
+ * and `nonMonotonic` says so.
+ *
+ * Only the second needs a handle's vertical position outside [0, 1]: across that
+ * square the cubic's slope stays non-negative. A curve editor bounds each
+ * handle's `x` to the domain but leaves `y` free, as CSS `cubic-bezier` does, so
+ * both cases are reachable by dragging.
  */
 export function distributeByCurve(
   count: number,

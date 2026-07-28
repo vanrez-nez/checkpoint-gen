@@ -4,6 +4,7 @@ import {
   createRandom,
   finalizeStoneGeometry,
   hashSeed,
+  insetAndJitter,
   normalizedSpans,
   randomRange,
   type Point2,
@@ -367,34 +368,6 @@ function polarPoint(
     x: Math.cos(angle) * adjustedRadius - Math.sin(angle) * tangentialJitter,
     z: Math.sin(angle) * adjustedRadius + Math.cos(angle) * tangentialJitter,
   };
-}
-
-function insetAndJitter(
-  points: readonly Point2[],
-  gap: number,
-  displacement: number,
-  random: () => number,
-): Point2[] {
-  const center = points.reduce(
-    (sum, point) => ({ x: sum.x + point.x, z: sum.z + point.z }),
-    { x: 0, z: 0 },
-  );
-  center.x /= points.length;
-  center.z /= points.length;
-
-  return points.map((point) => {
-    const dx = point.x - center.x;
-    const dz = point.z - center.z;
-    const distance = Math.hypot(dx, dz);
-    const inset = Math.min(gap * 0.5, distance * 0.2);
-    const scale = distance > 0 ? (distance - inset) / distance : 1;
-    const jitter = Math.min(distance * displacement, gap * 0.65);
-
-    return {
-      x: center.x + dx * scale + randomRange(random, -jitter, jitter),
-      z: center.z + dz * scale + randomRange(random, -jitter, jitter),
-    };
-  });
 }
 
 function circleBoundary(radius: number, lateral: number): number {

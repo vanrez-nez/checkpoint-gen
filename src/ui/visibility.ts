@@ -6,6 +6,8 @@ export type VisibilityPredicate = (config: StructureConfig) => boolean;
 type BladeRule = {
   blade: BladeApi;
   visible: VisibilityPredicate;
+  /** Run when the blade goes from hidden to shown. */
+  onShow?: () => void;
 };
 
 type FolderRule = {
@@ -30,9 +32,19 @@ export class VisibilityRegistry {
   private readonly bladeRules: BladeRule[] = [];
   private readonly folderRules: FolderRule[] = [];
 
-  /** Shows `blade` only when `visible` holds. */
-  addBlade(blade: BladeApi, visible: VisibilityPredicate): void {
-    this.bladeRules.push({ blade, visible });
+  /**
+   * Shows `blade` only when `visible` holds.
+   *
+   * `onShow` runs on each hidden-to-shown transition, for a control that has to
+   * re-measure itself: a view that sizes from its element while `display: none`
+   * measures zero, and most of them never look again.
+   */
+  addBlade(
+    blade: BladeApi,
+    visible: VisibilityPredicate,
+    onShow?: () => void,
+  ): void {
+    this.bladeRules.push(onShow ? { blade, visible, onShow } : { blade, visible });
   }
 
   addBlades(blades: readonly BladeApi[], visible: VisibilityPredicate): void {
@@ -52,7 +64,12 @@ export class VisibilityRegistry {
 
   apply(config: StructureConfig): void {
     for (const rule of this.bladeRules) {
+      const wasHidden = rule.blade.hidden;
       rule.blade.hidden = !rule.visible(config);
+
+      if (wasHidden && !rule.blade.hidden) {
+        rule.onShow?.();
+      }
     }
 
     // After the blade pass, so folder visibility reads settled child state.

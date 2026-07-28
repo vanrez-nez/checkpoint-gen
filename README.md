@@ -59,18 +59,108 @@ The requested summit ratio is met by the setback after whatever the batter
 already took, and when the batter alone overshoots, the shortfall is reported
 with the value actually achieved rather than absorbed.
 
-Total height is shared out by a **shaping curve** (`kernel/curve.ts`): `linear`
-gives every band the same rise, `custom` reads two handles as a cubic Bezier of
+Total height is shared out by a **shaping curve** (`kernel/curve.ts`) of
 cumulative height against band position, so a curve that climbs early gives a
-heavy base under progressively shallower terraces. Handles are confined to
-[0, 1], across which the cubic's slope stays non-negative — so no combination the
-pane can produce asks for a band of zero height. A hand-authored curve reaching
-outside that range can fall; those bands are floored to a minimum rise and the
-fall is reported.
+heavy base under progressively shallower terraces.
+
+`CURVE_SHAPES` holds the named distributions. They are described by where the
+quantity concentrates rather than by what they are for — `front_loaded`,
+`ends_emphasised` — because a curve is reused wherever something is shared across
+a series, and the same shape will later drive setback falloff and bay rhythm. The
+mass structure labels them for height: Linear, Heavy base, Tall crown, Base and
+crown, Tall middle. Picking Custom instead exposes the curve directly, in a
+`cubic-bezier` control from `@tweakpane/plugin-essentials`, with both handles
+draggable on the graph itself.
+
+Selecting a preset writes the curve it stands for into the config, so the stored
+curve always states the one in use and switching to Custom starts from the preset
+you were on rather than from wherever the editor was last left. Generation still
+resolves a preset from its own table, so a hand-edited config that disagrees with
+itself builds the preset it names.
+
+As in CSS, each handle's `x` is bounded by the curve's domain while its `y` is
+free. Across [0, 1] the cubic's slope stays non-negative, so an ordinary curve
+can never ask for a band of zero height; a handle dragged past the top or bottom
+can make the curve fall, and those bands are floored to a minimum rise with the
+fall reported on the validation line.
+
+A band may carry a **cornice**: a molding that projects past the wall and crowns
+it. It takes over the top of the band rather than sitting on top of it, so
+switching cornices on never moves a band's base, top or outline — the elevation
+profile is decided first and stays decided. It is recorded per band in the graph,
+because it changes the silhouette and the extents and later systems need to know
+where a crown actually is, and the wall's crown edge records `treatment:
+"cornice"` so it is addressable as the edge feature it is.
+
+Which bands carry one is a rule — every band, the crown only, the terraces only,
+or alternating — rather than a list, because bands are generated from a count and
+a curve rather than authored one by one. Once bands are individually authorable,
+the rule becomes their default and nothing downstream changes. A cornice may take
+at most half the band it crowns; anything taller is shortened and reported.
 
 Tessellation draws one lofted solid per band and one ring per terrace — only the
 part the band above leaves exposed, so stacked bands never leave two coplanar
 faces fighting for the same depth.
+
+**Stonework** builds the mass out of blocks. A block's face sits exactly on the
+surface the graph declares and the block reaches **back into** the wall by a real
+bed depth, with the core inset by that same amount — so blocks plus core
+reconstruct the band with nothing overlapping. The mass is drawn once, as stone,
+and a joint looks into the core rather than through the building.
+
+That direction matters. Lifting faces outward instead leaves the wall drawn
+twice, once as a full solid and once as a skin floating on it, and pushes the
+structure out past its own declared extents.
+
+`kernel/masonry.ts` decides where the joints fall, in three levels that each
+divide exactly and leave no remainder:
+
+```
+band wall  ──▶  courses      horizontal layers, worked out once per band and
+                             shared by all four faces so course lines meet
+                             around every corner
+course     ──▶  runs         one per face, minus what the corner blocks take
+run        ──▶  stones       lengths that sum to the run exactly; a fresh seed
+                             per course staggers the joints
+```
+
+Every division goes through `normalizedSpans`, which varies its pieces but always
+sums to the span it was given. Dividing by `round(length / target)` and living
+with the difference is what drops stones at the ends of a run, and clipping a
+course to the narrowest line it spans is what leaves a bare wedge up a raking
+edge.
+
+**At a terrace, the riser and the tread are the same stone.** The top course of
+each band reaches back to carry a tread, so one block presents its outer face as
+the riser and its top face as the tread — which is how a stepped mass is actually
+built.
+
+That coping is an *edge* stone, capped at a stone's length. Letting it span the
+whole setback makes its top a slab several times the size of every other stone,
+obvious the moment you look down at a terrace; the rest of the terrace is paved
+normally so what you see from above matches what you see from the side.
+
+Bed depth is also how deep the joints read, so keep it comparable to the joint
+width. A block far deeper than its joints are wide buries almost all of its own
+side area between its neighbours where nothing can see it — at four times the
+joint, over ninety per cent is wasted. Sides with no joint beside them at all —
+the ground course's underside, the edge a corner stone turns through — are not
+drawn.
+
+**Corners** are real blocks: a box sitting at the corner with a face on each
+elevation, long on whichever axis runs through that course, alternating as the
+courses rise.
+
+A battered course is a trapezoid, and the rake goes to the two stones it actually
+passes through: every stone is laid as a rectangle over the course's bottom edge,
+and only where one runs past the top edge's extent is its top corner pulled back.
+Interior stones come out exactly square; the end stones come out cut at the
+batter, which is what a stone meeting a raking corner is.
+
+None of this reaches the graph. A faced and a bare band are the same band, so
+stonework lives entirely in the tessellator; the suite asserts that turning it on
+leaves the serialized graph byte-identical, that the faced and bare builds occupy
+exactly the same extents, and that facing costs no more geometry than it saves.
 
 ## Composition
 
@@ -123,14 +213,23 @@ material, lighting, view helpers, and camera framing.
 
 Every tunable field is described once by a `ControlSpec`
 (`src/config/control-spec.ts`) — a number, a boolean, a list of named string
-values, or a `point2` bound to a draggable pad — and both the Tweakpane binding
-and the generator validator read that one table, so a slider and its guard can no
-longer drift apart. A list control offers only the vocabulary members that are
-actually implemented, which keeps the pane from being able to put the generator
-into a state it will refuse. A spec may carry `visibleWhen`, hiding a field that
-only means something under another field's setting — the curve handles appear
-only while the height curve is custom — so a table stays self-describing rather
-than needing the pane to know which of its controls gate which others.
+values, or a `bezier` curve — and both the Tweakpane binding and the generator
+validator read that one table, so a slider and its guard can no longer drift
+apart. A list control offers only the vocabulary members that are actually
+implemented, which keeps the pane from being able to put the generator into a
+state it will refuse. A spec may carry `visibleWhen`, hiding a field that only
+means something under another field's setting — the curve appears only while the
+height curve is custom — and `onChange`, reconciling fields it derives, which is
+how selecting a curve preset writes that preset's handles. Both keep a table
+self-describing rather than needing the pane to know which of its controls gate
+or feed which others.
+
+Not every control is a Tweakpane *binding*: the curve editor is a blade that owns
+its own value, so `bindControls` adds it and writes back by hand. It also plots
+itself from its element's size exactly once, when it first lands in the DOM,
+which draws an empty box for a control that starts hidden — so a spec-bound
+control may register an `onShow` hook that the visibility registry runs on each
+hidden-to-shown transition.
 
 Controls are context dependent. The pane is built once and toggles `hidden`, so
 a control appears only when the active structure declares the prop it belongs to

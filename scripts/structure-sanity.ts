@@ -8,16 +8,38 @@ import { mergeParts } from "../src/geometry/merge-parts";
 import { SolidBuilder } from "../src/geometry/solid-builder";
 import {
   DEFAULT_MASS_LAYOUT,
+  HEIGHT_CURVE_OPTIONS,
   cloneMassLayout,
+  heightCurveBezier,
+  toHeightCurve,
+  toMasonry,
   toStructureSpec,
   validateMassLayout,
   type MassLayoutConfig,
 } from "../src/structure/families/mass/config";
 import {
+  divideCourseRing,
+  divideCourses,
+  divideRun,
+  masonrySeed,
+} from "../src/structure/kernel/masonry";
+import { hashSeed } from "../src/geometry/random";
+import { DEFAULT_STONE_CONFIG } from "../src/config/sections";
+import { buildMassShell } from "../src/structure/mass/shell";
+import {
+  findBackfaces,
+  findCoincidentFaces,
+  findShadingBreaks,
+} from "./mesh-invariants";
+import {
+  CURVE_SHAPE_IDS,
+  CURVE_SHAPES,
+  LINEAR_BEZIER,
   LINEAR_CURVE,
-  LINEAR_HANDLES,
+  bezierCurve,
   distributeByCurve,
   evaluateCurve,
+  type CurveShape,
 } from "../src/structure/kernel/curve";
 import { massStructure } from "../src/structure/families/mass";
 import {
@@ -33,12 +55,16 @@ import { PATCH_ROLES } from "../src/structure/kernel/patch";
 import { createPatchOverlay } from "../src/structure/kernel/debug-overlay";
 import { generateStructure, type StructureSpec } from "../src/structure/mass/generate";
 import {
+  MAX_CORNICE_RISE_SHARE,
   WALKABLE_TERRACE_WIDTH,
+  bandCarriesCornice,
   wallProfileForBatter,
+  type CornicePlacement,
 } from "../src/structure/mass/elevation";
 import {
   graphExtents,
   MASS_SECTION,
+  rampOver,
   tessellateStructure,
 } from "../src/structure/mass/tessellate";
 
@@ -50,6 +76,30 @@ const FIXTURE_DIR = join(
   "structure",
 );
 const UPDATE_FIXTURES = process.env.UPDATE_FIXTURES === "1";
+
+/**
+ * Every face a block emitted, as four corners.
+ *
+ * Read from the starts the builder recorded rather than by walking a stride: a
+ * block writes only the faces nothing is pressed against, so there is no fixed
+ * count per block, and guessing that layout has misread this buffer three times.
+ */
+function readBlockFaces(builder: SolidBuilder): THREE.Vector3[][] {
+  return builder.blockFaces.map((start) =>
+    [0, 1, 2, 3].map((corner) => new THREE.Vector3(
+      builder.positions[(start + corner) * 3] ?? 0,
+      builder.positions[(start + corner) * 3 + 1] ?? 0,
+      builder.positions[(start + corner) * 3 + 2] ?? 0,
+    )));
+}
+
+/** The outward normal of a face read back from the buffer. */
+function faceNormal(face: readonly THREE.Vector3[]): THREE.Vector3 {
+  return new THREE.Vector3().crossVectors(
+    face[1]!.clone().sub(face[0]!),
+    face[2]!.clone().sub(face[0]!),
+  ).normalize();
+}
 
 function sum(values: readonly number[]): number {
   return values.reduce((total, value) => total + value, 0);
@@ -65,49 +115,87 @@ function rect(halfX: number, halfZ: number) {
   ];
 }
 
-// --- solid builder ---------------------------------------------------------
-// A tapered, capped band is the shape every battered elevation band reduces to,
-// so its normals have to come out right before anything is built on top of it.
+/** A block from two rectangles at two heights. */
+function blockOf(
+  lower: readonly { x: number; z: number }[],
+  upper: readonly { x: number; z: number }[],
+  bottomY: number,
+  topY: number,
+) {
+  return {
+    bottom: lower.map((point) => ({ x: point.x, y: bottomY, z: point.z })),
+    top: upper.map((point) => ({ x: point.x, y: topY, z: point.z })),
+  };
+}
+
+const UNIT_RAMP = { bottomY: 0, topY: 1 };
+const ALL_SIDES = [true, true, true, true];
+
+// --- the block builder -----------------------------------------------------
+// A tapered, capped band is the shape every battered elevation band reduces to —
+// and, since the whole mass is built from one primitive, it is also the shape of
+// every set stone, every terrace slab and every core. Its normals have to come
+// out right before anything is built on top of it.
 const taperedBuilder = new SolidBuilder();
-taperedBuilder.addLoft(rect(1, 1), rect(0.5, 0.5), 0, 1);
-taperedBuilder.addCap(rect(1, 1), 0, "down");
-taperedBuilder.addCap(rect(0.5, 0.5), 1, "up");
+taperedBuilder.addBlock(
+  blockOf(rect(1, 1), rect(0.5, 0.5), 0, 1),
+  { sides: ALL_SIDES, top: true, bottom: true },
+  UNIT_RAMP,
+);
 
 const tapered = finalizeGeometry(taperedBuilder);
-assert.equal(taperedBuilder.pieceCount, 3);
-assert.equal(tapered.vertexCount, 4 * 4 + 4 + 4);
-assert.equal(tapered.triangleCount, 4 * 2 + 2 + 2);
+assert.equal(taperedBuilder.blockCount, 1);
+assert.equal(taperedBuilder.blockFaces.length, 6);
+assert.equal(tapered.vertexCount, 6 * 4);
+assert.equal(tapered.triangleCount, 6 * 2);
 assertOutwardNormals(tapered.geometry, "tapered band");
 
-// Winding is normalised on entry, so a caller that authors outlines the other
-// way round gets the same solid rather than an inside-out one.
+// Winding is normalised on entry, so a caller that authors rings the other way
+// round gets the same solid rather than an inside-out one. Reversing swaps which
+// edge is which, so the face flags have to follow it — a block that emitted its
+// inner face where its outer belongs would be a hole and a z-fight at once.
 const reversedBuilder = new SolidBuilder();
-reversedBuilder.addLoft([...rect(1, 1)].reverse(), [...rect(0.5, 0.5)].reverse(), 0, 1);
-reversedBuilder.addCap([...rect(1, 1)].reverse(), 0, "down");
-reversedBuilder.addCap([...rect(0.5, 0.5)].reverse(), 1, "up");
+reversedBuilder.addBlock(
+  blockOf([...rect(1, 1)].reverse(), [...rect(0.5, 0.5)].reverse(), 0, 1),
+  { sides: ALL_SIDES, top: true, bottom: true },
+  UNIT_RAMP,
+);
 assertOutwardNormals(finalizeGeometry(reversedBuilder).geometry, "reversed band");
 
-// A terrace is the ring left exposed where the band above sets back. Emitting it
-// as a ring rather than a second full cap is what keeps stacked bands from
-// leaving two coplanar faces fighting for the same depth.
-const ringBuilder = new SolidBuilder();
-ringBuilder.addRing(rect(1, 1), rect(0.5, 0.5), 2, "up");
-const ring = finalizeGeometry(ringBuilder);
-assert.equal(ring.vertexCount, 4 * 4);
-assert.equal(ring.triangleCount, 4 * 2);
-assertAllNormalsFace(ring.geometry, new THREE.Vector3(0, 1, 0), "terrace ring");
-
-const downRingBuilder = new SolidBuilder();
-downRingBuilder.addRing(rect(1, 1), rect(0.5, 0.5), 2, "down");
-assertAllNormalsFace(
-  finalizeGeometry(downRingBuilder).geometry,
-  new THREE.Vector3(0, -1, 0),
-  "soffit ring",
+// A face nothing can see is not drawn. That decision is the caller's, and it is
+// the difference between a joint you can look into and a hole you can see
+// through, so the builder has to obey it exactly.
+const partialBuilder = new SolidBuilder();
+partialBuilder.addBlock(
+  blockOf(rect(1, 1), rect(1, 1), 0, 1),
+  { sides: [true, false, false, false], top: true },
+  UNIT_RAMP,
 );
+const partial = finalizeGeometry(partialBuilder);
+assert.equal(partial.triangleCount, 2 * 2, "Only the faces asked for may be drawn.");
+assertAllNormalsFace(
+  finalizeGeometry(withOnly(blockOf(rect(1, 1), rect(1, 1), 0, 1), { sides: [], top: true })).geometry,
+  new THREE.Vector3(0, 1, 0),
+  "block top",
+);
+assertAllNormalsFace(
+  finalizeGeometry(withOnly(blockOf(rect(1, 1), rect(1, 1), 0, 1), { sides: [], bottom: true })).geometry,
+  new THREE.Vector3(0, -1, 0),
+  "block underside",
+);
+
+function withOnly(
+  block: Parameters<SolidBuilder["addBlock"]>[0],
+  faces: Parameters<SolidBuilder["addBlock"]>[1],
+): SolidBuilder {
+  const builder = new SolidBuilder();
+  builder.addBlock(block, faces, UNIT_RAMP);
+  return builder;
+}
 
 // The buffers a builder accumulates must satisfy the shared part contract, or
 // mergeParts rejects them at composition time rather than here.
-for (const [label, result] of [["tapered", tapered], ["ring", ring]] as const) {
+for (const [label, result] of [["tapered", tapered], ["partial", partial]] as const) {
   const { geometry } = result;
   assert.ok(geometry.getIndex(), `${label}: geometry must be indexed.`);
   for (const attribute of ["position", "normal", "uv", "vertexAo", "color"]) {
@@ -118,10 +206,12 @@ for (const [label, result] of [["tapered", tapered], ["ring", ring]] as const) {
   }
 }
 
-// Mismatched or degenerate outlines are a caller error, not a silent skip.
-assert.throws(() => new SolidBuilder().addLoft(rect(1, 1), rect(1, 1).slice(1), 0, 1));
-assert.throws(() => new SolidBuilder().addRing(rect(1, 1), rect(1, 1).slice(1), 0, "up"));
-assert.throws(() => new SolidBuilder().addCap(rect(1, 1).slice(2), 0, "up"));
+// Degenerate rings are a caller error, not a silent skip.
+assert.throws(() => new SolidBuilder().addBlock(
+  { bottom: rect(1, 1).slice(1).map((p) => ({ ...p, y: 0 })), top: rect(1, 1).map((p) => ({ ...p, y: 1 })) },
+  { sides: ALL_SIDES },
+  UNIT_RAMP,
+));
 
 // --- shaping curves --------------------------------------------------------
 // A linear curve and the handles that reproduce a straight line have to agree,
@@ -129,17 +219,17 @@ assert.throws(() => new SolidBuilder().addCap(rect(1, 1).slice(2), 0, "up"));
 for (const x of [0, 0.13, 0.25, 0.5, 0.75, 1]) {
   assert.ok(Math.abs(evaluateCurve(LINEAR_CURVE, x) - x) < 1e-6);
   assert.ok(
-    Math.abs(evaluateCurve({ kind: "custom", ...LINEAR_HANDLES }, x) - x) < 1e-6,
-    `Linear handles must evaluate to a straight line at x=${x}.`,
+    Math.abs(evaluateCurve(bezierCurve(LINEAR_BEZIER), x) - x) < 1e-6,
+    `The linear bezier must evaluate to a straight line at x=${x}.`,
   );
 }
 
 // Endpoints are pinned, so a curve always spans the whole total.
 for (const handles of [
-  { p1: { x: 0.1, y: 0.9 }, p2: { x: 0.9, y: 0.95 } },
-  { p1: { x: 0.9, y: 0.05 }, p2: { x: 0.95, y: 0.2 } },
-]) {
-  const curve = { kind: "custom", ...handles } as const;
+  [0.1, 0.9, 0.9, 0.95],
+  [0.9, 0.05, 0.95, 0.2],
+] as const) {
+  const curve = bezierCurve(handles);
   assert.ok(Math.abs(evaluateCurve(curve, 0)) < 1e-6);
   assert.ok(Math.abs(evaluateCurve(curve, 1) - 1) < 1e-6);
   // Out-of-domain input is clamped rather than extrapolated.
@@ -154,11 +244,7 @@ for (const value of evenSplit.values) {
   assert.ok(Math.abs(value - 3) < 1e-9);
 }
 
-const heavyBase = distributeByCurve(4, 12, {
-  kind: "custom",
-  p1: { x: 0.1, y: 0.6 },
-  p2: { x: 0.5, y: 0.9 },
-});
+const heavyBase = distributeByCurve(4, 12, bezierCurve([0.1, 0.6, 0.5, 0.9]));
 assert.equal(heavyBase.nonMonotonic, false);
 assert.ok(Math.abs(sum(heavyBase.values) - 12) < 1e-9);
 for (let index = 1; index < heavyBase.values.length; index += 1) {
@@ -168,18 +254,13 @@ for (let index = 1; index < heavyBase.values.length; index += 1) {
   );
 }
 
-// Handles confined to [0, 1] can never describe a falling curve — the cubic's
-// slope stays non-negative across that whole square — so no combination the pane
-// can produce asks for a band of zero height. Swept rather than argued, because
-// it is the property that lets the handles be dragged freely.
+// Handles kept inside [0, 1] can never describe a falling curve — the cubic's
+// slope stays non-negative across that whole square. Swept rather than argued,
+// because it covers the region the editor's handles normally sit in.
 for (let y1 = 0; y1 <= 1.0001; y1 += 0.125) {
   for (let y2 = 0; y2 <= 1.0001; y2 += 0.125) {
     for (const [x1, x2] of [[0.05, 0.95], [0.5, 0.5], [0.9, 0.1]] as const) {
-      const split = distributeByCurve(6, 9, {
-        kind: "custom",
-        p1: { x: x1, y: y1 },
-        p2: { x: x2, y: y2 },
-      });
+      const split = distributeByCurve(6, 9, bezierCurve([x1, y1, x2, y2]));
       assert.equal(
         split.nonMonotonic,
         false,
@@ -193,19 +274,151 @@ for (let y1 = 0; y1 <= 1.0001; y1 += 0.125) {
   }
 }
 
-// A hand-authored curve reaching outside that range can fall, which would ask
-// for a band of zero or negative height. That is floored and reported rather
-// than silently produced.
-const dipping = distributeByCurve(5, 10, {
-  kind: "custom",
-  p1: { x: 0.25, y: 1.5 },
-  p2: { x: 0.75, y: -0.5 },
-});
+// --- curve presets ---------------------------------------------------------
+// Every named shape has to be usable without inspection: monotonic, so it never
+// asks for a band of no height, and distinct enough from its neighbours to be
+// worth its own entry.
+const PRESET_PROFILES = new Map<string, string>();
+
+for (const shape of CURVE_SHAPE_IDS) {
+  const bezier = CURVE_SHAPES[shape];
+  const split = distributeByCurve(6, 12, bezierCurve(bezier));
+
+  assert.equal(split.nonMonotonic, false, `Preset "${shape}" falls.`);
+  assert.ok(Math.abs(sum(split.values) - 12) < 1e-9, `Preset "${shape}" loses height.`);
+
+  for (const value of split.values) {
+    assert.ok(value > 0, `Preset "${shape}" produced a zero rise.`);
+  }
+
+  // A handle's x has to sit inside the domain, or the preset would fail the
+  // same validation a dragged one does.
+  for (const index of [0, 2]) {
+    const component = bezier[index] ?? Number.NaN;
+    assert.ok(component >= 0 && component <= 1, `Preset "${shape}" x is out of range.`);
+  }
+
+  const profile = split.values.map((value) => (value / 12).toFixed(3)).join(",");
+  assert.ok(
+    !PRESET_PROFILES.has(profile),
+    `Preset "${shape}" distributes identically to "${PRESET_PROFILES.get(profile)}".`,
+  );
+  PRESET_PROFILES.set(profile, shape);
+}
+
+// The shapes have to actually do what they are named for, checked on the band
+// rises rather than on the control points.
+const shapeRises = (shape: CurveShape) =>
+  distributeByCurve(6, 12, bezierCurve(CURVE_SHAPES[shape])).values;
+
+const even = shapeRises("even");
+assert.ok(Math.max(...even) - Math.min(...even) < 1e-9, "even must be uniform.");
+
+const frontLoaded = shapeRises("front_loaded");
+for (let index = 1; index < frontLoaded.length; index += 1) {
+  assert.ok(
+    (frontLoaded[index] ?? 0) < (frontLoaded[index - 1] ?? 0),
+    "front_loaded must diminish throughout.",
+  );
+}
+
+const backLoaded = shapeRises("back_loaded");
+for (let index = 1; index < backLoaded.length; index += 1) {
+  assert.ok(
+    (backLoaded[index] ?? 0) > (backLoaded[index - 1] ?? 0),
+    "back_loaded must grow throughout.",
+  );
+}
+
+const endsEmphasised = shapeRises("ends_emphasised");
+assert.ok(
+  (endsEmphasised[0] ?? 0) > (endsEmphasised[2] ?? 0)
+  && (endsEmphasised[5] ?? 0) > (endsEmphasised[3] ?? 0),
+  "ends_emphasised must be taller at both ends than in the middle.",
+);
+
+const middleEmphasised = shapeRises("middle_emphasised");
+assert.ok(
+  (middleEmphasised[2] ?? 0) > (middleEmphasised[0] ?? 0)
+  && (middleEmphasised[3] ?? 0) > (middleEmphasised[5] ?? 0),
+  "middle_emphasised must be taller in the middle than at either end.",
+);
+
+// Every option the pane offers resolves to a curve, and selecting one is what
+// keeps the stored curve honest — a preset generates the same structure whether
+// it was just selected or restored from a config.
+for (const mode of Object.values(HEIGHT_CURVE_OPTIONS)) {
+  const preset = heightCurveBezier(mode);
+
+  if (mode === "custom") {
+    assert.equal(preset, null);
+    continue;
+  }
+
+  assert.ok(preset, `Option "${mode}" has no curve.`);
+  const selected = { ...cloneMassLayout(), heightCurve: mode };
+  assert.doesNotThrow(() => validateMassLayout({
+    ...selected,
+    heightCurveBezier: preset,
+  }));
+  // Resolved from the preset table, so a stale stored curve cannot win.
+  assert.deepEqual(
+    toHeightCurve({ ...selected, heightCurveBezier: [0.9, 0.1, 0.1, 0.9] }),
+    bezierCurve(preset),
+  );
+}
+
+// The curve editor bounds each handle's x to the curve's domain but leaves y
+// free, exactly as CSS `cubic-bezier` does, so a dragged handle can overshoot
+// and make the curve fall — which asks for a band of negative height. Reachable
+// from the pane, so the floor and its notice are load-bearing rather than a
+// defensive guard.
+const dipping = distributeByCurve(5, 10, bezierCurve([0.25, 1.5, 0.75, -0.5]));
 assert.equal(dipping.nonMonotonic, true);
 assert.ok(Math.abs(sum(dipping.values) - 10) < 1e-9);
 for (const value of dipping.values) {
   assert.ok(value > 0, "Every band must keep a positive rise.");
 }
+
+// That overshoot must survive validation, or dragging a handle past the top of
+// the editor would throw out of the change handler instead of being reported.
+assert.doesNotThrow(() => validateMassLayout({
+  ...cloneMassLayout(),
+  heightCurve: "custom",
+  heightCurveBezier: [0.25, 1.5, 0.75, -0.5],
+}));
+// A handle's x, though, is bounded by the curve's own domain.
+assert.throws(
+  () => validateMassLayout({
+    ...cloneMassLayout(),
+    heightCurveBezier: [1.4, 0.5, 0.75, 0.5],
+  }),
+  /handle 1 x must be between 0 and 1/,
+);
+assert.throws(
+  () => validateMassLayout({
+    ...cloneMassLayout(),
+    heightCurveBezier: [0.25, 0.5, 0.75] as never,
+  }),
+  /must be four finite numbers/,
+);
+
+// A falling curve reaches the pane as a notice on a structure that still builds.
+const fallingGraph = generateStructure(toStructureSpec({
+  ...cloneMassLayout(),
+  bandCount: 5,
+  heightCurve: "custom",
+  heightCurveBezier: [0.25, 1.5, 0.75, -0.5],
+}));
+assert.deepEqual(
+  fallingGraph.diagnostics.filter((entry) => entry.severity === "error"),
+  [],
+);
+assert.ok(
+  fallingGraph.diagnostics.some((entry) => entry.code === "mass.height_curve_falls"),
+  "A falling height curve must be reported.",
+);
+assert.ok(fallingGraph.patches.length > 0, "A falling curve must still build.");
 
 // Degenerate counts are answered, not thrown at.
 assert.deepEqual(distributeByCurve(0, 10, LINEAR_CURVE).values, []);
@@ -240,8 +453,7 @@ const FIXTURES: readonly { readonly name: string; readonly layout: MassLayoutCon
       // Climbs fast, then flattens: a heavy base under progressively shallower
       // upper terraces.
       heightCurve: "custom",
-      heightCurveP1: { x: 0.16, y: 0.5 },
-      heightCurveP2: { x: 0.5, y: 0.86 },
+      heightCurveBezier: [0.16, 0.5, 0.5, 0.86],
     },
   },
   {
@@ -262,6 +474,21 @@ const FIXTURES: readonly { readonly name: string; readonly layout: MassLayoutCon
       rearSetbackScale: 0.2,
       sideSetbackScale: 1,
       forecourtDepth: 5,
+    },
+  },
+  {
+    name: "corniced-terraces",
+    layout: {
+      ...cloneMassLayout(),
+      bandCount: 5,
+      totalHeight: 11,
+      batterAngle: 10,
+      heightCurve: "front_loaded",
+      // Left off the crown so the summit reads as the top of the mass rather
+      // than as one more moulded step.
+      cornicePlacement: "terraces",
+      corniceProjection: 0.25,
+      corniceHeight: 0.3,
     },
   },
 ];
@@ -508,6 +735,705 @@ assert.equal(
   authoredProfile.diagnostics[0]?.code,
   "band.wall_profile_unimplemented",
 );
+
+// --- cornices --------------------------------------------------------------
+// Which bands carry one is a rule, since bands are generated rather than listed.
+const CORNICE_CASES: readonly {
+  readonly placement: CornicePlacement;
+  readonly expected: readonly number[];
+}[] = [
+  { placement: "none", expected: [] },
+  { placement: "all", expected: [0, 1, 2, 3, 4] },
+  { placement: "crown", expected: [4] },
+  { placement: "terraces", expected: [0, 1, 2, 3] },
+  { placement: "alternate", expected: [0, 2, 4] },
+];
+
+for (const { placement, expected } of CORNICE_CASES) {
+  assert.deepEqual(
+    [0, 1, 2, 3, 4].filter((index) => bandCarriesCornice(placement, index, 5)),
+    expected,
+    `Placement "${placement}" selected the wrong bands.`,
+  );
+}
+
+const CORNICE_LAYOUT: MassLayoutConfig = {
+  ...cloneMassLayout(),
+  bandCount: 5,
+  totalHeight: 12,
+  batterAngle: 14,
+  cornicePlacement: "all",
+  corniceProjection: 0.25,
+  corniceHeight: 0.3,
+};
+assert.doesNotThrow(
+  () => validateMassLayout(CORNICE_LAYOUT),
+  "The cornice test layout must sit inside the control ranges.",
+);
+const bare = generateStructure(toStructureSpec({
+  ...CORNICE_LAYOUT,
+  cornicePlacement: "none",
+}));
+const corniced = generateStructure(toStructureSpec(CORNICE_LAYOUT));
+
+assert.deepEqual(
+  corniced.diagnostics.filter((entry) => entry.severity === "error"),
+  [],
+);
+
+// A cornice takes over the top of its band rather than sitting on top of it, so
+// adding one must leave the elevation profile exactly where it was. This is what
+// lets cornices be switched on late without redoing the massing underneath.
+const bareBands = bare.masses[0]?.bands ?? [];
+const cornicedBands = corniced.masses[0]?.bands ?? [];
+assert.equal(cornicedBands.length, bareBands.length);
+
+for (let index = 0; index < bareBands.length; index += 1) {
+  const before = bareBands[index];
+  const after = cornicedBands[index];
+  assert.ok(before && after);
+  assert.equal(after.bottomY, before.bottomY, "A cornice moved a band's base.");
+  assert.equal(after.topY, before.topY, "A cornice moved a band's top.");
+  assert.deepEqual(after.lower, before.lower, "A cornice moved a band's footprint.");
+  assert.deepEqual(after.upper, before.upper, "A cornice moved a band's crown.");
+}
+
+// The plinth is a footing, not a wall being finished, so it never takes one.
+const plinth = cornicedBands.find((band) => band.index < 0);
+assert.ok(plinth);
+assert.equal(plinth.cornice, null);
+
+for (const band of cornicedBands.filter((entry) => entry.index >= 0)) {
+  const { cornice } = band;
+  assert.ok(cornice, `Band ${band.id} should carry a cornice.`);
+
+  // It occupies the top of the band, and never more than half of it.
+  assert.ok(Math.abs(cornice.bottomY + cornice.height - band.topY) < 1e-9);
+  assert.ok(cornice.bottomY > band.bottomY);
+  assert.ok(cornice.height <= band.rise * MAX_CORNICE_RISE_SHARE + 1e-9);
+
+  // It projects past the wall on every side, or the soffit under it inverts.
+  assert.ok(cornice.outline.minX < cornice.springing.minX);
+  assert.ok(cornice.outline.maxX > cornice.springing.maxX);
+  assert.ok(cornice.outline.minZ < cornice.springing.minZ);
+  assert.ok(cornice.outline.maxZ > cornice.springing.maxZ);
+  // And past the crown, which on a battered wall is narrower still.
+  assert.ok(cornice.outline.maxX > band.upper.maxX);
+
+  assert.equal(band.upperTransition, "beveled_molding");
+}
+
+// The wall's crown edge records what finishes it, so a cornice is addressable as
+// the edge feature it is rather than as loose geometry that happens to sit there.
+for (const patch of corniced.patches) {
+  if (!patch.id.includes("facade_") || patch.id.includes("/base/")) {
+    continue;
+  }
+
+  assert.equal(
+    patch.edges.vMax.treatment,
+    "cornice",
+    `${patch.id} carries a cornice but its crown edge does not say so.`,
+  );
+  assert.equal(patch.edges.vMin.treatment, null);
+}
+
+for (const patch of bare.patches) {
+  assert.equal(patch.edges.vMax.treatment, null);
+}
+
+// A cornice taller than the band it crowns is shortened and reported. Reachable
+// from the pane now that the range is a trim's rather than a storey's: it takes
+// shallow bands rather than an absurd cornice.
+const squashedLayout: MassLayoutConfig = {
+  ...CORNICE_LAYOUT,
+  totalHeight: 2,
+  corniceHeight: 0.3,
+};
+assert.doesNotThrow(() => validateMassLayout(squashedLayout));
+
+const squashed = generateStructure(toStructureSpec(squashedLayout));
+const squashedNotice = squashed.diagnostics.find(
+  (entry) => entry.code === "cornice.height_exceeds_band",
+);
+assert.ok(squashedNotice, "An oversized cornice must be reported.");
+assert.equal(squashedNotice?.severity, "notice");
+assert.ok(squashed.patches.length > 0, "An oversized cornice must still build.");
+
+// --- stonework -------------------------------------------------------------
+// Stonework is drawn, not modelled: the same graph with and without it. That
+// keeps construction a reader of the semantic layer, which is what stops a
+// change of surface treatment from invalidating the massing under it.
+const STONEWORK_LAYOUT: MassLayoutConfig = {
+  ...cloneMassLayout(),
+  footprintWidth: 24,
+  footprintDepth: 18,
+  bandCount: 5,
+  totalHeight: 12,
+  batterAngle: 14,
+  heightCurve: "front_loaded",
+  stoneworkEnabled: true,
+  courseHeight: 0.45,
+  stoneWidth: 1.1,
+  stoneDepth: 0.7,
+};
+assert.doesNotThrow(() => validateMassLayout(STONEWORK_LAYOUT));
+
+const stoneGraph = generateStructure(toStructureSpec(STONEWORK_LAYOUT));
+assert.equal(
+  serializeGraph(stoneGraph),
+  serializeGraph(generateStructure(toStructureSpec({
+    ...STONEWORK_LAYOUT,
+    stoneworkEnabled: false,
+  }))),
+  "Stonework must not reach the graph.",
+);
+
+const stoneRule = toMasonry(STONEWORK_LAYOUT, DEFAULT_STONE_CONFIG);
+assert.ok(stoneRule);
+
+// Coverage. Every division has to consume its span exactly — dividing by
+// `round(length / target)` and living with the difference is what left bare
+// wedges at the raking edges and dropped stones at the ends of a run.
+for (const length of [0.4, 1, 7.3, 18, 24, 61.7]) {
+  const widths = divideRun(length, stoneRule, 12345);
+  assert.ok(widths.length >= 1, `A ${length}m run produced no stones.`);
+  assert.ok(
+    Math.abs(sum(widths) - length) < 1e-9,
+    `Stones over ${length}m sum to ${sum(widths)}.`,
+  );
+  for (const width of widths) {
+    assert.ok(width > 0, `A ${length}m run produced a zero-width stone.`);
+  }
+}
+
+for (const height of [0.3, 1.2, 4.6, 11]) {
+  const courses = divideCourses(height, stoneRule, 999);
+  assert.ok(courses.length >= 1);
+  assert.ok(
+    Math.abs(sum(courses.map((course) => course.height)) - height) < 1e-9,
+    `Courses over ${height}m do not sum to it.`,
+  );
+  // Beds stack without overlapping or leaving a seam between them.
+  for (let index = 0; index < courses.length; index += 1) {
+    const course = courses[index];
+    const previous = courses[index - 1];
+    assert.ok(course);
+    assert.ok(course.height > 0);
+    assert.ok(
+      Math.abs(course.bottom - (previous ? previous.bottom + previous.height : 0)) < 1e-9,
+      `Course ${index} does not sit on the one below.`,
+    );
+  }
+}
+
+// Size consistency. The complaint was stones coming out different sizes on
+// different sides, which happened because counts were derived per face from a
+// clipped run. Driving both from one target keeps them comparable however the
+// faces differ in length.
+const runLengths = [24, 18, 7.3, 41];
+const meanWidths = runLengths.map((length) => {
+  const widths = divideRun(length, stoneRule, hashSeed(7, `run_${length}`));
+  return sum(widths) / widths.length;
+});
+
+for (const mean of meanWidths) {
+  assert.ok(
+    Math.abs(mean - stoneRule.stoneWidth) < stoneRule.stoneWidth * 0.35,
+    `Mean stone width ${mean} strays from the ${stoneRule.stoneWidth}m target.`,
+  );
+}
+
+// Courses stay comparable between a tall base band and a shallow crown band,
+// which the old per-face row count did not: under a front-loaded curve it gave
+// the base three times the course height of the crown.
+const bandCourseHeights = (stoneGraph.masses[0]?.bands ?? [])
+  .filter((band) => band.index >= 0)
+  .map((band) => {
+    const courses = divideCourses(band.topY - band.bottomY, stoneRule, 1);
+    return sum(courses.map((course) => course.height)) / courses.length;
+  });
+assert.ok(bandCourseHeights.length >= 4);
+const tallest = Math.max(...bandCourseHeights);
+const shortest = Math.min(...bandCourseHeights);
+assert.ok(
+  tallest / shortest < 1.6,
+  `Course heights range ${shortest} to ${tallest} across bands.`,
+);
+
+// The ring divider. A corner belongs to a course, not to an elevation, and the
+// whole point of dividing the loop in one go is that each corner is answered
+// once. Deriving it per face is what made two walls each emit their own slab at
+// the same corner, interpenetrating behind the arris and never reading as a
+// quoin at all.
+const ringRuns = [24, 18, 24, 18];
+
+for (let course = 0; course < 6; course += 1) {
+  const ring = divideCourseRing(ringRuns, stoneRule, course, 4242);
+  const quoins = ring.filter((block) => block.wrap > 0);
+
+  assert.equal(quoins.length, 4, `Course ${course} has ${quoins.length} quoins, not four.`);
+
+  // Exactly one block turns each corner, so a corner cannot be claimed twice.
+  const corners = new Set(quoins.map((block) => block.run));
+  assert.equal(corners.size, 4, `Course ${course} claims a corner more than once.`);
+
+  // Every run is covered end to end, with nothing overlapping. A quoin is listed
+  // once, under the run it reaches back along, so what it occupies on the next
+  // run is its wrap rather than a second entry — counting it twice is exactly
+  // the double-claimed corner this replaced.
+  for (let run = 0; run < 4; run += 1) {
+    const wrapped = ring.find((block) => block.wrap > 0 && block.run === (run + 3) % 4);
+    const spans = [
+      ...(wrapped ? [{ from: 0, to: wrapped.wrap }] : []),
+      ...ring
+        .filter((block) => block.run === run)
+        .map((block) => ({ from: block.from, to: block.to })),
+    ].sort((a, b) => a.from - b.from);
+    assert.ok(spans.length > 1, `Course ${course} run ${run} has ${spans.length} blocks.`);
+    assert.ok(
+      Math.abs((spans[0]?.from ?? -1)) < 1e-9,
+      `Course ${course} run ${run} starts ${spans[0]?.from}m in.`,
+    );
+    assert.ok(
+      Math.abs((spans[spans.length - 1]?.to ?? 0) - (ringRuns[run] ?? 0)) < 1e-9,
+      `Course ${course} run ${run} stops short of its corner.`,
+    );
+    for (let i = 1; i < spans.length; i += 1) {
+      assert.ok(
+        Math.abs((spans[i]?.from ?? 0) - (spans[i - 1]?.to ?? 0)) < 1e-9,
+        `Course ${course} run ${run} has a gap or an overlap at block ${i}.`,
+      );
+    }
+  }
+}
+
+// The interlock: a corner's long leg swaps sides from one course to the next, so
+// the two elevations bond up the arris instead of meeting on one long joint.
+for (let course = 0; course < 5; course += 1) {
+  const here = divideCourseRing(ringRuns, stoneRule, course, 1);
+  const above = divideCourseRing(ringRuns, stoneRule, course + 1, 1);
+
+  for (let corner = 0; corner < 4; corner += 1) {
+    const quoin = here.find((block) => block.wrap > 0 && block.run === corner);
+    const over = above.find((block) => block.wrap > 0 && block.run === corner);
+    assert.ok(quoin && over);
+    const reach = quoin.to - quoin.from;
+    const reachAbove = over.to - over.from;
+    assert.ok(
+      Math.abs(reach - reachAbove) > 1e-6,
+      `Corner ${corner} reaches the same way on courses ${course} and ${course + 1}.`,
+    );
+    assert.ok(
+      (reach > quoin.wrap) !== (reachAbove > over.wrap),
+      `Corner ${corner} keeps its long leg on the same elevation twice running.`,
+    );
+  }
+}
+
+// A run too short to spare two quoins falls back to butted corners rather than
+// being over-divided into nothing but corners.
+assert.equal(
+  divideCourseRing([0.8, 0.8, 0.8, 0.8], stoneRule, 0, 1)
+    .some((block) => block.wrap > 0),
+  false,
+  "A run under a metre must not be quoined at both ends.",
+);
+assert.equal(
+  divideCourseRing(ringRuns, { ...stoneRule, cornerRule: "butted" }, 0, 1)
+    .some((block) => block.wrap > 0),
+  false,
+  "Butted corners must produce no quoins.",
+);
+
+// Determinism, and that the seed actually reaches the stones.
+const stoneMesh = (layout: MassLayoutConfig) => {
+  const graph = generateStructure(toStructureSpec(layout));
+  const rule = toMasonry(layout, DEFAULT_STONE_CONFIG);
+  return mergeParts(
+    tessellateStructure(graph, { masonry: rule, seed: layout.seed }).parts,
+    [MASS_SECTION],
+  );
+};
+const stonesA = stoneMesh(STONEWORK_LAYOUT);
+const stonesB = stoneMesh(STONEWORK_LAYOUT);
+const stonesReseeded = stoneMesh({ ...STONEWORK_LAYOUT, seed: STONEWORK_LAYOUT.seed + 1 });
+const positionsOf = (merged: { geometry: THREE.BufferGeometry }) =>
+  Array.from(merged.geometry.getAttribute("position").array as Float32Array);
+
+assert.deepEqual(positionsOf(stonesA), positionsOf(stonesB));
+assert.notDeepEqual(
+  positionsOf(stonesA),
+  positionsOf(stonesReseeded),
+  "Reseeding must reshuffle the stones.",
+);
+
+// Reseeding reshuffles the stones without moving the massing they sit on. The
+// seeds block itself does change — that is the seed doing its job — so this
+// compares the resolved masses and patches rather than the whole graph.
+assert.equal(
+  massingFingerprint(generateStructure(toStructureSpec(STONEWORK_LAYOUT))),
+  massingFingerprint(generateStructure(toStructureSpec({
+    ...STONEWORK_LAYOUT,
+    seed: STONEWORK_LAYOUT.seed + 1,
+  }))),
+  "Reseeding the stonework must not move the massing under it.",
+);
+
+const bareMass = mergeParts(
+  tessellateStructure(stoneGraph, { masonry: null, seed: 1 }).parts,
+  [MASS_SECTION],
+);
+assert.ok(
+  stonesA.totals.triangleCount > bareMass.totals.triangleCount * 5,
+  "Stonework must actually face the surfaces.",
+);
+
+// Coherence. The stones are set to the surface the graph declares, so the built
+// mass occupies the same space as the bare one to within the distance a corner
+// is allowed to wander. It is not a skin on the outside of the massing: a facing
+// raised outward would push every extent out by its own thickness, which is far
+// more than a gap.
+const stoneBox = stonesA.geometry.boundingBox;
+const bareBox = bareMass.geometry.boundingBox;
+assert.ok(stoneBox && bareBox);
+const wander = stoneRule.gap * 0.65 + 1e-4;
+for (const axis of ["x", "y", "z"] as const) {
+  assert.ok(
+    Math.abs(stoneBox.min[axis] - bareBox.min[axis]) < wander,
+    `Faced and bare builds disagree on min.${axis} by more than a stone may wander.`,
+  );
+  assert.ok(
+    Math.abs(stoneBox.max[axis] - bareBox.max[axis]) < wander,
+    `Faced and bare builds disagree on max.${axis} by more than a stone may wander.`,
+  );
+}
+
+// Budget. Laying a mass out of stone all the way through costs more than facing
+// a core with a skin did — there is no core — but it stays within reach of a
+// real-time build, and the count is here so a change that multiplies it shows up
+// as a failure rather than as a frame-rate complaint.
+assert.ok(
+  stonesA.totals.triangleCount <= 120000,
+  `Stonework costs ${stonesA.totals.triangleCount} triangles, over the 120000 budget.`,
+);
+
+// --- the shell -------------------------------------------------------------
+// What the eye actually catches is z-fighting, holes, and a surface that changes
+// tone where it should not. Three reworks of this layer each passed every
+// assertion in place at the time and still came out visibly wrong, so these are
+// measured on the finished mesh, with no knowledge of what drew it.
+//
+// The detectors are checked against deliberate defects first. An invariant that
+// has never rejected anything is not an invariant, and each of these has a shape
+// of failure specific enough to fake.
+const fightRamp = { bottomY: 0, topY: 2 };
+const fightBuilder = new SolidBuilder();
+fightBuilder.addBlock(blockOf(rect(2, 2), rect(2, 2), 0, 1), { sides: [], top: true }, fightRamp);
+fightBuilder.addBlock(
+  blockOf(rect(2, 2), rect(2, 2), 0, 1 + 1e-5),
+  { sides: [], top: true },
+  fightRamp,
+);
+assert.ok(
+  findCoincidentFaces(finalizeGeometry(fightBuilder).geometry).pairs > 0,
+  "The coincidence detector misses two faces a hundredth of a millimetre apart.",
+);
+
+// No lid: every ray from above meets the inside of the floor.
+const holed = finalizeGeometry(withOnly(
+  blockOf(rect(2, 2), rect(2, 2), 0, 2),
+  { sides: ALL_SIDES, bottom: true },
+)).geometry;
+holed.computeBoundingBox();
+assert.ok(
+  findBackfaces(holed, 60).backfaces > 0,
+  "The backface detector misses a box with its lid off.",
+);
+
+// A block cannot shade itself, so the break is faked by handing the detector a
+// ramp the geometry was not built against — which is what a second shading
+// scheme amounts to.
+assert.ok(
+  findShadingBreaks(finalizeGeometry(fightBuilder).geometry, { bottomY: 40, topY: 50 }).worst > 0.05,
+  "The shading detector misses a surface that ignores the ramp.",
+);
+
+// Now the mass itself, in the configuration every one of the three faults was
+// reported in: cornices on every band, blocks on, a battered stack of terraces.
+const SHELL_LAYOUT: MassLayoutConfig = {
+  ...cloneMassLayout(),
+  footprintWidth: 24,
+  footprintDepth: 18,
+  bandCount: 3,
+  totalHeight: 6,
+  batterAngle: 12,
+  cornicePlacement: "all",
+  corniceProjection: 0.2,
+  corniceHeight: 0.25,
+  stoneworkEnabled: true,
+};
+const shellGraph = generateStructure(toStructureSpec(SHELL_LAYOUT));
+const shellRule = toMasonry(SHELL_LAYOUT, DEFAULT_STONE_CONFIG);
+const shellBands = shellGraph.masses[0]?.bands ?? [];
+const shellRamp = rampOver(shellBands);
+assert.ok(shellRule && shellRamp);
+const shellGeometry = tessellateStructure(shellGraph, {
+  masonry: shellRule,
+  seed: SHELL_LAYOUT.seed,
+}).parts[0]?.geometry;
+assert.ok(shellGeometry);
+
+// No two surfaces at the same depth. This is the z-fighting: a horizontal plate
+// drawn out through the wall under every cornice, and a terrace paved on top of
+// the course that already carried its edge.
+const coincidence = findCoincidentFaces(shellGeometry);
+assert.equal(
+  coincidence.pairs,
+  0,
+  `${coincidence.pairs} coplanar overlapping faces, first at ${coincidence.sample}.`,
+);
+
+// Nowhere to see in. Not a manifold test: blocks butt across joints and meet at
+// T-junctions, so a mass built of set stone is legitimately non-manifold, and
+// demanding closure would force a shape nobody wants.
+// A joint is a real void, so a ray exactly in the plane of one will always find
+// it. This is a budget rather than a zero for that reason, and it is a tight one.
+const seenIn = findBackfaces(shellGeometry);
+assert.ok(seenIn.shots > 1000, `Only ${seenIn.shots} rays reached the mass.`);
+assert.ok(
+  seenIn.backfaces <= 3,
+  `${seenIn.backfaces} of ${seenIn.shots} rays see into the mass, first at ${seenIn.sample}.`,
+);
+
+// One ramp. Every vertex's AO is a function of its height and which way its face
+// points, and of nothing else — no per-course resample, no flat value on paving,
+// no constant on joint cheeks.
+const tone = findShadingBreaks(shellGeometry, shellRamp);
+assert.ok(
+  tone.worst < 1e-5,
+  `A surface shades itself: worst drift ${tone.worst.toFixed(4)} at ${tone.sample}.`,
+);
+
+// The same three, on a plain battered stack with no cornice, so the checks are
+// not passing on one lucky configuration.
+const plainGraph = generateStructure(toStructureSpec({
+  ...SHELL_LAYOUT,
+  cornicePlacement: "none",
+  bandCount: 5,
+  batterAngle: 0,
+  summitRatio: 0.35,
+}));
+const plainRamp = rampOver(plainGraph.masses[0]?.bands ?? []);
+assert.ok(plainRamp);
+const plainGeometry = tessellateStructure(plainGraph, {
+  masonry: shellRule,
+  seed: 3,
+}).parts[0]?.geometry;
+assert.ok(plainGeometry);
+assert.equal(findCoincidentFaces(plainGeometry).pairs, 0);
+assert.ok(findShadingBreaks(plainGeometry, plainRamp).worst < 1e-5);
+// A vertical wall has no treads, so its only openings are the joints themselves.
+// One ray in a couple of thousand still slips along one edge-on; a joint is a
+// real void and a ray exactly in its plane will always find it, so this is a
+// budget rather than a zero.
+const plainSeenIn = findBackfaces(plainGeometry);
+assert.ok(
+  plainSeenIn.backfaces <= 2,
+  `${plainSeenIn.backfaces} of ${plainSeenIn.shots} rays see into a plain stack, `
+  + `first at ${plainSeenIn.sample}.`,
+);
+
+// Shape, on the blocks actually emitted rather than on the maths behind them.
+//
+// Every one of them is an upright box, so every face is exactly rectangular —
+// not most of them. The surface model this replaced sampled a course's top edge
+// separately from its bottom one so the face would follow the ideal rake, which
+// made every stone a trapezoid; the batter now lives in where the courses sit,
+// so a stone is never cut to an angle and this is exact.
+const shellBuilder = new SolidBuilder();
+buildMassShell(shellBuilder, shellBands, {
+  rule: shellRule,
+  seed: 1,
+  ramp: shellRamp,
+});
+const shellFaces = readBlockFaces(shellBuilder);
+assert.ok(shellBuilder.blockCount > 200, `Only ${shellBuilder.blockCount} blocks.`);
+
+// The mass is made of blocks and of nothing else — every triangle in it belongs
+// to a block face. This is the one that keeps it that way: a loft, a cap or a
+// ring slipped back in alongside the blocks would carry its own winding rule and
+// its own idea of shading, and the seams between the two kinds of geometry are
+// what every fault in this layer has come from.
+assert.equal(
+  shellBuilder.blockFaces.length * 6,
+  shellBuilder.indices.length,
+  `${shellBuilder.indices.length / 6 - shellBuilder.blockFaces.length} faces of the `
+  + "shell are not part of a block.",
+);
+
+// And the greybox, which is the same blocks simply not divided into courses.
+// Turning stonework off must subdivide the mass less, not draw it with something
+// else — that is what makes the two comparable at all.
+const greybox = tessellateStructure(shellGraph, { masonry: null, seed: 1 });
+assert.equal(
+  greybox.parts[0]?.geometry.getIndex()?.count,
+  greybox.faceCount * 6,
+  "The greybox draws something that is not a block.",
+);
+assert.ok(
+  (greybox.parts[0]?.stoneCount ?? 0) > 0,
+  "The greybox must report the blocks it is made of.",
+);
+assert.equal(
+  findCoincidentFaces(greybox.parts[0]!.geometry).pairs,
+  0,
+  "The greybox has two faces at the same depth.",
+);
+
+// The rake belongs to the two blocks it passes through, not to all of them.
+// Sharing it out — sampling both edges at the same fraction of their own length —
+// leaves every block on the wall slightly sheared and almost none of them square,
+// so counting the exactly-square ones is what separates the two.
+for (const [index, face] of shellFaces.entries()) {
+  assert.ok(
+    Math.abs(face[0]!.distanceTo(face[1]!) - face[3]!.distanceTo(face[2]!)) < 1e-9,
+    `Block face ${index} is not rectangular.`,
+  );
+
+  for (let corner = 0; corner < 4; corner += 1) {
+    const here = face[(corner + 1) % 4]!.clone().sub(face[corner]!).normalize();
+    const next = face[(corner + 2) % 4]!.clone().sub(face[(corner + 1) % 4]!).normalize();
+    assert.ok(
+      Math.abs(here.dot(next)) < 1e-9,
+      `Block face ${index} corner ${corner} is not square.`,
+    );
+  }
+
+  // And axis-aligned: a face that leaned would mean a stone had been cut to the
+  // batter instead of the courses stepping in under it.
+  const normal = faceNormal(face);
+  assert.ok(
+    [normal.x, normal.y, normal.z].filter((axis) => Math.abs(axis) > 1e-9).length === 1,
+    `Block face ${index} is not axis-aligned: ${normal.toArray().map((v) => v.toFixed(3)).join(",")}.`,
+  );
+}
+
+// Blocks reach INTO the mass: their faces lie on the surface the graph declares
+// and their backs run a bed depth behind it. A facing raised outward would push
+// every extent out by its own thickness, which is what the extents check below
+// would catch, and a facing with no depth would leave nothing for a joint to
+// look into.
+// Measured against the whole mass's outermost face, which is the plinth's — not
+// against one band's, since the shell builds the entire stack at once.
+const shellFront = Math.max(...shellBands.map((band) => Math.max(
+  band.lower.maxZ,
+  band.upper.maxZ,
+  band.cornice?.outline.maxZ ?? -Infinity,
+)));
+const shellZs: number[] = [];
+
+for (let index = 0; index < shellBuilder.positions.length; index += 3) {
+  shellZs.push(shellBuilder.positions[index + 2] ?? 0);
+}
+
+// Displacement lets a corner stand proud, so the surface the graph declares is
+// the line the stones are set to rather than a hard ceiling. It is bounded by
+// the gap, which is what keeps the overshoot at millimetres.
+assert.ok(
+  shellZs.every((z) => z <= shellFront + shellRule.gap * 0.65 + 1e-9),
+  "No geometry may sit further out than the gap allows a corner to wander.",
+);
+assert.ok(
+  shellZs.some((z) => Math.abs(z - shellFront) < shellRule.gap),
+  "Block faces must lie on the surface.",
+);
+assert.ok(
+  shellZs.some((z) => Math.abs(z - (shellFront - shellRule.depth)) < 1e-6),
+  `Blocks must reach ${shellRule.depth}m back into the wall, not sit on it.`,
+);
+
+// Displacement, which means here exactly what it means on the circular
+// checkpoint and on a pillar: each corner of a stone's plan wanders by up to
+// `min(distance from the middle x displacement, gap x 0.65)`. The cap against
+// the gap is what stops a corner ever reaching its neighbour, and it is why the
+// control is a ratio. Without it every stone in a course is an identical box and
+// the course reads as a scored panel.
+function frontCorners(displacement: number): THREE.Vector3[][] {
+  const layout = { ...SHELL_LAYOUT, cornicePlacement: "none" as const };
+  const stone = { ...DEFAULT_STONE_CONFIG, displacement };
+  const graph = generateStructure(toStructureSpec(layout));
+  const bands = graph.masses[0]?.bands ?? [];
+  const band = bands.find((entry) => entry.index === 0);
+  const rule = toMasonry(layout, stone);
+  const ramp = rampOver(bands);
+  assert.ok(band && rule && ramp);
+  const builder = new SolidBuilder();
+  buildMassShell(builder, bands, { rule, seed: stone.seed, ramp });
+
+  return readBlockFaces(builder).filter((face) =>
+    faceNormal(face).z > 0.9
+    && Math.abs(face[0]!.y - band.bottomY) < 0.01
+    && band.lower.maxZ - face[0]!.z < 0.5);
+}
+
+const stillRule = toMasonry(SHELL_LAYOUT, DEFAULT_STONE_CONFIG);
+assert.ok(stillRule);
+const jitterBound = stillRule.gap * 0.65;
+const still = frontCorners(0);
+assert.ok(still.length > 8, `Only ${still.length} stones across the front of a course.`);
+
+const stillFront = Math.max(...still.flat().map((corner) => corner.z));
+for (const [index, face] of still.entries()) {
+  for (const corner of face) {
+    assert.ok(
+      Math.abs(corner.z - stillFront) < 1e-9 || Math.abs(corner.z - (stillFront - stillRule.depth)) < 1e-6,
+      `With displacement off, stone ${index} has a corner off the course line.`,
+    );
+  }
+}
+
+for (const displacement of [0.03, 0.2]) {
+  const wandered = frontCorners(displacement);
+  assert.equal(wandered.length, still.length, "Displacement must not change the coursing.");
+
+  const offsets = wandered.flat()
+    .map((corner) => corner.z)
+    .filter((z) => Math.abs(z - stillFront) < jitterBound * 4)
+    .map((z) => z - stillFront);
+  assert.ok(offsets.length > 8, "Expected the front corners to be found.");
+  assert.ok(
+    Math.max(...offsets.map(Math.abs)) <= jitterBound + 1e-9,
+    `A corner moved ${Math.max(...offsets.map(Math.abs)).toFixed(4)}m, past the `
+    + `${jitterBound.toFixed(4)}m the gap allows — neighbouring stones can meet.`,
+  );
+  assert.ok(
+    Math.max(...offsets.map(Math.abs)) > 0,
+    `At ${displacement} displacement no corner moved at all.`,
+  );
+  // Both ways: a stone may stand a little proud as well as sit back, which is
+  // what `insetAndJitter` does on the circular shell.
+  assert.ok(
+    Math.min(...offsets) < 0 && Math.max(...offsets) > 0,
+    "Corners wander only one way, so the course still reads as a plane.",
+  );
+}
+
+// Terraces are the top of the courses, not a floor laid on them. So every
+// upward face in the mass sits at the top of some course, and there is no plane
+// between courses that a separate paving pass would have introduced.
+const courseTops = new Set(
+  shellFaces
+    .filter((face) => faceNormal(face).y > 0.99)
+    .map((face) => face[0]!.y.toFixed(4)),
+);
+const allTops = new Set(
+  shellFaces.flat().map((corner) => corner.y.toFixed(4)),
+);
+for (const level of courseTops) {
+  assert.ok(allTops.has(level), `A floor sits at ${level}, off every course.`);
+}
+assert.ok(courseTops.size > 3, `Only ${courseTops.size} distinct course tops.`);
 
 // --- tessellation ----------------------------------------------------------
 // The geometry has to agree with the graph it came from. A tessellator that

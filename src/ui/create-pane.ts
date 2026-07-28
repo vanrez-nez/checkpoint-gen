@@ -1,5 +1,6 @@
 import { Pane } from "tweakpane";
 import type { BladeApi, FolderApi, TabPageApi } from "@tweakpane/core";
+import * as EssentialsPlugin from "@tweakpane/plugin-essentials";
 import {
   structureOptions,
   getStructure,
@@ -64,6 +65,8 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
   const { container, config, scene, rendererLabel, onReframe } = options;
   const pane = new Pane({ container, title: "Structure" });
   pane.registerPlugin(StatsPanePluginBundle);
+  // Supplies the cubic-bezier curve editor the shaping controls bind to.
+  pane.registerPlugin(EssentialsPlugin);
   const stats = pane.addBlade({ view: "stats" }) as StatsBladeApi;
   stats.setRenderer(rendererLabel);
 
@@ -177,10 +180,11 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
 
       for (const control of bound) {
         const { visibleWhen } = control.spec;
-        visibility.addBlades(
-          [control.binding],
+        visibility.addBlade(
+          control.binding,
           (current) => current.typeId === definition.id
             && (visibleWhen === undefined || visibleWhen(layout)),
+          control.onShow,
         );
       }
     }

@@ -1227,17 +1227,19 @@ function assertSpecCoverage<T extends object>(
       );
     }
 
-    if (spec.kind === "point2") {
-      const value = defaults[spec.key] as unknown as { x: number; y: number };
+    if (spec.kind === "bezier") {
+      const value = defaults[spec.key] as unknown as number[];
       assert.ok(
-        value && typeof value === "object",
-        `${label}: default ${spec.key} is not a point.`,
+        Array.isArray(value) && value.length === 4 && value.every(Number.isFinite),
+        `${label}: default ${spec.key} is not four finite numbers.`,
       );
-      for (const axis of ["x", "y"] as const) {
+      // Only the handles' horizontal positions are bounded; vertical overshoot
+      // is a legitimate curve shape.
+      for (const index of [0, 2]) {
+        const component = value[index] ?? Number.NaN;
         assert.ok(
-          value[axis] >= spec.min && value[axis] <= spec.max,
-          `${label}: default ${spec.key}.${axis}=${String(value[axis])} outside `
-          + `[${spec.min}, ${spec.max}].`,
+          component >= 0 && component <= 1,
+          `${label}: default ${spec.key}[${index}]=${String(component)} outside [0, 1].`,
         );
       }
     }

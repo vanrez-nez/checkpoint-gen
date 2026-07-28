@@ -1,8 +1,11 @@
 import { finalizeGeometry } from "../../geometry/finalize";
 import { IDENTITY_MATRIX, type GeometryPart } from "../../geometry/part";
+import type { HeightRamp } from "../../geometry/shading";
 import { SolidBuilder } from "../../geometry/solid-builder";
 import { rectCorners, rectIsValid, type Rect } from "../kernel/frame";
-import type { StructureGraph } from "../kernel/graph";
+import type { ElevationBandRecord, StructureGraph } from "../kernel/graph";
+import type { MasonryRule } from "../kernel/masonry";
+import { buildMassShell } from "./shell";
 
 /**
  * Turns a resolved structure graph into render geometry.
@@ -13,9 +16,13 @@ import type { StructureGraph } from "../kernel/graph";
  * touching the topology it was drawn from. Nothing here decides proportions,
  * profiles or ornament — those are resolved upstream, in numbers.
  *
- * The output is deliberately plain: one lofted solid per band, one ring per
- * terrace, one cap for the summit. Flat, unbevelled, unsubdivided — massing you
- * can judge on its silhouette alone.
+ * A mass is made of blocks and of nothing else. There are two subdivisions of
+ * it, and they are alternatives rather than layers: **bare**, one block per
+ * band, which is massing you can judge on its silhouette alone; and **built**,
+ * where `mass/shell` divides the same volume into courses of set stone over a
+ * core block. Both go through `SolidBuilder.addBlock`, which is the only thing
+ * that builder can do — there is no second kind of geometry for the block layer
+ * to fall out of step with.
  */
 
 export const MASS_SECTION = "mass";
@@ -25,46 +32,33 @@ export interface TessellationResult {
   readonly faceCount: number;
 }
 
-export function tessellateStructure(graph: StructureGraph): TessellationResult {
+export interface TessellationOptions {
+  /** Stonework laid over the walls and horizontal surfaces; null leaves them bare. */
+  readonly masonry: MasonryRule | null;
+  /** Root seed the stonework derives its per-course variation from. */
+  readonly seed: number;
+}
+
+export function tessellateStructure(
+  graph: StructureGraph,
+  options: TessellationOptions = { masonry: null, seed: 1 },
+): TessellationResult {
   const builder = new SolidBuilder();
+  const { masonry, seed } = options;
 
   for (const mass of graph.masses) {
-    const { bands } = mass;
+    const ramp = rampOver(mass.bands);
 
-    for (let index = 0; index < bands.length; index += 1) {
-      const band = bands[index];
-
-      if (!band) {
-        continue;
-      }
-
-      const lower = rectCorners(band.lower);
-      const upper = rectCorners(band.upper);
-
-      builder.addLoft(lower, upper, band.bottomY, band.topY);
-
-      // The bottom of the stack is the only face that needs closing from below;
-      // every band above sits on the one beneath it.
-      if (index === 0) {
-        builder.addCap(lower, band.bottomY, "down");
-      }
-
-      const next = bands[index + 1];
-
-      if (!next) {
-        builder.addCap(upper, band.topY, "up");
-        continue;
-      }
-
-      // Only the ring the next band leaves exposed is drawn. Capping the band
-      // fully and letting the next band's underside sit on top of it would put
-      // two faces at the same depth, and they would flicker against each other.
-      if (coversCompletely(band.upper, next.lower)) {
-        continue;
-      }
-
-      builder.addRing(upper, rectCorners(next.lower), band.topY, "up");
+    if (!ramp) {
+      continue;
     }
+
+    if (masonry) {
+      buildMassShell(builder, mass.bands, { rule: masonry, seed, ramp });
+      continue;
+    }
+
+    layBareMass(builder, mass.bands, ramp);
   }
 
   const { geometry } = finalizeGeometry(builder);
@@ -76,24 +70,108 @@ export function tessellateStructure(graph: StructureGraph): TessellationResult {
       slot: "stone",
       geometry,
       matrix: IDENTITY_MATRIX,
-      stoneCount: 0,
+      stoneCount: builder.blockCount,
     }],
-    faceCount: builder.pieceCount,
+    faceCount: builder.blockFaces.length,
   };
 }
 
-/** True when the band above leaves no ring, so there is nothing to draw. */
-function coversCompletely(crown: Rect, next: Rect): boolean {
-  if (!rectIsValid(crown)) {
-    return true;
+/** The height the shading ramp is measured over: the whole mass, base to crown. */
+export function rampOver(
+  bands: readonly ElevationBandRecord[],
+): HeightRamp | null {
+  const first = bands[0];
+  const last = bands[bands.length - 1];
+
+  return first && last ? { bottomY: first.bottomY, topY: last.topY } : null;
+}
+
+/**
+ * The greybox: one block per band, flat and unsubdivided.
+ *
+ * The same blocks the shell is built from, just not divided into courses — a
+ * whole band is one stone. That is what makes the two paths comparable: turning
+ * stonework on subdivides the mass, it does not swap it for a different kind of
+ * geometry drawn by different code. A cornice is a step in the outline here too,
+ * so it is simply a second block sitting on the first.
+ */
+function layBareMass(
+  builder: SolidBuilder,
+  bands: readonly ElevationBandRecord[],
+  ramp: HeightRamp,
+): void {
+  for (let index = 0; index < bands.length; index += 1) {
+    const band = bands[index];
+
+    if (!band || !rectIsValid(band.lower)) {
+      continue;
+    }
+
+    const { cornice } = band;
+    // A cornice takes over the top of the band, so the wall stops short and the
+    // moulding finishes it. Without one the wall runs the full rise.
+    const stack: readonly {
+      readonly lower: Rect;
+      readonly upper: Rect;
+      readonly bottomY: number;
+      readonly topY: number;
+    }[] = cornice
+      ? [
+        {
+          lower: band.lower,
+          upper: cornice.springing,
+          bottomY: band.bottomY,
+          topY: cornice.bottomY,
+        },
+        {
+          lower: cornice.outline,
+          upper: cornice.outline,
+          bottomY: cornice.bottomY,
+          topY: band.topY,
+        },
+      ]
+      : [{
+        lower: band.lower,
+        upper: band.upper,
+        bottomY: band.bottomY,
+        topY: band.topY,
+      }];
+
+    for (let part = 0; part < stack.length; part += 1) {
+      const piece = stack[part];
+
+      if (!piece || !rectIsValid(piece.lower) || !rectIsValid(piece.upper)) {
+        continue;
+      }
+
+      const isCrown = part === stack.length - 1;
+
+      builder.addBlock(
+        {
+          bottom: rectCorners(piece.lower).map((point) => ({
+            x: point.x,
+            y: piece.bottomY,
+            z: point.z,
+          })),
+          top: rectCorners(piece.upper).map((point) => ({
+            x: point.x,
+            y: piece.topY,
+            z: point.z,
+          })),
+        },
+        {
+          sides: [true, true, true, true],
+          // Only the topmost piece shows its crown; whatever sits above a lower
+          // one covers it. The band above stands on this one, so its underside
+          // is drawn only where the mass meets the ground — and a moulding's
+          // underside is its soffit, which oversails the wall and is always seen.
+          top: isCrown,
+          bottom: (index === 0 && part === 0) || (cornice !== null && part === 1),
+        },
+        ramp,
+      );
+    }
   }
-
-  const epsilon = 1e-9;
-
-  return next.minX - crown.minX <= epsilon
-    && crown.maxX - next.maxX <= epsilon
-    && next.minZ - crown.minZ <= epsilon
-    && crown.maxZ - next.maxZ <= epsilon;
 }
 
 /**
@@ -111,10 +189,22 @@ export function graphExtents(graph: StructureGraph): {
 
   for (const mass of graph.masses) {
     for (const band of mass.bands) {
-      for (const [rect, y] of [
-        [band.lower, band.bottomY],
-        [band.upper, band.topY],
-      ] as const) {
+      // The cornice is included because it projects past the wall: it is the
+      // outermost thing the band presents, and leaving it out would make the
+      // graph disagree with the geometry drawn from it.
+      const outlines = band.cornice
+        ? [
+          [band.lower, band.bottomY],
+          [band.upper, band.topY],
+          [band.cornice.outline, band.cornice.bottomY],
+          [band.cornice.outline, band.topY],
+        ] as const
+        : [
+          [band.lower, band.bottomY],
+          [band.upper, band.topY],
+        ] as const;
+
+      for (const [rect, y] of outlines) {
         min = min === null
           ? { x: rect.minX, y, z: rect.minZ }
           : {

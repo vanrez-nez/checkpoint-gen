@@ -360,6 +360,7 @@ export class MainScene {
     this.rebuildPatchOverlay();
     this.rebuildVertexNormalsHelper();
     this.updateOfferingTransform();
+    this.refreshOfferingPresentation();
     this.applyFireEffects(config.fire);
     previousGeometry.dispose();
 
@@ -385,7 +386,11 @@ export class MainScene {
         drawCallCount: flames.drawCallCount,
       },
       glowLightCount: this.fireGlowEntries.length,
-      offering: { ...this.currentOfferingStats },
+      // Zeroed when the model is not shown, so the readout never credits a
+      // structure with geometry that is not in its composition.
+      offering: this.offeringRoot?.visible === true
+        ? { ...this.currentOfferingStats }
+        : emptyOfferingStats(),
       diagnostics: this.graph?.diagnostics ?? [],
     };
   }
@@ -394,7 +399,7 @@ export class MainScene {
     this.scene.updateMatrixWorld(true);
     const bounds = new THREE.Box3().setFromObject(this.structure);
 
-    if (this.offeringRoot && this.offeringConfig.enabled) {
+    if (this.offeringRoot?.visible === true) {
       bounds.expandByObject(this.offeringRoot);
     }
 
@@ -773,7 +778,12 @@ export class MainScene {
       return;
     }
 
-    this.offeringRoot.visible = this.offeringConfig.enabled;
+    // A structure that exposes no offering anchor has nowhere to stand one, so
+    // the model is hidden rather than left where the last structure put it.
+    // `updateOfferingTransform` bails without an anchor, so anything still
+    // visible would be frozen at another structure's position.
+    this.offeringRoot.visible = this.offeringConfig.enabled
+      && this.anchors.offering !== null;
     const material = this.wireframeVisible
       ? this.offeringWireframeMaterial
       : this.offeringSurfaceMaterial;

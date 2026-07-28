@@ -8,6 +8,46 @@ import { createRandom, hashSeed, randomRange } from "./random";
 export { createBoxProjectedUvs, type Point2 } from "./finalize";
 export { createRandom, hashSeed, normalizedSpans, randomRange } from "./random";
 
+/**
+ * Pulls a stone's outline in off its cell and lets its corners wander.
+ *
+ * This is what `displacement` means everywhere in this project: a corner moves
+ * by up to `min(distance from the middle x displacement, gap x 0.65)`. The inset
+ * comes first and is half the gap, which is what makes that cap safe — two
+ * neighbours start a whole gap further apart than their cells were, so even when
+ * both wander towards each other they cannot meet.
+ *
+ * Shared rather than reimplemented, because a stone in a circular checkpoint and
+ * a stone in a coursed wall are the same thing set the same way.
+ */
+export function insetAndJitter(
+  points: readonly Point2[],
+  gap: number,
+  displacement: number,
+  random: () => number,
+): Point2[] {
+  const center = points.reduce(
+    (sum, point) => ({ x: sum.x + point.x, z: sum.z + point.z }),
+    { x: 0, z: 0 },
+  );
+  center.x /= points.length;
+  center.z /= points.length;
+
+  return points.map((point) => {
+    const dx = point.x - center.x;
+    const dz = point.z - center.z;
+    const distance = Math.hypot(dx, dz);
+    const inset = Math.min(gap * 0.5, distance * 0.2);
+    const scale = distance > 0 ? (distance - inset) / distance : 1;
+    const jitter = Math.min(distance * displacement, gap * 0.65);
+
+    return {
+      x: center.x + dx * scale + randomRange(random, -jitter, jitter),
+      z: center.z + dz * scale + randomRange(random, -jitter, jitter),
+    };
+  });
+}
+
 export interface StoneDetailConfig {
   bevelEnabled: boolean;
   bevelWidthRatio: number;

@@ -37,6 +37,7 @@ import {
   IMPLEMENTED_SUMMIT_TREATMENTS,
   resolveElevation,
   type BaseTreatment,
+  type CorniceRule,
   type SummitTreatment,
   type WallProfile,
 } from "./elevation";
@@ -70,6 +71,8 @@ export interface MassSpec {
    * outright.
    */
   readonly wallProfile: WallProfile;
+  /** Which bands carry a crowning molding, and its dimensions. */
+  readonly cornice: CorniceRule;
   readonly baseTreatment: BaseTreatment;
   readonly baseProjection: number;
   readonly baseHeight: number;
@@ -152,6 +155,7 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
       setbackScales: spec.mass.setbackScales,
       batterDegrees: spec.mass.batterDegrees,
       wallProfile: spec.mass.wallProfile,
+      cornice: spec.mass.cornice,
     },
     diagnostics,
   );
@@ -288,6 +292,8 @@ function resolvePlinth(
       surfaceRole: PATCH_ROLES.basePlinth,
       upperTransition: "ledge",
       walkable: false,
+      // A footing is not a wall the profile finishes, so it never takes one.
+      cornice: null,
     },
   };
 }
@@ -319,7 +325,7 @@ function emitBandFacades(
         thickness: 0,
       },
       evaluator,
-      edges: facadeEdges(id, orientation),
+      edges: facadeEdges(id, orientation, band.cornice ? "cornice" : null),
       adjacency: [],
       regions: [],
       features: [],
@@ -475,12 +481,21 @@ function horizontalPatch(input: {
   };
 }
 
-function facadeEdges(patchId: string, orientation: HorizontalOrientation): PatchEdges {
+/**
+ * `crownTreatment` records what finishes the wall at its top edge, which is what
+ * makes a cornice addressable as the edge feature it is rather than as loose
+ * geometry that happens to sit there.
+ */
+function facadeEdges(
+  patchId: string,
+  orientation: HorizontalOrientation,
+  crownTreatment: string | null,
+): PatchEdges {
   return {
     uMin: edge(patchId, "u_min", orientation),
     uMax: edge(patchId, "u_max", orientation),
     vMin: edge(patchId, "v_min", "bottom"),
-    vMax: edge(patchId, "v_max", "top"),
+    vMax: edge(patchId, "v_max", "top", crownTreatment),
   };
 }
 
@@ -497,11 +512,12 @@ function edge(
   patchId: string,
   segment: string,
   orientation: PatchEdges["uMin"]["orientation"],
+  treatment: string | null = null,
 ) {
   return {
     id: structurePath(patchId, `edge_${segment}`),
     orientation,
-    treatment: null,
+    treatment,
   };
 }
 

@@ -55,7 +55,8 @@
           "wallProfile": "vertical",
           "surfaceRole": "base_plinth",
           "upperTransition": "ledge",
-          "walkable": false
+          "walkable": false,
+          "cornice": null
         },
         {
           "id": "structure/mass_main/band_01",
@@ -78,7 +79,8 @@
           "wallProfile": "battered",
           "surfaceRole": "battered_facade",
           "upperTransition": "walkable_terrace",
-          "walkable": true
+          "walkable": true,
+          "cornice": null
         },
         {
           "id": "structure/mass_main/band_02",
@@ -101,7 +103,8 @@
           "wallProfile": "battered",
           "surfaceRole": "battered_facade",
           "upperTransition": "walkable_terrace",
-          "walkable": true
+          "walkable": true,
+          "cornice": null
         },
         {
           "id": "structure/mass_main/band_03",
@@ -124,7 +127,8 @@
           "wallProfile": "battered",
           "surfaceRole": "battered_facade",
           "upperTransition": "walkable_terrace",
-          "walkable": true
+          "walkable": true,
+          "cornice": null
         },
         {
           "id": "structure/mass_main/band_04",
@@ -147,7 +151,8 @@
           "wallProfile": "battered",
           "surfaceRole": "battered_facade",
           "upperTransition": "walkable_terrace",
-          "walkable": true
+          "walkable": true,
+          "cornice": null
         },
         {
           "id": "structure/mass_main/band_05",
@@ -170,7 +175,8 @@
           "wallProfile": "battered",
           "surfaceRole": "battered_facade",
           "upperTransition": "walkable_terrace",
-          "walkable": true
+          "walkable": true,
+          "cornice": null
         },
         {
           "id": "structure/mass_main/band_06",
@@ -193,7 +199,8 @@
           "wallProfile": "battered",
           "surfaceRole": "battered_facade",
           "upperTransition": "walkable_terrace",
-          "walkable": true
+          "walkable": true,
+          "cornice": null
         },
         {
           "id": "structure/mass_main/band_07",
@@ -216,7 +223,8 @@
           "wallProfile": "battered",
           "surfaceRole": "battered_facade",
           "upperTransition": "none",
-          "walkable": false
+          "walkable": false,
+          "cornice": null
         }
       ],
       "summit": {

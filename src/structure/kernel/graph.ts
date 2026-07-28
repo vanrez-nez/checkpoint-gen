@@ -32,6 +32,27 @@ export interface SiteRecord {
   readonly groundY: number;
 }
 
+/**
+ * A projecting molding crowning a band.
+ *
+ * Semantic rather than decorative: it changes the silhouette and the extents,
+ * and later systems ask where a band's crown actually is before placing anything
+ * on it. It is recorded per band because that is the scale it belongs to — which
+ * bands carry one is a composition decision, not a global switch.
+ */
+export interface CorniceRecord {
+  /** Outward projection beyond the wall, measured at the springing. */
+  readonly projection: number;
+  /** How much of the band's rise the cornice occupies. */
+  readonly height: number;
+  /** Elevation the cornice starts at; it finishes at the band's `topY`. */
+  readonly bottomY: number;
+  /** The wall's outline where the cornice springs from it. */
+  readonly springing: Rect;
+  /** The cornice's own outline — `springing` pushed out by `projection`. */
+  readonly outline: Rect;
+}
+
 /** One resolved horizontal layer of a mass. */
 export interface ElevationBandRecord {
   readonly id: string;
@@ -48,6 +69,8 @@ export interface ElevationBandRecord {
   readonly upperTransition: string;
   /** True when the ring exposed above this band is wide enough to stand on. */
   readonly walkable: boolean;
+  /** The molding crowning this band, when it carries one. */
+  readonly cornice: CorniceRecord | null;
 }
 
 export interface SummitRecord {

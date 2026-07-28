@@ -3,13 +3,14 @@ import {
   rectDepth,
   rectIsValid,
   rectWidth,
+  uniformSetbacks,
   type Rect,
   type Setbacks,
 } from "../kernel/frame";
 import { distributeByCurve, type ShapingCurve } from "../kernel/curve";
 import { ordinalSegment, structurePath } from "../kernel/ids";
 import { PATCH_ROLES } from "../kernel/patch";
-import type { ElevationBandRecord } from "../kernel/graph";
+import type { CorniceRecord, ElevationBandRecord } from "../kernel/graph";
 import type { DiagnosticCollector } from "../kernel/validate";
 
 /**
@@ -116,6 +117,57 @@ export const IMPLEMENTED_SUMMIT_TREATMENTS: readonly SummitTreatment[] = [
 /** A terrace narrower than this is a ledge: visible, but not somewhere to walk. */
 export const WALKABLE_TERRACE_WIDTH = 0.6;
 
+/**
+ * Which bands carry a crowning molding.
+ *
+ * A rule rather than a list, because bands are generated from a count and a
+ * curve rather than authored one by one — there is no band to hang an individual
+ * setting off yet. The graph still records the cornice per band, so when bands
+ * do become individually authorable this becomes their default and nothing
+ * downstream changes.
+ */
+export const CORNICE_PLACEMENTS = [
+  "none",
+  "all",
+  "crown",
+  "terraces",
+  "alternate",
+] as const;
+
+export type CornicePlacement = (typeof CORNICE_PLACEMENTS)[number];
+
+/**
+ * A cornice may not eat more than this share of the band it crowns, or the wall
+ * it is supposed to finish disappears underneath it.
+ */
+export const MAX_CORNICE_RISE_SHARE = 0.5;
+
+export interface CorniceRule {
+  readonly placement: CornicePlacement;
+  readonly projection: number;
+  readonly height: number;
+}
+
+/** True when the band at `index` carries a cornice under `placement`. */
+export function bandCarriesCornice(
+  placement: CornicePlacement,
+  index: number,
+  bandCount: number,
+): boolean {
+  switch (placement) {
+    case "none":
+      return false;
+    case "all":
+      return true;
+    case "crown":
+      return index === bandCount - 1;
+    case "terraces":
+      return index < bandCount - 1;
+    case "alternate":
+      return index % 2 === 0;
+  }
+}
+
 export interface ElevationProfileInput {
   readonly massId: string;
   readonly footprint: Rect;
@@ -129,6 +181,7 @@ export interface ElevationProfileInput {
   readonly setbackScales: Setbacks;
   readonly batterDegrees: number;
   readonly wallProfile: WallProfile;
+  readonly cornice: CorniceRule;
 }
 
 export interface ResolvedElevation {
@@ -162,6 +215,7 @@ export function resolveElevation(
     setbackScales,
     batterDegrees,
     wallProfile,
+    cornice,
   } = input;
 
   if (!IMPLEMENTED_WALL_PROFILES.includes(wallProfile)) {
@@ -228,6 +282,7 @@ export function resolveElevation(
   const bands: ElevationBandRecord[] = [];
   let lower = footprint;
   let bottomY = groundY;
+  let corniceClamped = false;
 
   for (let index = 0; index < bandCount; index += 1) {
     const rise = rises[index] ?? 0;
@@ -276,9 +331,23 @@ export function resolveElevation(
     const walkable = !isLast && ringWidth >= WALKABLE_TERRACE_WIDTH;
     // A crown wide enough to stand on is a terrace; anything narrower is a
     // ledge, which is a visual band rather than a surface anything can use.
-    const upperTransition: BandTransition = isLast
-      ? "none"
-      : (walkable ? "walkable_terrace" : "ledge");
+    const crown = resolveCornice({
+      rule: cornice,
+      index,
+      bandCount,
+      lower,
+      rise,
+      topY,
+      batter,
+    });
+
+    if (crown?.clamped) {
+      corniceClamped = true;
+    }
+
+    const upperTransition: BandTransition = crown
+      ? "beveled_molding"
+      : (isLast ? "none" : (walkable ? "walkable_terrace" : "ledge"));
 
     bands.push({
       id: bandId,
@@ -294,10 +363,21 @@ export function resolveElevation(
         : PATCH_ROLES.verticalFacade,
       upperTransition,
       walkable,
+      cornice: crown?.record ?? null,
     });
 
     lower = next;
     bottomY = topY;
+  }
+
+  if (corniceClamped) {
+    diagnostics.notice(
+      "cornice.height_exceeds_band",
+      massId,
+      `A cornice cannot take more than ${MAX_CORNICE_RISE_SHARE * 100}% of the `
+      + "band it crowns; the ones that would were shortened.",
+      `${cornice.height}m requested`,
+    );
   }
 
   const top = bands[bands.length - 1];
@@ -308,6 +388,55 @@ export function resolveElevation(
   }
 
   return { bands, summitRect: top.upper, summitY: top.topY };
+}
+
+/**
+ * The molding crowning one band, or null when it does not carry one.
+ *
+ * The cornice takes over the top of the band rather than sitting on top of it,
+ * so adding one never changes where the band ends or where the next one starts —
+ * the elevation profile is decided before any of this and stays decided.
+ */
+function resolveCornice(input: {
+  readonly rule: CorniceRule;
+  readonly index: number;
+  readonly bandCount: number;
+  readonly lower: Rect;
+  readonly rise: number;
+  readonly topY: number;
+  readonly batter: number;
+}): { readonly record: CorniceRecord; readonly clamped: boolean } | null {
+  const { rule, index, bandCount, lower, rise, topY, batter } = input;
+
+  if (
+    !bandCarriesCornice(rule.placement, index, bandCount)
+    || rule.projection <= 0
+    || rule.height <= 0
+  ) {
+    return null;
+  }
+
+  const limit = rise * MAX_CORNICE_RISE_SHARE;
+  const height = Math.min(rule.height, limit);
+  // The wall's outline where the cornice springs from it, which on a battered
+  // wall is wider than the crown the band nominally ends at.
+  const springing = insetRect(lower, uniformSetbacks(batter * (rise - height)));
+  const outline = insetRect(springing, uniformSetbacks(-rule.projection));
+
+  if (!rectIsValid(springing)) {
+    return null;
+  }
+
+  return {
+    clamped: height < rule.height - 1e-9,
+    record: {
+      projection: rule.projection,
+      height,
+      bottomY: topY - height,
+      springing,
+      outline,
+    },
+  };
 }
 
 function scaledSetback(

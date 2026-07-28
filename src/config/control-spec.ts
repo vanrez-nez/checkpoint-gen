@@ -37,6 +37,14 @@ interface BaseControlSpec<T> {
    * pane to know which of its controls gate which others.
    */
   readonly visibleWhen?: (target: T) => boolean;
+  /**
+   * Reconciles fields this control derives, run after it changes and before the
+   * rebuild. Selecting a named curve preset writes that preset's handles into
+   * the curve field, so the config always states the curve actually in use and
+   * switching to Custom starts from the preset you were on rather than from
+   * wherever the editor was last left.
+   */
+  readonly onChange?: (target: T) => void;
 }
 
 export interface NumberControlSpec<T> extends BaseControlSpec<T> {
@@ -66,37 +74,28 @@ export interface ListControlSpec<T> extends BaseControlSpec<T> {
   readonly options: Readonly<Record<string, string>>;
 }
 
-/** A field holding `{ x, y }`, bound to Tweakpane's draggable 2D pad. */
-export interface Point2ControlSpec<T> extends BaseControlSpec<T> {
-  readonly kind: "point2";
-  readonly min: number;
-  readonly max: number;
-  readonly step: number;
-  /**
-   * Tweakpane's pad puts +y downward, matching screen coordinates. A control
-   * standing for a curve handle wants +y upward, so it reads the way the curve
-   * is drawn.
-   */
-  readonly invertY?: boolean;
+/**
+ * A cubic Bezier, shown as one curve editor with both handles draggable on the
+ * curve itself. Bound to a `[x1, y1, x2, y2]` field, the same order and meaning
+ * as CSS `cubic-bezier`, with the endpoints pinned at (0, 0) and (1, 1).
+ */
+export interface BezierControlSpec<T> extends BaseControlSpec<T> {
+  readonly kind: "bezier";
 }
 
 export type ControlSpec<T> =
   | NumberControlSpec<T>
   | BooleanControlSpec<T>
   | ListControlSpec<T>
-  | Point2ControlSpec<T>;
+  | BezierControlSpec<T>;
 
-/** The shape a `point2` control binds to. */
-export interface Point2Value {
-  x: number;
-  y: number;
-}
+/** The shape a `bezier` control binds to: `[x1, y1, x2, y2]`. */
+export type BezierValue = [number, number, number, number];
 
-export function isPoint2Value(value: unknown): value is Point2Value {
-  return typeof value === "object"
-    && value !== null
-    && typeof (value as Point2Value).x === "number"
-    && typeof (value as Point2Value).y === "number";
+export function isBezierValue(value: unknown): value is BezierValue {
+  return Array.isArray(value)
+    && value.length === 4
+    && value.every((component) => typeof component === "number");
 }
 
 /**
@@ -107,13 +106,13 @@ export function controlsFor<T extends object>(): {
   number: (spec: Omit<NumberControlSpec<T>, "kind">) => NumberControlSpec<T>;
   boolean: (spec: Omit<BooleanControlSpec<T>, "kind">) => BooleanControlSpec<T>;
   list: (spec: Omit<ListControlSpec<T>, "kind">) => ListControlSpec<T>;
-  point2: (spec: Omit<Point2ControlSpec<T>, "kind">) => Point2ControlSpec<T>;
+  bezier: (spec: Omit<BezierControlSpec<T>, "kind">) => BezierControlSpec<T>;
 } {
   return {
     number: (spec) => ({ kind: "number", ...spec }),
     boolean: (spec) => ({ kind: "boolean", ...spec }),
     list: (spec) => ({ kind: "list", ...spec }),
-    point2: (spec) => ({ kind: "point2", ...spec }),
+    bezier: (spec) => ({ kind: "bezier", ...spec }),
   };
 }
 
@@ -153,19 +152,19 @@ export function validateControls<T extends object>(
       continue;
     }
 
-    if (spec.kind === "point2") {
-      if (!isPoint2Value(value)) {
-        throw new TypeError(`${name} must be a point with x and y.`);
+    if (spec.kind === "bezier") {
+      if (!isBezierValue(value) || !value.every(Number.isFinite)) {
+        throw new TypeError(`${name} must be four finite numbers.`);
       }
 
-      for (const [axis, component] of [["x", value.x], ["y", value.y]] as const) {
-        if (
-          !Number.isFinite(component)
-          || component < spec.min
-          || component > spec.max
-        ) {
+      // The handles' horizontal positions are confined to the curve's own
+      // domain, matching the control. Their vertical positions are deliberately
+      // not: overshoot is a legitimate shape, and what it means is the caller's
+      // to decide.
+      for (const [index, component] of [[0, value[0]], [2, value[2]]] as const) {
+        if (component < 0 || component > 1) {
           throw new RangeError(
-            `${name} ${axis} must be between ${spec.min} and ${spec.max}.`,
+            `${name} handle ${index / 2 + 1} x must be between 0 and 1.`,
           );
         }
       }

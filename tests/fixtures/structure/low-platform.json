@@ -55,7 +55,8 @@
           "wallProfile": "vertical",
           "surfaceRole": "vertical_facade",
           "upperTransition": "walkable_terrace",
-          "walkable": true
+          "walkable": true,
+          "cornice": null
         },
         {
           "id": "structure/mass_main/band_02",
@@ -78,7 +79,8 @@
           "wallProfile": "vertical",
           "surfaceRole": "vertical_facade",
           "upperTransition": "none",
-          "walkable": false
+          "walkable": false,
+          "cornice": null
         }
       ],
       "summit": {
