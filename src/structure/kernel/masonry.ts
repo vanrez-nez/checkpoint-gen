@@ -89,11 +89,11 @@ export interface MasonryRule {
   /**
    * How far a stone's corners wander, from the shared `StoneConfig`.
    *
-   * The same meaning it has on the circular checkpoint and on a pillar: each
-   * corner of a stone's plan is jittered by `min(distance × displacement,
-   * gap × 0.65)`. The cap against the gap is what keeps neighbours from ever
-   * growing into one another, and it is why the value is a ratio rather than a
-   * distance.
+   * The same meaning it has on the circular checkpoint: each corner of a
+   * stone's plan uses `shortest cell edge × displacement` as its movement
+   * scale. Mass applies the full amount normal and along the wall, sharing the
+   * along-course offset at neighboring joint ends so they do not cross. The
+   * gap itself remains an independent half-gap inset.
    */
   readonly displacement: number;
 }

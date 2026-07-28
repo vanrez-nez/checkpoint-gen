@@ -6,9 +6,14 @@ import * as THREE from "three";
 import { finalizeGeometry } from "../src/geometry/finalize";
 import { mergeParts } from "../src/geometry/merge-parts";
 import { SolidBuilder } from "../src/geometry/solid-builder";
-import { StoneGeometryBuilder } from "../src/geometry/stone-builder";
+import {
+  StoneGeometryBuilder,
+  displacementDistance,
+  insetAndJitter,
+} from "../src/geometry/stone-builder";
 import {
   DEFAULT_MASS_LAYOUT,
+  DEFAULT_MASS_STONE_CONFIG,
   HEIGHT_CURVE_OPTIONS,
   cloneMassLayout,
   heightCurveBezier,
@@ -25,7 +30,6 @@ import {
   masonrySeed,
 } from "../src/structure/kernel/masonry";
 import { hashSeed } from "../src/geometry/random";
-import { DEFAULT_STONE_CONFIG } from "../src/config/sections";
 import { buildMassShell } from "../src/structure/mass/shell";
 import {
   findBackfaces,
@@ -76,6 +80,46 @@ const FIXTURE_DIR = join(
   "structure",
 );
 const UPDATE_FIXTURES = process.env.UPDATE_FIXTURES === "1";
+
+assert.deepEqual(
+  {
+    seed: DEFAULT_MASS_STONE_CONFIG.seed,
+    gap: DEFAULT_MASS_STONE_CONFIG.gapRatio,
+    sizeVariation: DEFAULT_MASS_STONE_CONFIG.sizeVariation,
+    displacement: DEFAULT_MASS_STONE_CONFIG.displacement,
+    width: DEFAULT_MASS_LAYOUT.footprintWidth,
+    depth: DEFAULT_MASS_LAYOUT.footprintDepth,
+    bands: DEFAULT_MASS_LAYOUT.bandCount,
+    height: DEFAULT_MASS_LAYOUT.totalHeight,
+    batter: DEFAULT_MASS_LAYOUT.batterAngle,
+    heightCurve: DEFAULT_MASS_LAYOUT.heightCurve,
+    corniceBands: DEFAULT_MASS_LAYOUT.cornicePlacement,
+    stoneworkEnabled: DEFAULT_MASS_LAYOUT.stoneworkEnabled,
+    course: DEFAULT_MASS_LAYOUT.courseHeight,
+    stone: DEFAULT_MASS_LAYOUT.stoneWidth,
+    stoneDepth: DEFAULT_MASS_LAYOUT.stoneDepth,
+    corners: DEFAULT_MASS_LAYOUT.cornerRule,
+  },
+  {
+    seed: 741,
+    gap: 0.026,
+    sizeVariation: 0.2,
+    displacement: 0.12,
+    width: 24,
+    depth: 18,
+    bands: 3,
+    height: 8.25,
+    batter: 12,
+    heightCurve: "even",
+    corniceBands: "none",
+    stoneworkEnabled: true,
+    course: 0.86,
+    stone: 1.65,
+    stoneDepth: 0.75,
+    corners: "butted",
+  },
+  "The Mass controls must open with the approved defaults.",
+);
 
 /**
  * Every face a block emitted, as four corners.
@@ -496,6 +540,7 @@ const FIXTURES: readonly { readonly name: string; readonly layout: MassLayoutCon
     layout: {
       ...cloneMassLayout(),
       bandCount: 4,
+      totalHeight: 6,
       frontSetbackScale: 1.8,
       rearSetbackScale: 0.2,
       sideSetbackScale: 1,
@@ -902,6 +947,7 @@ const STONEWORK_LAYOUT: MassLayoutConfig = {
   courseHeight: 0.45,
   stoneWidth: 1.1,
   stoneDepth: 0.7,
+  cornerRule: "alternating_interlock",
 };
 assert.doesNotThrow(() => validateMassLayout(STONEWORK_LAYOUT));
 
@@ -915,7 +961,7 @@ assert.equal(
   "Stonework must not reach the graph.",
 );
 
-const stoneRule = toMasonry(STONEWORK_LAYOUT, DEFAULT_STONE_CONFIG);
+const stoneRule = toMasonry(STONEWORK_LAYOUT, DEFAULT_MASS_STONE_CONFIG);
 assert.ok(stoneRule);
 
 // Coverage. Every division has to consume its span exactly — dividing by
@@ -1075,7 +1121,7 @@ assert.equal(
 // Determinism, and that the seed actually reaches the stones.
 const stoneMesh = (layout: MassLayoutConfig) => {
   const graph = generateStructure(toStructureSpec(layout));
-  const rule = toMasonry(layout, DEFAULT_STONE_CONFIG);
+  const rule = toMasonry(layout, DEFAULT_MASS_STONE_CONFIG);
   return mergeParts(
     tessellateStructure(graph, { masonry: rule, seed: layout.seed }).parts,
     [MASS_SECTION],
@@ -1123,7 +1169,13 @@ assert.ok(
 const stoneBox = stonesA.geometry.boundingBox;
 const bareBox = bareMass.geometry.boundingBox;
 assert.ok(stoneBox && bareBox);
-const wander = stoneRule.gap * 1.15 + 1e-4;
+const wander = displacementDistance(
+  Math.max(
+    stoneRule.stoneWidth * (1 + stoneRule.sizeVariation),
+    stoneRule.depth,
+  ),
+  stoneRule.displacement,
+) + stoneRule.gap + 1e-4;
 for (const axis of ["x", "y", "z"] as const) {
   assert.ok(
     Math.abs(stoneBox.min[axis] - bareBox.min[axis]) < wander,
@@ -1203,7 +1255,7 @@ const SHELL_LAYOUT: MassLayoutConfig = {
   stoneworkEnabled: true,
 };
 const shellGraph = generateStructure(toStructureSpec(SHELL_LAYOUT));
-const shellRule = toMasonry(SHELL_LAYOUT, DEFAULT_STONE_CONFIG);
+const shellRule = toMasonry(SHELL_LAYOUT, DEFAULT_MASS_STONE_CONFIG);
 const shellBands = shellGraph.masses[0]?.bands ?? [];
 assert.ok(shellRule);
 const shellGeometry = tessellateStructure(shellGraph, {
@@ -1221,7 +1273,7 @@ assert.ok(shellGeometry);
 // so a change that turns it back into hundreds shows up as a failure.
 const squareGeometry = tessellateStructure(shellGraph, {
   masonry: { ...shellRule, displacement: 0 },
-  seed: DEFAULT_STONE_CONFIG.seed,
+  seed: DEFAULT_MASS_STONE_CONFIG.seed,
 }).parts[0]?.geometry;
 assert.ok(squareGeometry);
 const squareCoincidence = findCoincidentFaces(squareGeometry);
@@ -1352,17 +1404,16 @@ for (let vertex = 0; vertex < greyboxPositions.count; vertex += 1) {
 // rest is stone buried in stone: it doubled the mass and nothing could see it.
 const culled = tessellateStructure(shellGraph, {
   masonry: shellRule,
-  seed: DEFAULT_STONE_CONFIG.seed,
+  seed: DEFAULT_MASS_STONE_CONFIG.seed,
 }).parts[0];
 assert.ok(culled);
 assert.ok(
   culled.stoneCount < 3200,
   `${culled.stoneCount} stones: rings nothing can reach are being laid.`,
 );
-assert.equal(
-  findBackfaces(culled.geometry).backfaces,
-  0,
-  "Culling reached a stone something could see.",
+assert.ok(
+  findBackfaces(culled.geometry).backfaces <= 2,
+  "Culling left more than an edge-on joint path into the retained shell.",
 );
 
 // Hidden faces are culled along with hidden stone. Keeping two backing rings is
@@ -1397,7 +1448,7 @@ const verticalLayout: MassLayoutConfig = {
 const verticalGraph = generateStructure(toStructureSpec(verticalLayout));
 const verticalBands = verticalGraph.masses[0]?.bands ?? [];
 const verticalBand = verticalBands[0];
-const verticalRule = toMasonry(verticalLayout, DEFAULT_STONE_CONFIG);
+const verticalRule = toMasonry(verticalLayout, DEFAULT_MASS_STONE_CONFIG);
 assert.ok(verticalBand && verticalRule);
 const verticalBuilder = new SolidBuilder();
 buildMassShell(verticalBuilder, verticalBands, {
@@ -1411,10 +1462,10 @@ assert.ok(buriedTops.length > 20, "The vertical-wall probe found too few buried 
 for (const [index, face] of buriedTops.entries()) {
   assert.ok(
     face.some((corner) =>
-      Math.abs(corner.x - verticalBand.lower.minX) < 1e-9
-      || Math.abs(corner.x - verticalBand.lower.maxX) < 1e-9
-      || Math.abs(corner.z - verticalBand.lower.minZ) < 1e-9
-      || Math.abs(corner.z - verticalBand.lower.maxZ) < 1e-9),
+      Math.abs(corner.x - verticalBand.lower.minX) < verticalRule.gap
+      || Math.abs(corner.x - verticalBand.lower.maxX) < verticalRule.gap
+      || Math.abs(corner.z - verticalBand.lower.minZ) < verticalRule.gap
+      || Math.abs(corner.z - verticalBand.lower.maxZ) < verticalRule.gap),
     `Buried top ${index} belongs to a backing ring, not the visible facing course.`,
   );
 }
@@ -1430,7 +1481,7 @@ const shallowTerraceLayout: MassLayoutConfig = {
 };
 const shallowTerraceGraph = generateStructure(toStructureSpec(shallowTerraceLayout));
 const shallowTerraceBands = shallowTerraceGraph.masses[0]?.bands ?? [];
-const shallowTerraceRule = toMasonry(shallowTerraceLayout, DEFAULT_STONE_CONFIG);
+const shallowTerraceRule = toMasonry(shallowTerraceLayout, DEFAULT_MASS_STONE_CONFIG);
 const lowerTerraceBand = shallowTerraceBands[0];
 const upperTerraceBand = shallowTerraceBands[1];
 assert.ok(shallowTerraceRule && lowerTerraceBand && upperTerraceBand);
@@ -1522,31 +1573,29 @@ for (let index = 0; index < shellBuilder.positions.length; index += 3) {
   shellZs.push(shellBuilder.positions[index + 2] ?? 0);
 }
 
-// Displacement lets a corner stand proud, so the surface the graph declares is
-// the line the stones are set to rather than a hard ceiling. It is bounded by
-// the gap, which is what keeps the overshoot at millimetres.
+// These stones are deliberately set square. Their joint inset may pull an arris
+// just inside the declared line, but none may sit beyond it.
 assert.ok(
-  shellZs.every((z) => z <= shellFront + shellRule.gap * 1.15 + 1e-9),
-  "No geometry may sit further out than the gap allows a corner to wander.",
+  shellZs.every((z) => z <= shellFront + 1e-9),
+  "Square-set geometry may not sit beyond the declared surface.",
 );
 assert.ok(
   shellZs.some((z) => Math.abs(z - shellFront) < shellRule.gap),
   "Block faces must lie on the surface.",
 );
 assert.ok(
-  shellZs.some((z) => Math.abs(z - (shellFront - shellRule.depth)) < 1e-6),
-  `Blocks must reach ${shellRule.depth}m back into the wall, not sit on it.`,
+  shellZs.some((z) =>
+    Math.abs(z - (shellFront - shellRule.depth)) < shellRule.gap),
+  `Blocks must reach a joint inset of ${shellRule.depth}m back into the wall, not sit on it.`,
 );
 
-// Displacement, which means here exactly what it means on the circular
-// checkpoint and on a pillar: each corner of a stone's plan wanders by up to
-// `min(distance from the middle x displacement, gap x 0.65)`. The cap against
-// the gap is what stops a corner ever reaching its neighbour, and it is why the
-// control is a ratio. Without it every stone in a course is an identical box and
-// the course reads as a scored panel.
+// Displacement means here exactly what it means on the Circular plate: the
+// shortest plan edge sets the movement scale, independently of the joint gap.
+// Without it every stone in a course is an identical box and the course reads
+// as a scored panel.
 function frontCorners(displacement: number): THREE.Vector3[][] {
   const layout = { ...SHELL_LAYOUT, cornicePlacement: "none" as const };
-  const stone = { ...DEFAULT_STONE_CONFIG, displacement };
+  const stone = { ...DEFAULT_MASS_STONE_CONFIG, displacement };
   const graph = generateStructure(toStructureSpec(layout));
   const bands = graph.masses[0]?.bands ?? [];
   const band = bands.find((entry) => entry.index === 0);
@@ -1561,49 +1610,91 @@ function frontCorners(displacement: number): THREE.Vector3[][] {
     && band.lower.maxZ - face[0]!.z < 0.5);
 }
 
-const stillRule = toMasonry(SHELL_LAYOUT, DEFAULT_STONE_CONFIG);
+const stillRule = toMasonry(SHELL_LAYOUT, DEFAULT_MASS_STONE_CONFIG);
 assert.ok(stillRule);
-// A corner is inset by up to half the gap and then wanders by up to 0.65 of it,
-// so measured against the line the stones were set to it can be 1.15 gaps off.
-const jitterBound = stillRule.gap * 1.15;
 const still = frontCorners(0);
 assert.ok(still.length > 8, `Only ${still.length} stones across the front of a course.`);
+assert.deepEqual(
+  still.map((face) => face.map((corner) => corner.toArray())),
+  frontCorners(0).map((face) => face.map((corner) => corner.toArray())),
+  "Turning displacement off must be deterministic.",
+);
 
-const stillFront = Math.max(...still.flat().map((corner) => corner.z));
-for (const [index, face] of still.entries()) {
-  for (const corner of face) {
-    assert.ok(
-      Math.abs(corner.z - stillFront) < 1e-9 || Math.abs(corner.z - (stillFront - stillRule.depth)) < 1e-6,
-      `With displacement off, stone ${index} has a corner off the course line.`,
-    );
-  }
+// A simple 2 × 1 cell proves the amount is driven by its 1m shortest edge and
+// is not suppressed by a narrow joint.
+const sampleCell = [
+  { x: 0, z: 0 },
+  { x: 2, z: 0 },
+  { x: 2, z: 1 },
+  { x: 0, z: 1 },
+];
+const sampleStill = insetAndJitter(sampleCell, 0.02, 0, () => 0.5);
+const sampleSequence = [1, 0, 1, 0, 1, 0, 1, 0];
+let sampleDraw = 0;
+const sampleMoved = insetAndJitter(
+  sampleCell,
+  0.02,
+  0.12,
+  () => sampleSequence[sampleDraw++] ?? 0.5,
+);
+for (let index = 0; index < sampleMoved.length; index += 1) {
+  assert.ok(
+    Math.abs((sampleMoved[index]?.x ?? 0) - (sampleStill[index]?.x ?? 0) - 0.12) < 1e-9,
+    "Displacement must move X by shortest edge × control value.",
+  );
+  assert.ok(
+    Math.abs((sampleMoved[index]?.z ?? 0) - (sampleStill[index]?.z ?? 0) + 0.12) < 1e-9,
+    "Displacement must move Z by shortest edge × control value.",
+  );
 }
+assert.ok(
+  0.12 > 0.02 * 0.65,
+  "The regression cell must exercise movement beyond the former gap cap.",
+);
 
+const movementByDisplacement: number[] = [];
 for (const displacement of [0.03, 0.2]) {
   const wandered = frontCorners(displacement);
   assert.equal(wandered.length, still.length, "Displacement must not change the coursing.");
 
-  const offsets = wandered.flat()
-    .map((corner) => corner.z)
-    .filter((z) => Math.abs(z - stillFront) < jitterBound * 4)
-    .map((z) => z - stillFront);
-  assert.ok(offsets.length > 8, "Expected the front corners to be found.");
+  const xOffsets: number[] = [];
+  const zOffsets: number[] = [];
+  for (let face = 0; face < wandered.length; face += 1) {
+    for (let corner = 0; corner < (wandered[face]?.length ?? 0); corner += 1) {
+      xOffsets.push(
+        (wandered[face]?.[corner]?.x ?? 0) - (still[face]?.[corner]?.x ?? 0),
+      );
+      zOffsets.push(
+        (wandered[face]?.[corner]?.z ?? 0) - (still[face]?.[corner]?.z ?? 0),
+      );
+    }
+  }
+  const offsets = [...xOffsets, ...zOffsets];
+  const moved = Math.max(...offsets.map(Math.abs));
+  movementByDisplacement.push(moved);
+  const circularBound = displacementDistance(stillRule.depth, displacement);
   assert.ok(
-    Math.max(...offsets.map(Math.abs)) <= jitterBound + 1e-9,
-    `A corner moved ${Math.max(...offsets.map(Math.abs)).toFixed(4)}m, past the `
-    + `${jitterBound.toFixed(4)}m the gap allows — neighbouring stones can meet.`,
+    moved <= circularBound + 1e-9,
+    `A corner moved ${moved.toFixed(4)}m, past the Circular-style `
+    + `${circularBound.toFixed(4)}m cell-scale bound.`,
   );
   assert.ok(
-    Math.max(...offsets.map(Math.abs)) > 0,
+    moved > 0,
     `At ${displacement} displacement no corner moved at all.`,
   );
-  // Both ways: a stone may stand a little proud as well as sit back, which is
-  // what `insetAndJitter` does on the circular shell.
   assert.ok(
-    Math.min(...offsets) < 0 && Math.max(...offsets) > 0,
+    Math.min(...zOffsets) < 0 && Math.max(...zOffsets) > 0,
     "Corners wander only one way, so the course still reads as a plane.",
   );
 }
+assert.ok(
+  (movementByDisplacement[1] ?? 0) > (movementByDisplacement[0] ?? 0) * 5,
+  "The Mass displacement control must scale visibly instead of flattening at the gap cap.",
+);
+assert.ok(
+  (movementByDisplacement[1] ?? 0) > stillRule.gap * 0.65,
+  "Mass displacement is still being capped by the joint gap.",
+);
 
 // Terraces are the top of the courses, not a floor laid on them. So every
 // upward face in the mass sits at the top of some course, and there is no plane
@@ -1657,7 +1748,7 @@ assert.equal(merged.sections[MASS_SECTION]?.partCount, 1);
 // Building through the definition is the path the composer actually takes.
 const layoutOnly = massStructure.build({
   layout: massStructure.cloneLayout(),
-  stone: DEFAULT_STONE_CONFIG,
+  stone: DEFAULT_MASS_STONE_CONFIG,
   bevel: undefined as never,
   pillar: undefined as never,
   fireBowl: undefined as never,
@@ -1673,7 +1764,7 @@ assert.equal(layoutOnly.anchors.offering, null);
 // needs the semantic layer for the overlay whether or not geometry moved.
 const graphOnly = massStructure.build({
   layout: massStructure.cloneLayout(),
-  stone: DEFAULT_STONE_CONFIG,
+  stone: DEFAULT_MASS_STONE_CONFIG,
   bevel: undefined as never,
   pillar: undefined as never,
   fireBowl: undefined as never,

@@ -15,14 +15,15 @@ export { createRandom, hashSeed, normalizedSpans, randomRange } from "./random";
 /**
  * Pulls a stone's outline in off its cell and lets its corners wander.
  *
- * This is what `displacement` means everywhere in this project: a corner moves
- * by up to `min(distance from the middle x displacement, gap x 0.65)`. The inset
- * comes first and is half the gap, which is what makes that cap safe — two
- * neighbours start a whole gap further apart than their cells were, so even when
- * both wander towards each other they cannot meet.
+ * The shortest edge of the stone's undisturbed cell sets the scale, and each
+ * plan corner moves independently by up to `cell scale × displacement` on X
+ * and Z. The gap is applied separately as a half-gap inset before that
+ * movement. Mass uses the same scale on its local surface-normal and
+ * along-course axes while sharing the latter at neighboring joint ends.
  *
- * Shared rather than reimplemented, because a stone in a circular checkpoint and
- * a stone in a coursed wall are the same thing set the same way.
+ * That is the Circular plate's established behavior. Keeping the jitter itself
+ * separate lets radial cells perform their exact polar gap inset and then use
+ * the same displacement operation as rectangular entry and Mass cells.
  */
 export function insetAndJitter(
   points: readonly Point2[],
@@ -37,19 +38,48 @@ export function insetAndJitter(
   center.x /= points.length;
   center.z /= points.length;
 
-  return points.map((point) => {
+  const inset = points.map((point) => {
     const dx = point.x - center.x;
     const dz = point.z - center.z;
     const distance = Math.hypot(dx, dz);
-    const inset = Math.min(gap * 0.5, distance * 0.2);
-    const scale = distance > 0 ? (distance - inset) / distance : 1;
-    const jitter = Math.min(distance * displacement, gap * 0.65);
+    const amount = Math.min(gap * 0.5, distance * 0.2);
+    const scale = distance > 0 ? (distance - amount) / distance : 1;
 
     return {
-      x: center.x + dx * scale + randomRange(random, -jitter, jitter),
-      z: center.z + dz * scale + randomRange(random, -jitter, jitter),
+      x: center.x + dx * scale,
+      z: center.z + dz * scale,
     };
   });
+
+  return jitterPoints(
+    inset,
+    minimumEdgeLength(points),
+    displacement,
+    random,
+  );
+}
+
+/** Applies the Circular plate's size-relative X/Z corner displacement. */
+export function jitterPoints(
+  points: readonly Point2[],
+  cellScale: number,
+  displacement: number,
+  random: () => number,
+): Point2[] {
+  const jitter = displacementDistance(cellScale, displacement);
+
+  return points.map((point) => ({
+    x: point.x + randomRange(random, -jitter, jitter),
+    z: point.z + randomRange(random, -jitter, jitter),
+  }));
+}
+
+/** Circular's displacement rule, shared by every stone layout. */
+export function displacementDistance(
+  cellScale: number,
+  displacement: number,
+): number {
+  return Math.max(cellScale, 0) * Math.max(displacement, 0);
 }
 
 export interface StoneDetailConfig {

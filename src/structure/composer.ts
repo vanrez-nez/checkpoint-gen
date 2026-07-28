@@ -56,11 +56,17 @@ export class StructureComposer {
 
     const layout = config.layouts[config.typeId] ?? definition.cloneLayout();
     config.layouts[config.typeId] = layout;
+    const stone = config.stones[config.typeId];
+    const bevel = config.bevels[config.typeId];
+
+    if (!stone || !bevel) {
+      throw new Error(`Missing surface config for structure "${config.typeId}".`);
+    }
 
     const result = definition.build({
       layout,
-      stone: config.stone,
-      bevel: config.bevel,
+      stone,
+      bevel,
       pillar: config.pillar,
       fireBowl: config.fireBowl,
       sections: requested,

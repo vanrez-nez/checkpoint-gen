@@ -4,6 +4,7 @@ import { generateStructure } from "../../mass/generate";
 import { MASS_SECTION, tessellateStructure } from "../../mass/tessellate";
 import {
   DEFAULT_MASS_LAYOUT,
+  DEFAULT_MASS_STONE_CONFIG,
   MASS_LAYOUT_CONTROLS,
   cloneMassLayout,
   toMasonry,
@@ -16,11 +17,10 @@ import {
  * Massing: a footprint and an elevation profile resolved into semantic patches
  * and drawn as plain solids.
  *
- * It declares the shared `stone` prop, so a stone means the same thing here as
- * it does on the circular checkpoint: the same seed, gap, size variation and
- * displacement controls, read from the same section. What is particular to a
- * coursed mass — the bed height, how deep a stone is, what happens at a corner —
- * is what this family adds, and nothing that already had a name got a new one.
+ * It declares the shared `stone` control schema, so seed, gap, size variation
+ * and displacement mean the same thing here as on the circular checkpoint.
+ * Each family owns its values and defaults. What is particular to a coursed
+ * mass — bed height, stone depth and corner behavior — is what this family adds.
  *
  * There is no bevel, no ornament and no style
  * here on purpose — this structure exists to make the mass grammar tunable on
@@ -36,6 +36,7 @@ export const massStructure = defineStructure<MassLayoutConfig>({
   // checkpoint's "layout" section that the shared table names.
   sectionsByScope: { layout: [MASS_SECTION] },
   defaultLayout: DEFAULT_MASS_LAYOUT,
+  defaultStone: DEFAULT_MASS_STONE_CONFIG,
   layoutControls: MASS_LAYOUT_CONTROLS,
   cloneLayout: cloneMassLayout,
   validateLayout: validateMassLayout,

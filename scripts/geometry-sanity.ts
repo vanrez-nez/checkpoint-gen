@@ -16,6 +16,7 @@ import {
 } from "../src/structure/families/circular/config";
 import {
   DEFAULT_MASS_LAYOUT,
+  DEFAULT_MASS_STONE_CONFIG,
   MASS_LAYOUT_CONTROLS,
 } from "../src/structure/families/mass/config";
 import {
@@ -89,6 +90,68 @@ import { MainScene } from "../src/scene/main";
 const config = createDefaultStructureConfig();
 const layout = DEFAULT_CIRCULAR_LAYOUT;
 const pillarConfig = config.pillar;
+
+assert.deepEqual(
+  {
+    radius: layout.radius,
+    rowsPerTier: layout.rowsPerTier,
+    entryWidth: layout.entryWidthRatio,
+    entryLength: layout.entryLengthRatio,
+    entryCount: layout.entryCount,
+    fadeLength: layout.entryFadeRatio,
+    fragmentation: layout.edgeFragmentation,
+    lastHeight: layout.entryEndHeightRatio,
+    tierRise: layout.tierRiseRatio,
+    seed: DEFAULT_STONE_CONFIG.seed,
+    gap: DEFAULT_STONE_CONFIG.gapRatio,
+    sizeVariation: DEFAULT_STONE_CONFIG.sizeVariation,
+    displacement: DEFAULT_STONE_CONFIG.displacement,
+    bevelEnabled: DEFAULT_BEVEL_CONFIG.enabled,
+    bevelWidth: DEFAULT_BEVEL_CONFIG.widthRatio,
+    bevelDepth: DEFAULT_BEVEL_CONFIG.depthRatio,
+    bevelVariation: DEFAULT_BEVEL_CONFIG.variation,
+  },
+  {
+    radius: 3,
+    rowsPerTier: 4,
+    entryWidth: 0.35,
+    entryLength: 0.6,
+    entryCount: 4,
+    fadeLength: 0.5,
+    fragmentation: 0.76,
+    lastHeight: 0.04,
+    tierRise: 0.06,
+    seed: 741,
+    gap: 0.006,
+    sizeVariation: 0.33,
+    displacement: 0.08,
+    bevelEnabled: true,
+    bevelWidth: 0.03,
+    bevelDepth: 0.11,
+    bevelVariation: 0.6,
+  },
+  "The Circular controls must open with the approved defaults.",
+);
+assert.deepEqual(config.stones.circular, DEFAULT_STONE_CONFIG);
+assert.deepEqual(config.stones.mass, DEFAULT_MASS_STONE_CONFIG);
+assert.notStrictEqual(
+  config.stones.circular,
+  config.stones.mass,
+  "Circular and Mass must not share one mutable Stone target.",
+);
+assert.deepEqual(config.bevels.circular, DEFAULT_BEVEL_CONFIG);
+const editedCircularConfig = createDefaultStructureConfig();
+editedCircularConfig.stones.circular!.displacement = 0.2;
+editedCircularConfig.typeId = "mass";
+const pristineMassConfig = createDefaultStructureConfig();
+pristineMassConfig.typeId = "mass";
+const massAfterCircularEdit = new StructureComposer().build(editedCircularConfig);
+const pristineMass = new StructureComposer().build(pristineMassConfig);
+assert.deepEqual(
+  Array.from(massAfterCircularEdit.geometry.getAttribute("position").array),
+  Array.from(pristineMass.geometry.getAttribute("position").array),
+  "Editing Circular Stone controls must not alter Mass after a type switch.",
+);
 
 // --- shell -----------------------------------------------------------------
 const shell = buildCircularShell(
@@ -825,6 +888,7 @@ for (const definition of STRUCTURES) {
 assertSpecCoverage(CIRCULAR_LAYOUT_CONTROLS, DEFAULT_CIRCULAR_LAYOUT, "circular layout");
 assertSpecCoverage(MASS_LAYOUT_CONTROLS, DEFAULT_MASS_LAYOUT, "mass layout");
 assertSpecCoverage(createStoneControls(["layout"]), DEFAULT_STONE_CONFIG, "circular stone");
+assertSpecCoverage(createStoneControls(["layout"]), DEFAULT_MASS_STONE_CONFIG, "mass stone");
 assertSpecCoverage(createBevelControls(["layout"]), DEFAULT_BEVEL_CONFIG, "circular bevel");
 assertSpecCoverage(PILLAR_LAYOUT_CONTROLS, DEFAULT_PILLAR_CONFIG, "pillar layout");
 assertSpecCoverage(PILLAR_STONE_CONTROLS, DEFAULT_PILLAR_CONFIG.stone, "pillar stone");

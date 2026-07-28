@@ -69,6 +69,9 @@ export interface StructureDefinition<TLayout extends object = object> {
    */
   readonly sectionsByScope?: Partial<Record<RebuildScope, readonly PartSection[]>>;
   readonly defaultLayout: Readonly<TLayout>;
+  /** Per-family surface defaults; control shapes remain shared. */
+  readonly defaultStone?: Readonly<StoneConfig>;
+  readonly defaultBevel?: Readonly<BevelConfig>;
   readonly layoutControls: readonly ControlSpec<TLayout>[];
   cloneLayout(source?: Readonly<TLayout>): TLayout;
   validateLayout(layout: TLayout): void;

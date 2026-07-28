@@ -205,21 +205,28 @@ export interface BackfaceReport {
 }
 
 /**
- * Rays fired at the mass from all round it, checking each meets a front face.
+ * Rays fired at the mass from all round it, checking each can reach a front
+ * face.
  *
- * A hole reads as a back face: you look through the gap and see the inside of
- * the far wall. Testing it this way rather than by demanding a closed manifold
- * is deliberate — blocks butt across joints and meet at T-junctions, so a mass
- * built of set stone is legitimately non-manifold, and asking for closure would
- * force a shape nobody wants. What matters is only that you cannot see in.
+ * The double-sided probe finds internal joint cheeks, but those are culled by
+ * the real front-sided material. A back-facing first hit counts as a hole only
+ * when the renderable front-sided mesh has no later surface to close it. Testing
+ * that rather than demanding a closed manifold is deliberate — blocks butt
+ * across joints and meet at T-junctions, so a mass built of set stone is
+ * legitimately non-manifold. What matters is only that the renderer cannot see
+ * into an unclosed mass.
  */
 export function findBackfaces(
   geometry: THREE.BufferGeometry,
   directions = 240,
 ): BackfaceReport {
-  const mesh = new THREE.Mesh(
+  const doubleSidedMesh = new THREE.Mesh(
     geometry,
     new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }),
+  );
+  const renderedMesh = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({ side: THREE.FrontSide }),
   );
   const box = geometry.boundingBox ?? new THREE.Box3().setFromBufferAttribute(
     geometry.getAttribute("position") as THREE.BufferAttribute,
@@ -252,7 +259,7 @@ export function findBackfaces(
           .addScaledVector(right, (across / 3) * radius * 0.45)
           .addScaledVector(up, (down / 3) * radius * 0.45);
         raycaster.set(origin, direction.clone().negate());
-        const hit = raycaster.intersectObject(mesh, false)[0];
+        const hit = raycaster.intersectObject(doubleSidedMesh, false)[0];
 
         if (!hit?.face) {
           continue;
@@ -260,7 +267,10 @@ export function findBackfaces(
 
         shots += 1;
 
-        if (hit.face.normal.dot(raycaster.ray.direction) > 0) {
+        if (
+          hit.face.normal.dot(raycaster.ray.direction) > 0
+          && raycaster.intersectObject(renderedMesh, false).length === 0
+        ) {
           backfaces += 1;
           sample ??= hit.point.toArray().map((value) => value.toFixed(2)).join(", ");
         }

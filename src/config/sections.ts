@@ -33,9 +33,9 @@ export interface BevelConfig {
  */
 export const DEFAULT_STONE_CONFIG: Readonly<StoneConfig> = {
   seed: 741,
-  gapRatio: 0.008,
-  sizeVariation: 0.4,
-  displacement: 0.03,
+  gapRatio: 0.006,
+  sizeVariation: 0.33,
+  displacement: 0.08,
 };
 
 export const DEFAULT_BEVEL_CONFIG: Readonly<BevelConfig> = {

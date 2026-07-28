@@ -10,7 +10,12 @@ import {
   type HorizontalOrientation,
   type Rect,
 } from "../kernel/frame";
-import { createRandom, insetAndJitter } from "../../geometry/stone-builder";
+import {
+  createRandom,
+  displacementDistance,
+  insetAndJitter,
+  randomRange,
+} from "../../geometry/stone-builder";
 import type { ElevationBandRecord } from "../kernel/graph";
 import {
   divideCourseRing,
@@ -262,6 +267,7 @@ function layCourses(
       ...shared,
       rule: courseRule,
       outline,
+      unbackedOuterFace: true,
       // The back of a facing stone opens onto the fill only at an exposed
       // terrace or summit. In a buried course the joint is closed by the outer
       // face of the first backing ring; the facing stone's inward face points
@@ -312,6 +318,8 @@ interface RingOptions {
   readonly seed: number;
   readonly courseIndex: number;
   readonly showBottom: boolean;
+  /** True only for the building's outer facing, which has no ring outside it. */
+  readonly unbackedOuterFace?: boolean;
   /**
    * Whether the ring's inner face is exposed.
    *
@@ -511,6 +519,13 @@ function layInward(builder: SolidBuilder, options: InwardOptions): void {
     layRing(builder, {
       ...options,
       outline: outlines[ring]!,
+      unbackedOuterFace: false,
+      // This is the closure directly behind the facing joints. Keeping its
+      // exposed arris square prevents a widened outer joint from lining up with
+      // a second opening into the culled centre.
+      rule: ring === 0
+        ? { ...options.rule, displacement: 0 }
+        : options.rule,
       // A buried backing ring is capped by the course above, so neither its top
       // nor the inner cheek of its joint can be reached. On a terrace both are
       // visible down into the joint. The retained ring behind this one closes
@@ -640,22 +655,77 @@ function stoneOn(
     z: run.origin.z + run.along.z * station - run.normal.z * offset,
   });
   const cell = [at2(from, 0), at2(to, 0), at2(to, depth), at2(from, depth)];
-  // The shared setting: inset off the cell by half the gap, then let the corners
-  // wander. Ring order is start, end, end-back, start-back.
-  const wandered = options.rule.displacement > 0
-    ? insetAndJitter(cell, options.rule.gap, options.rule.displacement, createRandom(seed))
-    : cell;
+  // The shared Circular setting: inset off the cell by half the gap, then move
+  // every plan corner by shortest-edge × displacement. Ring order is start,
+  // end, end-back, start-back.
   // An end that is dressed square keeps the inset but not the wander. Keeping the
   // raw cell instead would leave that corner half a gap proud of every neighbour
   // that had been inset, which is close enough for two faces to land at the same
   // depth once the wander is added on.
-  const dressed = options.rule.displacement > 0
-    ? insetAndJitter(cell, options.rule.gap, 0, createRandom(seed))
-    : cell;
+  const dressed = insetAndJitter(cell, options.rule.gap, 0, createRandom(seed));
+  const random = createRandom(seed);
+  const cellScale = Math.min(Math.max(to - from, 0), Math.max(depth, 0));
+  const normalJitter = displacementDistance(
+    cellScale,
+    options.rule.displacement,
+  );
+  const jointJitter = displacementDistance(
+    depth,
+    options.rule.displacement,
+  );
+  const outwardNormalJitter = options.unbackedOuterFace === true
+    ? normalJitter
+    : Math.min(normalJitter, options.rule.gap * 0.45);
+  const wandered = dressed.map((point, corner) => {
+    // The inner two arrises are buried against the backing ring. Moving those
+    // would translate the whole stone into (or away from) its backing and turn
+    // a visible surface control into hidden overlap or a sight path. Circular
+    // has no backing; Mass keeps this buried edge seated and displaces the two
+    // exposed arrises by the same cell-relative amount.
+    if (corner >= 2) {
+      return point;
+    }
+
+    const normalOffset = randomRange(
+      random,
+      -normalJitter,
+      outwardNormalJitter,
+    );
+    // Circular's tangential component uses the full cell-relative amount too.
+    // Key it by the shared course joint instead of by either neighboring stone:
+    // both ends then move together and keep the joint open without crossing.
+    const jointStation = corner === 0
+      ? from - (pinned.start === true ? 0 : options.rule.gap * 0.5)
+      : to + (pinned.end === true ? 0 : options.rule.gap * 0.5);
+    const jointRandom = createRandom(masonrySeed(
+      options.seed,
+      [
+        "joint",
+        run.origin.x.toFixed(9),
+        run.origin.z.toFixed(9),
+        run.along.x.toFixed(9),
+        run.along.z.toFixed(9),
+        jointStation.toFixed(9),
+      ].join("_"),
+    ));
+    const alongOffset = randomRange(
+      jointRandom,
+      -jointJitter,
+      jointJitter,
+    );
+
+    return {
+      x: point.x
+        + run.normal.x * normalOffset
+        + run.along.x * alongOffset,
+      z: point.z
+        + run.normal.z * normalOffset
+        + run.along.z * alongOffset,
+    };
+  });
   const square = [pinned.start === true, pinned.end === true, pinned.end === true, pinned.start === true];
   const ring = cell.map((_, corner) =>
     (square[corner] === true ? dressed[corner]! : wandered[corner]!));
-
   return {
     bottom: ring.map((point) => at(point, options.bottomY)),
     top: ring.map((point) => at(point, options.topY)),

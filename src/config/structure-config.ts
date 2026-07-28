@@ -51,15 +51,15 @@ import type { RebuildScope } from "./control-spec";
 export type StructureLayouts = Record<string, object>;
 
 /**
- * The whole tunable state of the sandbox. Prop sections are shared across
- * structures; only `layouts` is per-structure.
+ * The whole tunable state of the sandbox. Structural surface state is keyed by
+ * family just like layout state, so switching type preserves each structure's
+ * own tuned defaults and subsequent edits. Composition props remain shared.
  */
 export interface StructureConfig {
   typeId: string;
   layouts: StructureLayouts;
-  /** Paving masonry for the active structure's shell. */
-  stone: StoneConfig;
-  bevel: BevelConfig;
+  stones: Record<string, StoneConfig>;
+  bevels: Record<string, BevelConfig>;
   pillar: PillarConfig;
   fireBowl: FireBowlConfig;
   fire: FireConfig;
@@ -70,19 +70,27 @@ export interface StructureConfig {
 
 export function createDefaultStructureConfig(): StructureConfig {
   const layouts: StructureLayouts = {};
+  const stones: Record<string, StoneConfig> = {};
+  const bevels: Record<string, BevelConfig> = {};
 
   // Every registered structure gets its live layout up front, so the pane can
-  // bind all of them once and a structure switch never has to create or tear
-  // down a binding target.
+  // bind all of them once. Surface objects follow the same rule, allowing one
+  // shared control schema to expose family-specific values without rebinding.
   for (const definition of listStructures()) {
     layouts[definition.id] = definition.cloneLayout();
+    stones[definition.id] = cloneStoneConfig(
+      definition.defaultStone ?? DEFAULT_STONE_CONFIG,
+    );
+    bevels[definition.id] = cloneBevelConfig(
+      definition.defaultBevel ?? DEFAULT_BEVEL_CONFIG,
+    );
   }
 
   return {
     typeId: DEFAULT_STRUCTURE_ID,
     layouts,
-    stone: cloneStoneConfig(DEFAULT_STONE_CONFIG),
-    bevel: cloneBevelConfig(DEFAULT_BEVEL_CONFIG),
+    stones,
+    bevels,
     pillar: clonePillarConfig(DEFAULT_PILLAR_CONFIG),
     fireBowl: cloneFireBowlConfig(DEFAULT_FIRE_BOWL_CONFIG),
     fire: cloneFireConfig(DEFAULT_FIRE_CONFIG),

@@ -1,4 +1,8 @@
 import {
+  DEFAULT_BEVEL_CONFIG,
+  DEFAULT_STONE_CONFIG,
+} from "../../../config/sections";
+import {
   IDENTITY_MATRIX,
   type CompositionAnchor,
   type GeometryPart,
@@ -26,6 +30,8 @@ export const circularStructure = defineStructure<CircularLayoutConfig>({
   props: ["stone", "bevel", "pillar", "fireBowl", "fire", "offering"],
   sections: ["layout", "pillars", "fireBowls"],
   defaultLayout: DEFAULT_CIRCULAR_LAYOUT,
+  defaultStone: DEFAULT_STONE_CONFIG,
+  defaultBevel: DEFAULT_BEVEL_CONFIG,
   layoutControls: CIRCULAR_LAYOUT_CONTROLS,
   cloneLayout: cloneCircularLayout,
   validateLayout: validateCircularLayout,

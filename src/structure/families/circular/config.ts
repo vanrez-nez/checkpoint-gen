@@ -31,7 +31,7 @@ export const DEFAULT_CIRCULAR_LAYOUT: Readonly<CircularLayoutConfig> = {
   entryWidthRatio: 0.35,
   entryLengthRatio: 0.6,
   entryFadeRatio: 0.5,
-  edgeFragmentation: 1,
+  edgeFragmentation: 0.76,
   entryEndHeightRatio: 0.04,
   tierRiseRatio: 0.06,
 };

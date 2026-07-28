@@ -189,18 +189,45 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
       }
     }
 
-    const stone = bindControls(page, config.stone, SHARED_STONE_CONTROLS, dispatch, folders);
-    visibility.addBlades(
-      stone.map((control) => control.binding),
-      () => usesProp("stone"),
-    );
+    // The control schema is shared, but each structure owns its live target.
+    // All targets are bound once and visibility follows the type selector, just
+    // like the layout controls above.
+    for (const definition of listStructures()) {
+      const stoneConfig = config.stones[definition.id];
+      const bevelConfig = config.bevels[definition.id];
 
-    const bevel = bindControls(page, config.bevel, SHARED_BEVEL_CONTROLS, dispatch, folders);
-    visibility.addBlades(
-      bevel.map((control) => control.binding),
-      () => usesProp("bevel"),
-    );
-    gateBevelDetails(bevel, () => usesProp("bevel") && config.bevel.enabled);
+      if (definition.props.includes("stone") && stoneConfig) {
+        const stone = bindControls(
+          page,
+          stoneConfig,
+          SHARED_STONE_CONTROLS,
+          dispatch,
+          folders,
+        );
+        visibility.addBlades(
+          stone.map((control) => control.binding),
+          (current) => current.typeId === definition.id,
+        );
+      }
+
+      if (definition.props.includes("bevel") && bevelConfig) {
+        const bevel = bindControls(
+          page,
+          bevelConfig,
+          SHARED_BEVEL_CONTROLS,
+          dispatch,
+          folders,
+        );
+        visibility.addBlades(
+          bevel.map((control) => control.binding),
+          (current) => current.typeId === definition.id,
+        );
+        gateBevelDetails(
+          bevel,
+          () => config.typeId === definition.id && bevelConfig.enabled,
+        );
+      }
+    }
 
     autoHideFolders(folders);
     addStatsFolder(page, "Geometry", [

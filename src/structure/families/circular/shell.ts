@@ -2,6 +2,7 @@ import * as THREE from "three";
 import {
   StoneGeometryBuilder,
   createRandom,
+  displacementDistance,
   finalizeStoneGeometry,
   hashSeed,
   insetAndJitter,
@@ -133,7 +134,7 @@ function addCircularPlate(
       const insetInner = innerRadius + gap * 0.5;
       const insetOuter = outerRadius - gap * 0.5;
       const cellScale = Math.min(radialStep, middleRadius * span);
-      const jitter = cellScale * config.displacement;
+      const jitter = displacementDistance(cellScale, config.displacement);
       const points = [
         polarPoint(insetInner, startAngle, random, jitter),
         polarPoint(insetInner, endAngle, random, jitter),

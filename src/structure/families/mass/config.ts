@@ -87,11 +87,19 @@ export interface MassLayoutConfig {
   seed: number;
 }
 
+/** Surface defaults tuned specifically for the coursed Mass structure. */
+export const DEFAULT_MASS_STONE_CONFIG: Readonly<StoneConfig> = {
+  seed: 741,
+  gapRatio: 0.026,
+  sizeVariation: 0.2,
+  displacement: 0.12,
+};
+
 export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
   footprintWidth: 24,
   footprintDepth: 18,
   bandCount: 3,
-  totalHeight: 6,
+  totalHeight: 8.25,
   heightCurve: "even",
   heightCurveBezier: [...LINEAR_BEZIER],
   summitRatio: 0.55,
@@ -102,11 +110,11 @@ export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
   cornicePlacement: "none",
   corniceProjection: 0.2,
   corniceHeight: 0.25,
-  stoneworkEnabled: false,
-  courseHeight: 0.45,
-  stoneWidth: 1.1,
-  stoneDepth: 0.7,
-  cornerRule: "alternating_interlock",
+  stoneworkEnabled: true,
+  courseHeight: 0.86,
+  stoneWidth: 1.65,
+  stoneDepth: 0.75,
+  cornerRule: "butted",
   baseTreatment: "projected_footing",
   baseProjection: 0.5,
   baseHeight: 0.35,
@@ -467,12 +475,11 @@ export function toHeightCurve(layout: MassLayoutConfig): ShapingCurve {
 /**
  * The stonework the controls describe, or null when it is switched off.
  *
- * The size, gap and displacement come from the shared `StoneConfig` that every
- * stone-built prop in this project reads, not from controls of this family's
- * own — a stone means the same thing here as it does on the circular checkpoint
- * and on a pillar. What is particular to a coursed mass is only what a circle
- * has no equivalent of: the bed height, how deep a stone is, and what happens at
- * a corner.
+ * Size variation, gap and displacement use the shared `StoneConfig` vocabulary
+ * and controls, so they retain the same meaning as on the circular checkpoint
+ * and a pillar. The Mass owns its live values and defaults. What is particular
+ * to a coursed mass is only what a circle has no equivalent of: bed height,
+ * stone depth and corner behavior.
  *
  * `gapRatio` is a ratio, as it is everywhere else. The circular shell measures
  * it against its radius and a pillar against its shaft; a course measures it
