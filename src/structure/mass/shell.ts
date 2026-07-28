@@ -118,6 +118,9 @@ export function buildMassShell(
         seed: masonrySeed(seed, band.id, segment.label),
         ramp,
         crowned: segment !== crown,
+        // What stands on this band, so the courses know how much of their top is
+        // open to the sky. Null means nothing does and the whole crown is floor.
+        under: segment === crown ? (bands[index + 1]?.lower ?? null) : undefined,
       });
     }
   }
@@ -187,6 +190,11 @@ interface CourseOptions {
    * faces under it would be a second surface at the same height.
    */
   readonly crowned: boolean;
+  /**
+   * The footprint of the band standing on this segment, or null where nothing
+   * does. `undefined` means this segment is buried and shows no top at all.
+   */
+  readonly under?: Rect | null;
 }
 
 /**
@@ -277,6 +285,11 @@ function layCourses(
     layInward(builder, {
       ...shared,
       rule: segment.rule,
+      // The top of the band's last course is its terrace or its summit, so the
+      // rings out to whatever stands on it are all in daylight. Everywhere else
+      // only the outermost couple can be reached.
+      exposedTop: options.under !== undefined && course.index === courses.length - 1,
+      under: options.under ?? null,
       // A moulding's soffit is one stone reaching back over the wall, so nothing
       // under it shows a top — not the facing, and not the rings behind it.
       showTop: !(options.crowned && course.index === courses.length - 1),
@@ -429,6 +442,10 @@ interface InwardOptions {
   readonly outline: Rect;
   /** False where a moulding's soffit reaches back over this course. */
   readonly showTop?: boolean;
+  /** Whether this course's top is the band's crown rather than buried. */
+  readonly exposedTop?: boolean;
+  /** The footprint of whatever stands on that crown, if anything does. */
+  readonly under?: Rect | null;
   readonly bottomY: number;
   readonly topY: number;
   readonly rule: MasonryRule;
@@ -453,33 +470,65 @@ interface InwardOptions {
 function layInward(builder: SolidBuilder, options: InwardOptions): void {
   const { rule } = options;
   const depth = rule.depth;
-  let outline = options.outline;
-  let ring = 0;
+  const step = uniformSetbacks(depth + rule.gap);
+  // Where the rings would run to if the course were laid solid.
+  const outlines: Rect[] = [];
+  let reach = options.outline;
 
-  while (rectIsValid(outline)) {
-    if (Math.min(rectWidth(outline), rectDepth(outline)) < depth * 2 + rule.gap) {
-      break;
+  while (
+    rectIsValid(reach)
+    && Math.min(rectWidth(reach), rectDepth(reach)) >= depth * 2 + rule.gap
+  ) {
+    outlines.push(reach);
+    reach = insetRect(reach, step);
+  }
+
+  // How many of them anything can actually reach.
+  //
+  // A ring's face is seen through the joints of the ring in front, and its top
+  // is seen wherever the band above does not stand on it — so a course needs the
+  // outermost ring, one behind it to close its joints, and on the band's crown
+  // every ring out to the footprint of whatever stands there. The rest is stone
+  // buried in stone: the middle of a course of a battered pyramid is a dozen
+  // rings deep and not one of them is ever visible.
+  let visible = 0;
+
+  for (let ring = 0; ring < outlines.length; ring += 1) {
+    if (options.exposedTop === true
+      && !(options.under && covers(options.under, outlines[ring]!))) {
+      visible = ring;
     }
+  }
 
+  const kept = Math.min(visible + 2, outlines.length);
+
+  for (let ring = 0; ring < kept; ring += 1) {
     layRing(builder, {
       ...options,
-      outline,
+      outline: outlines[ring]!,
+      // The innermost ring kept is the boundary of the whole course, so its
+      // inner faces are what close it now that nothing is laid behind them.
       showInner: true,
+      showTop: options.showTop !== false && (ring <= visible || options.exposedTop !== true),
       seed: masonrySeed(options.seed, `ring_${ring}`),
       courseIndex: options.courseIndex + ring,
     });
-    outline = insetRect(outline, uniformSetbacks(depth + rule.gap));
-    ring += 1;
   }
 
-  if (!rectIsValid(outline)) {
+  if (kept < outlines.length) {
+    return;
+  }
+
+  const middle = reach;
+
+  if (!rectIsValid(middle)) {
     return;
   }
 
   // Whatever the rings could not close: a slab too narrow for another ring,
   // divided into stones along its length so the middle of a course is laid like
   // the rest of it rather than left as one enormous slab.
-  layStrip(builder, { ...options, rect: outline, seed: masonrySeed(options.seed, "middle") });
+  layStrip(builder, { ...options, rect: middle, seed: masonrySeed(options.seed, "middle") });
 }
 
 interface StripOptions {
@@ -576,20 +625,35 @@ function stoneOn(
     x: run.origin.x + run.along.x * station - run.normal.x * offset,
     z: run.origin.z + run.along.z * station - run.normal.z * offset,
   });
-  const square = [at2(from, 0), at2(to, 0), at2(to, depth), at2(from, depth)];
+  const cell = [at2(from, 0), at2(to, 0), at2(to, depth), at2(from, depth)];
   // The shared setting: inset off the cell by half the gap, then let the corners
-  // wander. Ring order is start, end, end-back, start-back, so an end that is
-  // dressed square keeps both of its corners.
+  // wander. Ring order is start, end, end-back, start-back.
   const wandered = options.rule.displacement > 0
-    ? insetAndJitter(square, options.rule.gap, options.rule.displacement, createRandom(seed))
-    : square;
-  const keep = [pinned.start === true, pinned.end === true, pinned.end === true, pinned.start === true];
-  const ring = square.map((point, corner) => (keep[corner] === true ? point : wandered[corner]!));
+    ? insetAndJitter(cell, options.rule.gap, options.rule.displacement, createRandom(seed))
+    : cell;
+  // An end that is dressed square keeps the inset but not the wander. Keeping the
+  // raw cell instead would leave that corner half a gap proud of every neighbour
+  // that had been inset, which is close enough for two faces to land at the same
+  // depth once the wander is added on.
+  const dressed = options.rule.displacement > 0
+    ? insetAndJitter(cell, options.rule.gap, 0, createRandom(seed))
+    : cell;
+  const square = [pinned.start === true, pinned.end === true, pinned.end === true, pinned.start === true];
+  const ring = cell.map((_, corner) =>
+    (square[corner] === true ? dressed[corner]! : wandered[corner]!));
 
   return {
     bottom: ring.map((point) => at(point, options.bottomY)),
     top: ring.map((point) => at(point, options.topY)),
   };
+}
+
+/** True when `cover` contains `rect` entirely. */
+function covers(cover: Rect, rect: Rect): boolean {
+  return cover.minX <= rect.minX + 1e-9
+    && cover.maxX >= rect.maxX - 1e-9
+    && cover.minZ <= rect.minZ + 1e-9
+    && cover.maxZ >= rect.maxZ - 1e-9;
 }
 
 /** A block filling a rectangle between two heights. */
