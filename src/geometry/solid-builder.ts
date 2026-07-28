@@ -1,5 +1,10 @@
 import type { GeometryBuffers } from "./finalize";
-import { shadeAt, type HeightRamp } from "./shading";
+import {
+  DEFAULT_FACE_SHADING,
+  horizontalShading,
+  sideShading,
+  type FaceShading,
+} from "./shading";
 
 export {
   DEFAULT_FACE_SHADING,
@@ -83,11 +88,15 @@ export class SolidBuilder implements GeometryBuffers {
    * visible, as a hole or as two faces at the same depth fighting, so it is
    * decided by the layout that knows rather than guessed here.
    *
-   * Shading is not a parameter. Every vertex takes its value from `ramp` and
-   * from which way its face points, so two blocks meeting at a height cannot
-   * disagree about the tone there.
+   * Every block uses the same per-stone shading as the circular structure unless
+   * a caller explicitly supplies another face palette: dark at the bed, lighter
+   * at the top, and fully open across a horizontal top.
    */
-  addBlock(block: Block, faces: BlockFaces, ramp: HeightRamp): void {
+  addBlock(
+    block: Block,
+    faces: BlockFaces,
+    shading: FaceShading = DEFAULT_FACE_SHADING,
+  ): void {
     if (block.bottom.length !== 4 || block.top.length !== 4) {
       throw new Error("A block needs four corners top and bottom.");
     }
@@ -115,8 +124,8 @@ export class SolidBuilder implements GeometryBuffers {
         continue;
       }
 
-      const low = shadeAt(ramp, bottomCurrent.y, "side");
-      const high = shadeAt(ramp, topCurrent.y, "side");
+      const low = sideShading(shading, "bottom");
+      const high = sideShading(shading, "top");
 
       this.addFace(
         [bottomCurrent, bottomNext, topNext, topCurrent],
@@ -126,21 +135,21 @@ export class SolidBuilder implements GeometryBuffers {
     }
 
     if (faces.top === true) {
-      this.addHorizontalFace(top, "up", ramp);
+      this.addHorizontalFace(top, "up", shading);
     }
 
     if (faces.bottom === true) {
-      this.addHorizontalFace(bottom, "down", ramp);
+      this.addHorizontalFace(bottom, "down", shading);
     }
 
     this.blockCount += 1;
   }
 
-  /** A block's top or bottom, shaded off the same ramp as the rest of it. */
+  /** A block's top or bottom, shaded from the shared stone palette. */
   private addHorizontalFace(
     ring: readonly Vertex3[],
     facing: "up" | "down",
-    ramp: HeightRamp,
+    shading: FaceShading,
   ): void {
     const [a, b, c, d] = ring;
 
@@ -148,7 +157,7 @@ export class SolidBuilder implements GeometryBuffers {
       return;
     }
 
-    const { ao, shadow } = shadeAt(ramp, a.y, facing);
+    const { ao, shadow } = horizontalShading(shading, facing);
 
     this.addFace(
       facing === "up" ? [a, b, c, d] : [d, c, b, a],

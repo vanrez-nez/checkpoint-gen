@@ -1,6 +1,5 @@
 import { finalizeGeometry } from "../../geometry/finalize";
 import { IDENTITY_MATRIX, type GeometryPart } from "../../geometry/part";
-import type { HeightRamp } from "../../geometry/shading";
 import { SolidBuilder } from "../../geometry/solid-builder";
 import { rectCorners, rectIsValid, type Rect } from "../kernel/frame";
 import type { ElevationBandRecord, StructureGraph } from "../kernel/graph";
@@ -47,18 +46,12 @@ export function tessellateStructure(
   const { masonry, seed } = options;
 
   for (const mass of graph.masses) {
-    const ramp = rampOver(mass.bands);
-
-    if (!ramp) {
-      continue;
-    }
-
     if (masonry) {
-      buildMassShell(builder, mass.bands, { rule: masonry, seed, ramp });
+      buildMassShell(builder, mass.bands, { rule: masonry, seed });
       continue;
     }
 
-    layBareMass(builder, mass.bands, ramp);
+    layBareMass(builder, mass.bands);
   }
 
   const { geometry } = finalizeGeometry(builder);
@@ -76,16 +69,6 @@ export function tessellateStructure(
   };
 }
 
-/** The height the shading ramp is measured over: the whole mass, base to crown. */
-export function rampOver(
-  bands: readonly ElevationBandRecord[],
-): HeightRamp | null {
-  const first = bands[0];
-  const last = bands[bands.length - 1];
-
-  return first && last ? { bottomY: first.bottomY, topY: last.topY } : null;
-}
-
 /**
  * The greybox: one block per band, flat and unsubdivided.
  *
@@ -98,7 +81,6 @@ export function rampOver(
 function layBareMass(
   builder: SolidBuilder,
   bands: readonly ElevationBandRecord[],
-  ramp: HeightRamp,
 ): void {
   for (let index = 0; index < bands.length; index += 1) {
     const band = bands[index];
@@ -168,7 +150,6 @@ function layBareMass(
           top: isCrown,
           bottom: cornice !== null && part === 1,
         },
-        ramp,
       );
     }
   }

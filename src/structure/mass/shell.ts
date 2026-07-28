@@ -1,5 +1,4 @@
 import type { Point2 } from "../../geometry/finalize";
-import type { HeightRamp } from "../../geometry/shading";
 import type { Block, SolidBuilder, Vertex3 } from "../../geometry/solid-builder";
 import {
   insetRect,
@@ -69,8 +68,6 @@ const CORNICE_STONE_RATIO = 2.5;
 export interface ShellOptions {
   readonly rule: MasonryRule;
   readonly seed: number;
-  /** The whole mass, base to crown: what the shading ramp is measured over. */
-  readonly ramp: HeightRamp;
 }
 
 /**
@@ -97,7 +94,7 @@ export function buildMassShell(
   bands: readonly ElevationBandRecord[],
   options: ShellOptions,
 ): void {
-  const { rule, seed, ramp } = options;
+  const { rule, seed } = options;
 
   for (let index = 0; index < bands.length; index += 1) {
     const band = bands[index];
@@ -116,7 +113,6 @@ export function buildMassShell(
     for (const segment of segments) {
       layCourses(builder, segment, {
         seed: masonrySeed(seed, band.id, segment.label),
-        ramp,
         crowned: segment !== crown,
         // What stands on this band, so the courses know how much of their top is
         // open to the sky. Null means nothing does and the whole crown is floor.
@@ -182,7 +178,6 @@ function segmentsOf(band: ElevationBandRecord, rule: MasonryRule): Segment[] {
 
 interface CourseOptions {
   readonly seed: number;
-  readonly ramp: HeightRamp;
   /**
    * Whether a moulding sits directly on this segment's top course.
    *
@@ -257,7 +252,6 @@ function layCourses(
     const shared = {
       bottomY,
       topY,
-      ramp: options.ramp,
       // A stone's underside is drawn only where it oversails: the soffit of a
       // moulding. The mass sits on the ground, so its own underside is not a
       // surface — and it was the one plane where two stones that had both
@@ -316,7 +310,6 @@ interface RingOptions {
   readonly topY: number;
   readonly rule: MasonryRule;
   readonly seed: number;
-  readonly ramp: HeightRamp;
   readonly courseIndex: number;
   readonly showBottom: boolean;
   /**
@@ -390,7 +383,6 @@ function layRing(builder: SolidBuilder, options: RingOptions): void {
         top: options.showTop !== false,
         bottom: options.showBottom,
       },
-      options.ramp,
     );
   }
 }
@@ -413,7 +405,7 @@ function layQuoin(
   seed: number,
   options: RingOptions,
 ): void {
-  const { ramp, showBottom } = options;
+  const { showBottom } = options;
   const depth = options.rule.depth;
 
   if (from < run.length) {
@@ -428,7 +420,6 @@ function layQuoin(
         top: options.showTop !== false,
         bottom: showBottom,
       },
-      ramp,
     );
   }
 
@@ -444,7 +435,6 @@ function layQuoin(
       top: options.showTop !== false,
       bottom: showBottom,
     },
-    ramp,
   );
 }
 
@@ -460,7 +450,6 @@ interface InwardOptions {
   readonly topY: number;
   readonly rule: MasonryRule;
   readonly seed: number;
-  readonly ramp: HeightRamp;
   readonly courseIndex: number;
   readonly showBottom: boolean;
 }
@@ -554,7 +543,6 @@ interface StripOptions {
   readonly rect: Rect;
   readonly bottomY: number;
   readonly topY: number;
-  readonly ramp: HeightRamp;
   /** False when this course is buried under another course or a moulding. */
   readonly showTop?: boolean;
   /** Whether this course ends at an exposed band crown. */
@@ -598,7 +586,6 @@ function layStrip(builder: SolidBuilder, options: StripOptions): void {
         top: options.showTop !== false && options.exposedTop === true,
         bottom: options.showBottom,
       },
-      options.ramp,
     );
   }
 }

@@ -1,5 +1,9 @@
 import { finalizeGeometry, type FinalizedGeometry, type Point2 } from "./finalize";
 import { createRandom, hashSeed, randomRange } from "./random";
+import {
+  DEFAULT_FACE_SHADING,
+  FLAT_FACE_SHADING,
+} from "./shading";
 
 // The masonry builder was the first geometry code here, so the seeded-random and
 // buffer-finalizing helpers grew inside it. They are now shared with every other
@@ -65,11 +69,6 @@ type InsetPolygon = {
   widths: number[];
 };
 
-const SIDE_TOP_AO = 0.72;
-const SIDE_BOTTOM_AO = 0.28;
-const SIDE_TOP_SHADOW = 0.38;
-const SIDE_BOTTOM_SHADOW = 0.06;
-
 export class StoneGeometryBuilder {
   readonly positions: number[] = [];
   readonly indices: number[] = [];
@@ -115,8 +114,8 @@ export class StoneGeometryBuilder {
 
       if (point && height !== undefined) {
         this.positions.push(point.x, height, point.z);
-        this.ambientOcclusion.push(1);
-        this.bakedShadow.push(1);
+        this.ambientOcclusion.push(FLAT_FACE_SHADING.topAo);
+        this.bakedShadow.push(FLAT_FACE_SHADING.topShadow);
       }
     }
 
@@ -143,16 +142,16 @@ export class StoneGeometryBuilder {
         current.x, currentHeight, current.z,
       );
       this.ambientOcclusion.push(
-        SIDE_BOTTOM_AO,
-        SIDE_BOTTOM_AO,
-        SIDE_TOP_AO,
-        SIDE_TOP_AO,
+        DEFAULT_FACE_SHADING.bottomAo,
+        DEFAULT_FACE_SHADING.bottomAo,
+        DEFAULT_FACE_SHADING.topAo,
+        DEFAULT_FACE_SHADING.topAo,
       );
       this.bakedShadow.push(
-        SIDE_BOTTOM_SHADOW,
-        SIDE_BOTTOM_SHADOW,
-        SIDE_TOP_SHADOW,
-        SIDE_TOP_SHADOW,
+        DEFAULT_FACE_SHADING.bottomShadow,
+        DEFAULT_FACE_SHADING.bottomShadow,
+        DEFAULT_FACE_SHADING.topShadow,
+        DEFAULT_FACE_SHADING.topShadow,
       );
       this.indices.push(
         sideStart, sideStart + 1, sideStart + 2,
@@ -227,10 +226,16 @@ export class StoneGeometryBuilder {
         point.x,
         height - depth,
         point.z,
-        SIDE_TOP_AO,
-        SIDE_TOP_SHADOW,
+        DEFAULT_FACE_SHADING.topAo,
+        DEFAULT_FACE_SHADING.topShadow,
       ));
-      innerRing.push(this.pushVertex(insetPoint.x, height, insetPoint.z, 1, 1));
+      innerRing.push(this.pushVertex(
+        insetPoint.x,
+        height,
+        insetPoint.z,
+        FLAT_FACE_SHADING.topAo,
+        FLAT_FACE_SHADING.topShadow,
+      ));
     }
 
     for (let index = 0; index < polygon.length; index += 1) {
@@ -262,7 +267,13 @@ export class StoneGeometryBuilder {
       const height = heights[index];
 
       if (point && height !== undefined) {
-        this.pushVertex(point.x, height, point.z, 1, 1);
+        this.pushVertex(
+          point.x,
+          height,
+          point.z,
+          FLAT_FACE_SHADING.topAo,
+          FLAT_FACE_SHADING.topShadow,
+        );
       }
     }
 
@@ -282,8 +293,20 @@ export class StoneGeometryBuilder {
       }
 
       const sideStart = this.positions.length / 3;
-      this.pushVertex(current.x, bottomY, current.z, SIDE_BOTTOM_AO, SIDE_BOTTOM_SHADOW);
-      this.pushVertex(next.x, bottomY, next.z, SIDE_BOTTOM_AO, SIDE_BOTTOM_SHADOW);
+      this.pushVertex(
+        current.x,
+        bottomY,
+        current.z,
+        DEFAULT_FACE_SHADING.bottomAo,
+        DEFAULT_FACE_SHADING.bottomShadow,
+      );
+      this.pushVertex(
+        next.x,
+        bottomY,
+        next.z,
+        DEFAULT_FACE_SHADING.bottomAo,
+        DEFAULT_FACE_SHADING.bottomShadow,
+      );
       this.copyVertex(nextShoulder);
       this.copyVertex(currentShoulder);
       this.indices.push(

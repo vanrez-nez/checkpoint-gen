@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { finalizeGeometry } from "../src/geometry/finalize";
 import { mergeParts } from "../src/geometry/merge-parts";
 import { SolidBuilder } from "../src/geometry/solid-builder";
+import { StoneGeometryBuilder } from "../src/geometry/stone-builder";
 import {
   DEFAULT_MASS_LAYOUT,
   HEIGHT_CURVE_OPTIONS,
@@ -29,7 +30,7 @@ import { buildMassShell } from "../src/structure/mass/shell";
 import {
   findBackfaces,
   findCoincidentFaces,
-  findShadingBreaks,
+  findStoneShadingBreaks,
 } from "./mesh-invariants";
 import {
   CURVE_SHAPE_IDS,
@@ -64,7 +65,6 @@ import {
 import {
   graphExtents,
   MASS_SECTION,
-  rampOver,
   tessellateStructure,
 } from "../src/structure/mass/tessellate";
 
@@ -128,7 +128,6 @@ function blockOf(
   };
 }
 
-const UNIT_RAMP = { bottomY: 0, topY: 1 };
 const ALL_SIDES = [true, true, true, true];
 
 // --- the block builder -----------------------------------------------------
@@ -140,7 +139,6 @@ const taperedBuilder = new SolidBuilder();
 taperedBuilder.addBlock(
   blockOf(rect(1, 1), rect(0.5, 0.5), 0, 1),
   { sides: ALL_SIDES, top: true, bottom: true },
-  UNIT_RAMP,
 );
 
 const tapered = finalizeGeometry(taperedBuilder);
@@ -158,7 +156,6 @@ const reversedBuilder = new SolidBuilder();
 reversedBuilder.addBlock(
   blockOf([...rect(1, 1)].reverse(), [...rect(0.5, 0.5)].reverse(), 0, 1),
   { sides: ALL_SIDES, top: true, bottom: true },
-  UNIT_RAMP,
 );
 assertOutwardNormals(finalizeGeometry(reversedBuilder).geometry, "reversed band");
 
@@ -169,7 +166,6 @@ const partialBuilder = new SolidBuilder();
 partialBuilder.addBlock(
   blockOf(rect(1, 1), rect(1, 1), 0, 1),
   { sides: [true, false, false, false], top: true },
-  UNIT_RAMP,
 );
 const partial = finalizeGeometry(partialBuilder);
 assert.equal(partial.triangleCount, 2 * 2, "Only the faces asked for may be drawn.");
@@ -184,12 +180,43 @@ assertAllNormalsFace(
   "block underside",
 );
 
+// Mass blocks and circular stones use the same generated shading values. Their
+// vertex order differs only because a circular stone writes its top before its
+// sides while a block writes its sides before its top.
+const circularShadeBuilder = new StoneGeometryBuilder({
+  bevelEnabled: false,
+  bevelWidthRatio: 0,
+  bevelDepthRatio: 0,
+  bevelVariation: 0,
+  seed: 1,
+});
+circularShadeBuilder.addStone(rect(1, 1), 0, [1, 1, 1, 1], 1);
+const massShadeBuilder = new SolidBuilder();
+massShadeBuilder.addBlock(
+  blockOf(rect(1, 1), rect(1, 1), 0, 1),
+  { sides: ALL_SIDES, top: true },
+);
+const circularToMassOrder = (values: readonly number[]) => [
+  ...values.slice(4),
+  ...values.slice(0, 4),
+];
+assert.deepEqual(
+  massShadeBuilder.ambientOcclusion,
+  circularToMassOrder(circularShadeBuilder.ambientOcclusion),
+  "Mass and circular stones disagree on generated ambient occlusion.",
+);
+assert.deepEqual(
+  massShadeBuilder.bakedShadow,
+  circularToMassOrder(circularShadeBuilder.bakedShadow),
+  "Mass and circular stones disagree on generated crack shadow.",
+);
+
 function withOnly(
   block: Parameters<SolidBuilder["addBlock"]>[0],
   faces: Parameters<SolidBuilder["addBlock"]>[1],
 ): SolidBuilder {
   const builder = new SolidBuilder();
-  builder.addBlock(block, faces, UNIT_RAMP);
+  builder.addBlock(block, faces);
   return builder;
 }
 
@@ -210,7 +237,6 @@ for (const [label, result] of [["tapered", tapered], ["partial", partial]] as co
 assert.throws(() => new SolidBuilder().addBlock(
   { bottom: rect(1, 1).slice(1).map((p) => ({ ...p, y: 0 })), top: rect(1, 1).map((p) => ({ ...p, y: 1 })) },
   { sides: ALL_SIDES },
-  UNIT_RAMP,
 ));
 
 // --- shaping curves --------------------------------------------------------
@@ -1127,13 +1153,11 @@ assert.ok(
 // The detectors are checked against deliberate defects first. An invariant that
 // has never rejected anything is not an invariant, and each of these has a shape
 // of failure specific enough to fake.
-const fightRamp = { bottomY: 0, topY: 2 };
 const fightBuilder = new SolidBuilder();
-fightBuilder.addBlock(blockOf(rect(2, 2), rect(2, 2), 0, 1), { sides: [], top: true }, fightRamp);
+fightBuilder.addBlock(blockOf(rect(2, 2), rect(2, 2), 0, 1), { sides: [], top: true });
 fightBuilder.addBlock(
   blockOf(rect(2, 2), rect(2, 2), 0, 1 + 1e-5),
   { sides: [], top: true },
-  fightRamp,
 );
 assert.ok(
   findCoincidentFaces(finalizeGeometry(fightBuilder).geometry).pairs > 0,
@@ -1151,12 +1175,17 @@ assert.ok(
   "The backface detector misses a box with its lid off.",
 );
 
-// A block cannot shade itself, so the break is faked by handing the detector a
-// ramp the geometry was not built against — which is what a second shading
-// scheme amounts to.
+// The shading invariant is checked against a deliberate second palette before
+// it is trusted on the Mass.
+const wrongShadeBuilder = new SolidBuilder();
+wrongShadeBuilder.addBlock(
+  blockOf(rect(2, 2), rect(2, 2), 0, 1),
+  { sides: ALL_SIDES, top: true },
+  { bottomAo: 0.5, topAo: 0.5, bottomShadow: 0.5, topShadow: 0.5 },
+);
 assert.ok(
-  findShadingBreaks(finalizeGeometry(fightBuilder).geometry, { bottomY: 40, topY: 50 }).worst > 0.05,
-  "The shading detector misses a surface that ignores the ramp.",
+  findStoneShadingBreaks(finalizeGeometry(wrongShadeBuilder).geometry).worst > 0.05,
+  "The shading detector misses a block that does not match circular stone.",
 );
 
 // Now the mass itself, in the configuration every one of the three faults was
@@ -1176,8 +1205,7 @@ const SHELL_LAYOUT: MassLayoutConfig = {
 const shellGraph = generateStructure(toStructureSpec(SHELL_LAYOUT));
 const shellRule = toMasonry(SHELL_LAYOUT, DEFAULT_STONE_CONFIG);
 const shellBands = shellGraph.masses[0]?.bands ?? [];
-const shellRamp = rampOver(shellBands);
-assert.ok(shellRule && shellRamp);
+assert.ok(shellRule);
 const shellGeometry = tessellateStructure(shellGraph, {
   masonry: shellRule,
   seed: SHELL_LAYOUT.seed,
@@ -1222,13 +1250,14 @@ assert.ok(
   `${seenIn.backfaces} of ${seenIn.shots} rays see into the mass, first at ${seenIn.sample}.`,
 );
 
-// One ramp. Every vertex's AO is a function of its height and which way its face
-// points, and of nothing else — no per-course resample, no flat value on paving,
-// no constant on joint cheeks.
-const tone = findShadingBreaks(shellGeometry, shellRamp);
+// The Mass uses the circular stone palette exactly: each stone side runs from
+// dark bed to lighter top, while horizontal tops stay fully open. AO and crack
+// shadow are both checked on the finished buffers.
+const tone = findStoneShadingBreaks(shellGeometry);
 assert.ok(
   tone.worst < 1e-5,
-  `A surface shades itself: worst drift ${tone.worst.toFixed(4)} at ${tone.sample}.`,
+  `Mass shading differs from circular stone: worst drift `
+  + `${tone.worst.toFixed(4)} at ${tone.sample}.`,
 );
 
 // The same three, on a plain battered stack with no cornice, so the checks are
@@ -1240,15 +1269,13 @@ const plainGraph = generateStructure(toStructureSpec({
   batterAngle: 0,
   summitRatio: 0.35,
 }));
-const plainRamp = rampOver(plainGraph.masses[0]?.bands ?? []);
-assert.ok(plainRamp);
 const plainGeometry = tessellateStructure(plainGraph, {
   masonry: shellRule,
   seed: 3,
 }).parts[0]?.geometry;
 assert.ok(plainGeometry);
 assert.ok(findCoincidentFaces(plainGeometry).pairs <= 12);
-assert.ok(findShadingBreaks(plainGeometry, plainRamp).worst < 1e-5);
+assert.ok(findStoneShadingBreaks(plainGeometry).worst < 1e-5);
 // A vertical wall has no treads, so its only openings are the joints themselves.
 // One ray in a couple of thousand still slips along one edge-on; a joint is a
 // real void and a ray exactly in its plane will always find it, so this is a
@@ -1273,7 +1300,6 @@ const shellBuilder = new SolidBuilder();
 buildMassShell(shellBuilder, shellBands, {
   rule: { ...shellRule, displacement: 0 },
   seed: 1,
-  ramp: shellRamp,
 });
 const shellFaces = readBlockFaces(shellBuilder);
 assert.ok(shellBuilder.blockCount > 200, `Only ${shellBuilder.blockCount} blocks.`);
@@ -1372,13 +1398,11 @@ const verticalGraph = generateStructure(toStructureSpec(verticalLayout));
 const verticalBands = verticalGraph.masses[0]?.bands ?? [];
 const verticalBand = verticalBands[0];
 const verticalRule = toMasonry(verticalLayout, DEFAULT_STONE_CONFIG);
-const verticalRamp = rampOver(verticalBands);
-assert.ok(verticalBand && verticalRule && verticalRamp);
+assert.ok(verticalBand && verticalRule);
 const verticalBuilder = new SolidBuilder();
 buildMassShell(verticalBuilder, verticalBands, {
   rule: { ...verticalRule, displacement: 0 },
   seed: 1,
-  ramp: verticalRamp,
 });
 const buriedTops = readBlockFaces(verticalBuilder).filter((face) =>
   faceNormal(face).y > 0.9 && face[0]!.y < verticalBand.topY - 1e-9);
@@ -1407,15 +1431,13 @@ const shallowTerraceLayout: MassLayoutConfig = {
 const shallowTerraceGraph = generateStructure(toStructureSpec(shallowTerraceLayout));
 const shallowTerraceBands = shallowTerraceGraph.masses[0]?.bands ?? [];
 const shallowTerraceRule = toMasonry(shallowTerraceLayout, DEFAULT_STONE_CONFIG);
-const shallowTerraceRamp = rampOver(shallowTerraceBands);
 const lowerTerraceBand = shallowTerraceBands[0];
 const upperTerraceBand = shallowTerraceBands[1];
-assert.ok(shallowTerraceRule && shallowTerraceRamp && lowerTerraceBand && upperTerraceBand);
+assert.ok(shallowTerraceRule && lowerTerraceBand && upperTerraceBand);
 const shallowTerraceBuilder = new SolidBuilder();
 buildMassShell(shallowTerraceBuilder, shallowTerraceBands, {
   rule: { ...shallowTerraceRule, displacement: 0 },
   seed: 1,
-  ramp: shallowTerraceRamp,
 });
 const shallowTerraceTops = readBlockFaces(shallowTerraceBuilder).filter((face) =>
   faceNormal(face).y > 0.9 && Math.abs(face[0]!.y - lowerTerraceBand.topY) < 1e-9);
@@ -1529,10 +1551,9 @@ function frontCorners(displacement: number): THREE.Vector3[][] {
   const bands = graph.masses[0]?.bands ?? [];
   const band = bands.find((entry) => entry.index === 0);
   const rule = toMasonry(layout, stone);
-  const ramp = rampOver(bands);
-  assert.ok(band && rule && ramp);
+  assert.ok(band && rule);
   const builder = new SolidBuilder();
-  buildMassShell(builder, bands, { rule, seed: stone.seed, ramp });
+  buildMassShell(builder, bands, { rule, seed: stone.seed });
 
   return readBlockFaces(builder).filter((face) =>
     faceNormal(face).z > 0.9

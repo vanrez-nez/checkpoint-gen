@@ -1,6 +1,8 @@
 import * as THREE from "three";
-import { orientationOf, type HeightRamp } from "../src/geometry/shading";
-import { shadeAt } from "../src/geometry/shading";
+import {
+  DEFAULT_FACE_SHADING,
+  FLAT_FACE_SHADING,
+} from "../src/geometry/shading";
 
 /**
  * Properties a finished mass mesh has to hold, measured on the mesh rather than
@@ -275,33 +277,57 @@ export interface ShadingReport {
 }
 
 /**
- * How far any vertex's AO strays from what the one ramp says it should be.
+ * How far any block vertex's generated shading strays from the circular stone
+ * contract.
  *
- * Shading is a function of height and which way the face points, and of nothing
- * else. When it was not — a gradient on the core, that gradient resampled per
- * course on the blocks, a flat value on paving, a hard 0.6 on joint cheeks — a
- * terrace and the wall holding it up were the same stone and never the same
- * tone, which is the thing that read as "different colour on the inner
- * surfaces".
+ * Block faces own four vertices in bottom, bottom, top, top order. Horizontal
+ * tops are fully open; sides use the same bed-to-top AO and crack-shadow values
+ * as `StoneGeometryBuilder`. Checking both arrays catches a Mass that still
+ * looks different even though it reaches the same material slot.
  */
-export function findShadingBreaks(
+export function findStoneShadingBreaks(
   geometry: THREE.BufferGeometry,
-  ramp: HeightRamp,
 ): ShadingReport {
   const position = geometry.getAttribute("position");
   const normal = geometry.getAttribute("normal");
   const ao = geometry.getAttribute("vertexAo");
+  const shadow = geometry.userData.bakedShadowBase as Float32Array | undefined;
   let worst = 0;
   let sample: string | null = null;
 
+  if (!shadow || shadow.length !== position.count || position.count % 4 !== 0) {
+    return {
+      worst: Number.POSITIVE_INFINITY,
+      sample: "Geometry does not satisfy the four-vertex stone-face shading contract.",
+    };
+  }
+
   for (let vertex = 0; vertex < position.count; vertex += 1) {
-    const y = position.getY(vertex);
-    const expected = shadeAt(ramp, y, orientationOf(normal.getY(vertex))).ao;
-    const drift = Math.abs(ao.getX(vertex) - expected);
+    const normalY = normal.getY(vertex);
+    const corner = vertex % 4;
+    const expected = normalY > 0.5
+      ? {
+        ao: FLAT_FACE_SHADING.topAo,
+        shadow: FLAT_FACE_SHADING.topShadow,
+      }
+      : normalY < -0.5 || corner < 2
+        ? {
+          ao: DEFAULT_FACE_SHADING.bottomAo,
+          shadow: DEFAULT_FACE_SHADING.bottomShadow,
+        }
+        : {
+          ao: DEFAULT_FACE_SHADING.topAo,
+          shadow: DEFAULT_FACE_SHADING.topShadow,
+        };
+    const aoDrift = Math.abs(ao.getX(vertex) - expected.ao);
+    const shadowDrift = Math.abs((shadow[vertex] ?? 1) - expected.shadow);
+    const drift = Math.max(aoDrift, shadowDrift);
 
     if (drift > worst) {
       worst = drift;
-      sample = `y=${y.toFixed(3)} ao=${ao.getX(vertex).toFixed(3)} expected ${expected.toFixed(3)}`;
+      sample = `face=${Math.floor(vertex / 4)} corner=${corner} `
+        + `ao=${ao.getX(vertex).toFixed(3)}/${expected.ao.toFixed(3)} `
+        + `shadow=${(shadow[vertex] ?? 1).toFixed(3)}/${expected.shadow.toFixed(3)}`;
     }
   }
 
