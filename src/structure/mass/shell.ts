@@ -73,24 +73,6 @@ const CORNICE_STONE_RATIO = 2.5;
 export interface ShellOptions {
   readonly rule: MasonryRule;
   readonly seed: number;
-  /**
-   * The plan strip a stair permanently covers on the front elevation, when one
-   * exists. Facing stones wholly behind the flight never show their outer
-   * face; everything else about them stays — their tops pave the terraces the
-   * stair does not cover, and their cheeks close the joints beside them.
-   */
-  readonly frontReserve?: FrontReserve | null;
-}
-
-export interface FrontReserve {
-  readonly minX: number;
-  readonly maxX: number;
-  /**
-   * The flight's upper edge. A course whose outline has receded behind it —
-   * the wall under a crown cornice's lip — is visible through the niche
-   * between the stair's back and the facade, and keeps its face.
-   */
-  readonly minZBehind: number;
 }
 
 /**
@@ -140,7 +122,6 @@ export function buildMassShell(
         // What stands on this band, so the courses know how much of their top is
         // open to the sky. Null means nothing does and the whole crown is floor.
         under: segment === crown ? (bands[index + 1]?.lower ?? null) : undefined,
-        frontReserve: options.frontReserve ?? null,
       });
     }
   }
@@ -214,8 +195,6 @@ interface CourseOptions {
    * does. `undefined` means this segment is buried and shows no top at all.
    */
   readonly under?: Rect | null;
-  /** See ShellOptions.frontReserve. */
-  readonly frontReserve?: FrontReserve | null;
 }
 
 /**
@@ -292,7 +271,6 @@ function layCourses(
       rule: courseRule,
       outline,
       unbackedOuterFace: true,
-      frontReserve: options.frontReserve ?? null,
       // The back of a facing stone opens onto the fill only at an exposed
       // terrace or summit. In a buried course the joint is closed by the outer
       // face of the first backing ring; the facing stone's inward face points
@@ -353,8 +331,6 @@ interface RingOptions {
   readonly bottomInset?: number;
   /** True only for the building's outer facing, which has no ring outside it. */
   readonly unbackedOuterFace?: boolean;
-  /** Set only on the facing ring; see ShellOptions.frontReserve. */
-  readonly frontReserve?: FrontReserve | null;
   /**
    * Whether the ring's inner face is exposed.
    *
@@ -415,21 +391,6 @@ function layRing(builder: SolidBuilder, options: RingOptions): void {
       continue;
     }
 
-    // A facing stone standing wholly behind the stair never shows its outer
-    // face — the flight is solid from its treads to the wall. Its top still
-    // paves the terrace above and its cheeks still close the joints beside it,
-    // so only the face is withheld, and only while this course has not receded
-    // behind the flight's upper edge into the visible niche under a crown
-    // molding.
-    const reserve = options.unbackedOuterFace === true
-      ? options.frontReserve ?? null
-      : null;
-    const behindStair = reserve !== null
-      && block.run === 0
-      && outline.maxZ >= reserve.minZBehind - 1e-6
-      && outline.minX + block.from >= reserve.minX - 1e-9
-      && outline.minX + block.to <= reserve.maxX + 1e-9;
-
     builder.addBlock(
       stoneOn(run, from, to, depth, options, block.seed, {
         start: buttedStart,
@@ -441,7 +402,7 @@ function layRing(builder: SolidBuilder, options: RingOptions): void {
       // course's hollow.
       {
         sides: [
-          !behindStair,
+          true,
           true,
           options.showInner === true
             || (buttedEnd && options.unbackedOuterFace === true),

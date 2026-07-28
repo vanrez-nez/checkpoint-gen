@@ -60,6 +60,7 @@ import { isValidId } from "../src/structure/kernel/ids";
 import { createSeedSet, deriveSeed, subsystemSeed } from "../src/structure/kernel/seed";
 import { evaluateFrame, rectWidth } from "../src/structure/kernel/frame";
 import { buildStair } from "../src/structure/connector/build";
+import { stairSteps } from "../src/structure/connector/stair";
 import { PATCH_ROLES } from "../src/structure/kernel/patch";
 import { createPatchOverlay } from "../src/structure/kernel/debug-overlay";
 import { generateStructure, type StructureSpec } from "../src/structure/mass/generate";
@@ -71,6 +72,7 @@ import {
   type CornicePlacement,
 } from "../src/structure/mass/elevation";
 import {
+  faceIsCoveredByStair,
   graphExtents,
   MASS_SECTION,
   tessellateStructure,
@@ -231,6 +233,31 @@ partialBuilder.addBlock(
 );
 const partial = finalizeGeometry(partialBuilder);
 assert.equal(partial.triangleCount, 2 * 2, "Only the faces asked for may be drawn.");
+
+// Whole-face culling compacts every parallel buffer and rebuilds face starts
+// without changing the block the surviving faces belong to.
+const faceCullBuilder = new SolidBuilder();
+faceCullBuilder.addBlock(
+  blockOf(rect(1, 1), rect(1, 1), 0, 1),
+  { sides: ALL_SIDES, top: true },
+);
+const culledFaces = faceCullBuilder.cullFaces((face) =>
+  face.every((corner) => corner.z > 0.9));
+assert.equal(culledFaces, 1);
+assert.equal(faceCullBuilder.blockCount, 1);
+assert.equal(faceCullBuilder.blockFaces.length, 4);
+assert.deepEqual(faceCullBuilder.blockFaces, [0, 4, 8, 12]);
+assert.equal(faceCullBuilder.positions.length, 4 * 4 * 3);
+assert.equal(faceCullBuilder.ambientOcclusion.length, 4 * 4);
+assert.equal(faceCullBuilder.bakedShadow.length, 4 * 4);
+assert.equal(faceCullBuilder.indices.length, 4 * 6);
+assert.ok(
+  readBlockFaces(faceCullBuilder).every((face) =>
+    face.some((corner) => corner.z <= 0.9)),
+  "The selected face survived compaction.",
+);
+assert.equal(finalizeGeometry(faceCullBuilder).triangleCount, 4 * 2);
+
 assertAllNormalsFace(
   finalizeGeometry(withOnly(blockOf(rect(1, 1), rect(1, 1), 0, 1), { sides: [], top: true })).geometry,
   new THREE.Vector3(0, 1, 0),
@@ -987,6 +1014,79 @@ const stairDefault = generateStructure(toStructureSpec(cloneMassLayout()));
 assert.equal(stairDefault.connectors.length, 1, "The default Mass carries one stair.");
 const stairRecord = stairDefault.connectors[0]!;
 const stairPatches = patchIndex(stairDefault);
+const occlusionSteps = stairSteps(stairRecord);
+const occlusionStep = occlusionSteps[Math.floor(occlusionSteps.length * 0.5)]!;
+const occlusionZ0 = occlusionStep.zBack + stairRecord.tread * 0.2;
+const occlusionZ1 = occlusionStep.zFront - stairRecord.tread * 0.2;
+const horizontalFace = (
+  x0: number,
+  x1: number,
+  z0: number,
+  z1: number,
+  y: number,
+) => [
+  { x: x0, y, z: z0 },
+  { x: x0, y, z: z1 },
+  { x: x1, y, z: z1 },
+  { x: x1, y, z: z0 },
+];
+
+assert.ok(faceIsCoveredByStair(
+  horizontalFace(
+    stairRecord.flightRect.minX + stairRecord.width * 0.2,
+    stairRecord.flightRect.maxX - stairRecord.width * 0.2,
+    occlusionZ0,
+    occlusionZ1,
+    occlusionStep.topY,
+  ),
+  stairRecord,
+), "A face wholly beneath a tread was not selected.");
+
+const assemblyMinX = stairRecord.flightRect.minX - stairRecord.parapet!.width;
+assert.equal(faceIsCoveredByStair(
+  horizontalFace(
+    assemblyMinX - 0.1,
+    stairRecord.flightRect.minX,
+    occlusionZ0,
+    occlusionZ1,
+    occlusionStep.topY,
+  ),
+  stairRecord,
+), false, "A partially covered face was selected.");
+
+const lowerStep = occlusionSteps[occlusionStep.index - 1]!;
+assert.equal(faceIsCoveredByStair(
+  horizontalFace(
+    stairRecord.flightRect.minX + stairRecord.width * 0.2,
+    stairRecord.flightRect.maxX - stairRecord.width * 0.2,
+    occlusionStep.zBack + stairRecord.tread * 0.2,
+    lowerStep.zBack + stairRecord.tread * 0.2,
+    lowerStep.topY + stairRecord.riser * 0.5,
+  ),
+  stairRecord,
+), false, "A face crossing above the lower tread was selected.");
+
+const parapetProbeY = occlusionStep.topY + stairRecord.parapet!.height * 0.5;
+assert.ok(faceIsCoveredByStair(
+  horizontalFace(
+    assemblyMinX + stairRecord.parapet!.width * 0.2,
+    stairRecord.flightRect.minX - stairRecord.parapet!.width * 0.2,
+    occlusionZ0,
+    occlusionZ1,
+    parapetProbeY,
+  ),
+  stairRecord,
+), "A face wholly beneath a parapet cap was not selected.");
+assert.equal(faceIsCoveredByStair(
+  horizontalFace(
+    stairRecord.flightRect.minX + stairRecord.width * 0.2,
+    stairRecord.flightRect.maxX - stairRecord.width * 0.2,
+    occlusionZ0,
+    occlusionZ1,
+    parapetProbeY,
+  ),
+  stairRecord,
+), false, "The parapet's raised cover leaked across the flight.");
 
 assert.equal(stairRecord.layout, "front_centered");
 assert.equal(stairRecord.elevationMode, "continuous");
@@ -1256,6 +1356,106 @@ assert.equal(
   findCoincidentFaces(finalizeGeometry(stairMasonryBuilder).geometry).pairs,
   0,
   "A masonry stair has two faces at the same depth.",
+);
+
+// The tessellator culls mass faces between laying the mass and laying the
+// connector. Reconstructing those two uncancelled counts separately gives the
+// exact number the post-pass removed without teaching the test its internals.
+const defaultBareTessellation = tessellateStructure(stairDefault, {
+  masonry: null,
+  seed: 1,
+});
+const stairlessBareTessellation = tessellateStructure(stairless, {
+  masonry: null,
+  seed: 1,
+});
+assert.equal(
+  defaultBareTessellation.faceCount,
+  stairlessBareTessellation.faceCount + stairBareBuilder.blockFaces.length,
+  "A broad bare mass face that only crosses the stair was culled instead of retained.",
+);
+
+const defaultMasonryTessellation = tessellateStructure(stairDefault, {
+  masonry: stairRule,
+  seed: 7,
+});
+const stairlessMasonryTessellation = tessellateStructure(stairless, {
+  masonry: stairRule,
+  seed: 7,
+});
+const defaultMasonryCulled = stairlessMasonryTessellation.faceCount
+  + stairMasonryBuilder.blockFaces.length
+  - defaultMasonryTessellation.faceCount;
+assert.ok(
+  defaultMasonryCulled > 100,
+  `Only ${defaultMasonryCulled} complete masonry faces were removed behind the stair.`,
+);
+
+const openStairRecord = openSided.connectors[0]!;
+const openStairBuilder = new SolidBuilder();
+buildStair(
+  openStairBuilder,
+  openStairRecord,
+  openSided.masses[0]!.bands,
+  { masonry: stairRule, seed: 7 },
+);
+const openStairless = generateStructure(toStructureSpec({
+  ...cloneMassLayout(),
+  stairEnabled: false,
+  stairSideTreatment: "none",
+}));
+const openMasonryCulled = tessellateStructure(openStairless, {
+  masonry: stairRule,
+  seed: 7,
+}).faceCount + openStairBuilder.blockFaces.length - tessellateStructure(openSided, {
+  masonry: stairRule,
+  seed: 7,
+}).faceCount;
+assert.ok(
+  openMasonryCulled > 0,
+  "An open-sided flight did not cull any fully covered mass faces.",
+);
+
+// A greybox normally presents one broad facade quad, so its default stair only
+// overlaps that face partially and correctly leaves it whole. This engine-edge
+// fixture makes the flight-plus-parapets exactly facade-wide, proving the same
+// pass also reaches a complete bare face. Values of one are intentional here:
+// they exercise the generator boundary beyond the pane's conservative sliders.
+const fullAssemblyLayout: MassLayoutConfig = {
+  ...cloneMassLayout(),
+  baseTreatment: "none",
+  bandCount: 1,
+  totalHeight: 2,
+  batterAngle: 0,
+  summitRatio: 1,
+  cornicePlacement: "none",
+  stoneworkEnabled: false,
+  stairWidthRatio: 1,
+};
+const fullAssembly = generateStructure(toStructureSpec(fullAssemblyLayout));
+const fullAssemblyStairless = generateStructure(toStructureSpec({
+  ...fullAssemblyLayout,
+  stairEnabled: false,
+}));
+const fullAssemblyRecord = fullAssembly.connectors[0]!;
+const fullAssemblyStairBuilder = new SolidBuilder();
+buildStair(
+  fullAssemblyStairBuilder,
+  fullAssemblyRecord,
+  fullAssembly.masses[0]!.bands,
+  { masonry: null, seed: 1 },
+);
+const fullAssemblyCulled = tessellateStructure(fullAssemblyStairless, {
+  masonry: null,
+  seed: 1,
+}).faceCount + fullAssemblyStairBuilder.blockFaces.length - tessellateStructure(
+  fullAssembly,
+  { masonry: null, seed: 1 },
+).faceCount;
+assert.equal(
+  fullAssemblyCulled,
+  1,
+  `A facade-wide stair should remove one bare facade face, removed ${fullAssemblyCulled}.`,
 );
 
 // --- buried faces ----------------------------------------------------------

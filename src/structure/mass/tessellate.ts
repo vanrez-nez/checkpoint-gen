@@ -1,10 +1,15 @@
 import { finalizeGeometry } from "../../geometry/finalize";
 import { IDENTITY_MATRIX, type GeometryPart } from "../../geometry/part";
-import { SolidBuilder } from "../../geometry/solid-builder";
+import { SolidBuilder, type Vertex3 } from "../../geometry/solid-builder";
 import { rectCorners, rectIsValid, type Rect } from "../kernel/frame";
-import type { ElevationBandRecord, StructureGraph } from "../kernel/graph";
+import type {
+  ElevationBandRecord,
+  StairConnectorRecord,
+  StructureGraph,
+} from "../kernel/graph";
 import type { MasonryRule } from "../kernel/masonry";
 import { buildStair } from "../connector/build";
+import { stairSteps, type StairStep } from "../connector/stair";
 import { buildMassShell } from "./shell";
 
 /**
@@ -26,6 +31,7 @@ import { buildMassShell } from "./shell";
  */
 
 export const MASS_SECTION = "mass";
+const EPS = 1e-9;
 
 export interface TessellationResult {
   readonly parts: readonly GeometryPart[];
@@ -45,25 +51,24 @@ export function tessellateStructure(
 ): TessellationResult {
   const builder = new SolidBuilder();
   const { masonry, seed } = options;
-  // The plan strip the stair permanently covers on the front elevation.
-  // Facing stones inside it never show their outer face; the shell reads the
-  // connector rather than the reverse, keeping construction a pure reader.
-  const stair = graph.connectors[0] ?? null;
-  const frontReserve = stair
-    ? {
-      minX: stair.flightRect.minX - (stair.parapet?.width ?? 0),
-      maxX: stair.flightRect.maxX + (stair.parapet?.width ?? 0),
-      minZBehind: stair.flightRect.minZ,
-    }
-    : null;
 
   for (const mass of graph.masses) {
     if (masonry) {
-      buildMassShell(builder, mass.bands, { rule: masonry, seed, frontReserve });
+      buildMassShell(builder, mass.bands, { rule: masonry, seed });
       continue;
     }
 
     layBareMass(builder, mass.bands);
+  }
+
+  // A stair is resolved before tessellation, so its complete stepped envelope
+  // is known before any of its blocks are laid. Remove only mass quads wholly
+  // beneath that envelope. Doing this after the mass is complete covers bare
+  // bands, facing stones, terrace tops and joint cheeks with one rule; doing it
+  // before connectors are built prevents the stair from culling itself.
+  for (const connector of graph.connectors) {
+    const steps = stairSteps(connector);
+    builder.cullFaces((face) => faceIsCoveredByStair(face, connector, steps));
   }
 
   // Connectors are read from the same graph and drawn with the same one
@@ -87,6 +92,71 @@ export function tessellateStructure(
     }],
     faceCount: builder.blockFaces.length,
   };
+}
+
+/**
+ * Whether every point of a mass quad lies beneath the resolved stair assembly.
+ *
+ * Mass faces are planar quads and a continuous stair is a monotone stepped
+ * heightfield over its plan rectangle. The lowest tread crossed by the face's
+ * z span therefore bounds the whole face: if its highest point fits under that
+ * tread, the interior does too. Faces crossing the flight and a parapet use the
+ * lower flight ceiling; a face wholly inside one side strip may use the raised
+ * parapet cap. Any partial plan overlap remains untouched.
+ */
+export function faceIsCoveredByStair(
+  face: readonly Vertex3[],
+  stair: StairConnectorRecord,
+  steps: readonly StairStep[] = stairSteps(stair),
+): boolean {
+  if (face.length !== 4) {
+    return false;
+  }
+
+  const xs = face.map((corner) => corner.x);
+  const ys = face.map((corner) => corner.y);
+  const zs = face.map((corner) => corner.z);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const minZ = Math.min(...zs);
+  const maxZ = Math.max(...zs);
+  const { flightRect, parapet } = stair;
+  const sideWidth = parapet?.width ?? 0;
+  const assemblyMinX = flightRect.minX - sideWidth;
+  const assemblyMaxX = flightRect.maxX + sideWidth;
+
+  if (
+    minX < assemblyMinX - EPS
+    || maxX > assemblyMaxX + EPS
+    || minZ < flightRect.minZ - EPS
+    || maxZ > flightRect.maxZ + EPS
+    || minY < stair.bottomY - EPS
+  ) {
+    return false;
+  }
+
+  // Steps are ordered foot first. On a shared riser boundary, choosing the
+  // earlier/lower tread is conservative and keeps a face unless the lower
+  // volume hides it too.
+  const coveringStep = steps.find((step) =>
+    maxZ >= step.zBack - EPS && maxZ <= step.zFront + EPS);
+
+  if (!coveringStep) {
+    return false;
+  }
+
+  const whollyInNegativeSide = parapet !== null
+    && minX >= assemblyMinX - EPS
+    && maxX < flightRect.minX - EPS;
+  const whollyInPositiveSide = parapet !== null
+    && minX > flightRect.maxX + EPS
+    && maxX <= assemblyMaxX + EPS;
+  const coverY = coveringStep.topY
+    + (whollyInNegativeSide || whollyInPositiveSide ? parapet?.height ?? 0 : 0);
+
+  return maxY <= coverY + EPS;
 }
 
 /**

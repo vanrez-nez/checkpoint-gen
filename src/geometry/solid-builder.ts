@@ -53,6 +53,9 @@ export interface BlockFaces {
   readonly bottomInset?: number;
 }
 
+/** Returns true when a complete emitted quad can be discarded. */
+export type FaceCullPredicate = (corners: readonly Vertex3[]) => boolean;
+
 /**
  * Builds a mass out of blocks, and out of nothing else.
  *
@@ -86,6 +89,68 @@ export class SolidBuilder implements GeometryBuffers {
    * equal the index count.
    */
   readonly blockFaces: number[] = [];
+
+  /**
+   * Removes complete quads selected by `predicate`, compacting every raw buffer.
+   *
+   * This deliberately operates on faces rather than blocks. A block may still
+   * present a terrace or joint cheek while another complete face is buried by a
+   * later assembly such as a stair. Every emitted face owns four vertices and
+   * six indices, so compaction preserves the builder's fixed face contract
+   * without triangulating, clipping or changing the semantic block count.
+   */
+  cullFaces(predicate: FaceCullPredicate): number {
+    const positions: number[] = [];
+    const ambientOcclusion: number[] = [];
+    const bakedShadow: number[] = [];
+    const indices: number[] = [];
+    const blockFaces: number[] = [];
+    let removed = 0;
+
+    for (const start of this.blockFaces) {
+      const corners = [0, 1, 2, 3].map((corner): Vertex3 => {
+        const vertex = start + corner;
+
+        return {
+          x: this.positions[vertex * 3] ?? 0,
+          y: this.positions[vertex * 3 + 1] ?? 0,
+          z: this.positions[vertex * 3 + 2] ?? 0,
+        };
+      });
+
+      if (predicate(corners)) {
+        removed += 1;
+        continue;
+      }
+
+      const nextStart = positions.length / 3;
+      blockFaces.push(nextStart);
+
+      for (let corner = 0; corner < 4; corner += 1) {
+        const vertex = start + corner;
+        positions.push(
+          this.positions[vertex * 3] ?? 0,
+          this.positions[vertex * 3 + 1] ?? 0,
+          this.positions[vertex * 3 + 2] ?? 0,
+        );
+        ambientOcclusion.push(this.ambientOcclusion[vertex] ?? 1);
+        bakedShadow.push(this.bakedShadow[vertex] ?? 1);
+      }
+
+      indices.push(
+        nextStart, nextStart + 1, nextStart + 2,
+        nextStart, nextStart + 2, nextStart + 3,
+      );
+    }
+
+    replaceContents(this.positions, positions);
+    replaceContents(this.ambientOcclusion, ambientOcclusion);
+    replaceContents(this.bakedShadow, bakedShadow);
+    replaceContents(this.indices, indices);
+    replaceContents(this.blockFaces, blockFaces);
+
+    return removed;
+  }
 
   /**
    * One block, and only the faces of it that anything can see.
@@ -242,4 +307,13 @@ function signedArea(points: readonly Vertex3[]): number {
   }
 
   return area * 0.5;
+}
+
+/** Replaces a large numeric buffer without spreading it through call arguments. */
+function replaceContents(target: number[], source: readonly number[]): void {
+  target.length = 0;
+
+  for (const value of source) {
+    target.push(value);
+  }
 }
