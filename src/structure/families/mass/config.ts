@@ -10,6 +10,7 @@ import {
   type CornerRule,
   type MasonryRule,
 } from "../../kernel/masonry";
+import type { StructureGraph } from "../../kernel/graph";
 import {
   CURVE_SHAPES,
   LINEAR_BEZIER,
@@ -18,7 +19,10 @@ import {
   type ShapingCurve,
 } from "../../kernel/curve";
 import { createSeedSet } from "../../kernel/seed";
-import type { StructureSpec } from "../../mass/generate";
+import {
+  generateStructure,
+  type StructureSpec,
+} from "../../mass/generate";
 import { createRectangleFootprint } from "../../mass/footprint";
 import {
   wallProfileForBatter,
@@ -779,7 +783,26 @@ export function cloneMassLayout(
 }
 
 export function validateMassLayout(layout: MassLayoutConfig): void {
+  void resolveMassLayout(layout);
+}
+
+/**
+ * Validates both individual control ranges and their resolved structural
+ * combination. A value can sit inside its slider range yet still collapse the
+ * mass when combined with the current footprint, height, batter, or stairs.
+ */
+export function resolveMassLayout(layout: MassLayoutConfig): StructureGraph {
   validateControls(layout, MASS_LAYOUT_CONTROLS);
+  const graph = generateStructure(toStructureSpec(layout));
+  const error = graph.diagnostics.find(
+    (diagnostic) => diagnostic.severity === "error",
+  );
+
+  if (error) {
+    throw new RangeError(`${error.message} (${error.code})`);
+  }
+
+  return graph;
 }
 
 /**

@@ -2,26 +2,31 @@ import type { PartSection } from "../geometry/part";
 import type { StructureDefinition } from "../structure/definition";
 import {
   DEFAULT_STRUCTURE_ID,
+  getStructure,
   listStructures,
 } from "../structure/registry";
 import {
   DEFAULT_FIRE_BOWL_CONFIG,
   cloneFireBowlConfig,
+  validateFireBowlConfig,
   type FireBowlConfig,
 } from "../props/fire-bowl/config";
 import {
   DEFAULT_FIRE_CONFIG,
   cloneFireConfig,
+  validateFireConfig,
   type FireConfig,
 } from "../props/fire/config";
 import {
   DEFAULT_OFFERING_CONFIG,
   cloneOfferingConfig,
+  validateOfferingConfig,
   type OfferingConfig,
 } from "../props/offering/config";
 import {
   DEFAULT_PILLAR_CONFIG,
   clonePillarConfig,
+  validatePillarConfig,
   type PillarConfig,
 } from "../props/pillar/config";
 import {
@@ -32,6 +37,10 @@ import {
   cloneBevelConfig,
   cloneIlluminationConfig,
   cloneStoneConfig,
+  validateBevelConfig,
+  validateIlluminationConfig,
+  validateStoneConfig,
+  validateViewConfig,
   type BevelConfig,
   type IlluminationConfig,
   type StoneConfig,
@@ -98,6 +107,41 @@ export function createDefaultStructureConfig(): StructureConfig {
     illumination: cloneIlluminationConfig(DEFAULT_ILLUMINATION_CONFIG),
     view: { ...DEFAULT_VIEW_CONFIG },
   };
+}
+
+/**
+ * Validates every parameter that can affect the active composition before any
+ * cached geometry or render state is mutated.
+ *
+ * Inactive families keep independent live state and are validated when
+ * selected; validating them here would make it impossible to switch away from
+ * an invalid family in order to keep working on another one.
+ */
+export function validateActiveStructureConfig(config: StructureConfig): void {
+  const definition = getStructure(config.typeId);
+  const layout = config.layouts[definition.id];
+  const stone = config.stones[definition.id];
+  const bevel = config.bevels[definition.id];
+
+  if (!layout) {
+    throw new Error(`Missing layout config for structure "${definition.id}".`);
+  }
+  if (!stone) {
+    throw new Error(`Missing stone config for structure "${definition.id}".`);
+  }
+  if (!bevel) {
+    throw new Error(`Missing bevel config for structure "${definition.id}".`);
+  }
+
+  definition.validateLayout(layout);
+  validateStoneConfig(stone);
+  validateBevelConfig(bevel);
+  validatePillarConfig(config.pillar);
+  validateFireBowlConfig(config.fireBowl, config.pillar.shaftWidth);
+  validateFireConfig(config.fire);
+  validateOfferingConfig(config.offering);
+  validateIlluminationConfig(config.illumination);
+  validateViewConfig(config.view);
 }
 
 /**

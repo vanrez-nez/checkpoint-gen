@@ -87,7 +87,15 @@ export function mergeParts(
     bakedShadowBase.set(prepared.bakedShadowBase, vertexOffset);
 
     for (let cursor = 0; cursor < index.count; cursor += 1) {
-      indices[indexOffset + cursor] = index.getX(cursor) + vertexOffset;
+      const value = index.getX(cursor);
+
+      if (!Number.isInteger(value) || value < 0 || value >= position.count) {
+        throw new Error(
+          `Part "${part.id}" index ${cursor} references invalid vertex ${value}.`,
+        );
+      }
+
+      indices[indexOffset + cursor] = value + vertexOffset;
     }
 
     slotIndexCounts.set(
@@ -170,6 +178,15 @@ function preparePart(part: GeometryPart): PreparedPart | null {
   if (!index) {
     throw new Error(`Part "${part.id}" is missing an index.`);
   }
+  if (index.count === 0) {
+    throw new Error(`Part "${part.id}" has vertices but an empty index.`);
+  }
+  if (index.count % 3 !== 0) {
+    throw new Error(
+      `Part "${part.id}" index count ${index.count} is not divisible by three.`,
+    );
+  }
+
   if (part.matrix.determinant() <= 0) {
     throw new Error(
       `Part "${part.id}" has a mirrored or degenerate matrix, which would invert its winding.`,
@@ -265,11 +282,7 @@ function writeNormals(
   }
 }
 
-/**
- * The stone slot always gets a group so that `groups[0].materialIndex` is 0 even
- * when nothing else is present: a mesh with an array material draws nothing at
- * all when a geometry has no groups.
- */
+/** Adds one draw group per material slot that actually contains triangles. */
 function addMaterialGroups(
   geometry: THREE.BufferGeometry,
   slotIndexCounts: ReadonlyMap<MaterialSlot, number>,
@@ -279,7 +292,7 @@ function addMaterialGroups(
   for (let slot = 0; slot < MATERIAL_SLOTS.length; slot += 1) {
     const count = slotIndexCounts.get(MATERIAL_SLOTS[slot]!) ?? 0;
 
-    if (count === 0 && slot !== 0) {
+    if (count === 0) {
       continue;
     }
 

@@ -13,7 +13,7 @@ Structures are registered in `src/structure/registry.ts` and selected from the
 `type` dropdown at the top of the control pane. A definition
 (`src/structure/definition.ts`) declares its id and label, which shared props it
 uses, which part sections it emits, its layout defaults, a declarative control
-table, and a `build()` that emits parts plus anchors.
+table, a `controlTabs` layout, and a `build()` that emits parts plus anchors.
 
 Adding one means a new folder under `src/structure/families/` plus one line in
 `STRUCTURES`. Its layout folders, dropdown entry, validators, control gating and
@@ -264,6 +264,14 @@ how selecting a curve preset writes that preset's handles. Both keep a table
 self-describing rather than needing the pane to know which of its controls gate
 or feed which others.
 
+Before any render state or cached geometry changes, the complete active config
+is validated: the selected family's layout and surface values, shared props,
+view, illumination, and color fields. Mass validation also resolves the
+cross-field structural rules, because a width or height may be inside its own
+slider range while its combination with batter, summit size, or stairs produces
+no buildable mass. An invalid edit leaves the last valid geometry in place and
+reports the error in the Structure tab's Validation row.
+
 Not every control is a Tweakpane *binding*: the curve editor is a blade that owns
 its own value, so `bindControls` adds it and writes back by hand. It also plots
 itself from its element's size exactly once, when it first lands in the DOM,
@@ -271,15 +279,21 @@ which draws an empty box for a control that starts hidden — so a spec-bound
 control may register an `onShow` hook that the visibility registry runs on each
 hidden-to-shown transition.
 
-Controls are context dependent. The pane is built once and toggles `hidden`, so
-a control appears only when the active structure declares the prop it belongs to
-and its enabling flag is set: bevel dimensions follow `bevel.enabled`, the whole
-Flame and Glow groups follow the fire bowl, and offering placement follows
-`offering.enabled`. A folder whose contents are all hidden hides itself. Tab
-pages are never gated directly — Tweakpane rebinds a page's hidden state from
-its own selection — so a tab a structure does not use shows an explanatory line.
-The mass structure declares no props at all, so all of that gating falls out
-without the pane knowing anything about it.
+Controls are context dependent. Each structure definition partitions its layout
+folder groups and declared props among `controlTabs`; the pane replaces the tab
+bar from that schema when the type changes. The circular structure therefore
+owns Structure, Pillars, Fire, and Offering pages, while Mass owns Structure,
+Stairs, and Summit. Scene is global and appended to either tab bar. The
+definition validator requires every layout group and prop to appear on exactly
+one page, preventing an unrelated tab or an unbound control group from leaking
+into a new structure.
+
+Within the active pages, controls still toggle `hidden` from their enabling
+fields: bevel dimensions follow `bevel.enabled`, the whole Flame and Glow groups
+follow the fire bowl, and offering placement follows `offering.enabled`. A
+folder whose contents are all hidden hides itself. Tab pages themselves are
+never gated directly because Tweakpane rebinds a page's hidden state from its own
+selection.
 
 The Structure tab's Geometry folder reports the active structure's own section
 plus a **validation** line: the worst diagnostic from the last build, with the

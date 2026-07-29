@@ -1,14 +1,23 @@
 import { Pane } from "tweakpane";
-import type { BladeApi, FolderApi, TabPageApi } from "@tweakpane/core";
+import type {
+  BladeApi,
+  FolderApi,
+  TabApi,
+  TabPageApi,
+} from "@tweakpane/core";
 import * as EssentialsPlugin from "@tweakpane/plugin-essentials";
 import {
   structureOptions,
   getStructure,
-  listStructures,
 } from "../structure/registry";
-import type { PropId } from "../structure/definition";
+import type {
+  PropId,
+  StructureControlTab,
+  StructureDefinition,
+} from "../structure/definition";
 import {
   sectionsForScopes,
+  validateActiveStructureConfig,
   type StructureConfig,
 } from "../config/structure-config";
 import type { RebuildScope } from "../config/control-spec";
@@ -70,7 +79,8 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
   const stats = pane.addBlade({ view: "stats" }) as StatsBladeApi;
   stats.setRenderer(rendererLabel);
 
-  const visibility = new VisibilityRegistry();
+  let visibility = new VisibilityRegistry();
+  let tabs: TabApi | null = null;
   const mirrors = createStatMirrors();
 
   // Global state, so it sits above the tab bar rather than inside a tab.
@@ -78,31 +88,12 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     label: "type",
     options: structureOptions(),
   }).on("change", () => {
+    buildControlTabs();
     // Every section belongs to the previous type's layout, so rebuild all.
     dispatch(["layout", "pillars", "bowls", "fire", "offering"], true);
   });
 
-  const tabs = pane.addTab({
-    pages: [
-      { title: "Structure" },
-      { title: "Pillars" },
-      { title: "Fire" },
-      { title: "Offering" },
-      { title: "Scene" },
-    ],
-  });
-  const [structureTab, pillarTab, fireTab, offeringTab, sceneTab] = tabs.pages;
-
-  if (!structureTab || !pillarTab || !fireTab || !offeringTab || !sceneTab) {
-    throw new Error("Failed to create control tabs.");
-  }
-
-  buildStructureTab(structureTab);
-  buildPillarTab(pillarTab);
-  buildFireTab(fireTab);
-  buildOfferingTab(offeringTab);
-  buildSceneTab(sceneTab);
-
+  buildControlTabs();
   refreshStats();
   visibility.apply(config);
 
@@ -117,11 +108,55 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     return getStructure(config.typeId);
   }
 
-  function usesProp(prop: PropId): boolean {
-    return activeStructure().props.includes(prop);
+  /**
+   * Replaces the whole tab bar from the active structure's declaration.
+   * Tweakpane cannot hide individual tab buttons reliably, so rebuilding this
+   * one UI subtree is what makes irrelevant tabs genuinely absent rather than
+   * present-but-empty. Config objects stay stable and retain their values.
+   */
+  function buildControlTabs(): void {
+    tabs?.dispose();
+    visibility = new VisibilityRegistry();
+
+    const definition = activeStructure();
+    tabs = pane.addTab({
+      pages: [
+        ...definition.controlTabs.map((tab) => ({ title: tab.label })),
+        { title: "Scene" },
+      ],
+    });
+
+    definition.controlTabs.forEach((tab, index) => {
+      const page = tabs?.pages[index];
+
+      if (!page) {
+        throw new Error(`Failed to create "${tab.label}" control tab.`);
+      }
+
+      buildStructureTab(page, definition, tab, index === 0);
+    });
+
+    const scenePage = tabs.pages[definition.controlTabs.length];
+
+    if (!scenePage) {
+      throw new Error("Failed to create Scene control tab.");
+    }
+
+    buildSceneTab(scenePage);
   }
 
   function dispatch(scopes: readonly RebuildScope[], reframe: boolean): void {
+    try {
+      validateActiveStructureConfig(config);
+    } catch (error) {
+      mirrors.validation.status = `error: ${
+        error instanceof Error ? error.message : String(error)
+      }`;
+      visibility.apply(config);
+      pane.refresh();
+      return;
+    }
+
     // Resolved against the active structure, since a scope maps to whichever
     // sections that structure declares rather than to a fixed set.
     const sections = sectionsForScopes(scopes, activeStructure());
@@ -162,56 +197,76 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     pane.refresh();
   }
 
-  function buildStructureTab(page: TabPageApi): void {
+  function buildStructureTab(
+    page: TabPageApi,
+    definition: StructureDefinition,
+    tab: StructureControlTab,
+    includeStructureStats: boolean,
+  ): void {
     const folders = createFolderRegistry();
+    const layout = config.layouts[definition.id] ?? definition.cloneLayout();
+    config.layouts[definition.id] = layout;
+    const groups = new Set(tab.layoutGroups ?? []);
+    const layoutControls = definition.layoutControls.filter(
+      (control) => groups.has(control.group),
+    );
+    const bound = bindControls(
+      page,
+      layout,
+      layoutControls,
+      dispatch,
+      folders,
+    );
 
-    // One layout group per registered structure, gated on the active one. A new
-    // structure contributes its folders here purely from its layoutControls
-    // table, including any control that gates on one of its own fields.
-    for (const definition of listStructures()) {
-      const layout = config.layouts[definition.id] ?? definition.cloneLayout();
-      config.layouts[definition.id] = layout;
-      const bound = bindControls(
-        page,
-        layout,
-        definition.layoutControls,
-        dispatch,
-        folders,
+    for (const control of bound) {
+      const { visibleWhen } = control.spec;
+      visibility.addBlade(
+        control.binding,
+        () => visibleWhen === undefined || visibleWhen(layout),
+        control.onShow,
       );
-
-      for (const control of bound) {
-        const { visibleWhen } = control.spec;
-        visibility.addBlade(
-          control.binding,
-          (current) => current.typeId === definition.id
-            && (visibleWhen === undefined || visibleWhen(layout)),
-          control.onShow,
-        );
-      }
     }
 
-    // The control schema is shared, but each structure owns its live target.
-    // All targets are bound once and visibility follows the type selector, just
-    // like the layout controls above.
-    for (const definition of listStructures()) {
-      const stoneConfig = config.stones[definition.id];
-      const bevelConfig = config.bevels[definition.id];
+    for (const prop of tab.props ?? []) {
+      bindPropControls(page, definition, prop, folders);
+    }
 
-      if (definition.props.includes("stone") && stoneConfig) {
-        const stone = bindControls(
-          page,
-          stoneConfig,
-          SHARED_STONE_CONTROLS,
-          dispatch,
-          folders,
-        );
-        visibility.addBlades(
-          stone.map((control) => control.binding),
-          (current) => current.typeId === definition.id,
-        );
+    autoHideFolders(folders);
+    if (includeStructureStats) {
+      addStatsFolder(page, "Geometry", [
+        statRow(mirrors.structure, "stones", "stones"),
+        statRow(mirrors.structure, "vertices", "vertices"),
+        statRow(mirrors.structure, "triangles", "triangles"),
+        statRow(mirrors.validation, "status", "validation"),
+      ]);
+    }
+    addPropStats(page, tab.props ?? []);
+  }
+
+  function bindPropControls(
+    page: TabPageApi,
+    definition: StructureDefinition,
+    prop: PropId,
+    folders: Map<string, FolderApi>,
+  ): void {
+    switch (prop) {
+      case "stone": {
+        const stone = config.stones[definition.id];
+
+        if (!stone) {
+          throw new Error(`Missing stone config for structure "${definition.id}".`);
+        }
+
+        bindControls(page, stone, SHARED_STONE_CONTROLS, dispatch, folders);
+        return;
       }
+      case "bevel": {
+        const bevelConfig = config.bevels[definition.id];
 
-      if (definition.props.includes("bevel") && bevelConfig) {
+        if (!bevelConfig) {
+          throw new Error(`Missing bevel config for structure "${definition.id}".`);
+        }
+
         const bevel = bindControls(
           page,
           bevelConfig,
@@ -219,73 +274,64 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
           dispatch,
           folders,
         );
-        visibility.addBlades(
-          bevel.map((control) => control.binding),
-          (current) => current.typeId === definition.id,
-        );
-        gateBevelDetails(
-          bevel,
-          () => config.typeId === definition.id && bevelConfig.enabled,
-        );
+        gateBevelDetails(bevel, () => bevelConfig.enabled);
+        return;
       }
+      case "pillar":
+        bindPillarControls(page, folders);
+        return;
+      case "fireBowl":
+        bindFireBowlControls(page, folders);
+        return;
+      case "fire":
+        bindFireControls(page, folders);
+        return;
+      case "offering":
+        bindOfferingControls(page, folders);
+        return;
     }
-
-    autoHideFolders(folders);
-    addStatsFolder(page, "Geometry", [
-      statRow(mirrors.structure, "stones", "stones"),
-      statRow(mirrors.structure, "vertices", "vertices"),
-      statRow(mirrors.structure, "triangles", "triangles"),
-      statRow(mirrors.validation, "status", "validation"),
-    ]);
   }
 
-  function buildPillarTab(page: TabPageApi): void {
-    const folders = createFolderRegistry();
-    const layout = bindControls(page, config.pillar, PILLAR_LAYOUT_CONTROLS, dispatch, folders);
-    const stone = bindControls(page, config.pillar.stone, PILLAR_STONE_CONTROLS, dispatch, folders);
+  function bindPillarControls(
+    page: TabPageApi,
+    folders: Map<string, FolderApi>,
+  ): void {
+    bindControls(page, config.pillar, PILLAR_LAYOUT_CONTROLS, dispatch, folders);
+    bindControls(page, config.pillar.stone, PILLAR_STONE_CONTROLS, dispatch, folders);
     const bevel = bindControls(page, config.pillar.bevel, PILLAR_BEVEL_CONTROLS, dispatch, folders);
-    const usesPillar = () => usesProp("pillar");
-
-    visibility.addBlades(layout.map((control) => control.binding), usesPillar);
-    visibility.addBlades(stone.map((control) => control.binding), usesPillar);
-    visibility.addBlades(bevel.map((control) => control.binding), usesPillar);
-    gateBevelDetails(bevel, () => usesPillar() && config.pillar.bevel.enabled);
-
-    autoHideFolders(folders);
-    addTabNote(page, () => !usesPillar());
-    addStatsFolder(page, "Geometry", [
-      statRow(mirrors.pillars, "parts", "pillars"),
-      statRow(mirrors.pillars, "stones", "stones"),
-      statRow(mirrors.pillars, "vertices", "vertices"),
-      statRow(mirrors.pillars, "triangles", "triangles"),
-    ]);
+    gateBevelDetails(bevel, () => config.pillar.bevel.enabled);
   }
 
-  function buildFireTab(page: TabPageApi): void {
-    const folders = createFolderRegistry();
+  function bindFireBowlControls(
+    page: TabPageApi,
+    folders: Map<string, FolderApi>,
+  ): void {
     const bowl = bindControls(page, config.fireBowl, FIRE_BOWL_CONTROLS, dispatch, folders);
-    const fire = bindControls(page, config.fire, FIRE_CONTROLS, dispatch, folders);
-
-    visibility.addBlade(findControl(bowl, "enabled"), () => usesProp("fireBowl"));
     visibility.addBlades(
       [findControl(bowl, "scale"), findControl(bowl, "radialSegments")],
-      () => usesProp("fireBowl") && config.fireBowl.enabled,
+      () => config.fireBowl.enabled,
     );
+  }
 
+  function bindFireControls(
+    page: TabPageApi,
+    folders: Map<string, FolderApi>,
+  ): void {
+    const fire = bindControls(page, config.fire, FIRE_CONTROLS, dispatch, folders);
     // Flames need a bowl to sit in, so the whole flame group follows the bowl.
     const flameKeys = ["enabled", "scale", "radius", "height", "baseHeight",
       "radialSegments", "speed", "noiseScale", "turbulence", "intensity"] as const;
     visibility.addBlade(
       findControl(fire, "enabled"),
-      () => usesProp("fire") && config.fireBowl.enabled,
+      () => config.fireBowl.enabled,
     );
     visibility.addBlades(
       flameKeys.filter((key) => key !== "enabled").map((key) => findControl(fire, key)),
-      () => usesProp("fire") && config.fireBowl.enabled && config.fire.enabled,
+      () => config.fireBowl.enabled && config.fire.enabled,
     );
     visibility.addBlade(
       findControl(fire, "glowEnabled"),
-      () => usesProp("fire") && config.fireBowl.enabled && config.fire.enabled,
+      () => config.fireBowl.enabled && config.fire.enabled,
     );
     visibility.addBlades(
       [
@@ -293,46 +339,53 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
         findControl(fire, "glowDistance"),
         findControl(fire, "glowFlicker"),
       ],
-      () => usesProp("fire")
-        && config.fireBowl.enabled
+      () => config.fireBowl.enabled
         && config.fire.enabled
         && config.fire.glowEnabled,
     );
-
-    autoHideFolders(folders);
-    addTabNote(page, () => !usesProp("fireBowl"));
-    addStatsFolder(page, "Stats", [
-      statRow(mirrors.bowls, "parts", "bowls"),
-      statRow(mirrors.bowls, "vertices", "bowl vertices"),
-      statRow(mirrors.bowls, "triangles", "bowl triangles"),
-      statRow(mirrors.flames, "count", "flames"),
-      statRow(mirrors.flames, "vertices", "flame vertices"),
-      statRow(mirrors.flames, "triangles", "flame triangles"),
-      statRow(mirrors.flames, "draws", "flame draws"),
-      statRow(mirrors.flames, "glowLights", "glow lights"),
-    ]);
   }
 
-  function buildOfferingTab(page: TabPageApi): void {
-    const folders = createFolderRegistry();
+  function bindOfferingControls(
+    page: TabPageApi,
+    folders: Map<string, FolderApi>,
+  ): void {
     const offering = bindControls(page, config.offering, OFFERING_CONTROLS, dispatch, folders);
-    const usesOffering = () => usesProp("offering");
-
-    visibility.addBlade(findControl(offering, "enabled"), usesOffering);
     visibility.addBlades(
       offering
         .filter((control) => control.spec.key !== "enabled")
         .map((control) => control.binding),
-      () => usesOffering() && config.offering.enabled,
+      () => config.offering.enabled,
     );
+  }
 
-    autoHideFolders(folders);
-    addTabNote(page, () => !usesOffering());
-    addStatsFolder(page, "Geometry", [
-      statRow(mirrors.offering, "meshes", "meshes"),
-      statRow(mirrors.offering, "vertices", "vertices"),
-      statRow(mirrors.offering, "triangles", "triangles"),
-    ]);
+  function addPropStats(page: TabPageApi, props: readonly PropId[]): void {
+    if (props.includes("pillar")) {
+      addStatsFolder(page, "Geometry", [
+        statRow(mirrors.pillars, "parts", "pillars"),
+        statRow(mirrors.pillars, "stones", "stones"),
+        statRow(mirrors.pillars, "vertices", "vertices"),
+        statRow(mirrors.pillars, "triangles", "triangles"),
+      ]);
+    }
+    if (props.includes("fireBowl") || props.includes("fire")) {
+      addStatsFolder(page, "Stats", [
+        statRow(mirrors.bowls, "parts", "bowls"),
+        statRow(mirrors.bowls, "vertices", "bowl vertices"),
+        statRow(mirrors.bowls, "triangles", "bowl triangles"),
+        statRow(mirrors.flames, "count", "flames"),
+        statRow(mirrors.flames, "vertices", "flame vertices"),
+        statRow(mirrors.flames, "triangles", "flame triangles"),
+        statRow(mirrors.flames, "draws", "flame draws"),
+        statRow(mirrors.flames, "glowLights", "glow lights"),
+      ]);
+    }
+    if (props.includes("offering")) {
+      addStatsFolder(page, "Geometry", [
+        statRow(mirrors.offering, "meshes", "meshes"),
+        statRow(mirrors.offering, "vertices", "vertices"),
+        statRow(mirrors.offering, "triangles", "triangles"),
+      ]);
+    }
   }
 
   function buildSceneTab(page: TabPageApi): void {
@@ -375,19 +428,6 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     for (const folder of folders.values()) {
       visibility.addFolder(folder, folder.children as BladeApi[]);
     }
-  }
-
-  /**
-   * Tab buttons cannot be hidden in Tweakpane, so a tab whose props the active
-   * type does not use gets an explanatory line instead of looking broken.
-   */
-  function addTabNote(page: TabPageApi, visible: () => boolean): void {
-    const note = { note: "Not used by this structure" };
-    const binding = page.addBinding(note, "note", {
-      label: "",
-      readonly: true,
-    }) as unknown as BladeApi;
-    visibility.addBlade(binding, visible);
   }
 
   function addStatsFolder(

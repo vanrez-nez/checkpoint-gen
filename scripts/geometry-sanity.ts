@@ -18,6 +18,7 @@ import {
   DEFAULT_MASS_LAYOUT,
   DEFAULT_MASS_STONE_CONFIG,
   MASS_LAYOUT_CONTROLS,
+  type MassLayoutConfig,
 } from "../src/structure/families/mass/config";
 import {
   createCircularPlacements,
@@ -30,6 +31,8 @@ import {
 import {
   createDefaultStructureConfig,
   sectionsForScopes,
+  validateActiveStructureConfig,
+  type StructureConfig,
 } from "../src/config/structure-config";
 import { validateControls, type ControlSpec } from "../src/config/control-spec";
 import {
@@ -587,6 +590,13 @@ assert.equal(
 );
 assert.equal(stoneOnlyMerge.sections.fireBowls.vertexCount, 0);
 
+// An empty composition has no material groups. A zero-count group would make
+// WebGPU submit DrawIndexed(0), which is valid but emits a warning every frame.
+const emptyMerge = mergeParts([], ["mass"]);
+assert.equal(emptyMerge.geometry.getIndex()?.count, 0);
+assert.equal(emptyMerge.geometry.groups.length, 0);
+assert.equal(emptyMerge.totals.triangleCount, 0);
+
 // Contract violations fail loudly, naming the offending part.
 const missingUserDataGeometry = new THREE.BoxGeometry(1, 1, 1);
 assert.throws(
@@ -610,6 +620,27 @@ assert.throws(
     0,
   )]),
   /mirrored\/part.*mirrored or degenerate/,
+);
+const emptyIndexGeometry = new THREE.BufferGeometry();
+emptyIndexGeometry.setAttribute(
+  "position",
+  new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3),
+);
+emptyIndexGeometry.setAttribute(
+  "normal",
+  new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3),
+);
+emptyIndexGeometry.setIndex([]);
+assert.throws(
+  () => mergeParts([createSyntheticPart(
+    "empty-index/part",
+    "layout",
+    "stone",
+    emptyIndexGeometry,
+    IDENTITY_MATRIX,
+    0,
+  )]),
+  /empty-index\/part.*empty index/,
 );
 
 // --- composition -----------------------------------------------------------
@@ -856,6 +887,36 @@ for (const definition of STRUCTURES) {
   assert.ok(definition.layoutControls.length > 0, `${definition.id} has no layout controls`);
   assert.doesNotThrow(() => definition.validateLayout(definition.cloneLayout()));
 
+  // Every structure owns its tab layout. Its folder groups and shared props
+  // must form exact, non-overlapping partitions so adding a structure never
+  // leaks unrelated tabs or strands controls on an implicit global page.
+  const assignedLayoutGroups = definition.controlTabs.flatMap(
+    (tab) => [...(tab.layoutGroups ?? [])],
+  );
+  const assignedProps = definition.controlTabs.flatMap(
+    (tab) => [...(tab.props ?? [])],
+  );
+  assert.equal(
+    new Set(assignedLayoutGroups).size,
+    assignedLayoutGroups.length,
+    `${definition.id} assigns a layout group to more than one tab`,
+  );
+  assert.deepEqual(
+    new Set(assignedLayoutGroups),
+    new Set(definition.layoutControls.map((control) => control.group)),
+    `${definition.id} tab layout does not cover its control groups`,
+  );
+  assert.equal(
+    new Set(assignedProps).size,
+    assignedProps.length,
+    `${definition.id} assigns a prop to more than one tab`,
+  );
+  assert.deepEqual(
+    new Set(assignedProps),
+    new Set(definition.props),
+    `${definition.id} tab layout does not cover its props`,
+  );
+
   // Sections are the composer's cache keys and its merge order, so a structure
   // that declares none or repeats one would silently lose parts.
   assert.ok(definition.sections.length > 0, `${definition.id} declares no sections`);
@@ -881,6 +942,25 @@ for (const definition of STRUCTURES) {
   }
 }
 
+const massControlTabs = getStructure("mass").controlTabs;
+assert.deepEqual(
+  massControlTabs.map((tab) => tab.label),
+  ["Structure", "Stairs", "Summit"],
+);
+assert.deepEqual(
+  massControlTabs.find((tab) => tab.id === "stairs")?.layoutGroups,
+  ["Stair"],
+);
+assert.deepEqual(
+  massControlTabs.find((tab) => tab.id === "summit")?.layoutGroups,
+  ["Summit", "Summit building"],
+);
+assert.ok(
+  massControlTabs.every(
+    (tab) => !["Pillars", "Fire", "Offering"].includes(tab.label),
+  ),
+);
+
 // --- control specs ---------------------------------------------------------
 // Every spec must describe a real field whose default sits inside its own
 // range. This is what makes the UI/validator range drift that existed before
@@ -900,6 +980,116 @@ assertSpecCoverage(VIEW_CONTROLS, DEFAULT_VIEW_CONFIG, "view");
 assertSpecCoverage(ILLUMINATION_CONTROLS, DEFAULT_ILLUMINATION_CONFIG, "illumination");
 
 // --- validators ------------------------------------------------------------
+assert.doesNotThrow(() => validateActiveStructureConfig(
+  createDefaultStructureConfig(),
+));
+const defaultMassConfig = createDefaultStructureConfig();
+defaultMassConfig.typeId = "mass";
+assert.doesNotThrow(() => validateActiveStructureConfig(defaultMassConfig));
+
+assertEveryControlParamIsValidated(
+  createDefaultStructureConfig,
+  CIRCULAR_LAYOUT_CONTROLS,
+  (current) => current.layouts.circular,
+  "circular layout",
+);
+assertEveryControlParamIsValidated(
+  () => {
+    const current = createDefaultStructureConfig();
+    current.typeId = "mass";
+    return current;
+  },
+  MASS_LAYOUT_CONTROLS,
+  (current) => current.layouts.mass,
+  "mass layout",
+);
+assertEveryControlParamIsValidated(
+  createDefaultStructureConfig,
+  createStoneControls(["layout"]),
+  (current) => current.stones.circular,
+  "structure stone",
+);
+assertEveryControlParamIsValidated(
+  createDefaultStructureConfig,
+  createBevelControls(["layout"]),
+  (current) => current.bevels.circular,
+  "structure bevel",
+);
+assertEveryControlParamIsValidated(
+  createDefaultStructureConfig,
+  PILLAR_LAYOUT_CONTROLS,
+  (current) => current.pillar,
+  "pillar layout",
+);
+assertEveryControlParamIsValidated(
+  createDefaultStructureConfig,
+  PILLAR_STONE_CONTROLS,
+  (current) => current.pillar.stone,
+  "pillar stone",
+);
+assertEveryControlParamIsValidated(
+  createDefaultStructureConfig,
+  PILLAR_BEVEL_CONTROLS,
+  (current) => current.pillar.bevel,
+  "pillar bevel",
+);
+assertEveryControlParamIsValidated(
+  createDefaultStructureConfig,
+  FIRE_BOWL_CONTROLS,
+  (current) => current.fireBowl,
+  "fire bowl",
+);
+assertEveryControlParamIsValidated(
+  createDefaultStructureConfig,
+  FIRE_CONTROLS,
+  (current) => current.fire,
+  "fire",
+);
+assertEveryControlParamIsValidated(
+  createDefaultStructureConfig,
+  OFFERING_CONTROLS,
+  (current) => current.offering,
+  "offering",
+);
+assertEveryControlParamIsValidated(
+  createDefaultStructureConfig,
+  VIEW_CONTROLS,
+  (current) => current.view,
+  "view",
+);
+assertEveryControlParamIsValidated(
+  createDefaultStructureConfig,
+  ILLUMINATION_CONTROLS,
+  (current) => current.illumination,
+  "illumination",
+);
+
+for (const color of ["keyColor", "skyColor", "groundColor"] as const) {
+  const invalid = createDefaultStructureConfig();
+  invalid.illumination[color] = "not-a-color";
+  assert.throws(
+    () => validateActiveStructureConfig(invalid),
+    /hexadecimal color/,
+    `illumination.${color} must be validated`,
+  );
+}
+
+for (const [key, value, expected] of [
+  ["footprintWidth", 2, /batter_inverts_footprint/],
+  ["footprintDepth", 2, /batter_inverts_footprint/],
+  ["totalHeight", 60, /batter_inverts_footprint/],
+  ["summitRatio", 0.05, /stair\.does_not_fit/],
+] as const) {
+  const invalid = createDefaultStructureConfig();
+  invalid.typeId = "mass";
+  (invalid.layouts.mass as MassLayoutConfig)[key] = value;
+  assert.throws(
+    () => validateActiveStructureConfig(invalid),
+    expected,
+    `mass ${key}=${value} must be rejected before tessellation`,
+  );
+}
+
 assert.throws(
   () => createPillarGeometry(toPillarGeometryConfig(
     { ...pillarConfig, baseSteps: 0 },
@@ -1152,6 +1342,8 @@ for (const result of [
 composer.dispose();
 syntheticMerge.geometry.dispose();
 stoneOnlyMerge.geometry.dispose();
+emptyMerge.geometry.dispose();
+emptyIndexGeometry.dispose();
 composition.geometry.dispose();
 repeatedComposition.geometry.dispose();
 incremental.geometry.dispose();
@@ -1270,6 +1462,34 @@ function countZeroNormals(
   }
 
   return zero;
+}
+
+/**
+ * Proves that the complete config boundary reaches every control leaf, not just
+ * one representative field from each section.
+ */
+function assertEveryControlParamIsValidated<T extends object>(
+  createConfig: () => StructureConfig,
+  specs: readonly ControlSpec<T>[],
+  target: (config: StructureConfig) => T,
+  label: string,
+): void {
+  for (const spec of specs) {
+    const config = createConfig();
+    const invalidValue: unknown = spec.kind === "boolean"
+      ? "not-a-boolean"
+      : spec.kind === "list"
+        ? "__not_an_option__"
+        : spec.kind === "bezier"
+          ? [Number.NaN, 0, 1, 1]
+          : Number.NaN;
+    (target(config) as Record<string, unknown>)[spec.key] = invalidValue;
+    assert.throws(
+      () => validateActiveStructureConfig(config),
+      undefined,
+      `${label}.${spec.key} must be validated`,
+    );
+  }
 }
 
 function assertSpecCoverage<T extends object>(

@@ -16,13 +16,12 @@ type FolderRule = {
 };
 
 /**
- * Drives control visibility from the active structure and the enable
- * flags, so the pane only ever shows controls that affect the current
- * composition.
+ * Drives conditional control visibility from enable flags and dependent
+ * fields, so the pane only shows controls that currently have an effect.
  *
- * The whole tree is built once and toggled via `hidden`; nothing is disposed
- * and re-created, so folder expansion state and bound object identity survive
- * type switches.
+ * A registry owns one rendered structure tab bar. The pane replaces that bar
+ * when the structure type changes, while controls within it are toggled through
+ * `hidden` and retain their live config targets.
  *
  * Note this never targets tab *pages*: Tweakpane rebinds a page's hidden state
  * from its own `selected` flag on every tab click, so a value set here would be

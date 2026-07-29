@@ -1,14 +1,13 @@
 import { emptyCompositionAnchors, type GeometryPart } from "../../../geometry/part";
 import { defineStructure } from "../../definition";
-import { generateStructure } from "../../mass/generate";
 import { MASS_SECTION, tessellateStructure } from "../../mass/tessellate";
 import {
   DEFAULT_MASS_LAYOUT,
   DEFAULT_MASS_STONE_CONFIG,
   MASS_LAYOUT_CONTROLS,
   cloneMassLayout,
+  resolveMassLayout,
   toMasonry,
-  toStructureSpec,
   validateMassLayout,
   type MassLayoutConfig,
 } from "./config";
@@ -31,6 +30,28 @@ export const massStructure = defineStructure<MassLayoutConfig>({
   id: "mass",
   label: "Mass",
   props: ["stone"],
+  controlTabs: [
+    {
+      id: "structure",
+      label: "Structure",
+      layoutGroups: [
+        "Footprint",
+        "Elevation",
+        "Cornice",
+        "Stonework",
+        "Setbacks",
+        "Base",
+        "Variation",
+      ],
+      props: ["stone"],
+    },
+    { id: "stairs", label: "Stairs", layoutGroups: ["Stair"] },
+    {
+      id: "summit",
+      label: "Summit",
+      layoutGroups: ["Summit", "Summit building"],
+    },
+  ],
   sections: [MASS_SECTION],
   // Layout controls invalidate this structure's own section, not the circular
   // checkpoint's "layout" section that the shared table names.
@@ -42,13 +63,11 @@ export const massStructure = defineStructure<MassLayoutConfig>({
   validateLayout: validateMassLayout,
 
   build({ layout, stone, sections }) {
-    validateMassLayout(layout);
-
     // The graph is resolved on every build regardless of what was requested:
     // it is arithmetic over a handful of rectangles, and the scene needs the
     // semantic layer for the debug overlay and the diagnostics readout even
     // when no geometry had to be regenerated.
-    const graph = generateStructure(toStructureSpec(layout));
+    const graph = resolveMassLayout(layout);
     const parts: GeometryPart[] = sections.has(MASS_SECTION)
       ? [...tessellateStructure(graph, {
         masonry: toMasonry(layout, stone),

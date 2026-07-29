@@ -1,5 +1,8 @@
 import type * as THREE from "three";
-import type { StructureConfig } from "../config/structure-config";
+import {
+  validateActiveStructureConfig,
+  type StructureConfig,
+} from "../config/structure-config";
 import { mergeParts } from "../geometry/merge-parts";
 import {
   emptyCompositionAnchors,
@@ -38,6 +41,9 @@ export class StructureComposer {
     config: StructureConfig,
     sections?: Iterable<PartSection>,
   ): CompositionResult {
+    // Validation runs before cache invalidation, so a bad parameter combination
+    // cannot discard the last renderable composition or reach the renderer.
+    validateActiveStructureConfig(config);
     const definition = getStructure(config.typeId);
     // A type switch invalidates every cached part regardless of what the caller
     // asked for, since the parts belong to the previous type's layout. The old

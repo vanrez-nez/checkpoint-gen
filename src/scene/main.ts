@@ -27,7 +27,11 @@ import { createPatchOverlay, type PatchOverlay } from "../structure/kernel/debug
 import type { StructureGraph } from "../structure/kernel/graph";
 import type { Diagnostic } from "../structure/kernel/validate";
 import type { StructureConfig } from "../config/structure-config";
-import { DEFAULT_VIEW_CONFIG, type IlluminationConfig } from "../config/sections";
+import {
+  DEFAULT_VIEW_CONFIG,
+  validateIlluminationConfig,
+  type IlluminationConfig,
+} from "../config/sections";
 import {
   emptySectionStats,
   emptyPartStats,
@@ -519,6 +523,7 @@ export class MainScene {
   }
 
   setIllumination(config: IlluminationConfig): void {
+    validateIlluminationConfig(config);
     this.sunLight.color.set(config.keyColor);
     this.sunLight.intensity = config.keyIntensity;
 

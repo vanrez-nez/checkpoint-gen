@@ -21,6 +21,21 @@ export type PropId =
   | "fire"
   | "offering";
 
+/**
+ * One structure-owned page in the control pane.
+ *
+ * Layout controls are routed by their existing folder group, while shared prop
+ * controls are routed by prop id. `defineStructure` verifies that every layout
+ * group and every declared prop belongs to exactly one tab, so adding a family
+ * cannot silently leave controls behind on a global page.
+ */
+export interface StructureControlTab {
+  readonly id: string;
+  readonly label: string;
+  readonly layoutGroups?: readonly string[];
+  readonly props?: readonly PropId[];
+}
+
 export interface StructureBuildInput<TLayout extends object> {
   readonly layout: TLayout;
   readonly stone: StoneConfig;
@@ -54,6 +69,8 @@ export interface StructureDefinition<TLayout extends object = object> {
   /** Shown in the structure dropdown. */
   readonly label: string;
   readonly props: readonly PropId[];
+  /** The structure-specific tabs and the controls assigned to each one. */
+  readonly controlTabs: readonly StructureControlTab[];
   /**
    * Rebuild granularity for this structure, in merge order. The composer caches
    * and regenerates by section, and parts are emitted to the merged geometry in
@@ -86,7 +103,77 @@ export interface StructureDefinition<TLayout extends object = object> {
 export function defineStructure<TLayout extends object>(
   definition: StructureDefinition<TLayout>,
 ): StructureDefinition {
+  validateControlTabs(definition);
   return definition as unknown as StructureDefinition;
+}
+
+function validateControlTabs<TLayout extends object>(
+  definition: StructureDefinition<TLayout>,
+): void {
+  if (definition.controlTabs.length === 0) {
+    throw new Error(`${definition.id}: at least one control tab is required.`);
+  }
+
+  assertUnique(
+    definition.controlTabs.map((tab) => tab.id),
+    `${definition.id}: control tab ids`,
+  );
+  assertUnique(
+    definition.controlTabs.map((tab) => tab.label),
+    `${definition.id}: control tab labels`,
+  );
+  assertUnique(definition.props, `${definition.id}: props`);
+
+  const layoutGroups = new Set(
+    definition.layoutControls.map((control) => control.group),
+  );
+  const assignedGroups = definition.controlTabs.flatMap(
+    (tab) => [...(tab.layoutGroups ?? [])],
+  );
+  const assignedProps = definition.controlTabs.flatMap(
+    (tab) => [...(tab.props ?? [])],
+  );
+
+  assertUnique(assignedGroups, `${definition.id}: assigned layout groups`);
+  assertUnique(assignedProps, `${definition.id}: assigned props`);
+
+  for (const group of assignedGroups) {
+    if (!layoutGroups.has(group)) {
+      throw new Error(
+        `${definition.id}: control tab assigns unknown layout group "${group}".`,
+      );
+    }
+  }
+
+  for (const group of layoutGroups) {
+    if (!assignedGroups.includes(group)) {
+      throw new Error(
+        `${definition.id}: layout group "${group}" is not assigned to a control tab.`,
+      );
+    }
+  }
+
+  for (const prop of assignedProps) {
+    if (!definition.props.includes(prop)) {
+      throw new Error(
+        `${definition.id}: control tab assigns undeclared prop "${prop}".`,
+      );
+    }
+  }
+
+  for (const prop of definition.props) {
+    if (!assignedProps.includes(prop)) {
+      throw new Error(
+        `${definition.id}: prop "${prop}" is not assigned to a control tab.`,
+      );
+    }
+  }
+}
+
+function assertUnique(values: readonly string[], subject: string): void {
+  if (new Set(values).size !== values.length) {
+    throw new Error(`${subject} must be unique.`);
+  }
 }
 
 /** True when the structure uses every prop in `required`. */

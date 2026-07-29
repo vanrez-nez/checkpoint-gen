@@ -28,6 +28,17 @@ export const circularStructure = defineStructure<CircularLayoutConfig>({
   id: "circular",
   label: "Circular",
   props: ["stone", "bevel", "pillar", "fireBowl", "fire", "offering"],
+  controlTabs: [
+    {
+      id: "structure",
+      label: "Structure",
+      layoutGroups: ["Layout", "Entries", "Entry Edges", "Stones"],
+      props: ["stone", "bevel"],
+    },
+    { id: "pillars", label: "Pillars", props: ["pillar"] },
+    { id: "fire", label: "Fire", props: ["fireBowl", "fire"] },
+    { id: "offering", label: "Offering", props: ["offering"] },
+  ],
   sections: ["layout", "pillars", "fireBowls"],
   defaultLayout: DEFAULT_CIRCULAR_LAYOUT,
   defaultStone: DEFAULT_STONE_CONFIG,

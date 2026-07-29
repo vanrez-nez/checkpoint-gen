@@ -1,6 +1,7 @@
 import type { StoneDetailConfig } from "../geometry/stone-builder";
 import {
   controlsFor,
+  validateControls,
   type ControlSpec,
   type RebuildScope,
 } from "./control-spec";
@@ -345,4 +346,33 @@ export function cloneStoneConfig(source: Readonly<StoneConfig>): StoneConfig {
 
 export function cloneBevelConfig(source: Readonly<BevelConfig>): BevelConfig {
   return { ...source };
+}
+
+/** Validates every tunable field in one structure-owned stone surface. */
+export function validateStoneConfig(config: StoneConfig): void {
+  validateControls(config, createStoneControls([]));
+}
+
+/** Validates every tunable field in one structure-owned bevel surface. */
+export function validateBevelConfig(config: BevelConfig): void {
+  validateControls(config, createBevelControls([]));
+}
+
+export function validateViewConfig(config: ViewConfig): void {
+  validateControls(config, VIEW_CONTROLS);
+}
+
+export function validateIlluminationConfig(config: IlluminationConfig): void {
+  validateControls(config, ILLUMINATION_CONTROLS);
+
+  for (const { key, label } of ILLUMINATION_COLOR_KEYS) {
+    const value = config[key];
+
+    if (
+      typeof value !== "string"
+      || !/^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.test(value)
+    ) {
+      throw new RangeError(`${label} must be a hexadecimal color.`);
+    }
+  }
 }
