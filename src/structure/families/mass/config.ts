@@ -27,6 +27,7 @@ import {
   type SummitTreatment,
 } from "../../mass/elevation";
 import type { StairSideTreatment, StairSpec } from "../../connector/stair";
+import type { SummitCellSpec } from "../../cell/resolve";
 import type { HorizontalOrientation } from "../../kernel/frame";
 
 /**
@@ -88,6 +89,14 @@ export interface MassLayoutConfig {
   forecourtDepth: number;
   /** Rise of the optional summit building pad. */
   summitPadHeight: number;
+  /** Whether the summit carries the first enclosed cell assembly. */
+  summitBuildingEnabled: boolean;
+  summitBuildingWidthRatio: number;
+  summitBuildingDepthRatio: number;
+  summitBuildingHeight: number;
+  summitBuildingWallThickness: number;
+  summitBuildingPortalWidth: number;
+  summitBuildingPortalHeight: number;
   /** Independently enabled centred approach stairs. */
   stairFrontEnabled: boolean;
   stairRearEnabled: boolean;
@@ -148,6 +157,13 @@ export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
   summitMargin: 1.2,
   forecourtDepth: 3,
   summitPadHeight: 0.35,
+  summitBuildingEnabled: false,
+  summitBuildingWidthRatio: 0.8,
+  summitBuildingDepthRatio: 0.75,
+  summitBuildingHeight: 4,
+  summitBuildingWallThickness: 0.5,
+  summitBuildingPortalWidth: 2,
+  summitBuildingPortalHeight: 2.6,
   stairFrontEnabled: true,
   stairRearEnabled: true,
   stairLeftEnabled: true,
@@ -505,6 +521,82 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     visibleWhen: (layout) => layout.summitTreatment === "raised_pad",
   }),
   control.boolean({
+    key: "summitBuildingEnabled",
+    label: "enabled",
+    name: "Summit building",
+    group: "Summit building",
+    scopes: ["layout"],
+    reframe: true,
+  }),
+  control.number({
+    key: "summitBuildingWidthRatio",
+    label: "width ratio",
+    name: "Summit building width",
+    group: "Summit building",
+    min: 0.2,
+    max: 1,
+    step: 0.01,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.summitBuildingEnabled,
+  }),
+  control.number({
+    key: "summitBuildingDepthRatio",
+    label: "depth ratio",
+    name: "Summit building depth",
+    group: "Summit building",
+    min: 0.2,
+    max: 1,
+    step: 0.01,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.summitBuildingEnabled,
+  }),
+  control.number({
+    key: "summitBuildingHeight",
+    label: "height",
+    name: "Summit building height",
+    group: "Summit building",
+    min: 0.5,
+    max: 16,
+    step: 0.1,
+    scopes: ["layout"],
+    reframe: true,
+    visibleWhen: (layout) => layout.summitBuildingEnabled,
+  }),
+  control.number({
+    key: "summitBuildingWallThickness",
+    label: "wall thickness",
+    name: "Summit building wall thickness",
+    group: "Summit building",
+    min: 0.15,
+    max: 2,
+    step: 0.05,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.summitBuildingEnabled,
+  }),
+  control.number({
+    key: "summitBuildingPortalWidth",
+    label: "portal width",
+    name: "Summit building portal width",
+    group: "Summit building",
+    min: 0.5,
+    max: 8,
+    step: 0.1,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.summitBuildingEnabled,
+  }),
+  control.number({
+    key: "summitBuildingPortalHeight",
+    label: "portal height",
+    name: "Summit building portal height",
+    group: "Summit building",
+    min: 0.5,
+    max: 12,
+    step: 0.1,
+    scopes: ["layout"],
+    reframe: true,
+    visibleWhen: (layout) => layout.summitBuildingEnabled,
+  }),
+  control.boolean({
     key: "stairFrontEnabled",
     label: "front",
     name: "Front stair",
@@ -775,7 +867,25 @@ export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
       summitPadHeight: layout.summitPadHeight,
     },
     stairs: toStairSpecs(layout),
+    cells: toCellSpecs(layout),
   };
+}
+
+function toCellSpecs(layout: MassLayoutConfig): SummitCellSpec[] {
+  if (!layout.summitBuildingEnabled) {
+    return [];
+  }
+
+  return [{
+    id: "summit_chamber",
+    kind: "single_chamber",
+    widthRatio: layout.summitBuildingWidthRatio,
+    depthRatio: layout.summitBuildingDepthRatio,
+    height: layout.summitBuildingHeight,
+    wallThickness: layout.summitBuildingWallThickness,
+    portalWidth: layout.summitBuildingPortalWidth,
+    portalHeight: layout.summitBuildingPortalHeight,
+  }];
 }
 
 /**

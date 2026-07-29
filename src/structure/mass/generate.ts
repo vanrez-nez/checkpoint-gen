@@ -42,6 +42,11 @@ import {
   type StairSpec,
 } from "../connector/stair";
 import {
+  resolveSummitCell,
+  type ResolvedCell,
+  type SummitCellSpec,
+} from "../cell/resolve";
+import {
   IMPLEMENTED_BASE_TREATMENTS,
   IMPLEMENTED_SUMMIT_TREATMENTS,
   resolveElevation,
@@ -101,6 +106,8 @@ export interface StructureSpec {
   readonly mass: MassSpec;
   /** Independently enabled facade-centred approach stairs. */
   readonly stairs: readonly StairSpec[];
+  /** Enclosed summit assemblies. This phase supports one single chamber. */
+  readonly cells: readonly SummitCellSpec[];
 }
 
 const FACADE_SEGMENT: Readonly<Record<HorizontalOrientation, string>> = {
@@ -278,6 +285,34 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     return graph.build(diagnostics.all);
   }
 
+  if (spec.cells.length > 1) {
+    diagnostics.error(
+      "cell.multiple_unimplemented",
+      massId,
+      "This phase supports one summit chamber; multiple cell assemblies are not implemented yet.",
+    );
+    return graph.build(diagnostics.all);
+  }
+
+  const summitFloorPatchId = structurePath(
+    massId,
+    ordinalSegment("band", spec.mass.bandCount - 1),
+    "summit_floor",
+  );
+  const placement = summitPlacement(
+    elevation.summitY,
+    summitFloorPatchId,
+    summitPlan,
+    summitPad,
+  );
+  const cell = spec.cells[0]
+    ? resolveSummitCell(spec.id, spec.cells[0], placement, diagnostics)
+    : null;
+
+  if (spec.cells[0] && !cell) {
+    return graph.build(diagnostics.all);
+  }
+
   graph.addPatch(horizontalPatch({
     id: groundPatchId,
     role: PATCH_ROLES.groundInterface,
@@ -323,6 +358,7 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
         elevation.summitRect,
         summitPlan,
         summitPad,
+        cell,
       );
 
     for (const facadeId of facadeIds) {
@@ -336,11 +372,7 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     spec.mass,
     elevation.summitRect,
     elevation.summitY,
-    structurePath(
-      massId,
-      ordinalSegment("band", spec.mass.bandCount - 1),
-      "summit_floor",
-    ),
+    summitFloorPatchId,
     summitPlan,
     summitPad,
   );
@@ -357,6 +389,16 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
       ...(summitPad?.patchIds ?? []),
     ],
   } satisfies MassRecord);
+
+  if (cell) {
+    for (const patch of cell.patches) {
+      graph.addPatch(patch);
+    }
+    for (const [a, b] of cell.links) {
+      graph.link(a, b);
+    }
+    graph.addCell(cell.record);
+  }
 
   // The stair's own surfaces, once both ends it connects exist to be linked to.
   for (const stair of stairs) {
@@ -555,6 +597,7 @@ function emitSummit(
   summitRect: Rect,
   plan: SummitPlan,
   pad: SummitPadRecord | null,
+  cell: ResolvedCell | null,
 ): string {
   const id = structurePath(band.id, "summit_floor");
   const buildingPadRegionId = structurePath(id, "building_pad");
@@ -568,12 +611,18 @@ function emitSummit(
     rect: summitRect,
     y: band.topY,
     tags: ["traversable", "exterior", "buildable"],
-    regions: summitRegions(id, mass.summitTreatment, summitRect, plan),
+    regions: summitRegions(
+      id,
+      mass.summitTreatment,
+      summitRect,
+      plan,
+      cell?.record.supportPatchId === id ? cell : null,
+    ),
     anchors,
   }));
 
   if (pad) {
-    emitSummitPad(graph, id, pad);
+    emitSummitPad(graph, id, pad, cell);
   }
 
   return id;
@@ -589,6 +638,7 @@ function summitRegions(
   treatment: SummitTreatment,
   summitRect: Rect,
   plan: SummitPlan,
+  cell: ResolvedCell | null,
 ): PatchRegion[] {
   if (!plan.buildable) {
     return [];
@@ -626,6 +676,10 @@ function summitRegions(
         ? ["occupied", "no_build", "summit_pad"]
         : ["buildable", "superstructure"],
     });
+  }
+
+  if (cell) {
+    regions.push(cellFootprintRegion(patchId, summitRect, cell));
   }
 
   return regions;
@@ -765,6 +819,7 @@ function emitSummitPad(
   graph: StructureGraphBuilder,
   summitFloorPatchId: string,
   pad: SummitPadRecord,
+  cell: ResolvedCell | null,
 ): void {
   const facadeIds = emitBandFacades(graph, pad.band, []);
   const buildingPadRegionId = structurePath(pad.topPatchId, "building_pad");
@@ -781,7 +836,11 @@ function emitSummitPad(
       vRange: [0, 1],
       priority: 50,
       tags: ["buildable", "superstructure"],
-    }],
+    }, ...(
+      cell?.record.supportPatchId === pad.topPatchId
+        ? [cellFootprintRegion(pad.topPatchId, pad.band.upper, cell)]
+        : []
+    )],
     anchors: [superstructureAnchor(pad.topPatchId, buildingPadRegionId)],
   }));
 
@@ -802,6 +861,19 @@ function emitSummitPad(
   }
 }
 
+function cellFootprintRegion(
+  patchId: string,
+  surface: Rect,
+  cell: ResolvedCell,
+): PatchRegion {
+  return {
+    id: structurePath(patchId, "cell_footprint"),
+    ...normalizedBounds(surface, cell.record.footprint),
+    priority: 150,
+    tags: ["occupied", "no_build", "cell"],
+  };
+}
+
 function summitRecord(
   mass: MassSpec,
   summitRect: Rect,
@@ -810,9 +882,12 @@ function summitRecord(
   plan: SummitPlan,
   pad: SummitPadRecord | null,
 ): SummitRecord {
-  const placementPatchId = pad?.topPatchId ?? summitFloorPatchId;
-  const placementY = pad?.band.topY ?? summitY;
-  const anchorId = structurePath(placementPatchId, "anchor_superstructure");
+  const placement = summitPlacement(
+    summitY,
+    summitFloorPatchId,
+    plan,
+    pad,
+  );
 
   return {
     y: summitY,
@@ -821,15 +896,28 @@ function summitRecord(
     buildingPad: plan.buildingPad,
     treatment: mass.summitTreatment,
     patchId: summitFloorPatchId,
-    placement: plan.buildingPad
-      ? {
-        rect: plan.buildingPad,
-        patchId: placementPatchId,
-        y: placementY,
-        anchorId,
-      }
-      : null,
+    placement,
     pad,
+  };
+}
+
+function summitPlacement(
+  summitY: number,
+  summitFloorPatchId: string,
+  plan: SummitPlan,
+  pad: SummitPadRecord | null,
+) {
+  if (!plan.buildingPad) {
+    return null;
+  }
+
+  const patchId = pad?.topPatchId ?? summitFloorPatchId;
+
+  return {
+    rect: plan.buildingPad,
+    patchId,
+    y: pad?.band.topY ?? summitY,
+    anchorId: structurePath(patchId, "anchor_superstructure"),
   };
 }
 

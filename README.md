@@ -113,6 +113,16 @@ height, marks the footprint below as occupied, and moves the placement patch and
 anchor to the pad top. The summit surface beneath the pad is omitted rather than
 left as hidden supporting geometry.
 
+An optional **summit building** consumes that placement anchor as a centred
+single chamber. Width and depth are ratios of the remaining building pad; wall
+height, wall thickness, and the centred front portal are real dimensions. The
+graph records the room, its support and floor, exterior and interior wall
+patches, roof-bearing wall crowns, and the portal connection. The portal is
+constructed as two piers and a three-part header with explicit jamb and soffit
+patches—not as a boolean or a facade drawn over a solid wall. The existing
+summit surface becomes the room floor, and its wall footprint is not emitted as
+hidden supporting geometry in the bare tessellation.
+
 Every stair supports open sides, stepped parapets, and **flat parapets**. Both
 parapet styles accept the same configurable cornice projection and height. On a
 stepped parapet the cornice repeats as one horizontal cap per tread; on a flat

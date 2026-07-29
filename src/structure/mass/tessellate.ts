@@ -3,6 +3,7 @@ import { IDENTITY_MATRIX, type GeometryPart } from "../../geometry/part";
 import { SolidBuilder, type Vertex3 } from "../../geometry/solid-builder";
 import { rectCorners, rectIsValid, type Rect } from "../kernel/frame";
 import type {
+  CellRecord,
   ElevationBandRecord,
   StairConnectorRecord,
   StructureGraph,
@@ -16,6 +17,11 @@ import {
   type StairStep,
 } from "../connector/stair";
 import { buildMassShell } from "./shell";
+import {
+  addBareCellFloorSurface,
+  buildCell,
+  faceIsCoveredByCellWall,
+} from "../cell/build";
 
 /**
  * Turns a resolved structure graph into render geometry.
@@ -69,7 +75,18 @@ export function tessellateStructure(
       continue;
     }
 
-    layBareMass(builder, bands);
+    const cell = graph.cells.find(
+      (candidate) =>
+        candidate.supportPatchId === mass.summit.placement?.patchId,
+    ) ?? null;
+    layBareMass(builder, bands, cell);
+  }
+
+  // The cell walls own their contact area on the supporting summit surface.
+  // Cull before the cells themselves are emitted so no wall or floor face can
+  // select itself.
+  for (const cell of graph.cells) {
+    builder.cullFaces((face) => faceIsCoveredByCellWall(face, cell));
   }
 
   // A stair is resolved before tessellation, so its complete stepped envelope
@@ -80,6 +97,10 @@ export function tessellateStructure(
   for (const connector of graph.connectors) {
     const steps = stairSteps(connector);
     builder.cullFaces((face) => faceIsCoveredByStair(face, connector, steps));
+  }
+
+  for (const cell of graph.cells) {
+    buildCell(builder, cell, masonry, seed);
   }
 
   // Connectors are read from the same graph and drawn with the same one
@@ -213,6 +234,7 @@ export function faceIsCoveredByStair(
 function layBareMass(
   builder: SolidBuilder,
   bands: readonly ElevationBandRecord[],
+  cell: CellRecord | null,
 ): void {
   for (let index = 0; index < bands.length; index += 1) {
     const band = bands[index];
@@ -260,6 +282,9 @@ function layBareMass(
       }
 
       const isCrown = part === stack.length - 1;
+      const supportsCell = isCrown
+        && cell !== null
+        && Math.abs(cell.bottomY - piece.topY) <= EPS;
 
       builder.addBlock(
         {
@@ -283,13 +308,15 @@ function layBareMass(
           // If another band stands here, its footprint owns that part of the
           // crown. The exposed remainder is emitted as four simple rectangles
           // below instead of hiding a full summit quad beneath the child.
-          top: isCrown && under === null,
+          top: isCrown && under === null && !supportsCell,
           bottom: cornice !== null && part === 1,
         },
       );
 
       if (isCrown && under) {
         addHorizontalRing(builder, piece.upper, under, piece.topY);
+      } else if (supportsCell) {
+        addBareCellFloorSurface(builder, piece.upper, cell, piece.topY);
       }
     }
   }
@@ -459,6 +486,30 @@ export function graphExtents(graph: StructureGraph): {
           x: Math.max(max.x, corner.x),
           y: Math.max(max.y, corner.y),
           z: Math.max(max.z, corner.z),
+        };
+    }
+  }
+
+  for (const cell of graph.cells) {
+    const outlines = [
+      [cell.footprint, cell.bottomY],
+      [cell.footprint, cell.topY],
+    ] as const;
+
+    for (const [rect, y] of outlines) {
+      min = min === null
+        ? { x: rect.minX, y, z: rect.minZ }
+        : {
+          x: Math.min(min.x, rect.minX),
+          y: Math.min(min.y, y),
+          z: Math.min(min.z, rect.minZ),
+        };
+      max = max === null
+        ? { x: rect.maxX, y, z: rect.maxZ }
+        : {
+          x: Math.max(max.x, rect.maxX),
+          y: Math.max(max.y, y),
+          z: Math.max(max.z, rect.maxZ),
         };
     }
   }

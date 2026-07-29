@@ -31,6 +31,14 @@ export const PATCH_ROLES = {
   summitPad: "summit_pad",
   /** One of the four exposed vertical faces of a raised summit pad. */
   summitPadSide: "summit_pad_side",
+  /** The existing summit surface used as the interior floor of a cell. */
+  cellFloor: "cell_floor",
+  /** Public face of an enclosed cell wall. */
+  cellWallExterior: "cell_wall_exterior",
+  /** Room-facing surface of an enclosed cell wall. */
+  cellWallInterior: "cell_wall_interior",
+  /** Portal jamb or soffit spanning the wall thickness. */
+  cellOpeningReveal: "cell_opening_reveal",
   /**
    * One whole flight as a single stepped surface, not a patch per tread. The
    * spec's `stair_tread`/`stair_riser` roles are the granularity the feature

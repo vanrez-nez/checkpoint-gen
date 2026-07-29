@@ -8,18 +8,15 @@ import type { Diagnostic } from "./validate";
  *
  * This is the artefact every later phase reads and no later phase mutates. The
  * schema is authored ahead of the systems that fill it: containers for cells,
- * frames, roofs, attachments and damage exist and serialize as empty arrays, so
- * adding those systems changes what is inside the graph without changing its
- * shape — and the committed fixtures stay readable diffs rather than wholesale
- * rewrites. Connectors were the first container to be filled, by the stair
- * system.
+ * frames, roofs, attachments and damage exist from the start, so adding those
+ * systems fills known positions rather than reshaping the graph. Connectors and
+ * cells are the first containers now populated.
  */
-export const STRUCTURE_SCHEMA_VERSION = "1.1";
+export const STRUCTURE_SCHEMA_VERSION = "1.2";
 
 /**
  * Placeholder element type for a subsystem that has not been implemented yet.
- * Later phases replace it with the real record; the container and its serialized
- * shape do not move.
+ * Later phases replace it with the real record while the container stays put.
  */
 export interface ReservedEntity {
   readonly id: string;
@@ -168,6 +165,48 @@ export interface StairConnectorRecord {
  */
 export type ConnectorRecord = StairConnectorRecord;
 
+export interface CellWallRecord {
+  readonly orientation: HorizontalOrientation;
+  readonly outerPatchId: string;
+  readonly innerPatchId: string;
+}
+
+export interface CellOpeningRecord {
+  readonly id: string;
+  readonly kind: "portal";
+  readonly direction: HorizontalOrientation;
+  readonly width: number;
+  readonly height: number;
+  readonly bottomY: number;
+  readonly topY: number;
+  /** Portal jamb positions in world X for the currently axial front opening. */
+  readonly minX: number;
+  readonly maxX: number;
+  readonly exteriorPatchId: string;
+  readonly interiorPatchId: string;
+  readonly revealPatchIds: readonly string[];
+}
+
+/** One resolved enclosed or partially enclosed spatial unit. */
+export interface CellRecord {
+  readonly id: string;
+  readonly kind: "cell";
+  readonly layout: "single_chamber";
+  readonly occupancy: "room";
+  readonly footprint: Rect;
+  readonly interior: Rect;
+  readonly bottomY: number;
+  readonly topY: number;
+  readonly height: number;
+  readonly wallThickness: number;
+  readonly supportPatchId: string;
+  readonly placementAnchorId: string;
+  readonly floorPatchId: string;
+  readonly walls: readonly CellWallRecord[];
+  readonly openings: readonly CellOpeningRecord[];
+  readonly patchIds: readonly string[];
+}
+
 export interface MassRecord {
   readonly id: string;
   readonly footprint: Rect;
@@ -187,7 +226,7 @@ export interface StructureGraph {
   readonly masses: readonly MassRecord[];
   readonly patches: readonly Patch[];
   readonly connectors: readonly ConnectorRecord[];
-  readonly cells: readonly ReservedEntity[];
+  readonly cells: readonly CellRecord[];
   readonly frames: readonly ReservedEntity[];
   readonly roofs: readonly ReservedEntity[];
   readonly attachments: readonly ReservedEntity[];
@@ -208,6 +247,7 @@ export class StructureGraphBuilder {
   private readonly adjacency = new Map<string, Set<string>>();
   private readonly masses: MassRecord[] = [];
   private readonly connectors: ConnectorRecord[] = [];
+  private readonly cells: CellRecord[] = [];
 
   constructor(
     private readonly id: string,
@@ -242,6 +282,10 @@ export class StructureGraphBuilder {
     this.connectors.push(connector);
   }
 
+  addCell(cell: CellRecord): void {
+    this.cells.push(cell);
+  }
+
   has(patchId: string): boolean {
     return this.patches.has(patchId);
   }
@@ -269,7 +313,7 @@ export class StructureGraphBuilder {
       masses: this.masses,
       patches,
       connectors: this.connectors,
-      cells: [],
+      cells: this.cells,
       frames: [],
       roofs: [],
       attachments: [],

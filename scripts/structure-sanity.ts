@@ -65,6 +65,7 @@ import {
   type HorizontalOrientation,
 } from "../src/structure/kernel/frame";
 import { buildStair } from "../src/structure/connector/build";
+import { buildCell } from "../src/structure/cell/build";
 import {
   stairLocalVertex,
   stairSteps,
@@ -135,6 +136,13 @@ assert.deepEqual(
     summitMargin: DEFAULT_MASS_LAYOUT.summitMargin,
     forecourtDepth: DEFAULT_MASS_LAYOUT.forecourtDepth,
     summitPadHeight: DEFAULT_MASS_LAYOUT.summitPadHeight,
+    summitBuildingEnabled: DEFAULT_MASS_LAYOUT.summitBuildingEnabled,
+    summitBuildingWidthRatio: DEFAULT_MASS_LAYOUT.summitBuildingWidthRatio,
+    summitBuildingDepthRatio: DEFAULT_MASS_LAYOUT.summitBuildingDepthRatio,
+    summitBuildingHeight: DEFAULT_MASS_LAYOUT.summitBuildingHeight,
+    summitBuildingWallThickness: DEFAULT_MASS_LAYOUT.summitBuildingWallThickness,
+    summitBuildingPortalWidth: DEFAULT_MASS_LAYOUT.summitBuildingPortalWidth,
+    summitBuildingPortalHeight: DEFAULT_MASS_LAYOUT.summitBuildingPortalHeight,
   },
   {
     seed: 741,
@@ -172,6 +180,13 @@ assert.deepEqual(
     summitMargin: 1.2,
     forecourtDepth: 3,
     summitPadHeight: 0.35,
+    summitBuildingEnabled: false,
+    summitBuildingWidthRatio: 0.8,
+    summitBuildingDepthRatio: 0.75,
+    summitBuildingHeight: 4,
+    summitBuildingWallThickness: 0.5,
+    summitBuildingPortalWidth: 2,
+    summitBuildingPortalHeight: 2.6,
   },
   "The Mass controls must open with the approved defaults.",
 );
@@ -1730,6 +1745,189 @@ for (const masonry of [null, squareRaisedPadRule] as const) {
     assert.ok(Math.abs(bounds.max[axis] - expected.max[axis]) < tolerance);
   }
 }
+
+// --- first summit cell assembly -------------------------------------------
+// One centred chamber consumes the authoritative placement anchor. Its front
+// portal is a topological cut in both wall patches and a real void in the block
+// geometry, not a dark rectangle placed over a solid wall.
+const summitCellLayout: MassLayoutConfig = {
+  ...cloneFrontStairLayout(),
+  summitBuildingEnabled: true,
+};
+const summitCellGraph = generateStructure(toStructureSpec(summitCellLayout));
+assert.deepEqual(
+  summitCellGraph.diagnostics.filter((entry) => entry.severity === "error"),
+  [],
+);
+assertGraphInvariants(summitCellGraph, "single summit chamber");
+assert.equal(summitCellGraph.cells.length, 1);
+const summitCell = summitCellGraph.cells[0]!;
+const summitCellMass = summitCellGraph.masses[0]!;
+const summitCellPlacement = summitCellMass.summit.placement!;
+assert.equal(summitCell.supportPatchId, summitCellPlacement.patchId);
+assert.equal(summitCell.placementAnchorId, summitCellPlacement.anchorId);
+assert.ok(Math.abs(
+  rectWidth(summitCell.footprint)
+    - rectWidth(summitCellPlacement.rect) * summitCellLayout.summitBuildingWidthRatio,
+) < 1e-9);
+assert.ok(Math.abs(
+  rectDepth(summitCell.footprint)
+    - rectDepth(summitCellPlacement.rect) * summitCellLayout.summitBuildingDepthRatio,
+) < 1e-9);
+assert.ok(Math.abs(
+  (summitCell.footprint.minX + summitCell.footprint.maxX) * 0.5
+    - (summitCellPlacement.rect.minX + summitCellPlacement.rect.maxX) * 0.5,
+) < 1e-9);
+assert.ok(Math.abs(
+  (summitCell.footprint.minZ + summitCell.footprint.maxZ) * 0.5
+    - (summitCellPlacement.rect.minZ + summitCellPlacement.rect.maxZ) * 0.5,
+) < 1e-9);
+
+const summitCellSupport = summitCellGraph.patches.find(
+  (patch) => patch.id === summitCell.supportPatchId,
+)!;
+assert.ok(
+  summitCellSupport.regions.some(
+    (region) =>
+      region.id.endsWith("/cell_footprint")
+      && region.tags.includes("occupied")
+      && region.tags.includes("no_build"),
+  ),
+);
+const cellFrontExterior = summitCellGraph.patches.find(
+  (patch) => patch.id.endsWith("/wall_front_exterior"),
+)!;
+const cellFrontInterior = summitCellGraph.patches.find(
+  (patch) => patch.id.endsWith("/wall_front_interior"),
+)!;
+for (const wall of [cellFrontExterior, cellFrontInterior]) {
+  const portal = wall.regions.find((region) => region.tags.includes("portal"));
+  assert.ok(portal);
+  assert.deepEqual(wall.features, [{
+    id: `${wall.id}/cut_portal`,
+    operation: "cut",
+    regionId: portal.id,
+    order: 0,
+  }]);
+}
+assert.equal(
+  summitCellGraph.patches.filter(
+    (patch) => patch.role === PATCH_ROLES.cellOpeningReveal,
+  ).length,
+  3,
+);
+
+const raisedCellGraph = generateStructure(toStructureSpec({
+  ...summitCellLayout,
+  summitTreatment: "raised_pad",
+  summitPadHeight: 0.6,
+}));
+assertGraphInvariants(raisedCellGraph, "raised-pad summit chamber");
+assert.equal(
+  raisedCellGraph.cells[0]?.bottomY,
+  raisedCellGraph.masses[0]?.summit.pad?.band.topY,
+);
+assert.equal(
+  raisedCellGraph.cells[0]?.supportPatchId,
+  raisedCellGraph.masses[0]?.summit.pad?.topPatchId,
+);
+
+const isolatedCellLayout: MassLayoutConfig = {
+  ...summitCellLayout,
+  ...STAIRS_DISABLED,
+};
+const isolatedCellGraph = generateStructure(toStructureSpec(isolatedCellLayout));
+assertGraphInvariants(isolatedCellGraph, "isolated summit chamber");
+const isolatedCell = isolatedCellGraph.cells[0]!;
+const squareCellRule = toMasonry(
+  isolatedCellLayout,
+  { ...DEFAULT_MASS_STONE_CONFIG, displacement: 0 },
+);
+assert.ok(squareCellRule);
+
+for (const masonry of [null, squareCellRule] as const) {
+  const cellBuilder = new SolidBuilder();
+  buildCell(cellBuilder, isolatedCell, masonry, 71);
+  const cellGeometry = finalizeGeometry(cellBuilder).geometry;
+  assert.equal(
+    findCoincidentFaces(cellGeometry).pairs,
+    0,
+    `Cell ${masonry ? "masonry" : "bare"} geometry emitted coincident faces.`,
+  );
+  assert.equal(
+    findBuriedFaces(cellGeometry).faces,
+    0,
+    `Cell ${masonry ? "masonry" : "bare"} geometry emitted buried faces.`,
+  );
+  assert.equal(
+    findBackfaces(cellGeometry).backfaces,
+    0,
+    `Cell ${masonry ? "masonry" : "bare"} geometry left visible backfaces.`,
+  );
+
+  const opening = isolatedCell.openings[0]!;
+  const portalBlocked = readBlockFaces(cellBuilder).some((face) => {
+    const normal = faceNormal(face);
+    const center = face.reduce(
+      (sum, point) => ({
+        x: sum.x + point.x / face.length,
+        y: sum.y + point.y / face.length,
+        z: sum.z + point.z / face.length,
+      }),
+      { x: 0, y: 0, z: 0 },
+    );
+
+    return normal.z > 0.99
+      && Math.abs(center.z - isolatedCell.footprint.maxZ) < 1e-6
+      && center.x > opening.minX + 1e-6
+      && center.x < opening.maxX - 1e-6
+      && center.y > opening.bottomY + 1e-6
+      && center.y < opening.topY - 1e-6;
+  });
+  assert.equal(
+    portalBlocked,
+    false,
+    `Cell ${masonry ? "masonry" : "bare"} geometry filled its portal.`,
+  );
+
+  const assemblyGeometry = tessellateStructure(isolatedCellGraph, {
+    masonry,
+    seed: 71,
+    stairTilesPerStep: isolatedCellLayout.stairTilesPerStep,
+  }).parts[0]!.geometry;
+  assert.equal(
+    findCoincidentFaces(assemblyGeometry).pairs,
+    0,
+    `Cell assembly ${masonry ? "masonry" : "bare"} geometry emitted coincident faces.`,
+  );
+  assert.equal(
+    findBackfaces(assemblyGeometry).backfaces,
+    0,
+    `Cell assembly ${masonry ? "masonry" : "bare"} geometry left visible backfaces.`,
+  );
+  assemblyGeometry.computeBoundingBox();
+  const bounds = assemblyGeometry.boundingBox!;
+  const expected = graphExtents(isolatedCellGraph)!;
+  for (const axis of ["x", "y", "z"] as const) {
+    const tolerance = Math.max(1e-5, Math.abs(expected.max[axis]) * 1e-6);
+    assert.ok(Math.abs(bounds.min[axis] - expected.min[axis]) < tolerance);
+    assert.ok(Math.abs(bounds.max[axis] - expected.max[axis]) < tolerance);
+  }
+}
+
+const cellWithOversizedPortal = generateStructure(toStructureSpec({
+  ...isolatedCellLayout,
+  summitBuildingPortalWidth: 100,
+}));
+assert.equal(
+  cellWithOversizedPortal.diagnostics.find(
+    (diagnostic) => diagnostic.severity === "error",
+  )?.code,
+  "cell.portal_too_wide",
+);
+assert.deepEqual(cellWithOversizedPortal.masses, []);
+assert.deepEqual(cellWithOversizedPortal.patches, []);
+assert.deepEqual(cellWithOversizedPortal.cells, []);
 
 const padWithoutRoom = generateStructure(toStructureSpec({
   ...cloneFrontStairLayout(),
@@ -3726,9 +3924,21 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
       );
     }
 
-    // Features remain reserved. Anchors are now filled by summit allocation and
-    // must address a real region on their own patch.
-    assert.deepEqual(patch.features, []);
+    // Features address a real region on their patch. Cell portals are the first
+    // operation to fill this formerly reserved container.
+    for (const feature of patch.features) {
+      assert.ok(isValidId(feature.id), `${label}: feature ${feature.id} is invalid.`);
+      assert.ok(feature.operation, `${label}: feature ${feature.id} has no operation.`);
+      if (feature.regionId) {
+        assert.ok(
+          patch.regions.some((region) => region.id === feature.regionId),
+          `${label}: feature ${feature.id} names missing region ${feature.regionId}.`,
+        );
+      }
+    }
+
+    // Anchors are filled by summit allocation and must address a real region on
+    // their own patch.
     assert.equal(
       new Set(patch.anchors.map((anchor) => anchor.id)).size,
       patch.anchors.length,
@@ -3753,9 +3963,8 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
   }
 
   // Reserved containers stay empty until the phases that fill them arrive;
-  // connectors are filled by the stair system and validated below.
+  // connectors and cells are filled and validated below.
   for (const reserved of [
-    graph.cells,
     graph.frames,
     graph.roofs,
     graph.attachments,
@@ -3814,6 +4023,63 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
       `${label}: connector flight rect disagrees with its width.`,
     );
     assert.ok(connector.riser > 0 && connector.tread > 0, `${label}: degenerate step.`);
+  }
+
+  for (const cell of graph.cells) {
+    assert.ok(isValidId(cell.id), `${label}: cell id "${cell.id}" is invalid.`);
+    assert.equal(cell.kind, "cell");
+    assert.equal(cell.layout, "single_chamber");
+    assert.equal(cell.occupancy, "room");
+    assert.ok(cell.topY > cell.bottomY);
+    assert.ok(Math.abs(cell.topY - cell.bottomY - cell.height) < 1e-9);
+    assert.ok(cell.wallThickness > 0);
+    assert.ok(
+      cell.interior.minX > cell.footprint.minX
+      && cell.interior.maxX < cell.footprint.maxX
+      && cell.interior.minZ > cell.footprint.minZ
+      && cell.interior.maxZ < cell.footprint.maxZ,
+      `${label}: cell interior does not sit inside its wall footprint.`,
+    );
+
+    const support = byId.get(cell.supportPatchId);
+    assert.ok(support, `${label}: cell names missing support ${cell.supportPatchId}.`);
+    assert.ok(
+      support.tags.includes("traversable"),
+      `${label}: cell support ${cell.supportPatchId} is not traversable.`,
+    );
+    assert.ok(
+      support.anchors.some((anchor) => anchor.id === cell.placementAnchorId),
+      `${label}: cell names missing placement anchor ${cell.placementAnchorId}.`,
+    );
+    assert.equal(byId.get(cell.floorPatchId)?.role, PATCH_ROLES.cellFloor);
+
+    assert.equal(cell.walls.length, 4);
+    assert.equal(new Set(cell.walls.map((wall) => wall.orientation)).size, 4);
+    for (const wall of cell.walls) {
+      const exterior = byId.get(wall.outerPatchId);
+      const interior = byId.get(wall.innerPatchId);
+      assert.equal(exterior?.role, PATCH_ROLES.cellWallExterior);
+      assert.equal(interior?.role, PATCH_ROLES.cellWallInterior);
+      assert.equal(exterior?.edges.vMax.treatment, "roof_bearing");
+      assert.equal(interior?.edges.vMax.treatment, "roof_bearing");
+    }
+
+    assert.equal(cell.openings.length, 1);
+    for (const opening of cell.openings) {
+      assert.equal(opening.kind, "portal");
+      assert.equal(opening.direction, "front");
+      assert.ok(opening.width > 0 && opening.height > 0);
+      assert.ok(opening.topY < cell.topY);
+      assert.equal(byId.get(opening.exteriorPatchId)?.tags.includes("traversable"), true);
+      assert.equal(byId.get(opening.interiorPatchId)?.role, PATCH_ROLES.cellFloor);
+      for (const patchId of opening.revealPatchIds) {
+        assert.equal(byId.get(patchId)?.role, PATCH_ROLES.cellOpeningReveal);
+      }
+    }
+
+    for (const patchId of cell.patchIds) {
+      assert.ok(byId.has(patchId), `${label}: cell names missing patch ${patchId}.`);
+    }
   }
 
   for (const diagnostic of graph.diagnostics) {
