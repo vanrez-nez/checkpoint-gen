@@ -27,6 +27,10 @@ export const PATCH_ROLES = {
   terrace: "terrace",
   transitionBand: "transition_band",
   summitFloor: "summit_floor",
+  /** The walkable crown of a raised summit pad. */
+  summitPad: "summit_pad",
+  /** One of the four exposed vertical faces of a raised summit pad. */
+  summitPadSide: "summit_pad_side",
   /**
    * One whole flight as a single stepped surface, not a patch per tread. The
    * spec's `stair_tread`/`stair_riser` roles are the granularity the feature
@@ -83,13 +87,17 @@ export interface PatchFeature {
   readonly order: number;
 }
 
-/** A placement point a child entity can attach to. Reserved, as above. */
+/** A placement point a child entity can attach to. */
 export interface PatchAnchor {
   readonly id: string;
   readonly kind: string;
   readonly u: number;
   readonly v: number;
   readonly d: number;
+  /** The patch region whose placement constraints this anchor represents. */
+  readonly regionId?: string;
+  /** The default facing for an attached child. */
+  readonly orientation?: Orientation;
 }
 
 export interface Patch {

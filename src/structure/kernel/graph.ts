@@ -14,7 +14,7 @@ import type { Diagnostic } from "./validate";
  * rewrites. Connectors were the first container to be filled, by the stair
  * system.
  */
-export const STRUCTURE_SCHEMA_VERSION = "1.0";
+export const STRUCTURE_SCHEMA_VERSION = "1.1";
 
 /**
  * Placeholder element type for a subsystem that has not been implemented yet.
@@ -74,13 +74,38 @@ export interface ElevationBandRecord {
   readonly cornice: CorniceRecord | null;
 }
 
+export interface SummitPlacementRecord {
+  /** World-space rectangle available to the child assembly. */
+  readonly rect: Rect;
+  /** Horizontal patch the child stands on. */
+  readonly patchId: string;
+  /** Elevation of that placement surface. */
+  readonly y: number;
+  /** Anchor on `patchId` representing the centre of `rect`. */
+  readonly anchorId: string;
+}
+
+export interface SummitPadRecord {
+  readonly id: string;
+  readonly kind: "raised_pad";
+  readonly band: ElevationBandRecord;
+  readonly topPatchId: string;
+  readonly patchIds: readonly string[];
+}
+
 export interface SummitRecord {
   readonly y: number;
   readonly rect: Rect;
   /** `rect` minus the no-build margin: where superstructures may be placed. */
-  readonly buildable: Rect;
+  readonly buildable: Rect | null;
+  /** Buildable area after stair forecourts have been removed. */
+  readonly buildingPad: Rect | null;
   readonly treatment: string;
   readonly patchId: string;
+  /** Authoritative child-placement surface, or null when no pad fits. */
+  readonly placement: SummitPlacementRecord | null;
+  /** Raised geometry occupying the building pad, when requested. */
+  readonly pad: SummitPadRecord | null;
 }
 
 /**

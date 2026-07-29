@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "id": "structure",
   "units": "meters",
   "seeds": {
@@ -97,8 +97,26 @@
           "minZ": -7.547026,
           "maxZ": 7.547026
         },
+        "buildingPad": {
+          "minX": -10.547026,
+          "maxX": 10.547026,
+          "minZ": -7.547026,
+          "maxZ": 4.547026
+        },
         "treatment": "open_floor",
-        "patchId": "structure/mass_main/band_01/summit_floor"
+        "patchId": "structure/mass_main/band_01/summit_floor",
+        "placement": {
+          "rect": {
+            "minX": -10.547026,
+            "maxX": 10.547026,
+            "minZ": -7.547026,
+            "maxZ": 4.547026
+          },
+          "patchId": "structure/mass_main/band_01/summit_floor",
+          "y": 2.15,
+          "anchorId": "structure/mass_main/band_01/summit_floor/anchor_superstructure"
+        },
+        "pad": null
       },
       "totalHeight": 2.15,
       "patchIds": [
@@ -976,7 +994,17 @@
         }
       ],
       "features": [],
-      "anchors": [],
+      "anchors": [
+        {
+          "id": "structure/mass_main/band_01/summit_floor/anchor_superstructure",
+          "kind": "superstructure",
+          "u": 0.5,
+          "v": 0.5,
+          "d": 0,
+          "regionId": "structure/mass_main/band_01/summit_floor/building_pad",
+          "orientation": "front"
+        }
+      ],
       "tags": [
         "traversable",
         "exterior",

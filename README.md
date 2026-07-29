@@ -104,6 +104,15 @@ tiling, parapet, and cornice settings. Each one reserves its own facade strip
 and a forecourt on its side of the summit; selecting none leaves the full
 buildable summit available.
 
+The summit allocation is authoritative in the graph: it records the no-build
+inset, removes every enabled stair forecourt, and exposes the remaining
+`building_pad` as a world-space rectangle plus a centred `superstructure`
+anchor. An **open floor** places that anchor directly on the summit. A
+configurable **raised pad** instead extrudes that same rectangle by its pad
+height, marks the footprint below as occupied, and moves the placement patch and
+anchor to the pad top. The summit surface beneath the pad is omitted rather than
+left as hidden supporting geometry.
+
 Every stair supports open sides, stepped parapets, and **flat parapets**. Both
 parapet styles accept the same configurable cornice projection and height. On a
 stepped parapet the cornice repeats as one horizontal cap per tread; on a flat

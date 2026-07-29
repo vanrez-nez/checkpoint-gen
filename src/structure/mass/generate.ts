@@ -18,6 +18,7 @@ import {
   type MassRecord,
   type SiteRecord,
   type StructureGraph,
+  type SummitPadRecord,
   type SummitRecord,
 } from "../kernel/graph";
 import type { ShapingCurve } from "../kernel/curve";
@@ -27,6 +28,7 @@ import {
   type Patch,
   type PatchEdges,
   type PatchEvaluator,
+  type PatchAnchor,
   type PatchRegion,
   type PatchRole,
 } from "../kernel/patch";
@@ -88,6 +90,8 @@ export interface MassSpec {
   readonly summitMargin: number;
   /** Depth of the front strip on the summit reserved for stair arrival. */
   readonly forecourtDepth: number;
+  /** Rise of a `raised_pad` above the summit floor. */
+  readonly summitPadHeight: number;
 }
 
 export interface StructureSpec {
@@ -105,6 +109,22 @@ const FACADE_SEGMENT: Readonly<Record<HorizontalOrientation, string>> = {
   sidePositiveU: "facade_side_positive_u",
   sideNegativeU: "facade_side_negative_u",
 };
+
+interface SummitForecourt {
+  readonly direction: HorizontalOrientation;
+  readonly rect: Rect;
+}
+
+/**
+ * One resolved allocation shared by graph records, patch regions and summit
+ * geometry. Keeping this in world units prevents each reader from independently
+ * re-applying margins and disagreeing about where a child may stand.
+ */
+interface SummitPlan {
+  readonly buildable: Rect | null;
+  readonly forecourts: readonly SummitForecourt[];
+  readonly buildingPad: Rect | null;
+}
 
 /**
  * Builds the structure graph.
@@ -241,6 +261,23 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     stairs.push(stair);
   }
 
+  const summitPlan = resolveSummitPlan(
+    spec.mass,
+    elevation.summitRect,
+    stairs.map((stair) => stair.record.direction),
+  );
+  const summitPad = resolveSummitPad(
+    spec.mass,
+    massId,
+    elevation.summitY,
+    summitPlan,
+    diagnostics,
+  );
+
+  if (spec.mass.summitTreatment === "raised_pad" && !summitPad) {
+    return graph.build(diagnostics.all);
+  }
+
   graph.addPatch(horizontalPatch({
     id: groundPatchId,
     role: PATCH_ROLES.groundInterface,
@@ -279,7 +316,14 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
 
     const topPatchId = next
       ? emitTerrace(graph, band, next.lower)
-      : emitSummit(graph, spec.mass, band, elevation.summitRect, stairs);
+      : emitSummit(
+        graph,
+        spec.mass,
+        band,
+        elevation.summitRect,
+        summitPlan,
+        summitPad,
+      );
 
     for (const facadeId of facadeIds) {
       graph.link(facadeId, topPatchId);
@@ -288,7 +332,18 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     previousTopPatchId = topPatchId;
   }
 
-  const summit = summitRecord(spec.mass, elevation.summitRect, elevation.summitY, massId);
+  const summit = summitRecord(
+    spec.mass,
+    elevation.summitRect,
+    elevation.summitY,
+    structurePath(
+      massId,
+      ordinalSegment("band", spec.mass.bandCount - 1),
+      "summit_floor",
+    ),
+    summitPlan,
+    summitPad,
+  );
 
   graph.addMass({
     id: massId,
@@ -297,7 +352,10 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     bands,
     summit,
     totalHeight: elevation.summitY - spec.groundY,
-    patchIds: bands.flatMap((band) => bandPatchIds(band)),
+    patchIds: [
+      ...bands.flatMap((band) => bandPatchIds(band)),
+      ...(summitPad?.patchIds ?? []),
+    ],
   } satisfies MassRecord);
 
   // The stair's own surfaces, once both ends it connects exist to be linked to.
@@ -495,9 +553,14 @@ function emitSummit(
   mass: MassSpec,
   band: ElevationBandRecord,
   summitRect: Rect,
-  stairs: readonly ResolvedStair[],
+  plan: SummitPlan,
+  pad: SummitPadRecord | null,
 ): string {
   const id = structurePath(band.id, "summit_floor");
+  const buildingPadRegionId = structurePath(id, "building_pad");
+  const anchors = mass.summitTreatment === "open_floor" && plan.buildingPad
+    ? [superstructureAnchor(id, buildingPadRegionId)]
+    : [];
 
   graph.addPatch(horizontalPatch({
     id,
@@ -505,13 +568,13 @@ function emitSummit(
     rect: summitRect,
     y: band.topY,
     tags: ["traversable", "exterior", "buildable"],
-    regions: summitRegions(
-      id,
-      mass,
-      summitRect,
-      stairs.map((stair) => stair.record.direction),
-    ),
+    regions: summitRegions(id, mass.summitTreatment, summitRect, plan),
+    anchors,
   }));
+
+  if (pad) {
+    emitSummitPad(graph, id, pad);
+  }
 
   return id;
 }
@@ -523,25 +586,17 @@ function emitSummit(
  */
 function summitRegions(
   patchId: string,
-  mass: MassSpec,
+  treatment: SummitTreatment,
   summitRect: Rect,
-  stairDirections: readonly HorizontalOrientation[],
+  plan: SummitPlan,
 ): PatchRegion[] {
-  const buildable = insetRect(summitRect, uniformSetbacks(mass.summitMargin));
-
-  if (!rectIsValid(buildable)) {
+  if (!plan.buildable) {
     return [];
   }
 
-  const buildableBounds = normalizedBounds(summitRect, buildable);
-  const width = rectWidth(summitRect);
-  const depth = rectDepth(summitRect);
-  const forecourtX = Math.min(mass.forecourtDepth, rectWidth(buildable));
-  const forecourtZ = Math.min(mass.forecourtDepth, rectDepth(buildable));
-  const directions = new Set(stairDirections);
   const regions: PatchRegion[] = [{
     id: structurePath(patchId, "buildable"),
-    ...buildableBounds,
+    ...normalizedBounds(summitRect, plan.buildable),
     priority: 10,
     tags: ["buildable"],
   }];
@@ -552,58 +607,89 @@ function summitRegions(
     sideNegativeU: "forecourt_side_negative_u",
   };
 
+  for (const forecourt of plan.forecourts) {
+    regions.push({
+      id: structurePath(patchId, forecourtIds[forecourt.direction]),
+      ...normalizedBounds(summitRect, forecourt.rect),
+      priority: 100,
+      tags: ["circulation", "stair_arrival", "no_build"],
+    });
+  }
+
+  if (plan.buildingPad) {
+    const raised = treatment === "raised_pad";
+    regions.push({
+      id: structurePath(patchId, raised ? "raised_pad_footprint" : "building_pad"),
+      ...normalizedBounds(summitRect, plan.buildingPad),
+      priority: raised ? 100 : 50,
+      tags: raised
+        ? ["occupied", "no_build", "summit_pad"]
+        : ["buildable", "superstructure"],
+    });
+  }
+
+  return regions;
+}
+
+function resolveSummitPlan(
+  mass: MassSpec,
+  summitRect: Rect,
+  stairDirections: readonly HorizontalOrientation[],
+): SummitPlan {
+  const buildable = insetRect(summitRect, uniformSetbacks(mass.summitMargin));
+
+  if (!rectIsValid(buildable)) {
+    return { buildable: null, forecourts: [], buildingPad: null };
+  }
+
+  const forecourtX = Math.min(mass.forecourtDepth, rectWidth(buildable));
+  const forecourtZ = Math.min(mass.forecourtDepth, rectDepth(buildable));
+  const directions = new Set(stairDirections);
+  const forecourts: SummitForecourt[] = [];
+
   for (const direction of HORIZONTAL_ORIENTATIONS) {
     if (!directions.has(direction)) {
       continue;
     }
 
-    let bounds: Pick<PatchRegion, "uRange" | "vRange">;
-
     switch (direction) {
       case "front":
-        bounds = {
-          uRange: buildableBounds.uRange,
-          vRange: [
-            buildableBounds.vRange[1] - forecourtZ / depth,
-            buildableBounds.vRange[1],
-          ],
-        };
+        forecourts.push({
+          direction,
+          rect: {
+            ...buildable,
+            minZ: buildable.maxZ - forecourtZ,
+          },
+        });
         break;
       case "rear":
-        bounds = {
-          uRange: buildableBounds.uRange,
-          vRange: [
-            buildableBounds.vRange[0],
-            buildableBounds.vRange[0] + forecourtZ / depth,
-          ],
-        };
+        forecourts.push({
+          direction,
+          rect: {
+            ...buildable,
+            maxZ: buildable.minZ + forecourtZ,
+          },
+        });
         break;
       case "sidePositiveU":
-        bounds = {
-          uRange: [
-            buildableBounds.uRange[1] - forecourtX / width,
-            buildableBounds.uRange[1],
-          ],
-          vRange: buildableBounds.vRange,
-        };
+        forecourts.push({
+          direction,
+          rect: {
+            ...buildable,
+            minX: buildable.maxX - forecourtX,
+          },
+        });
         break;
       case "sideNegativeU":
-        bounds = {
-          uRange: [
-            buildableBounds.uRange[0],
-            buildableBounds.uRange[0] + forecourtX / width,
-          ],
-          vRange: buildableBounds.vRange,
-        };
+        forecourts.push({
+          direction,
+          rect: {
+            ...buildable,
+            maxX: buildable.minX + forecourtX,
+          },
+        });
         break;
     }
-
-    regions.push({
-      id: structurePath(patchId, forecourtIds[direction]),
-      ...bounds,
-      priority: 100,
-      tags: ["circulation", "stair_arrival", "no_build"],
-    });
   }
 
   const buildingPad = insetRect(buildable, {
@@ -613,36 +699,152 @@ function summitRegions(
     sideNegativeU: directions.has("sideNegativeU") ? forecourtX : 0,
   });
 
-  if (rectIsValid(buildingPad)) {
-    regions.push({
-      id: structurePath(patchId, "building_pad"),
-      ...normalizedBounds(summitRect, buildingPad),
-      priority: 50,
-      tags: ["buildable", "superstructure"],
-    });
+  return {
+    buildable,
+    forecourts,
+    buildingPad: rectIsValid(buildingPad) ? buildingPad : null,
+  };
+}
+
+function resolveSummitPad(
+  mass: MassSpec,
+  massId: string,
+  summitY: number,
+  plan: SummitPlan,
+  diagnostics: DiagnosticCollector,
+): SummitPadRecord | null {
+  if (mass.summitTreatment !== "raised_pad") {
+    return null;
   }
 
-  return regions;
+  if (mass.summitPadHeight <= 0) {
+    diagnostics.error(
+      "summit.pad_invalid_height",
+      massId,
+      "A raised summit pad needs a positive height.",
+    );
+    return null;
+  }
+
+  if (!plan.buildingPad) {
+    diagnostics.error(
+      "summit.pad_does_not_fit",
+      massId,
+      "The summit margins and stair forecourts leave no room for a raised pad.",
+    );
+    return null;
+  }
+
+  const id = structurePath(massId, "summit_pad");
+  const topPatchId = structurePath(id, "top");
+  const band: ElevationBandRecord = {
+    id,
+    index: mass.bandCount,
+    bottomY: summitY,
+    topY: summitY + mass.summitPadHeight,
+    rise: mass.summitPadHeight,
+    lower: plan.buildingPad,
+    upper: plan.buildingPad,
+    wallProfile: "vertical",
+    surfaceRole: PATCH_ROLES.summitPadSide,
+    upperTransition: "none",
+    walkable: true,
+    cornice: null,
+  };
+
+  return {
+    id,
+    kind: "raised_pad",
+    band,
+    topPatchId,
+    patchIds: [...bandPatchIds(band), topPatchId],
+  };
+}
+
+function emitSummitPad(
+  graph: StructureGraphBuilder,
+  summitFloorPatchId: string,
+  pad: SummitPadRecord,
+): void {
+  const facadeIds = emitBandFacades(graph, pad.band, []);
+  const buildingPadRegionId = structurePath(pad.topPatchId, "building_pad");
+
+  graph.addPatch(horizontalPatch({
+    id: pad.topPatchId,
+    role: PATCH_ROLES.summitPad,
+    rect: pad.band.upper,
+    y: pad.band.topY,
+    tags: ["traversable", "exterior", "buildable"],
+    regions: [{
+      id: buildingPadRegionId,
+      uRange: [0, 1],
+      vRange: [0, 1],
+      priority: 50,
+      tags: ["buildable", "superstructure"],
+    }],
+    anchors: [superstructureAnchor(pad.topPatchId, buildingPadRegionId)],
+  }));
+
+  for (let index = 0; index < facadeIds.length; index += 1) {
+    const facadeId = facadeIds[index];
+    const neighbour = facadeIds[(index + 1) % facadeIds.length];
+
+    if (!facadeId) {
+      continue;
+    }
+
+    graph.link(facadeId, summitFloorPatchId);
+    graph.link(facadeId, pad.topPatchId);
+
+    if (neighbour) {
+      graph.link(facadeId, neighbour);
+    }
+  }
 }
 
 function summitRecord(
   mass: MassSpec,
   summitRect: Rect,
   summitY: number,
-  massId: string,
+  summitFloorPatchId: string,
+  plan: SummitPlan,
+  pad: SummitPadRecord | null,
 ): SummitRecord {
-  const buildable = insetRect(summitRect, uniformSetbacks(mass.summitMargin));
+  const placementPatchId = pad?.topPatchId ?? summitFloorPatchId;
+  const placementY = pad?.band.topY ?? summitY;
+  const anchorId = structurePath(placementPatchId, "anchor_superstructure");
 
   return {
     y: summitY,
     rect: summitRect,
-    buildable: rectIsValid(buildable) ? buildable : summitRect,
+    buildable: plan.buildable,
+    buildingPad: plan.buildingPad,
     treatment: mass.summitTreatment,
-    patchId: structurePath(
-      massId,
-      ordinalSegment("band", mass.bandCount - 1),
-      "summit_floor",
-    ),
+    patchId: summitFloorPatchId,
+    placement: plan.buildingPad
+      ? {
+        rect: plan.buildingPad,
+        patchId: placementPatchId,
+        y: placementY,
+        anchorId,
+      }
+      : null,
+    pad,
+  };
+}
+
+function superstructureAnchor(
+  patchId: string,
+  regionId: string,
+): PatchAnchor {
+  return {
+    id: structurePath(patchId, "anchor_superstructure"),
+    kind: "superstructure",
+    u: 0.5,
+    v: 0.5,
+    d: 0,
+    regionId,
+    orientation: "front",
   };
 }
 
@@ -653,6 +855,7 @@ function horizontalPatch(input: {
   readonly y: number;
   readonly tags: readonly string[];
   readonly regions: readonly PatchRegion[];
+  readonly anchors?: readonly PatchAnchor[];
 }): Patch {
   const frame = createHorizontalFrame(input.rect, input.y);
 
@@ -670,7 +873,7 @@ function horizontalPatch(input: {
     adjacency: [],
     regions: input.regions,
     features: [],
-    anchors: [],
+    anchors: input.anchors ?? [],
     tags: input.tags,
   };
 }

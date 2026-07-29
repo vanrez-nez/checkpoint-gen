@@ -131,12 +131,16 @@ assert.deepEqual(
       DEFAULT_MASS_LAYOUT.stairSteppedParapetCorniceHeight,
     stairParapetCorniceProjection: DEFAULT_MASS_LAYOUT.stairParapetCorniceProjection,
     stairParapetCorniceHeight: DEFAULT_MASS_LAYOUT.stairParapetCorniceHeight,
+    summitTreatment: DEFAULT_MASS_LAYOUT.summitTreatment,
+    summitMargin: DEFAULT_MASS_LAYOUT.summitMargin,
+    forecourtDepth: DEFAULT_MASS_LAYOUT.forecourtDepth,
+    summitPadHeight: DEFAULT_MASS_LAYOUT.summitPadHeight,
   },
   {
     seed: 741,
     gap: 0.026,
     sizeVariation: 0.2,
-    displacement: 0.12,
+    displacement: 0.01,
     width: 24,
     depth: 18,
     bands: 3,
@@ -150,9 +154,9 @@ assert.deepEqual(
     stoneDepth: 0.75,
     corners: "butted",
     stairFront: true,
-    stairRear: false,
-    stairLeft: false,
-    stairRight: false,
+    stairRear: true,
+    stairLeft: true,
+    stairRight: true,
     stairWidth: 0.3,
     stairRiser: 0.26,
     stairTread: 0.32,
@@ -164,6 +168,10 @@ assert.deepEqual(
     steppedParapetCorniceHeight: 0,
     stairParapetCorniceProjection: 0.2,
     stairParapetCorniceHeight: 0.25,
+    summitTreatment: "open_floor",
+    summitMargin: 1.2,
+    forecourtDepth: 3,
+    summitPadHeight: 0.35,
   },
   "The Mass controls must open with the approved defaults.",
 );
@@ -174,6 +182,17 @@ const STAIRS_DISABLED = {
   stairLeftEnabled: false,
   stairRightEnabled: false,
 } as const;
+
+const FRONT_STAIR_ONLY = {
+  stairFrontEnabled: true,
+  stairRearEnabled: false,
+  stairLeftEnabled: false,
+  stairRightEnabled: false,
+} as const;
+
+function cloneFrontStairLayout(): MassLayoutConfig {
+  return { ...cloneMassLayout(), ...FRONT_STAIR_ONLY };
+}
 
 /**
  * Every face a block emitted, as four corners.
@@ -505,7 +524,7 @@ for (const mode of Object.values(HEIGHT_CURVE_OPTIONS)) {
   }
 
   assert.ok(preset, `Option "${mode}" has no curve.`);
-  const selected = { ...cloneMassLayout(), heightCurve: mode };
+  const selected = { ...cloneFrontStairLayout(), heightCurve: mode };
   assert.doesNotThrow(() => validateMassLayout({
     ...selected,
     heightCurveBezier: preset,
@@ -532,35 +551,35 @@ for (const value of dipping.values) {
 // That overshoot must survive validation, or dragging a handle past the top of
 // the editor would throw out of the change handler instead of being reported.
 assert.doesNotThrow(() => validateMassLayout({
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   heightCurve: "custom",
   heightCurveBezier: [0.25, 1.5, 0.75, -0.5],
 }));
 // A handle's x, though, is bounded by the curve's own domain.
 assert.throws(
   () => validateMassLayout({
-    ...cloneMassLayout(),
+    ...cloneFrontStairLayout(),
     heightCurveBezier: [1.4, 0.5, 0.75, 0.5],
   }),
   /handle 1 x must be between 0 and 1/,
 );
 assert.throws(
   () => validateMassLayout({
-    ...cloneMassLayout(),
+    ...cloneFrontStairLayout(),
     heightCurveBezier: [0.25, 0.5, 0.75] as never,
   }),
   /must be four finite numbers/,
 );
 assert.throws(
   () => validateMassLayout({
-    ...cloneMassLayout(),
+    ...cloneFrontStairLayout(),
     stairTilesPerStep: 0,
   }),
   /Stair tiles per step must be an integer from 1 to 32/,
 );
 assert.throws(
   () => validateMassLayout({
-    ...cloneMassLayout(),
+    ...cloneFrontStairLayout(),
     stairTilesPerStep: 4.5,
   }),
   /Stair tiles per step must be an integer from 1 to 32/,
@@ -568,7 +587,7 @@ assert.throws(
 
 // A falling curve reaches the pane as a notice on a structure that still builds.
 const fallingGraph = generateStructure(toStructureSpec({
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   bandCount: 5,
   heightCurve: "custom",
   heightCurveBezier: [0.25, 1.5, 0.75, -0.5],
@@ -595,7 +614,7 @@ const FIXTURES: readonly { readonly name: string; readonly layout: MassLayoutCon
   {
     name: "low-platform",
     layout: {
-      ...cloneMassLayout(),
+      ...cloneFrontStairLayout(),
       bandCount: 2,
       totalHeight: 2.4,
       batterAngle: 0,
@@ -606,7 +625,7 @@ const FIXTURES: readonly { readonly name: string; readonly layout: MassLayoutCon
   {
     name: "stepped-pyramid",
     layout: {
-      ...cloneMassLayout(),
+      ...cloneFrontStairLayout(),
       footprintWidth: 34,
       footprintDepth: 26,
       bandCount: 7,
@@ -622,7 +641,7 @@ const FIXTURES: readonly { readonly name: string; readonly layout: MassLayoutCon
   {
     name: "single-band-podium",
     layout: {
-      ...cloneMassLayout(),
+      ...cloneFrontStairLayout(),
       bandCount: 1,
       totalHeight: 1.8,
       batterAngle: 8,
@@ -631,7 +650,7 @@ const FIXTURES: readonly { readonly name: string; readonly layout: MassLayoutCon
   {
     name: "asymmetric-setbacks",
     layout: {
-      ...cloneMassLayout(),
+      ...cloneFrontStairLayout(),
       bandCount: 4,
       totalHeight: 6,
       frontSetbackScale: 1.8,
@@ -643,7 +662,7 @@ const FIXTURES: readonly { readonly name: string; readonly layout: MassLayoutCon
   {
     name: "corniced-terraces",
     layout: {
-      ...cloneMassLayout(),
+      ...cloneFrontStairLayout(),
       bandCount: 5,
       totalHeight: 11,
       batterAngle: 10,
@@ -900,7 +919,7 @@ for (const [batterAngle, role, evaluator] of [
   [14, PATCH_ROLES.batteredFacade, "battered"],
 ] as const) {
   const graph = generateStructure(
-    toStructureSpec({ ...cloneMassLayout(), batterAngle }),
+    toStructureSpec({ ...cloneFrontStairLayout(), batterAngle }),
   );
   // The base plinth is a band too, but it is a projecting footing rather than a
   // profiled wall, so it keeps its own role whatever the batter is.
@@ -958,7 +977,7 @@ for (const { placement, expected } of CORNICE_CASES) {
 }
 
 const CORNICE_LAYOUT: MassLayoutConfig = {
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   bandCount: 5,
   totalHeight: 12,
   batterAngle: 14,
@@ -1071,7 +1090,7 @@ assert.ok(squashed.patches.length > 0, "An oversized cornice must still build.")
 // patches, resolves an integer step count from a target riser, and reserves
 // the ground it climbs in front of. The record is checked before the geometry
 // because everything downstream reads the record.
-const stairDefault = generateStructure(toStructureSpec(cloneMassLayout()));
+const stairDefault = generateStructure(toStructureSpec(cloneFrontStairLayout()));
 assert.equal(stairDefault.connectors.length, 1, "The default Mass carries one stair.");
 const stairRecord = stairDefault.connectors[0]!;
 const stairPatches = patchIndex(stairDefault);
@@ -1212,7 +1231,7 @@ assert.ok(Math.abs(arrival.z - stairRecord.flightRect.minZ) < 1e-9);
 assert.equal(stairRecord.patchIds.length, 3);
 assert.ok(stairPatches.has(`${stairRecord.id}/side_negative_u`));
 const openSided = generateStructure(toStructureSpec({
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   stairSideTreatment: "none",
 }));
 assert.equal(openSided.connectors[0]?.parapet, null);
@@ -1237,7 +1256,7 @@ for (const patch of stairDefault.patches) {
 // Switched off, the stair leaves nothing behind: no connector, no patches, no
 // reservations. The massing itself must be identical.
 const stairless = generateStructure(toStructureSpec({
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   ...STAIRS_DISABLED,
 }));
 assert.deepEqual(stairless.connectors, []);
@@ -1249,9 +1268,19 @@ assert.ok(
     patch.regions.every((region) => !region.tags.includes("stair"))),
 );
 assert.deepEqual(
-  stairless.masses,
-  stairDefault.masses,
-  "Removing the stair must not move the massing.",
+  stairless.masses.map((mass) => ({
+    footprint: mass.footprint,
+    baseTreatment: mass.baseTreatment,
+    bands: mass.bands,
+    totalHeight: mass.totalHeight,
+  })),
+  stairDefault.masses.map((mass) => ({
+    footprint: mass.footprint,
+    baseTreatment: mass.baseTreatment,
+    bands: mass.bands,
+    totalHeight: mass.totalHeight,
+  })),
+  "Removing the stair must not move the mass bands.",
 );
 const stairlessSummitPatch = stairless.patches.find(
   (patch) => patch.role === PATCH_ROLES.summitFloor,
@@ -1274,6 +1303,41 @@ assert.deepEqual(
   },
   "With no stairs, the whole buildable summit must remain the building pad.",
 );
+const stairlessMass = stairless.masses[0]!;
+const stairlessPadRect = {
+  minX: stairlessMass.summit.rect.minX
+    + rectWidth(stairlessMass.summit.rect) * stairlessBuildingPad.uRange[0],
+  maxX: stairlessMass.summit.rect.minX
+    + rectWidth(stairlessMass.summit.rect) * stairlessBuildingPad.uRange[1],
+  minZ: stairlessMass.summit.rect.minZ
+    + rectDepth(stairlessMass.summit.rect) * stairlessBuildingPad.vRange[0],
+  maxZ: stairlessMass.summit.rect.minZ
+    + rectDepth(stairlessMass.summit.rect) * stairlessBuildingPad.vRange[1],
+};
+for (const edge of ["minX", "maxX", "minZ", "maxZ"] as const) {
+  assert.ok(
+    Math.abs(stairlessMass.summit.buildingPad![edge] - stairlessPadRect[edge]) < 1e-9,
+    `The summit record and building-pad region disagree at ${edge}.`,
+  );
+}
+assert.deepEqual(
+  stairlessMass.summit.placement,
+  {
+    rect: stairlessMass.summit.buildingPad,
+    patchId: stairlessSummitPatch.id,
+    y: stairlessMass.summit.y,
+    anchorId: `${stairlessSummitPatch.id}/anchor_superstructure`,
+  },
+);
+assert.deepEqual(stairlessSummitPatch.anchors, [{
+  id: `${stairlessSummitPatch.id}/anchor_superstructure`,
+  kind: "superstructure",
+  u: 0.5,
+  v: 0.5,
+  d: 0,
+  regionId: stairlessBuildingPad.id,
+  orientation: "front",
+}]);
 
 // Each checkbox independently adds exactly one centred connector to its facade.
 const STAIR_DIRECTIONS: readonly {
@@ -1310,7 +1374,7 @@ const STAIR_DIRECTIONS: readonly {
 
 for (const placement of STAIR_DIRECTIONS) {
   const graph = generateStructure(toStructureSpec({
-    ...cloneMassLayout(),
+    ...cloneFrontStairLayout(),
     ...STAIRS_DISABLED,
     ...placement.enabled,
   }));
@@ -1342,7 +1406,7 @@ for (const placement of STAIR_DIRECTIONS) {
 // All four use the same sizing, parapet, cornice and tiling settings while
 // resolving against the width of their own facade.
 const allSidesLayout: MassLayoutConfig = {
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   footprintWidth: 30,
   footprintDepth: 18,
   bandCount: 2,
@@ -1421,6 +1485,22 @@ assert.ok(
   && allSidesBuildingPad.vRange[1] < allSidesBuildable.vRange[1],
   "Four summit forecourts must inset the building pad on every side.",
 );
+const allSidesPadRect = {
+  minX: allSidesMass.summit.rect.minX
+    + rectWidth(allSidesMass.summit.rect) * allSidesBuildingPad.uRange[0],
+  maxX: allSidesMass.summit.rect.minX
+    + rectWidth(allSidesMass.summit.rect) * allSidesBuildingPad.uRange[1],
+  minZ: allSidesMass.summit.rect.minZ
+    + rectDepth(allSidesMass.summit.rect) * allSidesBuildingPad.vRange[0],
+  maxZ: allSidesMass.summit.rect.minZ
+    + rectDepth(allSidesMass.summit.rect) * allSidesBuildingPad.vRange[1],
+};
+for (const edge of ["minX", "maxX", "minZ", "maxZ"] as const) {
+  assert.ok(
+    Math.abs(allSidesMass.summit.buildingPad![edge] - allSidesPadRect[edge]) < 1e-9,
+    `The four-forecourt building pad disagrees at ${edge}.`,
+  );
+}
 
 // The culling rule follows the connector's local frame as well: this probe is
 // beneath a right-side tread, where world X is the stair run.
@@ -1502,9 +1582,174 @@ assert.equal(
   "Four stepped corniced stairs left visible backfaces.",
 );
 
+// A raised summit pad is one clean extrusion over the forecourt-reduced
+// building area. It owns its top and side patches, while the original summit
+// floor owns only the exposed ring around its footprint.
+const raisedPadLayout: MassLayoutConfig = {
+  ...cloneFrontStairLayout(),
+  footprintWidth: 30,
+  footprintDepth: 24,
+  summitRatio: 0.72,
+  summitTreatment: "raised_pad",
+  summitPadHeight: 0.65,
+};
+const raisedPadGraph = generateStructure(toStructureSpec(raisedPadLayout));
+assert.deepEqual(
+  raisedPadGraph.diagnostics.filter((entry) => entry.severity === "error"),
+  [],
+);
+assertGraphInvariants(raisedPadGraph, "raised summit pad");
+const raisedPadMass = raisedPadGraph.masses[0]!;
+const raisedPad = raisedPadMass.summit.pad!;
+assert.ok(raisedPad);
+assert.equal(raisedPad.band.bottomY, raisedPadMass.summit.y);
+assert.equal(raisedPad.band.topY, raisedPadMass.summit.y + 0.65);
+assert.deepEqual(raisedPad.band.lower, raisedPadMass.summit.buildingPad);
+assert.deepEqual(raisedPad.band.upper, raisedPadMass.summit.buildingPad);
+assert.equal(raisedPadMass.summit.placement?.patchId, raisedPad.topPatchId);
+assert.equal(raisedPadMass.summit.placement?.y, raisedPad.band.topY);
+
+const raisedBasePatch = raisedPadGraph.patches.find(
+  (patch) => patch.id === raisedPadMass.summit.patchId,
+)!;
+const raisedTopPatch = raisedPadGraph.patches.find(
+  (patch) => patch.id === raisedPad.topPatchId,
+)!;
+assert.equal(raisedBasePatch.role, PATCH_ROLES.summitFloor);
+assert.equal(raisedTopPatch.role, PATCH_ROLES.summitPad);
+assert.deepEqual(raisedBasePatch.anchors, []);
+assert.ok(
+  raisedBasePatch.regions.some(
+    (region) => region.id.endsWith("/raised_pad_footprint")
+      && region.tags.includes("occupied")
+      && region.tags.includes("no_build"),
+  ),
+);
+assert.deepEqual(
+  raisedTopPatch.regions.map((region) => ({
+    id: region.id,
+    uRange: region.uRange,
+    vRange: region.vRange,
+    tags: region.tags,
+  })),
+  [{
+    id: `${raisedPad.topPatchId}/building_pad`,
+    uRange: [0, 1],
+    vRange: [0, 1],
+    tags: ["buildable", "superstructure"],
+  }],
+);
+assert.deepEqual(raisedTopPatch.anchors, [{
+  id: `${raisedPad.topPatchId}/anchor_superstructure`,
+  kind: "superstructure",
+  u: 0.5,
+  v: 0.5,
+  d: 0,
+  regionId: `${raisedPad.topPatchId}/building_pad`,
+  orientation: "front",
+}]);
+const raisedSidePatches = raisedPadGraph.patches.filter(
+  (patch) => patch.role === PATCH_ROLES.summitPadSide,
+);
+assert.equal(raisedSidePatches.length, 4);
+for (const side of raisedSidePatches) {
+  assert.ok(side.adjacency.includes(raisedBasePatch.id));
+  assert.ok(side.adjacency.includes(raisedTopPatch.id));
+}
+
+const raisedPadGeometryLayout: MassLayoutConfig = {
+  ...raisedPadLayout,
+  ...STAIRS_DISABLED,
+};
+const raisedPadGeometryGraph = generateStructure(
+  toStructureSpec(raisedPadGeometryLayout),
+);
+assertGraphInvariants(raisedPadGeometryGraph, "isolated raised summit pad");
+const squareRaisedPadRule = toMasonry(
+  raisedPadGeometryLayout,
+  { ...DEFAULT_MASS_STONE_CONFIG, displacement: 0 },
+);
+assert.ok(squareRaisedPadRule);
+for (const masonry of [null, squareRaisedPadRule] as const) {
+  const geometry = tessellateStructure(raisedPadGeometryGraph, {
+    masonry,
+    seed: 31,
+    stairTilesPerStep: raisedPadGeometryLayout.stairTilesPerStep,
+  }).parts[0]!.geometry;
+  assert.equal(
+    findCoincidentFaces(geometry).pairs,
+    0,
+    `Raised-pad ${masonry ? "masonry" : "bare"} geometry emitted coincident faces.`,
+  );
+  if (!masonry) {
+    assert.equal(
+      findBuriedFaces(geometry).faces,
+      0,
+      "Raised-pad bare geometry emitted buried faces.",
+    );
+  }
+  assert.equal(
+    findBackfaces(geometry).backfaces,
+    0,
+    `Raised-pad ${masonry ? "masonry" : "bare"} geometry left visible backfaces.`,
+  );
+  const positions = geometry.getAttribute("position");
+  const normals = geometry.getAttribute("normal");
+  const isolatedMass = raisedPadGeometryGraph.masses[0]!;
+  const footprint = isolatedMass.summit.buildingPad!;
+  for (let start = 0; start < positions.count; start += 4) {
+    const atSummit = [0, 1, 2, 3].every(
+      (corner) =>
+        Math.abs(positions.getY(start + corner) - isolatedMass.summit.y) < 1e-6,
+    );
+    if (!atSummit || normals.getY(start) < 0.99) {
+      continue;
+    }
+    const centerX = [0, 1, 2, 3].reduce(
+      (total, corner) => total + positions.getX(start + corner),
+      0,
+    ) / 4;
+    const centerZ = [0, 1, 2, 3].reduce(
+      (total, corner) => total + positions.getZ(start + corner),
+      0,
+    ) / 4;
+    assert.ok(
+      centerX <= footprint.minX + 1e-6
+      || centerX >= footprint.maxX - 1e-6
+      || centerZ <= footprint.minZ + 1e-6
+      || centerZ >= footprint.maxZ - 1e-6,
+      `Raised-pad ${masonry ? "masonry" : "bare"} geometry kept a summit face beneath the pad.`,
+    );
+  }
+  geometry.computeBoundingBox();
+  const bounds = geometry.boundingBox!;
+  const expected = graphExtents(raisedPadGeometryGraph)!;
+  for (const axis of ["x", "y", "z"] as const) {
+    const tolerance = Math.max(1e-5, Math.abs(expected.max[axis]) * 1e-6);
+    assert.ok(Math.abs(bounds.min[axis] - expected.min[axis]) < tolerance);
+    assert.ok(Math.abs(bounds.max[axis] - expected.max[axis]) < tolerance);
+  }
+}
+
+const padWithoutRoom = generateStructure(toStructureSpec({
+  ...cloneFrontStairLayout(),
+  ...STAIRS_DISABLED,
+  summitTreatment: "raised_pad",
+  summitMargin: 100,
+}));
+assert.equal(
+  padWithoutRoom.diagnostics.find(
+    (diagnostic) => diagnostic.severity === "error",
+  )?.code,
+  "summit.pad_does_not_fit",
+);
+assert.deepEqual(padWithoutRoom.masses, []);
+assert.deepEqual(padWithoutRoom.patches, []);
+assert.deepEqual(padWithoutRoom.connectors, []);
+
 // If any requested facade cannot fit its connector, generation is atomic.
 const oneSideCannotFit = generateStructure(toStructureSpec({
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   footprintWidth: 24,
   footprintDepth: 2,
   bandCount: 2,
@@ -1525,7 +1770,7 @@ assert.equal(
 assert.deepEqual(oneSideCannotFit.masses, []);
 assert.deepEqual(oneSideCannotFit.patches, []);
 assert.deepEqual(oneSideCannotFit.connectors, []);
-const duplicateFacadeSpec = toStructureSpec(cloneMassLayout());
+const duplicateFacadeSpec = toStructureSpec(cloneFrontStairLayout());
 const duplicateFacade = generateStructure({
   ...duplicateFacadeSpec,
   stairs: [
@@ -1543,7 +1788,7 @@ assert.deepEqual(duplicateFacade.patches, []);
 
 // A stair wider than the summit it arrives on is narrowed, and says so.
 const clampedStair = generateStructure(toStructureSpec({
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   summitRatio: 0.15,
   stairWidthRatio: 0.5,
 }));
@@ -1562,7 +1807,7 @@ assert.ok(
 
 // And one no side treatments leave room for at all refuses the build whole.
 const unfittable = generateStructure(toStructureSpec({
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   summitRatio: 0.05,
   stairParapetWidth: 2,
 }));
@@ -1577,7 +1822,7 @@ assert.equal(unfittable.masses.length, 0);
 // the mass; the tread widens until the flight clears every face, and reports
 // the tread it settled on.
 const gentleLayout: MassLayoutConfig = {
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   footprintWidth: 40,
   footprintDepth: 40,
   bandCount: 3,
@@ -1602,7 +1847,7 @@ assert.ok(
 // A rise too small for its target riser resolves to one deviating step, and the
 // deviation is reported rather than absorbed.
 const stubby = generateStructure(toStructureSpec({
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   totalHeight: 0.65,
   baseTreatment: "none",
   stairRiser: 0.45,
@@ -1628,7 +1873,7 @@ assert.ok(
 // sequence of horizontal caps, and the same square foot and summit endings as
 // the flat treatment carry those caps down to their supporting floors.
 const steppedCorniceLayout: MassLayoutConfig = {
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   stairSteppedParapetCorniceProjection: 0.2,
   stairSteppedParapetCorniceHeight: 0.25,
 };
@@ -1770,7 +2015,7 @@ assert.equal(
 // A cornice taller than its riser overlaps the next cap in elevation. The
 // ownership split must still close the overhang without coincident faces.
 const tallSteppedCorniceGraph = generateStructure(toStructureSpec({
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   baseTreatment: "none",
   bandCount: 1,
   totalHeight: 0.65,
@@ -1822,7 +2067,7 @@ assert.equal(
 // ground-backed walls. Its crown is one plane following the ideal flight, and
 // the optional cornice is one projected band on that same plane.
 const flatParapetLayout: MassLayoutConfig = {
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   stairSideTreatment: "sloped_parapet",
 };
 assert.doesNotThrow(() => validateMassLayout(flatParapetLayout));
@@ -2157,7 +2402,7 @@ assert.equal(
 // treads stay dead level: displacement would read as broken steps, so every
 // upward face sits exactly on a tread or a parapet cap.
 const stairMasonryBuilder = new SolidBuilder();
-const stairRule = toMasonry(cloneMassLayout(), DEFAULT_MASS_STONE_CONFIG);
+const stairRule = toMasonry(cloneFrontStairLayout(), DEFAULT_MASS_STONE_CONFIG);
 assert.ok(stairRule);
 buildStair(stairMasonryBuilder, stairRecord, stairBands, {
   masonry: stairRule,
@@ -2279,7 +2524,7 @@ buildStair(
   },
 );
 const openStairless = generateStructure(toStructureSpec({
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   ...STAIRS_DISABLED,
   stairSideTreatment: "none",
 }));
@@ -2301,7 +2546,7 @@ assert.ok(
 // pass also reaches a complete bare face. Values of one are intentional here:
 // they exercise the generator boundary beyond the pane's conservative sliders.
 const fullAssemblyLayout: MassLayoutConfig = {
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   baseTreatment: "none",
   bandCount: 1,
   totalHeight: 2,
@@ -2423,7 +2668,7 @@ for (const face of cornicedStairBacks) {
 // the front coverage is asserted directly: parapet fronts must tile the same
 // height span as the caps they finish.
 const shallowParapetGraph = generateStructure(toStructureSpec({
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   stairParapetHeight: 0.2,
 }));
 const shallowParapetRecord = shallowParapetGraph.connectors[0]!;
@@ -2462,7 +2707,7 @@ assert.ok(
 // keeps construction a reader of the semantic layer, which is what stops a
 // change of surface treatment from invalidating the massing under it.
 const STONEWORK_LAYOUT: MassLayoutConfig = {
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   footprintWidth: 24,
   footprintDepth: 18,
   bandCount: 5,
@@ -2769,7 +3014,7 @@ assert.ok(
 // Now the mass itself, in the configuration every one of the three faults was
 // reported in: cornices on every band, blocks on, a battered stack of terraces.
 const SHELL_LAYOUT: MassLayoutConfig = {
-  ...cloneMassLayout(),
+  ...cloneFrontStairLayout(),
   footprintWidth: 24,
   footprintDepth: 18,
   bandCount: 3,
@@ -2890,7 +3135,7 @@ assert.ok(
 // written for: before dressed ends were cut flush to their stations and the
 // butt seam got real cheeks, it found the see-throughs on the default mass
 // that the sphere probe missed.
-const cornerLayout = cloneMassLayout();
+const cornerLayout = cloneFrontStairLayout();
 const cornerRule = toMasonry(cornerLayout, DEFAULT_MASS_STONE_CONFIG);
 assert.ok(cornerRule);
 assert.equal(cornerRule.cornerRule, "butted", "The corner hunt must probe butted corners.");
@@ -3481,9 +3726,30 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
       );
     }
 
-    // Reserved containers stay empty until the phases that fill them arrive.
+    // Features remain reserved. Anchors are now filled by summit allocation and
+    // must address a real region on their own patch.
     assert.deepEqual(patch.features, []);
-    assert.deepEqual(patch.anchors, []);
+    assert.equal(
+      new Set(patch.anchors.map((anchor) => anchor.id)).size,
+      patch.anchors.length,
+      `${label}: patch ${patch.id} has duplicate anchor ids.`,
+    );
+    for (const anchor of patch.anchors) {
+      assert.ok(isValidId(anchor.id), `${label}: anchor ${anchor.id} is invalid.`);
+      assert.ok(anchor.kind, `${label}: anchor ${anchor.id} has no kind.`);
+      assert.ok(
+        anchor.u >= 0 && anchor.u <= 1
+        && anchor.v >= 0 && anchor.v <= 1
+        && Number.isFinite(anchor.d),
+        `${label}: anchor ${anchor.id} escapes its patch domain.`,
+      );
+      if (anchor.regionId) {
+        assert.ok(
+          patch.regions.some((region) => region.id === anchor.regionId),
+          `${label}: anchor ${anchor.id} names missing region ${anchor.regionId}.`,
+        );
+      }
+    }
   }
 
   // Reserved containers stay empty until the phases that fill them arrive;
@@ -3611,6 +3877,54 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
       byId.get(mass.summit.patchId)?.role,
       PATCH_ROLES.summitFloor,
     );
+    if (mass.summit.buildable) {
+      assert.ok(
+        mass.summit.buildable.maxX > mass.summit.buildable.minX
+        && mass.summit.buildable.maxZ > mass.summit.buildable.minZ,
+        `${label}: summit buildable region has no positive extent.`,
+      );
+    }
+    if (mass.summit.buildingPad) {
+      assert.ok(
+        mass.summit.buildable
+        && mass.summit.buildingPad.minX >= mass.summit.buildable.minX - 1e-9
+        && mass.summit.buildingPad.maxX <= mass.summit.buildable.maxX + 1e-9
+        && mass.summit.buildingPad.minZ >= mass.summit.buildable.minZ - 1e-9
+        && mass.summit.buildingPad.maxZ <= mass.summit.buildable.maxZ + 1e-9,
+        `${label}: building pad escapes the buildable summit.`,
+      );
+      assert.ok(mass.summit.placement, `${label}: building pad has no placement.`);
+    } else {
+      assert.equal(mass.summit.placement, null);
+    }
+    if (mass.summit.placement) {
+      const placementPatch = byId.get(mass.summit.placement.patchId);
+      assert.ok(
+        placementPatch,
+        `${label}: summit placement names missing patch ${mass.summit.placement.patchId}.`,
+      );
+      assert.ok(
+        placementPatch.anchors.some(
+          (anchor) => anchor.id === mass.summit.placement?.anchorId,
+        ),
+        `${label}: summit placement names missing anchor ${mass.summit.placement.anchorId}.`,
+      );
+      assert.ok(
+        Math.abs(placementPatch.frame.origin.y - mass.summit.placement.y) < 1e-9,
+        `${label}: summit placement elevation disagrees with its patch.`,
+      );
+    }
+    if (mass.summit.pad) {
+      assert.equal(mass.summit.pad.kind, "raised_pad");
+      assert.equal(mass.summit.pad.band.surfaceRole, PATCH_ROLES.summitPadSide);
+      assert.equal(
+        byId.get(mass.summit.pad.topPatchId)?.role,
+        PATCH_ROLES.summitPad,
+      );
+      for (const patchId of mass.summit.pad.patchIds) {
+        assert.ok(byId.has(patchId), `${label}: summit pad names missing patch ${patchId}.`);
+      }
+    }
 
     // A terrace is classified by whether it is wide enough to stand on, and the
     // classification has to match the geometry it describes.

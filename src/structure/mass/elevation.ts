@@ -112,6 +112,7 @@ export type SummitTreatment = (typeof SUMMIT_TREATMENTS)[number];
 
 export const IMPLEMENTED_SUMMIT_TREATMENTS: readonly SummitTreatment[] = [
   "open_floor",
+  "raised_pad",
 ];
 
 /** A terrace narrower than this is a ledge: visible, but not somewhere to walk. */

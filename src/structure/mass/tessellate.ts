@@ -60,12 +60,16 @@ export function tessellateStructure(
   const { masonry, seed, stairTilesPerStep = 5 } = options;
 
   for (const mass of graph.masses) {
+    const bands = mass.summit.pad
+      ? [...mass.bands, mass.summit.pad.band]
+      : mass.bands;
+
     if (masonry) {
-      buildMassShell(builder, mass.bands, { rule: masonry, seed });
+      buildMassShell(builder, bands, { rule: masonry, seed });
       continue;
     }
 
-    layBareMass(builder, mass.bands);
+    layBareMass(builder, bands);
   }
 
   // A stair is resolved before tessellation, so its complete stepped envelope
@@ -218,6 +222,7 @@ function layBareMass(
     }
 
     const { cornice } = band;
+    const under = bands[index + 1]?.lower ?? null;
     // A cornice takes over the top of the band, so the wall stops short and the
     // moulding finishes it. Without one the wall runs the full rise.
     const stack: readonly {
@@ -275,11 +280,76 @@ function layBareMass(
           // one covers it. The mass's ground face is buried and is never emitted.
           // A moulding's underside is its soffit, which oversails the wall and
           // remains visible around the supporting wall.
-          top: isCrown,
+          // If another band stands here, its footprint owns that part of the
+          // crown. The exposed remainder is emitted as four simple rectangles
+          // below instead of hiding a full summit quad beneath the child.
+          top: isCrown && under === null,
           bottom: cornice !== null && part === 1,
         },
       );
+
+      if (isCrown && under) {
+        addHorizontalRing(builder, piece.upper, under, piece.topY);
+      }
     }
+  }
+}
+
+/**
+ * Emits the exposed part of `outer` around an axis-aligned covered rectangle.
+ *
+ * Four rectangles are sufficient: full-height strips at left/right and the
+ * remaining rear/front strips between them. They meet only at edges, so the
+ * raised pad does not introduce an overlapping support surface.
+ */
+function addHorizontalRing(
+  builder: SolidBuilder,
+  outer: Rect,
+  covered: Rect,
+  y: number,
+): void {
+  const pieces: readonly Rect[] = [
+    {
+      minX: outer.minX,
+      maxX: covered.minX,
+      minZ: outer.minZ,
+      maxZ: outer.maxZ,
+    },
+    {
+      minX: covered.maxX,
+      maxX: outer.maxX,
+      minZ: outer.minZ,
+      maxZ: outer.maxZ,
+    },
+    {
+      minX: covered.minX,
+      maxX: covered.maxX,
+      minZ: outer.minZ,
+      maxZ: covered.minZ,
+    },
+    {
+      minX: covered.minX,
+      maxX: covered.maxX,
+      minZ: covered.maxZ,
+      maxZ: outer.maxZ,
+    },
+  ];
+
+  for (const piece of pieces) {
+    if (!rectIsValid(piece)) {
+      continue;
+    }
+
+    const ring = rectCorners(piece).map((point) => ({
+      x: point.x,
+      y,
+      z: point.z,
+    }));
+
+    builder.addBlock(
+      { bottom: ring, top: ring },
+      { sides: [false, false, false, false], top: true, bottom: false },
+    );
   }
 }
 
@@ -297,7 +367,11 @@ export function graphExtents(graph: StructureGraph): {
   let max: { x: number; y: number; z: number } | null = null;
 
   for (const mass of graph.masses) {
-    for (const band of mass.bands) {
+    const bands = mass.summit.pad
+      ? [...mass.bands, mass.summit.pad.band]
+      : mass.bands;
+
+    for (const band of bands) {
       // The cornice is included because it projects past the wall: it is the
       // outermost thing the band presents, and leaving it out would make the
       // graph disagree with the geometry drawn from it.

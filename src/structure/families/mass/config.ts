@@ -86,6 +86,8 @@ export interface MassLayoutConfig {
   summitTreatment: SummitTreatment;
   summitMargin: number;
   forecourtDepth: number;
+  /** Rise of the optional summit building pad. */
+  summitPadHeight: number;
   /** Independently enabled centred approach stairs. */
   stairFrontEnabled: boolean;
   stairRearEnabled: boolean;
@@ -116,7 +118,7 @@ export const DEFAULT_MASS_STONE_CONFIG: Readonly<StoneConfig> = {
   seed: 741,
   gapRatio: 0.026,
   sizeVariation: 0.2,
-  displacement: 0.12,
+  displacement: 0.01,
 };
 
 export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
@@ -145,10 +147,11 @@ export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
   summitTreatment: "open_floor",
   summitMargin: 1.2,
   forecourtDepth: 3,
+  summitPadHeight: 0.35,
   stairFrontEnabled: true,
-  stairRearEnabled: false,
-  stairLeftEnabled: false,
-  stairRightEnabled: false,
+  stairRearEnabled: true,
+  stairLeftEnabled: true,
+  stairRightEnabled: true,
   stairWidthRatio: 0.3,
   stairRiser: 0.26,
   stairTread: 0.32,
@@ -207,6 +210,7 @@ const BASE_TREATMENT_OPTIONS: Readonly<Record<string, BaseTreatment>> = {
 
 const SUMMIT_TREATMENT_OPTIONS: Readonly<Record<string, SummitTreatment>> = {
   "Open floor": "open_floor",
+  "Raised pad": "raised_pad",
 };
 
 const CORNER_RULE_OPTIONS: Readonly<Record<string, CornerRule>> = {
@@ -488,6 +492,18 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     step: 0.25,
     scopes: ["layout"],
   }),
+  control.number({
+    key: "summitPadHeight",
+    label: "pad height",
+    name: "Summit pad height",
+    group: "Summit",
+    min: 0.05,
+    max: 4,
+    step: 0.05,
+    scopes: ["layout"],
+    reframe: true,
+    visibleWhen: (layout) => layout.summitTreatment === "raised_pad",
+  }),
   control.boolean({
     key: "stairFrontEnabled",
     label: "front",
@@ -756,6 +772,7 @@ export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
       summitTreatment: layout.summitTreatment,
       summitMargin: layout.summitMargin,
       forecourtDepth: layout.forecourtDepth,
+      summitPadHeight: layout.summitPadHeight,
     },
     stairs: toStairSpecs(layout),
   };
