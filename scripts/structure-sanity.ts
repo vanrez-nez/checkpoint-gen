@@ -109,6 +109,7 @@ assert.deepEqual(
     stairWidth: DEFAULT_MASS_LAYOUT.stairWidthRatio,
     stairRiser: DEFAULT_MASS_LAYOUT.stairRiser,
     stairTread: DEFAULT_MASS_LAYOUT.stairTread,
+    stairTiles: DEFAULT_MASS_LAYOUT.stairTilesPerStep,
     stairSides: DEFAULT_MASS_LAYOUT.stairSideTreatment,
     stairParapetWidth: DEFAULT_MASS_LAYOUT.stairParapetWidth,
     stairParapetHeight: DEFAULT_MASS_LAYOUT.stairParapetHeight,
@@ -136,6 +137,7 @@ assert.deepEqual(
     stairWidth: 0.3,
     stairRiser: 0.26,
     stairTread: 0.32,
+    stairTiles: 5,
     stairSides: "stepped_parapet",
     stairParapetWidth: 0.75,
     stairParapetHeight: 0.55,
@@ -520,6 +522,20 @@ assert.throws(
     heightCurveBezier: [0.25, 0.5, 0.75] as never,
   }),
   /must be four finite numbers/,
+);
+assert.throws(
+  () => validateMassLayout({
+    ...cloneMassLayout(),
+    stairTilesPerStep: 0,
+  }),
+  /Stair tiles per step must be an integer from 1 to 32/,
+);
+assert.throws(
+  () => validateMassLayout({
+    ...cloneMassLayout(),
+    stairTilesPerStep: 4.5,
+  }),
+  /Stair tiles per step must be an integer from 1 to 32/,
 );
 
 // A falling curve reaches the pane as a notice on a structure that still builds.
@@ -1308,7 +1324,7 @@ buildStair(
   flatParapetBuilder,
   flatParapetRecord,
   flatParapetGraph.masses[0]!.bands,
-  { masonry: null, seed: 1 },
+  { masonry: null, seed: 1, tilesPerStep: DEFAULT_MASS_LAYOUT.stairTilesPerStep },
 );
 assert.equal(
   flatParapetBuilder.blockCount,
@@ -1552,7 +1568,11 @@ assert.equal(
 // back interval) and a parapet taller than a riser.
 const stairBareBuilder = new SolidBuilder();
 const stairBands = stairDefault.masses[0]!.bands;
-buildStair(stairBareBuilder, stairRecord, stairBands, { masonry: null, seed: 1 });
+buildStair(stairBareBuilder, stairRecord, stairBands, {
+  masonry: null,
+  seed: 1,
+  tilesPerStep: DEFAULT_MASS_LAYOUT.stairTilesPerStep,
+});
 assert.equal(
   stairBareBuilder.blockCount,
   stairRecord.stepCount + 2 * (2 + 3 * (stairRecord.stepCount - 1)),
@@ -1606,10 +1626,57 @@ assert.equal(
 const stairMasonryBuilder = new SolidBuilder();
 const stairRule = toMasonry(cloneMassLayout(), DEFAULT_MASS_STONE_CONFIG);
 assert.ok(stairRule);
-buildStair(stairMasonryBuilder, stairRecord, stairBands, { masonry: stairRule, seed: 7 });
+buildStair(stairMasonryBuilder, stairRecord, stairBands, {
+  masonry: stairRule,
+  seed: 7,
+  tilesPerStep: DEFAULT_MASS_LAYOUT.stairTilesPerStep,
+});
 assert.ok(
   stairMasonryBuilder.blockCount > stairBareBuilder.blockCount,
   "Masonry must divide the steps into stones.",
+);
+const treadTileCount = (builder: SolidBuilder, treadY: number) =>
+  readBlockFaces(builder).filter((face) =>
+    faceNormal(face).y > 0.99
+    && face.every((corner) =>
+      corner.x >= stairRecord.flightRect.minX - 1e-9
+      && corner.x <= stairRecord.flightRect.maxX + 1e-9
+      && Math.abs(corner.y - treadY) < 1e-9))
+    .length;
+for (let index = 1; index <= stairRecord.stepCount; index += 1) {
+  assert.equal(
+    treadTileCount(
+      stairMasonryBuilder,
+      stairRecord.bottomY + index * stairRecord.riser,
+    ),
+    DEFAULT_MASS_LAYOUT.stairTilesPerStep,
+    `Step ${index} did not use the configured tile count.`,
+  );
+}
+
+const twoTileStairBuilder = new SolidBuilder();
+buildStair(twoTileStairBuilder, stairRecord, stairBands, {
+  masonry: stairRule,
+  seed: 7,
+  tilesPerStep: 2,
+});
+const eightTileStairBuilder = new SolidBuilder();
+buildStair(eightTileStairBuilder, stairRecord, stairBands, {
+  masonry: stairRule,
+  seed: 7,
+  tilesPerStep: 8,
+});
+assert.equal(
+  treadTileCount(twoTileStairBuilder, stairRecord.bottomY + stairRecord.riser),
+  2,
+);
+assert.equal(
+  treadTileCount(eightTileStairBuilder, stairRecord.bottomY + stairRecord.riser),
+  8,
+);
+assert.ok(
+  eightTileStairBuilder.blockCount > twoTileStairBuilder.blockCount,
+  "Increasing tiles per step did not increase the stair masonry.",
 );
 const stairLevels = new Set<string>();
 
@@ -1672,7 +1739,11 @@ buildStair(
   openStairBuilder,
   openStairRecord,
   openSided.masses[0]!.bands,
-  { masonry: stairRule, seed: 7 },
+  {
+    masonry: stairRule,
+    seed: 7,
+    tilesPerStep: DEFAULT_MASS_LAYOUT.stairTilesPerStep,
+  },
 );
 const openStairless = generateStructure(toStructureSpec({
   ...cloneMassLayout(),
@@ -1718,7 +1789,7 @@ buildStair(
   fullAssemblyStairBuilder,
   fullAssemblyRecord,
   fullAssembly.masses[0]!.bands,
-  { masonry: null, seed: 1 },
+  { masonry: null, seed: 1, tilesPerStep: DEFAULT_MASS_LAYOUT.stairTilesPerStep },
 );
 const fullAssemblyCulled = tessellateStructure(fullAssemblyStairless, {
   masonry: null,
@@ -1789,7 +1860,7 @@ buildStair(
   cornicedStairBuilder,
   cornicedStairRecord,
   corniced.masses[0]!.bands,
-  { masonry: null, seed: 1 },
+  { masonry: null, seed: 1, tilesPerStep: DEFAULT_MASS_LAYOUT.stairTilesPerStep },
 );
 const cornicedStairGeometry = finalizeGeometry(cornicedStairBuilder).geometry;
 assert.equal(findCoincidentFaces(cornicedStairGeometry).pairs, 0);
@@ -1829,7 +1900,7 @@ buildStair(
   shallowParapetBuilder,
   shallowParapetRecord,
   shallowParapetGraph.masses[0]!.bands,
-  { masonry: null, seed: 1 },
+  { masonry: null, seed: 1, tilesPerStep: DEFAULT_MASS_LAYOUT.stairTilesPerStep },
 );
 const shallowParapetGeometry = finalizeGeometry(shallowParapetBuilder).geometry;
 assert.equal(findCoincidentFaces(shallowParapetGeometry).pairs, 0);
@@ -2766,6 +2837,31 @@ assert.ok(layoutOnly.graph, "The mass structure must report its graph.");
 assert.equal(layoutOnly.anchors.flames.length, 0);
 assert.equal(layoutOnly.anchors.glows.length, 0);
 assert.equal(layoutOnly.anchors.offering, null);
+
+const buildWithStairTiles = (stairTilesPerStep: number) => massStructure.build({
+  layout: { ...massStructure.cloneLayout(), stairTilesPerStep },
+  stone: DEFAULT_MASS_STONE_CONFIG,
+  bevel: undefined as never,
+  pillar: undefined as never,
+  fireBowl: undefined as never,
+  sections: new Set([MASS_SECTION]),
+});
+const sparseStairTiles = buildWithStairTiles(2);
+const denseStairTiles = buildWithStairTiles(8);
+const triangleCount = (result: typeof sparseStairTiles) =>
+  result.parts.reduce(
+    (total, part) => total + (part.geometry.getIndex()?.count ?? 0) / 3,
+    0,
+  );
+assert.ok(
+  triangleCount(denseStairTiles) > triangleCount(sparseStairTiles),
+  "The tiles-per-step control did not reach the structure build.",
+);
+assert.equal(
+  serializeGraph(denseStairTiles.graph!),
+  serializeGraph(sparseStairTiles.graph!),
+  "Changing tread tiles moved semantic stair geometry.",
+);
 
 // The graph is resolved even when no section was requested, because the scene
 // needs the semantic layer for the overlay whether or not geometry moved.

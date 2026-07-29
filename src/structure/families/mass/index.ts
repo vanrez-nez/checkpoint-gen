@@ -50,7 +50,11 @@ export const massStructure = defineStructure<MassLayoutConfig>({
     // when no geometry had to be regenerated.
     const graph = generateStructure(toStructureSpec(layout));
     const parts: GeometryPart[] = sections.has(MASS_SECTION)
-      ? [...tessellateStructure(graph, { masonry: toMasonry(layout, stone), seed: stone.seed }).parts]
+      ? [...tessellateStructure(graph, {
+        masonry: toMasonry(layout, stone),
+        seed: stone.seed,
+        stairTilesPerStep: layout.stairTilesPerStep,
+      }).parts]
       : [];
 
     return { parts, anchors: emptyCompositionAnchors(), graph };

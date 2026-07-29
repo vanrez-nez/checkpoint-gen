@@ -108,6 +108,11 @@ with the parapet body continuing beneath them to the ground and summit floor.
 The endings are therefore supported parts of the wall rather than cantilevers,
 and their endpoints do not expose diagonal cuts.
 
+Masonry treads use an explicit **tiles per step** count. The count controls how
+many stones span every tread; stone-size variation may redistribute their
+individual widths, but the configured count remains exact and no longer follows
+the mass wall's automatic target-stone-width rule.
+
 Tessellation draws one lofted solid per band and one ring per terrace — only the
 part the band above leaves exposed, so stacked bands never leave two coplanar
 faces fighting for the same depth.

@@ -93,6 +93,8 @@ export interface MassLayoutConfig {
   stairRiser: number;
   /** Target depth of one tread; widened if the flight would sink into the mass. */
   stairTread: number;
+  /** Explicit number of masonry tiles laid across every tread. */
+  stairTilesPerStep: number;
   stairSideTreatment: StairSideTreatment;
   stairParapetWidth: number;
   stairParapetHeight: number;
@@ -139,6 +141,7 @@ export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
   stairWidthRatio: 0.3,
   stairRiser: 0.26,
   stairTread: 0.32,
+  stairTilesPerStep: 5,
   stairSideTreatment: "stepped_parapet",
   stairParapetWidth: 0.75,
   stairParapetHeight: 0.55,
@@ -508,6 +511,19 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     step: 0.005,
     scopes: ["layout"],
     visibleWhen: (layout) => layout.stairEnabled,
+  }),
+  control.number({
+    key: "stairTilesPerStep",
+    label: "tiles per step",
+    name: "Stair tiles per step",
+    group: "Stair",
+    min: 1,
+    max: 32,
+    step: 1,
+    integer: true,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.stairEnabled && layout.stoneworkEnabled,
   }),
   control.list({
     key: "stairSideTreatment",

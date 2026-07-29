@@ -156,6 +156,20 @@ export function divideRun(
   return normalizedSpans(count, runLength, rule.sizeVariation, createRandom(seed));
 }
 
+/** Divides a run into an explicit number of pieces rather than a target width. */
+export function divideRunByCount(
+  runLength: number,
+  count: number,
+  variation: number,
+  seed: number,
+): number[] {
+  if (runLength <= 0 || count <= 0) {
+    return [];
+  }
+
+  return normalizedSpans(count, runLength, variation, createRandom(seed));
+}
+
 /**
  * One block of a course, placed on the loop.
  *

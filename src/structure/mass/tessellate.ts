@@ -43,14 +43,16 @@ export interface TessellationOptions {
   readonly masonry: MasonryRule | null;
   /** Root seed the stonework derives its per-course variation from. */
   readonly seed: number;
+  /** Exact masonry tile count across each stair tread. */
+  readonly stairTilesPerStep?: number;
 }
 
 export function tessellateStructure(
   graph: StructureGraph,
-  options: TessellationOptions = { masonry: null, seed: 1 },
+  options: TessellationOptions = { masonry: null, seed: 1, stairTilesPerStep: 5 },
 ): TessellationResult {
   const builder = new SolidBuilder();
-  const { masonry, seed } = options;
+  const { masonry, seed, stairTilesPerStep = 5 } = options;
 
   for (const mass of graph.masses) {
     if (masonry) {
@@ -76,7 +78,11 @@ export function tessellateStructure(
   // handed over for the burial profile: a slice stops where the mass it climbs
   // swallows it.
   for (const connector of graph.connectors) {
-    buildStair(builder, connector, graph.masses[0]?.bands ?? [], { masonry, seed });
+    buildStair(builder, connector, graph.masses[0]?.bands ?? [], {
+      masonry,
+      seed,
+      tilesPerStep: stairTilesPerStep,
+    });
   }
 
   const { geometry } = finalizeGeometry(builder);

@@ -1,7 +1,7 @@
 import type { Block, BlockFaces, SolidBuilder, Vertex3 } from "../../geometry/solid-builder";
 import { rectIsValid } from "../kernel/frame";
 import type { ElevationBandRecord, StairConnectorRecord } from "../kernel/graph";
-import { divideRun, masonrySeed, type MasonryRule } from "../kernel/masonry";
+import { divideRunByCount, masonrySeed, type MasonryRule } from "../kernel/masonry";
 import { stairSteps, type StairStep } from "./stair";
 
 /**
@@ -37,6 +37,8 @@ export interface StairBuildOptions {
   /** Stonework for the steps; null lays each step as one monolith. */
   readonly masonry: MasonryRule | null;
   readonly seed: number;
+  /** Exact number of masonry tiles across every tread. */
+  readonly tilesPerStep: number;
 }
 
 const EPS = 1e-9;
@@ -356,9 +358,10 @@ function layFlightSlice(
     back,
   );
 
-  const widths = divideRun(
+  const widths = divideRunByCount(
     record.width,
-    masonry,
+    options.tilesPerStep,
+    masonry.sizeVariation,
     masonrySeed(options.seed, record.id, `step_${step.index}`),
   );
   const joint = masonry.gap * 0.5;
