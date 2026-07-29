@@ -9,7 +9,12 @@ import type {
 } from "../kernel/graph";
 import type { MasonryRule } from "../kernel/masonry";
 import { buildStair } from "../connector/build";
-import { stairSteps, type StairStep } from "../connector/stair";
+import {
+  stairLocalVertex,
+  stairSteps,
+  stairWorldToLocal,
+  type StairStep,
+} from "../connector/stair";
 import { buildMassShell } from "./shell";
 
 /**
@@ -119,26 +124,29 @@ export function faceIsCoveredByStair(
     return false;
   }
 
-  const xs = face.map((corner) => corner.x);
   const ys = face.map((corner) => corner.y);
-  const zs = face.map((corner) => corner.z);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
+  const local = face.map((corner) => stairWorldToLocal(stair, corner));
+  const us = local.map((corner) => corner.u);
+  const vs = local.map((corner) => corner.v);
+  const minU = Math.min(...us);
+  const maxU = Math.max(...us);
+  const minV = Math.min(...vs);
+  const maxV = Math.max(...vs);
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
-  const minZ = Math.min(...zs);
-  const maxZ = Math.max(...zs);
-  const { flightRect, parapet } = stair;
+  const { parapet } = stair;
   const sideWidth = parapet?.width ?? 0;
   const corniceProjection = parapet?.cornice?.projection ?? 0;
-  const assemblyMinX = flightRect.minX - sideWidth - corniceProjection;
-  const assemblyMaxX = flightRect.maxX + sideWidth + corniceProjection;
+  const flightMinU = -stair.width * 0.5;
+  const flightMaxU = stair.width * 0.5;
+  const assemblyMinU = flightMinU - sideWidth - corniceProjection;
+  const assemblyMaxU = flightMaxU + sideWidth + corniceProjection;
 
   if (
-    minX < assemblyMinX - EPS
-    || maxX > assemblyMaxX + EPS
-    || minZ < flightRect.minZ - EPS
-    || maxZ > flightRect.maxZ + EPS
+    minU < assemblyMinU - EPS
+    || maxU > assemblyMaxU + EPS
+    || minV < -EPS
+    || maxV > stair.run + EPS
     || minY < stair.bottomY - EPS
   ) {
     return false;
@@ -148,20 +156,20 @@ export function faceIsCoveredByStair(
   // earlier/lower tread is conservative and keeps a face unless the lower
   // volume hides it too.
   const coveringStep = steps.find((step) =>
-    maxZ >= step.zBack - EPS && maxZ <= step.zFront + EPS);
+    maxV >= step.vBack - EPS && maxV <= step.vFront + EPS);
 
   if (!coveringStep) {
     return false;
   }
 
-  const bodyMinX = flightRect.minX - sideWidth;
-  const bodyMaxX = flightRect.maxX + sideWidth;
+  const bodyMinU = flightMinU - sideWidth;
+  const bodyMaxU = flightMaxU + sideWidth;
   const whollyInNegativeSide = parapet !== null
-    && minX >= bodyMinX - EPS
-    && maxX < flightRect.minX - EPS;
+    && minU >= bodyMinU - EPS
+    && maxU < flightMinU - EPS;
   const whollyInPositiveSide = parapet !== null
-    && minX > flightRect.maxX + EPS
-    && maxX <= bodyMaxX + EPS;
+    && minU > flightMaxU + EPS
+    && maxU <= bodyMaxU + EPS;
   const whollyInSide = whollyInNegativeSide || whollyInPositiveSide;
 
   // The flat parapet is a continuous ground-backed heightfield rather than one
@@ -171,11 +179,11 @@ export function faceIsCoveredByStair(
   if (stair.sideTreatment === "sloped_parapet" && parapet) {
     if (!whollyInSide) {
       return maxY <= coveringStep.topY + EPS
-        && minX >= flightRect.minX - EPS
-        && maxX <= flightRect.maxX + EPS;
+        && minU >= flightMinU - EPS
+        && maxU <= flightMaxU + EPS;
     }
 
-    const progress = (flightRect.maxZ - maxZ) / stair.run;
+    const progress = (stair.run - maxV) / stair.run;
     const coverY = stair.bottomY
       + progress * (stair.topY - stair.bottomY)
       + parapet.height;
@@ -335,17 +343,49 @@ export function graphExtents(graph: StructureGraph): {
       ? (connector.parapet?.width ?? 0) + cornice.projection * 2
       : 0;
 
-    if (min && max) {
-      min = {
-        x: Math.min(min.x, connector.flightRect.minX - sideWidth),
-        y: Math.min(min.y, connector.bottomY),
-        z: Math.min(min.z, connector.flightRect.minZ - terminalLength),
-      };
-      max = {
-        x: Math.max(max.x, connector.flightRect.maxX + sideWidth),
-        y: Math.max(max.y, capY),
-        z: Math.max(max.z, connector.flightRect.maxZ + terminalLength),
-      };
+    const halfU = connector.width * 0.5 + sideWidth;
+    const corners = [
+      stairLocalVertex(
+        connector,
+        -halfU,
+        connector.bottomY,
+        -terminalLength,
+      ),
+      stairLocalVertex(
+        connector,
+        halfU,
+        connector.bottomY,
+        -terminalLength,
+      ),
+      stairLocalVertex(
+        connector,
+        -halfU,
+        capY,
+        connector.run + terminalLength,
+      ),
+      stairLocalVertex(
+        connector,
+        halfU,
+        capY,
+        connector.run + terminalLength,
+      ),
+    ];
+
+    for (const corner of corners) {
+      min = min === null
+        ? { ...corner }
+        : {
+          x: Math.min(min.x, corner.x),
+          y: Math.min(min.y, corner.y),
+          z: Math.min(min.z, corner.z),
+        };
+      max = max === null
+        ? { ...corner }
+        : {
+          x: Math.max(max.x, corner.x),
+          y: Math.max(max.y, corner.y),
+          z: Math.max(max.z, corner.z),
+        };
     }
   }
 

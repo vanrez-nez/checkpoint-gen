@@ -27,6 +27,7 @@ import {
   type SummitTreatment,
 } from "../../mass/elevation";
 import type { StairSideTreatment, StairSpec } from "../../connector/stair";
+import type { HorizontalOrientation } from "../../kernel/frame";
 
 /**
  * A named height distribution, or `custom` for one authored on the curve editor.
@@ -85,8 +86,11 @@ export interface MassLayoutConfig {
   summitTreatment: SummitTreatment;
   summitMargin: number;
   forecourtDepth: number;
-  /** The primary approach stair: one centred continuous flight, or none. */
-  stairEnabled: boolean;
+  /** Independently enabled centred approach stairs. */
+  stairFrontEnabled: boolean;
+  stairRearEnabled: boolean;
+  stairLeftEnabled: boolean;
+  stairRightEnabled: boolean;
   /** Flight width as a fraction of the facade it climbs. */
   stairWidthRatio: number;
   /** Target rise of one step; the generator settles the exact integer count. */
@@ -141,7 +145,10 @@ export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
   summitTreatment: "open_floor",
   summitMargin: 1.2,
   forecourtDepth: 3,
-  stairEnabled: true,
+  stairFrontEnabled: true,
+  stairRearEnabled: false,
+  stairLeftEnabled: false,
+  stairRightEnabled: false,
   stairWidthRatio: 0.3,
   stairRiser: 0.26,
   stairTread: 0.32,
@@ -212,6 +219,14 @@ const STAIR_SIDE_TREATMENT_OPTIONS: Readonly<Record<string, StairSideTreatment>>
   "Stepped parapet": "stepped_parapet",
   "Flat parapet": "sloped_parapet",
 };
+
+/** True when at least one facade carries a stair. */
+export function hasEnabledStair(layout: MassLayoutConfig): boolean {
+  return layout.stairFrontEnabled
+    || layout.stairRearEnabled
+    || layout.stairLeftEnabled
+    || layout.stairRightEnabled;
+}
 
 const control = controlsFor<MassLayoutConfig>();
 
@@ -474,13 +489,35 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     scopes: ["layout"],
   }),
   control.boolean({
-    key: "stairEnabled",
-    label: "enabled",
-    name: "Stair",
+    key: "stairFrontEnabled",
+    label: "front",
+    name: "Front stair",
     group: "Stair",
     scopes: ["layout"],
-    // A flight projects well past the foot of the mass, so toggling it moves
-    // the extents the camera frames.
+    reframe: true,
+  }),
+  control.boolean({
+    key: "stairRearEnabled",
+    label: "rear",
+    name: "Rear stair",
+    group: "Stair",
+    scopes: ["layout"],
+    reframe: true,
+  }),
+  control.boolean({
+    key: "stairLeftEnabled",
+    label: "left",
+    name: "Left stair",
+    group: "Stair",
+    scopes: ["layout"],
+    reframe: true,
+  }),
+  control.boolean({
+    key: "stairRightEnabled",
+    label: "right",
+    name: "Right stair",
+    group: "Stair",
+    scopes: ["layout"],
     reframe: true,
   }),
   control.number({
@@ -492,7 +529,7 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     max: 0.9,
     step: 0.01,
     scopes: ["layout"],
-    visibleWhen: (layout) => layout.stairEnabled,
+    visibleWhen: hasEnabledStair,
   }),
   // Riser and tread are targets, not dimensions: the generator resolves a whole
   // number of steps and reports how far the result drifted.
@@ -505,7 +542,7 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     max: 0.45,
     step: 0.005,
     scopes: ["layout"],
-    visibleWhen: (layout) => layout.stairEnabled,
+    visibleWhen: hasEnabledStair,
   }),
   control.number({
     key: "stairTread",
@@ -516,7 +553,7 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     max: 0.6,
     step: 0.005,
     scopes: ["layout"],
-    visibleWhen: (layout) => layout.stairEnabled,
+    visibleWhen: hasEnabledStair,
   }),
   control.number({
     key: "stairTilesPerStep",
@@ -529,7 +566,7 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     integer: true,
     scopes: ["layout"],
     visibleWhen: (layout) =>
-      layout.stairEnabled && layout.stoneworkEnabled,
+      hasEnabledStair(layout) && layout.stoneworkEnabled,
   }),
   control.list({
     key: "stairSideTreatment",
@@ -538,7 +575,7 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     group: "Stair",
     options: STAIR_SIDE_TREATMENT_OPTIONS,
     scopes: ["layout"],
-    visibleWhen: (layout) => layout.stairEnabled,
+    visibleWhen: hasEnabledStair,
   }),
   control.number({
     key: "stairParapetWidth",
@@ -550,7 +587,7 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     step: 0.05,
     scopes: ["layout"],
     visibleWhen: (layout) =>
-      layout.stairEnabled && layout.stairSideTreatment !== "none",
+      hasEnabledStair(layout) && layout.stairSideTreatment !== "none",
   }),
   control.number({
     key: "stairParapetHeight",
@@ -562,7 +599,7 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     step: 0.05,
     scopes: ["layout"],
     visibleWhen: (layout) =>
-      layout.stairEnabled && layout.stairSideTreatment !== "none",
+      hasEnabledStair(layout) && layout.stairSideTreatment !== "none",
   }),
   control.number({
     key: "stairSteppedParapetCorniceProjection",
@@ -574,7 +611,7 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     step: 0.005,
     scopes: ["layout"],
     visibleWhen: (layout) =>
-      layout.stairEnabled && layout.stairSideTreatment === "stepped_parapet",
+      hasEnabledStair(layout) && layout.stairSideTreatment === "stepped_parapet",
   }),
   control.number({
     key: "stairSteppedParapetCorniceHeight",
@@ -586,7 +623,7 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     step: 0.005,
     scopes: ["layout"],
     visibleWhen: (layout) =>
-      layout.stairEnabled && layout.stairSideTreatment === "stepped_parapet",
+      hasEnabledStair(layout) && layout.stairSideTreatment === "stepped_parapet",
   }),
   control.number({
     key: "stairParapetCorniceProjection",
@@ -598,7 +635,7 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     step: 0.005,
     scopes: ["layout"],
     visibleWhen: (layout) =>
-      layout.stairEnabled && layout.stairSideTreatment === "sloped_parapet",
+      hasEnabledStair(layout) && layout.stairSideTreatment === "sloped_parapet",
   }),
   control.number({
     key: "stairParapetCorniceHeight",
@@ -610,7 +647,7 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     step: 0.005,
     scopes: ["layout"],
     visibleWhen: (layout) =>
-      layout.stairEnabled && layout.stairSideTreatment === "sloped_parapet",
+      hasEnabledStair(layout) && layout.stairSideTreatment === "sloped_parapet",
   }),
   control.number({
     key: "seed",
@@ -720,24 +757,51 @@ export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
       summitMargin: layout.summitMargin,
       forecourtDepth: layout.forecourtDepth,
     },
-    stair: toStairSpec(layout),
+    stairs: toStairSpecs(layout),
   };
 }
 
 /**
- * The stair the controls describe, or null when it is switched off. Only the
- * dimensions are tunable from the pane; the layout, elevation mode and landing
- * rule are this phase's single implemented members, stated here so a config
- * that outlives the phase still says what it meant.
+ * Expands the shared controls into one connector intent per enabled facade.
+ * Front keeps its established id so the default graph remains stable.
  */
-function toStairSpec(layout: MassLayoutConfig): StairSpec | null {
-  if (!layout.stairEnabled) {
-    return null;
-  }
+function toStairSpecs(layout: MassLayoutConfig): StairSpec[] {
+  const placements: readonly {
+    readonly enabled: boolean;
+    readonly id: string;
+    readonly direction: HorizontalOrientation;
+    readonly layout: StairSpec["layout"];
+  }[] = [
+    {
+      enabled: layout.stairFrontEnabled,
+      id: "stair_primary",
+      direction: "front",
+      layout: "front_centered",
+    },
+    {
+      enabled: layout.stairRearEnabled,
+      id: "stair_rear",
+      direction: "rear",
+      layout: "rear",
+    },
+    {
+      enabled: layout.stairLeftEnabled,
+      id: "stair_left",
+      direction: "sideNegativeU",
+      layout: "side",
+    },
+    {
+      enabled: layout.stairRightEnabled,
+      id: "stair_right",
+      direction: "sidePositiveU",
+      layout: "side",
+    },
+  ];
 
-  return {
-    id: "stair_primary",
-    layout: "front_centered",
+  return placements.filter((placement) => placement.enabled).map((placement) => ({
+    id: placement.id,
+    direction: placement.direction,
+    layout: placement.layout,
     elevationMode: "continuous",
     landingRule: "none",
     widthRatio: layout.stairWidthRatio,
@@ -752,5 +816,5 @@ function toStairSpec(layout: MassLayoutConfig): StairSpec | null {
     parapetCorniceHeight: layout.stairSideTreatment === "stepped_parapet"
       ? layout.stairSteppedParapetCorniceHeight
       : layout.stairParapetCorniceHeight,
-  };
+  }));
 }

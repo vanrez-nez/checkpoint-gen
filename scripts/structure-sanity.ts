@@ -58,9 +58,18 @@ import {
 } from "../src/structure/kernel/graph";
 import { isValidId } from "../src/structure/kernel/ids";
 import { createSeedSet, deriveSeed, subsystemSeed } from "../src/structure/kernel/seed";
-import { evaluateFrame, rectWidth } from "../src/structure/kernel/frame";
+import {
+  evaluateFrame,
+  rectDepth,
+  rectWidth,
+  type HorizontalOrientation,
+} from "../src/structure/kernel/frame";
 import { buildStair } from "../src/structure/connector/build";
-import { stairSteps } from "../src/structure/connector/stair";
+import {
+  stairLocalVertex,
+  stairSteps,
+  stairWorldToLocal,
+} from "../src/structure/connector/stair";
 import { PATCH_ROLES } from "../src/structure/kernel/patch";
 import { createPatchOverlay } from "../src/structure/kernel/debug-overlay";
 import { generateStructure, type StructureSpec } from "../src/structure/mass/generate";
@@ -105,7 +114,10 @@ assert.deepEqual(
     stone: DEFAULT_MASS_LAYOUT.stoneWidth,
     stoneDepth: DEFAULT_MASS_LAYOUT.stoneDepth,
     corners: DEFAULT_MASS_LAYOUT.cornerRule,
-    stairEnabled: DEFAULT_MASS_LAYOUT.stairEnabled,
+    stairFront: DEFAULT_MASS_LAYOUT.stairFrontEnabled,
+    stairRear: DEFAULT_MASS_LAYOUT.stairRearEnabled,
+    stairLeft: DEFAULT_MASS_LAYOUT.stairLeftEnabled,
+    stairRight: DEFAULT_MASS_LAYOUT.stairRightEnabled,
     stairWidth: DEFAULT_MASS_LAYOUT.stairWidthRatio,
     stairRiser: DEFAULT_MASS_LAYOUT.stairRiser,
     stairTread: DEFAULT_MASS_LAYOUT.stairTread,
@@ -137,7 +149,10 @@ assert.deepEqual(
     stone: 1.65,
     stoneDepth: 0.75,
     corners: "butted",
-    stairEnabled: true,
+    stairFront: true,
+    stairRear: false,
+    stairLeft: false,
+    stairRight: false,
     stairWidth: 0.3,
     stairRiser: 0.26,
     stairTread: 0.32,
@@ -152,6 +167,13 @@ assert.deepEqual(
   },
   "The Mass controls must open with the approved defaults.",
 );
+
+const STAIRS_DISABLED = {
+  stairFrontEnabled: false,
+  stairRearEnabled: false,
+  stairLeftEnabled: false,
+  stairRightEnabled: false,
+} as const;
 
 /**
  * Every face a block emitted, as four corners.
@@ -781,25 +803,38 @@ const UNIMPLEMENTED: readonly {
   {
     label: "stair layout",
     code: "stair.layout_unimplemented",
-    mutate: (spec) => ({ ...spec, stair: { ...spec.stair!, layout: "four_sided" } }),
+    mutate: (spec) => ({
+      ...spec,
+      stairs: spec.stairs.map((stair, index) =>
+        index === 0 ? { ...stair, layout: "four_sided" } : stair),
+    }),
   },
   {
     label: "stair elevation mode",
     code: "stair.elevation_mode_unimplemented",
-    mutate: (spec) => ({ ...spec, stair: { ...spec.stair!, elevationMode: "band_local" } }),
+    mutate: (spec) => ({
+      ...spec,
+      stairs: spec.stairs.map((stair, index) =>
+        index === 0 ? { ...stair, elevationMode: "band_local" } : stair),
+    }),
   },
   {
     label: "stair side treatment",
     code: "stair.side_treatment_unimplemented",
     mutate: (spec) => ({
       ...spec,
-      stair: { ...spec.stair!, sideTreatment: "serpent_like_profile" },
+      stairs: spec.stairs.map((stair, index) =>
+        index === 0 ? { ...stair, sideTreatment: "serpent_like_profile" } : stair),
     }),
   },
   {
     label: "stair landing rule",
     code: "stair.landing_rule_unimplemented",
-    mutate: (spec) => ({ ...spec, stair: { ...spec.stair!, landingRule: "at_every_terrace" } }),
+    mutate: (spec) => ({
+      ...spec,
+      stairs: spec.stairs.map((stair, index) =>
+        index === 0 ? { ...stair, landingRule: "at_every_terrace" } : stair),
+    }),
   },
 ];
 
@@ -1042,8 +1077,12 @@ const stairRecord = stairDefault.connectors[0]!;
 const stairPatches = patchIndex(stairDefault);
 const occlusionSteps = stairSteps(stairRecord);
 const occlusionStep = occlusionSteps[Math.floor(occlusionSteps.length * 0.5)]!;
-const occlusionZ0 = occlusionStep.zBack + stairRecord.tread * 0.2;
-const occlusionZ1 = occlusionStep.zFront - stairRecord.tread * 0.2;
+const occlusionZ0 = stairRecord.flightRect.minZ
+  + occlusionStep.vBack
+  + stairRecord.tread * 0.2;
+const occlusionZ1 = stairRecord.flightRect.minZ
+  + occlusionStep.vFront
+  - stairRecord.tread * 0.2;
 const horizontalFace = (
   x0: number,
   x1: number,
@@ -1085,8 +1124,12 @@ assert.equal(faceIsCoveredByStair(
   horizontalFace(
     stairRecord.flightRect.minX + stairRecord.width * 0.2,
     stairRecord.flightRect.maxX - stairRecord.width * 0.2,
-    occlusionStep.zBack + stairRecord.tread * 0.2,
-    lowerStep.zBack + stairRecord.tread * 0.2,
+    stairRecord.flightRect.minZ
+      + occlusionStep.vBack
+      + stairRecord.tread * 0.2,
+    stairRecord.flightRect.minZ
+      + lowerStep.vBack
+      + stairRecord.tread * 0.2,
     lowerStep.topY + stairRecord.riser * 0.5,
   ),
   stairRecord,
@@ -1195,7 +1238,7 @@ for (const patch of stairDefault.patches) {
 // reservations. The massing itself must be identical.
 const stairless = generateStructure(toStructureSpec({
   ...cloneMassLayout(),
-  stairEnabled: false,
+  ...STAIRS_DISABLED,
 }));
 assert.deepEqual(stairless.connectors, []);
 assert.ok(
@@ -1210,6 +1253,293 @@ assert.deepEqual(
   stairDefault.masses,
   "Removing the stair must not move the massing.",
 );
+const stairlessSummitPatch = stairless.patches.find(
+  (patch) => patch.role === PATCH_ROLES.summitFloor,
+)!;
+const stairlessBuildable = stairlessSummitPatch.regions.find(
+  (region) => region.tags.includes("buildable")
+    && !region.tags.includes("superstructure"),
+)!;
+const stairlessBuildingPad = stairlessSummitPatch.regions.find(
+  (region) => region.tags.includes("superstructure"),
+)!;
+assert.deepEqual(
+  {
+    uRange: stairlessBuildingPad.uRange,
+    vRange: stairlessBuildingPad.vRange,
+  },
+  {
+    uRange: stairlessBuildable.uRange,
+    vRange: stairlessBuildable.vRange,
+  },
+  "With no stairs, the whole buildable summit must remain the building pad.",
+);
+
+// Each checkbox independently adds exactly one centred connector to its facade.
+const STAIR_DIRECTIONS: readonly {
+  readonly direction: HorizontalOrientation;
+  readonly enabled: Partial<MassLayoutConfig>;
+  readonly facade: string;
+  readonly forecourt: string;
+}[] = [
+  {
+    direction: "front",
+    enabled: { stairFrontEnabled: true },
+    facade: "facade_front",
+    forecourt: "/forecourt",
+  },
+  {
+    direction: "rear",
+    enabled: { stairRearEnabled: true },
+    facade: "facade_rear",
+    forecourt: "/forecourt_rear",
+  },
+  {
+    direction: "sideNegativeU",
+    enabled: { stairLeftEnabled: true },
+    facade: "facade_side_negative_u",
+    forecourt: "/forecourt_side_negative_u",
+  },
+  {
+    direction: "sidePositiveU",
+    enabled: { stairRightEnabled: true },
+    facade: "facade_side_positive_u",
+    forecourt: "/forecourt_side_positive_u",
+  },
+];
+
+for (const placement of STAIR_DIRECTIONS) {
+  const graph = generateStructure(toStructureSpec({
+    ...cloneMassLayout(),
+    ...STAIRS_DISABLED,
+    ...placement.enabled,
+  }));
+  assert.deepEqual(
+    graph.connectors.map((connector) => connector.direction),
+    [placement.direction],
+    `${placement.direction}: its checkbox did not produce exactly its connector.`,
+  );
+  assert.ok(
+    graph.patches
+      .filter((patch) => patch.id.endsWith(placement.facade))
+      .every((patch) =>
+        patch.regions.filter((region) => region.tags.includes("stair")).length === 1),
+    `${placement.direction}: its facade did not reserve the connector width.`,
+  );
+  const summitPatch = graph.patches.find(
+    (patch) => patch.role === PATCH_ROLES.summitFloor,
+  )!;
+  assert.equal(
+    summitPatch.regions.filter((region) => region.tags.includes("stair_arrival")).length,
+    1,
+  );
+  assert.ok(
+    summitPatch.regions.some((region) => region.id.endsWith(placement.forecourt)),
+    `${placement.direction}: its summit forecourt is missing.`,
+  );
+}
+
+// All four use the same sizing, parapet, cornice and tiling settings while
+// resolving against the width of their own facade.
+const allSidesLayout: MassLayoutConfig = {
+  ...cloneMassLayout(),
+  footprintWidth: 30,
+  footprintDepth: 18,
+  bandCount: 2,
+  totalHeight: 2.4,
+  baseTreatment: "none",
+  summitRatio: 0.9,
+  stairFrontEnabled: true,
+  stairRearEnabled: true,
+  stairLeftEnabled: true,
+  stairRightEnabled: true,
+  stairSideTreatment: "sloped_parapet",
+  stairParapetCorniceProjection: 0.1,
+  stairParapetCorniceHeight: 0.1,
+};
+const allSides = generateStructure(toStructureSpec(allSidesLayout));
+assertGraphInvariants(allSides, "all four stairs");
+assert.deepEqual(
+  allSides.connectors.map((connector) => connector.direction),
+  ["front", "rear", "sideNegativeU", "sidePositiveU"],
+);
+assert.equal(new Set(allSides.connectors.map((connector) => connector.id)).size, 4);
+
+const allSidesMass = allSides.masses[0]!;
+for (const connector of allSides.connectors) {
+  assert.ok(connector.parapet?.cornice, `${connector.direction}: shared cornice is missing.`);
+  assert.equal(connector.parapet?.cornice?.projection, 0.1);
+  const arrivalPoint = stairLocalVertex(connector, 0, connector.topY, 0);
+  const centerX = (allSidesMass.summit.rect.minX + allSidesMass.summit.rect.maxX) * 0.5;
+  const centerZ = (allSidesMass.summit.rect.minZ + allSidesMass.summit.rect.maxZ) * 0.5;
+
+  switch (connector.direction) {
+    case "front":
+      assert.ok(Math.abs(arrivalPoint.x - centerX) < 1e-9);
+      assert.ok(Math.abs(arrivalPoint.z - allSidesMass.summit.rect.maxZ) < 1e-9);
+      break;
+    case "rear":
+      assert.ok(Math.abs(arrivalPoint.x - centerX) < 1e-9);
+      assert.ok(Math.abs(arrivalPoint.z - allSidesMass.summit.rect.minZ) < 1e-9);
+      break;
+    case "sidePositiveU":
+      assert.ok(Math.abs(arrivalPoint.x - allSidesMass.summit.rect.maxX) < 1e-9);
+      assert.ok(Math.abs(arrivalPoint.z - centerZ) < 1e-9);
+      break;
+    case "sideNegativeU":
+      assert.ok(Math.abs(arrivalPoint.x - allSidesMass.summit.rect.minX) < 1e-9);
+      assert.ok(Math.abs(arrivalPoint.z - centerZ) < 1e-9);
+      break;
+  }
+}
+assert.equal(
+  allSides.patches
+    .filter((patch) => patch.id.includes("facade_"))
+    .flatMap((patch) => patch.regions)
+    .filter((region) => region.tags.includes("stair")).length,
+  allSidesMass.bands.length * 4,
+);
+const allSidesSummitPatch = allSides.patches.find(
+  (patch) => patch.role === PATCH_ROLES.summitFloor,
+)!;
+assert.equal(
+  allSidesSummitPatch.regions.filter(
+    (region) => region.tags.includes("stair_arrival"),
+  ).length,
+  4,
+);
+const allSidesBuildable = allSidesSummitPatch.regions.find(
+  (region) => region.id.endsWith("/buildable"),
+)!;
+const allSidesBuildingPad = allSidesSummitPatch.regions.find(
+  (region) => region.id.endsWith("/building_pad"),
+)!;
+assert.ok(
+  allSidesBuildingPad.uRange[0] > allSidesBuildable.uRange[0]
+  && allSidesBuildingPad.uRange[1] < allSidesBuildable.uRange[1]
+  && allSidesBuildingPad.vRange[0] > allSidesBuildable.vRange[0]
+  && allSidesBuildingPad.vRange[1] < allSidesBuildable.vRange[1],
+  "Four summit forecourts must inset the building pad on every side.",
+);
+
+// The culling rule follows the connector's local frame as well: this probe is
+// beneath a right-side tread, where world X is the stair run.
+const rightStair = allSides.connectors.find(
+  (connector) => connector.direction === "sidePositiveU",
+)!;
+const rightStep = stairSteps(rightStair)[Math.floor(rightStair.stepCount * 0.5)]!;
+const rightProbe = [
+  stairLocalVertex(rightStair, -rightStair.width * 0.2, rightStep.topY, rightStep.vBack + rightStair.tread * 0.2),
+  stairLocalVertex(rightStair, -rightStair.width * 0.2, rightStep.topY, rightStep.vFront - rightStair.tread * 0.2),
+  stairLocalVertex(rightStair, rightStair.width * 0.2, rightStep.topY, rightStep.vFront - rightStair.tread * 0.2),
+  stairLocalVertex(rightStair, rightStair.width * 0.2, rightStep.topY, rightStep.vBack + rightStair.tread * 0.2),
+];
+assert.ok(
+  faceIsCoveredByStair(rightProbe, rightStair),
+  "A face beneath a side stair tread was not selected.",
+);
+assert.ok(
+  rightProbe.every((corner) => {
+    const local = stairWorldToLocal(rightStair, corner);
+    return Math.abs(local.u) <= rightStair.width * 0.2 + 1e-9
+      && local.v >= rightStep.vBack - 1e-9
+      && local.v <= rightStep.vFront + 1e-9;
+  }),
+);
+
+const allSidesRule = toMasonry(allSidesLayout, DEFAULT_MASS_STONE_CONFIG);
+assert.ok(allSidesRule);
+for (const masonry of [null, allSidesRule] as const) {
+  const result = tessellateStructure(allSides, {
+    masonry,
+    seed: 17,
+    stairTilesPerStep: allSidesLayout.stairTilesPerStep,
+  });
+  const geometry = result.parts[0]!.geometry;
+  assert.equal(
+    findCoincidentFaces(geometry).pairs,
+    0,
+    `Four ${masonry ? "masonry" : "bare"} stairs emitted coincident faces.`,
+  );
+  assert.equal(
+    findBackfaces(geometry).backfaces,
+    0,
+    `Four ${masonry ? "masonry" : "bare"} stairs left visible backfaces.`,
+  );
+  geometry.computeBoundingBox();
+  const bounds = geometry.boundingBox!;
+  const expected = graphExtents(allSides)!;
+  for (const axis of ["x", "y", "z"] as const) {
+    const tolerance = Math.max(1e-5, Math.abs(expected.max[axis]) * 1e-6);
+    assert.ok(Math.abs(bounds.min[axis] - expected.min[axis]) < tolerance);
+    assert.ok(Math.abs(bounds.max[axis] - expected.max[axis]) < tolerance);
+  }
+  if (!masonry) {
+    assertMassNormals(geometry, "all four bare stairs", allSides);
+  }
+}
+
+const allSteppedSides = generateStructure(toStructureSpec({
+  ...allSidesLayout,
+  stairSideTreatment: "stepped_parapet",
+  stairSteppedParapetCorniceProjection: 0.1,
+  stairSteppedParapetCorniceHeight: 0.1,
+}));
+assertGraphInvariants(allSteppedSides, "all four stepped stairs");
+const allSteppedGeometry = tessellateStructure(allSteppedSides, {
+  masonry: null,
+  seed: 17,
+  stairTilesPerStep: allSidesLayout.stairTilesPerStep,
+}).parts[0]!.geometry;
+assert.equal(
+  findCoincidentFaces(allSteppedGeometry).pairs,
+  0,
+  "Four stepped corniced stairs emitted coincident faces.",
+);
+assert.equal(
+  findBackfaces(allSteppedGeometry).backfaces,
+  0,
+  "Four stepped corniced stairs left visible backfaces.",
+);
+
+// If any requested facade cannot fit its connector, generation is atomic.
+const oneSideCannotFit = generateStructure(toStructureSpec({
+  ...cloneMassLayout(),
+  footprintWidth: 24,
+  footprintDepth: 2,
+  bandCount: 2,
+  batterAngle: 0,
+  summitRatio: 0.05,
+  stairFrontEnabled: true,
+  stairRearEnabled: true,
+  stairLeftEnabled: true,
+  stairRightEnabled: true,
+  stairSideTreatment: "none",
+}));
+assert.equal(
+  oneSideCannotFit.diagnostics.find(
+    (diagnostic) => diagnostic.severity === "error",
+  )?.code,
+  "stair.does_not_fit",
+);
+assert.deepEqual(oneSideCannotFit.masses, []);
+assert.deepEqual(oneSideCannotFit.patches, []);
+assert.deepEqual(oneSideCannotFit.connectors, []);
+const duplicateFacadeSpec = toStructureSpec(cloneMassLayout());
+const duplicateFacade = generateStructure({
+  ...duplicateFacadeSpec,
+  stairs: [
+    ...duplicateFacadeSpec.stairs,
+    { ...duplicateFacadeSpec.stairs[0]!, id: "stair_front_second" },
+  ],
+});
+assert.equal(
+  duplicateFacade.diagnostics.find(
+    (diagnostic) => diagnostic.severity === "error",
+  )?.code,
+  "stair.duplicate_facade",
+);
+assert.deepEqual(duplicateFacade.patches, []);
 
 // A stair wider than the summit it arrives on is narrowed, and says so.
 const clampedStair = generateStructure(toStructureSpec({
@@ -1702,8 +2032,12 @@ for (const axis of ["x", "y", "z"] as const) {
 
 const flatSteps = stairSteps(flatParapetRecord);
 const flatProbeStep = flatSteps[Math.floor(flatSteps.length * 0.5)]!;
-const flatProbeZ0 = flatProbeStep.zBack + flatParapetRecord.tread * 0.2;
-const flatProbeZ1 = flatProbeStep.zFront - flatParapetRecord.tread * 0.2;
+const flatProbeZ0 = flatParapetRecord.flightRect.minZ
+  + flatProbeStep.vBack
+  + flatParapetRecord.tread * 0.2;
+const flatProbeZ1 = flatParapetRecord.flightRect.minZ
+  + flatProbeStep.vFront
+  - flatParapetRecord.tread * 0.2;
 const flatProbeCapY = flatParapetRecord.bottomY
   + (
     flatParapetRecord.flightRect.maxZ - flatProbeZ1
@@ -1946,7 +2280,7 @@ buildStair(
 );
 const openStairless = generateStructure(toStructureSpec({
   ...cloneMassLayout(),
-  stairEnabled: false,
+  ...STAIRS_DISABLED,
   stairSideTreatment: "none",
 }));
 const openMasonryCulled = tessellateStructure(openStairless, {
@@ -1980,7 +2314,7 @@ const fullAssemblyLayout: MassLayoutConfig = {
 const fullAssembly = generateStructure(toStructureSpec(fullAssemblyLayout));
 const fullAssemblyStairless = generateStructure(toStructureSpec({
   ...fullAssemblyLayout,
-  stairEnabled: false,
+  ...STAIRS_DISABLED,
 }));
 const fullAssemblyRecord = fullAssembly.connectors[0]!;
 const fullAssemblyStairBuilder = new SolidBuilder();
@@ -3193,12 +3527,24 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
       Math.abs(connector.stepCount * connector.tread - connector.run) < 1e-9,
       `${label}: connector treads do not sum to its run.`,
     );
+    const alongX = connector.direction === "sidePositiveU"
+      || connector.direction === "sideNegativeU";
     assert.ok(
-      Math.abs(connector.flightRect.maxZ - connector.flightRect.minZ - connector.run) < 1e-9,
+      Math.abs(
+        (alongX
+          ? rectWidth(connector.flightRect)
+          : rectDepth(connector.flightRect))
+        - connector.run,
+      ) < 1e-9,
       `${label}: connector flight rect disagrees with its run.`,
     );
     assert.ok(
-      Math.abs(connector.flightRect.maxX - connector.flightRect.minX - connector.width) < 1e-9,
+      Math.abs(
+        (alongX
+          ? rectDepth(connector.flightRect)
+          : rectWidth(connector.flightRect))
+        - connector.width,
+      ) < 1e-9,
       `${label}: connector flight rect disagrees with its width.`,
     );
     assert.ok(connector.riser > 0 && connector.tread > 0, `${label}: degenerate step.`);
@@ -3487,12 +3833,34 @@ function assertMassNormals(
     (footprint.minZ + footprint.maxZ) * 0.5,
   );
   const connectorSpans = graph.connectors.map((connector) => {
-    const sideWidth = connector.parapet?.width ?? 0;
+    const cornice = connector.parapet?.cornice;
+    const sideWidth = (connector.parapet?.width ?? 0)
+      + (cornice?.projection ?? 0)
+      + 1e-4;
+    const terminalLength = cornice
+      ? (connector.parapet?.width ?? 0) + cornice.projection * 2
+      : 0;
+    const corners = [
+      stairLocalVertex(connector, -connector.width * 0.5 - sideWidth, 0, -terminalLength - 1e-4),
+      stairLocalVertex(connector, connector.width * 0.5 + sideWidth, 0, -terminalLength - 1e-4),
+      stairLocalVertex(
+        connector,
+        -connector.width * 0.5 - sideWidth,
+        0,
+        connector.run + terminalLength + 1e-4,
+      ),
+      stairLocalVertex(
+        connector,
+        connector.width * 0.5 + sideWidth,
+        0,
+        connector.run + terminalLength + 1e-4,
+      ),
+    ];
     return {
-      minX: connector.flightRect.minX - sideWidth - 1e-4,
-      maxX: connector.flightRect.maxX + sideWidth + 1e-4,
-      minZ: connector.flightRect.minZ - 1e-4,
-      maxZ: connector.flightRect.maxZ + 1e-4,
+      minX: Math.min(...corners.map((corner) => corner.x)),
+      maxX: Math.max(...corners.map((corner) => corner.x)),
+      minZ: Math.min(...corners.map((corner) => corner.z)),
+      maxZ: Math.max(...corners.map((corner) => corner.z)),
     };
   });
 
@@ -3515,6 +3883,14 @@ function assertMassNormals(
       continue;
     }
 
+    // Raked parapet cornices have visible sloped soffits and terminal faces;
+    // their normals are governed by the connector, not the mass wall rule.
+    if (connectorSpans.some((span) =>
+      point.x >= span.minX && point.x <= span.maxX
+      && point.z >= span.minZ && point.z <= span.maxZ)) {
+      continue;
+    }
+
     if (facing.y > 0.9) {
       continue;
     }
@@ -3525,12 +3901,6 @@ function assertMassNormals(
       facing.y >= -1e-4,
       `${label}: vertex ${index} is a wall whose normal tilts downward.`,
     );
-
-    if (connectorSpans.some((span) =>
-      point.x >= span.minX && point.x <= span.maxX
-      && point.z >= span.minZ && point.z <= span.maxZ)) {
-      continue;
-    }
 
     assert.ok(
       (point.x - center.x) * facing.x + (point.z - center.z) * facing.z > 0,

@@ -34,6 +34,7 @@ import type { SeedSet } from "../kernel/seed";
 import { DiagnosticCollector } from "../kernel/validate";
 import {
   resolveStair,
+  stairBasis,
   unimplementedStairMember,
   type ResolvedStair,
   type StairSpec,
@@ -94,8 +95,8 @@ export interface StructureSpec {
   readonly seeds: SeedSet;
   readonly groundY: number;
   readonly mass: MassSpec;
-  /** The primary approach stair, or null for a mass with no circulation yet. */
-  readonly stair: StairSpec | null;
+  /** Independently enabled facade-centred approach stairs. */
+  readonly stairs: readonly StairSpec[];
 }
 
 const FACADE_SEGMENT: Readonly<Record<HorizontalOrientation, string>> = {
@@ -143,17 +144,32 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     return graph.build(diagnostics.all);
   }
 
-  if (spec.stair) {
-    const unimplemented = unimplementedStairMember(spec.stair);
+  for (const stairSpec of spec.stairs) {
+    const unimplemented = unimplementedStairMember(stairSpec);
 
     if (unimplemented) {
       diagnostics.error(
         unimplemented.code,
-        structurePath(spec.id, spec.stair.id),
+        structurePath(spec.id, stairSpec.id),
         unimplemented.message,
       );
       return graph.build(diagnostics.all);
     }
+  }
+
+  const stairDirections = new Set<HorizontalOrientation>();
+
+  for (const stairSpec of spec.stairs) {
+    if (stairDirections.has(stairSpec.direction)) {
+      diagnostics.error(
+        "stair.duplicate_facade",
+        structurePath(spec.id, stairSpec.id),
+        `Facade "${stairSpec.direction}" has more than one stair; only one centred stair per facade is supported.`,
+      );
+      return graph.build(diagnostics.all);
+    }
+
+    stairDirections.add(stairSpec.direction);
   }
 
   const footprint = resolveFootprint(spec.mass.footprint, massId, diagnostics);
@@ -196,11 +212,13 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
   // on the facades it climbs in front of, so the reservation has to exist on
   // each patch from the moment the patch does.
   const groundPatchId = structurePath(massId, "ground_interface");
-  const stair = spec.stair
-    ? resolveStair(
+  const stairs: ResolvedStair[] = [];
+
+  for (const stairSpec of spec.stairs) {
+    const stair = resolveStair(
       {
         structureId: spec.id,
-        spec: spec.stair,
+        spec: stairSpec,
         groundY: spec.groundY,
         groundRect,
         summitRect: elevation.summitRect,
@@ -214,11 +232,13 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
         ),
       },
       diagnostics,
-    )
-    : null;
+    );
 
-  if (spec.stair && !stair) {
-    return graph.build(diagnostics.all);
+    if (!stair) {
+      return graph.build(diagnostics.all);
+    }
+
+    stairs.push(stair);
   }
 
   graph.addPatch(horizontalPatch({
@@ -240,7 +260,7 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     }
 
     const next = bands[index + 1];
-    const facadeIds = emitBandFacades(graph, band, stair);
+    const facadeIds = emitBandFacades(graph, band, stairs);
 
     // A facade meets the ground or the terrace it rises from, and its two
     // neighbours around the corner.
@@ -259,7 +279,7 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
 
     const topPatchId = next
       ? emitTerrace(graph, band, next.lower)
-      : emitSummit(graph, spec.mass, band, elevation.summitRect);
+      : emitSummit(graph, spec.mass, band, elevation.summitRect, stairs);
 
     for (const facadeId of facadeIds) {
       graph.link(facadeId, topPatchId);
@@ -281,7 +301,7 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
   } satisfies MassRecord);
 
   // The stair's own surfaces, once both ends it connects exist to be linked to.
-  if (stair) {
+  for (const stair of stairs) {
     for (const patch of stair.patches) {
       graph.addPatch(patch);
     }
@@ -365,7 +385,7 @@ function resolvePlinth(
 function emitBandFacades(
   graph: StructureGraphBuilder,
   band: ElevationBandRecord,
-  stair: ResolvedStair | null,
+  stairs: readonly ResolvedStair[],
 ): string[] {
   const evaluator: PatchEvaluator = band.wallProfile === "battered"
     ? "battered"
@@ -376,11 +396,13 @@ function emitBandFacades(
     const base = rectEdge(band.lower, orientation);
     const crown = rectEdge(band.upper, orientation);
     const frame = createFacadeFrame(base, band.bottomY, band.topY, crown.start);
-    // A continuous front stair passes every band, so every front facade carries
-    // the reservation: whatever climbs in front of a wall forecloses portals,
-    // niches and optional damage on the strip behind it.
-    const regions = orientation === "front" && stair
-      ? [stairReserveRegion(id, band.lower, stair.spanX)]
+    // A continuous stair passes every band on the facade it climbs, so that
+    // facade reserves the whole assembly width against portals and damage.
+    const stair = stairs.find(
+      (candidate) => candidate.record.direction === orientation,
+    );
+    const regions = stair
+      ? [stairReserveRegion(id, band.lower, orientation, stair.spanU)]
       : [];
 
     graph.addPatch({
@@ -409,23 +431,30 @@ function emitBandFacades(
 }
 
 /**
- * The strip of a front facade the stair climbs in front of, in the facade's own
- * domain. `u` runs along the base edge from `minX`, so the world-x span maps
- * directly; the whole rise is reserved because a continuous flight passes the
+ * The strip of a facade the stair climbs in front of, in that facade's own
+ * domain. The whole rise is reserved because a continuous flight passes the
  * whole band.
  */
 function stairReserveRegion(
   facadeId: string,
   lower: Rect,
-  spanX: readonly [number, number],
+  orientation: HorizontalOrientation,
+  spanU: readonly [number, number],
 ): PatchRegion {
-  const width = rectWidth(lower);
+  const edge = rectEdge(lower, orientation);
+  const basis = stairBasis(orientation);
+  const baseU = edge.start.x * basis.across.x
+    + edge.start.z * basis.across.z;
+  const width = Math.hypot(
+    edge.end.x - edge.start.x,
+    edge.end.z - edge.start.z,
+  );
 
   return {
     id: structurePath(facadeId, "stair_reserve"),
     uRange: [
-      Math.max((spanX[0] - lower.minX) / width, 0),
-      Math.min((spanX[1] - lower.minX) / width, 1),
+      Math.max((spanU[0] - baseU) / width, 0),
+      Math.min((spanU[1] - baseU) / width, 1),
     ],
     vRange: [0, 1],
     priority: 100,
@@ -466,6 +495,7 @@ function emitSummit(
   mass: MassSpec,
   band: ElevationBandRecord,
   summitRect: Rect,
+  stairs: readonly ResolvedStair[],
 ): string {
   const id = structurePath(band.id, "summit_floor");
 
@@ -475,7 +505,12 @@ function emitSummit(
     rect: summitRect,
     y: band.topY,
     tags: ["traversable", "exterior", "buildable"],
-    regions: summitRegions(id, mass, summitRect),
+    regions: summitRegions(
+      id,
+      mass,
+      summitRect,
+      stairs.map((stair) => stair.record.direction),
+    ),
   }));
 
   return id;
@@ -483,13 +518,14 @@ function emitSummit(
 
 /**
  * The placement regions the summit exposes to whatever gets built on it: the
- * buildable area inside the no-build margin, the front strip reserved for stair
- * arrival, and the pad left over behind it.
+ * buildable area inside the no-build margin, one strip for each requested
+ * stair arrival, and the pad left between those strips.
  */
 function summitRegions(
   patchId: string,
   mass: MassSpec,
   summitRect: Rect,
+  stairDirections: readonly HorizontalOrientation[],
 ): PatchRegion[] {
   const buildable = insetRect(summitRect, uniformSetbacks(mass.summitMargin));
 
@@ -498,33 +534,95 @@ function summitRegions(
   }
 
   const buildableBounds = normalizedBounds(summitRect, buildable);
+  const width = rectWidth(summitRect);
   const depth = rectDepth(summitRect);
-  const forecourtDepth = Math.min(mass.forecourtDepth, rectDepth(buildable));
-  // v runs along +Z and front is +Z, so the forecourt is the high-v end.
-  const forecourtStart = buildableBounds.vRange[1] - forecourtDepth / depth;
+  const forecourtX = Math.min(mass.forecourtDepth, rectWidth(buildable));
+  const forecourtZ = Math.min(mass.forecourtDepth, rectDepth(buildable));
+  const directions = new Set(stairDirections);
+  const regions: PatchRegion[] = [{
+    id: structurePath(patchId, "buildable"),
+    ...buildableBounds,
+    priority: 10,
+    tags: ["buildable"],
+  }];
+  const forecourtIds: Readonly<Record<HorizontalOrientation, string>> = {
+    front: "forecourt",
+    rear: "forecourt_rear",
+    sidePositiveU: "forecourt_side_positive_u",
+    sideNegativeU: "forecourt_side_negative_u",
+  };
 
-  return [
-    {
-      id: structurePath(patchId, "buildable"),
-      ...buildableBounds,
-      priority: 10,
-      tags: ["buildable"],
-    },
-    {
-      id: structurePath(patchId, "forecourt"),
-      uRange: buildableBounds.uRange,
-      vRange: [forecourtStart, buildableBounds.vRange[1]],
+  for (const direction of HORIZONTAL_ORIENTATIONS) {
+    if (!directions.has(direction)) {
+      continue;
+    }
+
+    let bounds: Pick<PatchRegion, "uRange" | "vRange">;
+
+    switch (direction) {
+      case "front":
+        bounds = {
+          uRange: buildableBounds.uRange,
+          vRange: [
+            buildableBounds.vRange[1] - forecourtZ / depth,
+            buildableBounds.vRange[1],
+          ],
+        };
+        break;
+      case "rear":
+        bounds = {
+          uRange: buildableBounds.uRange,
+          vRange: [
+            buildableBounds.vRange[0],
+            buildableBounds.vRange[0] + forecourtZ / depth,
+          ],
+        };
+        break;
+      case "sidePositiveU":
+        bounds = {
+          uRange: [
+            buildableBounds.uRange[1] - forecourtX / width,
+            buildableBounds.uRange[1],
+          ],
+          vRange: buildableBounds.vRange,
+        };
+        break;
+      case "sideNegativeU":
+        bounds = {
+          uRange: [
+            buildableBounds.uRange[0],
+            buildableBounds.uRange[0] + forecourtX / width,
+          ],
+          vRange: buildableBounds.vRange,
+        };
+        break;
+    }
+
+    regions.push({
+      id: structurePath(patchId, forecourtIds[direction]),
+      ...bounds,
       priority: 100,
       tags: ["circulation", "stair_arrival", "no_build"],
-    },
-    {
+    });
+  }
+
+  const buildingPad = insetRect(buildable, {
+    front: directions.has("front") ? forecourtZ : 0,
+    rear: directions.has("rear") ? forecourtZ : 0,
+    sidePositiveU: directions.has("sidePositiveU") ? forecourtX : 0,
+    sideNegativeU: directions.has("sideNegativeU") ? forecourtX : 0,
+  });
+
+  if (rectIsValid(buildingPad)) {
+    regions.push({
       id: structurePath(patchId, "building_pad"),
-      uRange: buildableBounds.uRange,
-      vRange: [buildableBounds.vRange[0], forecourtStart],
+      ...normalizedBounds(summitRect, buildingPad),
       priority: 50,
       tags: ["buildable", "superstructure"],
-    },
-  ];
+    });
+  }
+
+  return regions;
 }
 
 function summitRecord(

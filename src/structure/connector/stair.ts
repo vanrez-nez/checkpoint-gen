@@ -1,7 +1,10 @@
 import {
+  rectDepth,
   rectWidth,
+  type HorizontalOrientation,
   type LocalFrame,
   type Rect,
+  type Vec3,
 } from "../kernel/frame";
 import type {
   ElevationBandRecord,
@@ -48,6 +51,8 @@ export type StairLayout = (typeof STAIR_LAYOUTS)[number];
 
 export const IMPLEMENTED_STAIR_LAYOUTS: readonly StairLayout[] = [
   "front_centered",
+  "side",
+  "rear",
 ];
 
 export const STAIR_ELEVATION_MODES = [
@@ -117,8 +122,205 @@ const RISER_DEVIATION_NOTICE = 0.2;
 /** Matches the mass cornice rule: a molding may take at most half its support. */
 const MAX_PARAPET_CORNICE_HEIGHT_SHARE = 0.5;
 
+export interface StairBasis {
+  /** Along the facade, from its local u-min edge to u-max. */
+  readonly across: Vec3;
+  /** Horizontally away from the mass. */
+  readonly outward: Vec3;
+  readonly negativeSide: HorizontalOrientation;
+  readonly positiveSide: HorizontalOrientation;
+  readonly inward: HorizontalOrientation;
+}
+
+/** The axis-aligned local frame shared by resolution, patches and tessellation. */
+export function stairBasis(direction: HorizontalOrientation): StairBasis {
+  switch (direction) {
+    case "front":
+      return {
+        across: { x: 1, y: 0, z: 0 },
+        outward: { x: 0, y: 0, z: 1 },
+        negativeSide: "sideNegativeU",
+        positiveSide: "sidePositiveU",
+        inward: "rear",
+      };
+    case "rear":
+      return {
+        across: { x: -1, y: 0, z: 0 },
+        outward: { x: 0, y: 0, z: -1 },
+        negativeSide: "sidePositiveU",
+        positiveSide: "sideNegativeU",
+        inward: "front",
+      };
+    case "sidePositiveU":
+      return {
+        across: { x: 0, y: 0, z: -1 },
+        outward: { x: 1, y: 0, z: 0 },
+        negativeSide: "front",
+        positiveSide: "rear",
+        inward: "sideNegativeU",
+      };
+    case "sideNegativeU":
+      return {
+        across: { x: 0, y: 0, z: 1 },
+        outward: { x: -1, y: 0, z: 0 },
+        negativeSide: "rear",
+        positiveSide: "front",
+        inward: "sidePositiveU",
+      };
+  }
+}
+
+/** Length of the facade edge a direction addresses. */
+export function stairFacadeWidth(rect: Rect, direction: HorizontalOrientation): number {
+  return direction === "front" || direction === "rear"
+    ? rectWidth(rect)
+    : rectDepth(rect);
+}
+
+/** Signed coordinate increasing away from the mass in `direction`. */
+export function stairOutwardCoordinate(
+  rect: Rect,
+  direction: HorizontalOrientation,
+): number {
+  switch (direction) {
+    case "front":
+      return rect.maxZ;
+    case "rear":
+      return -rect.minZ;
+    case "sidePositiveU":
+      return rect.maxX;
+    case "sideNegativeU":
+      return -rect.minX;
+  }
+}
+
+/** The physical interval shared by the ground and summit along the facade. */
+function commonAcrossInterval(
+  ground: Rect,
+  summit: Rect,
+  direction: HorizontalOrientation,
+): readonly [number, number] {
+  return direction === "front" || direction === "rear"
+    ? [Math.max(ground.minX, summit.minX), Math.min(ground.maxX, summit.maxX)]
+    : [Math.max(ground.minZ, summit.minZ), Math.min(ground.maxZ, summit.maxZ)];
+}
+
+/** World AABB of a canonical `u = width`, `v = run` stair flight. */
+function orientedFlightRect(
+  direction: HorizontalOrientation,
+  centerAcross: number,
+  arrivalOutward: number,
+  width: number,
+  run: number,
+): Rect {
+  const half = width * 0.5;
+
+  switch (direction) {
+    case "front":
+      return {
+        minX: centerAcross - half,
+        maxX: centerAcross + half,
+        minZ: arrivalOutward,
+        maxZ: arrivalOutward + run,
+      };
+    case "rear":
+      return {
+        minX: centerAcross - half,
+        maxX: centerAcross + half,
+        minZ: -arrivalOutward - run,
+        maxZ: -arrivalOutward,
+      };
+    case "sidePositiveU":
+      return {
+        minX: arrivalOutward,
+        maxX: arrivalOutward + run,
+        minZ: centerAcross - half,
+        maxZ: centerAcross + half,
+      };
+    case "sideNegativeU":
+      return {
+        minX: -arrivalOutward - run,
+        maxX: -arrivalOutward,
+        minZ: centerAcross - half,
+        maxZ: centerAcross + half,
+      };
+  }
+}
+
+/** Plan-space arrival centre from an oriented flight bounding box. */
+function arrivalPlanCenter(
+  direction: HorizontalOrientation,
+  flightRect: Rect,
+): { readonly x: number; readonly z: number } {
+
+  switch (direction) {
+    case "front":
+      return {
+        x: (flightRect.minX + flightRect.maxX) * 0.5,
+        z: flightRect.minZ,
+      };
+    case "rear":
+      return {
+        x: (flightRect.minX + flightRect.maxX) * 0.5,
+        z: flightRect.maxZ,
+      };
+    case "sidePositiveU":
+      return {
+        x: flightRect.minX,
+        z: (flightRect.minZ + flightRect.maxZ) * 0.5,
+      };
+    case "sideNegativeU":
+      return {
+        x: flightRect.maxX,
+        z: (flightRect.minZ + flightRect.maxZ) * 0.5,
+      };
+  }
+}
+
+/** World-space arrival centre from a record's oriented flight bounding box. */
+export function stairArrivalCenter(record: StairConnectorRecord): Vec3 {
+  return {
+    ...arrivalPlanCenter(record.direction, record.flightRect),
+    y: record.bottomY,
+  };
+}
+
+/** Converts a world plan point into the stair's centred `(u, v)` domain. */
+export function stairWorldToLocal(
+  record: StairConnectorRecord,
+  point: { readonly x: number; readonly z: number },
+): { readonly u: number; readonly v: number } {
+  const origin = stairArrivalCenter(record);
+  const basis = stairBasis(record.direction);
+  const dx = point.x - origin.x;
+  const dz = point.z - origin.z;
+
+  return {
+    u: dx * basis.across.x + dz * basis.across.z,
+    v: dx * basis.outward.x + dz * basis.outward.z,
+  };
+}
+
+/** Converts a stair-local plan point back to world space. */
+export function stairLocalVertex(
+  record: StairConnectorRecord,
+  u: number,
+  y: number,
+  v: number,
+): Vec3 {
+  const origin = stairArrivalCenter(record);
+  const basis = stairBasis(record.direction);
+
+  return {
+    x: origin.x + basis.across.x * u + basis.outward.x * v,
+    y,
+    z: origin.z + basis.across.z * u + basis.outward.z * v,
+  };
+}
+
 export interface StairSpec {
   readonly id: string;
+  readonly direction: HorizontalOrientation;
   readonly layout: StairLayout;
   readonly elevationMode: StairElevationMode;
   readonly landingRule: StairLandingRule;
@@ -191,12 +393,12 @@ export interface ResolvedStair {
   readonly record: StairConnectorRecord;
   readonly patches: readonly Patch[];
   readonly links: readonly (readonly [string, string])[];
-  /** World-x span the whole stair occupies, for facade reserve regions. */
-  readonly spanX: readonly [number, number];
+  /** Signed facade-u span of the whole assembly, for facade reserve regions. */
+  readonly spanU: readonly [number, number];
 }
 
 /**
- * Resolves one continuous, front-centred stair from the ground to the summit.
+ * Resolves one continuous, facade-centred stair from the ground to the summit.
  *
  * The order of decisions matters and is the doc's: width first, clamped to what
  * the facade and the summit can take; then the integer step count from the
@@ -208,6 +410,7 @@ export function resolveStair(
   diagnostics: DiagnosticCollector,
 ): ResolvedStair | null {
   const { spec, groundY, groundRect, summitRect, summitY, bands } = input;
+  const { direction } = spec;
   const stairId = structurePath(input.structureId, spec.id);
   const supportsParapet = spec.sideTreatment === "stepped_parapet"
     || spec.sideTreatment === "sloped_parapet";
@@ -247,8 +450,13 @@ export function resolveStair(
   // Width. The ratio is measured against the facade the stair climbs, and the
   // whole assembly — flight plus side treatments — must fit that facade and
   // must arrive within the summit's width.
-  const facadeWidth = rectWidth(groundRect);
-  const available = Math.min(facadeWidth, rectWidth(summitRect));
+  const facadeWidth = stairFacadeWidth(groundRect, direction);
+  const [acrossMin, acrossMax] = commonAcrossInterval(
+    groundRect,
+    summitRect,
+    direction,
+  );
+  const available = acrossMax - acrossMin;
   const sideWidth = hasParapet
     ? (parapetWidth + corniceProjection) * 2
     : 0;
@@ -297,7 +505,12 @@ export function resolveStair(
   // molding — so the stair lands on the cornice's outer lip instead, and the
   // molding's top course becomes the last surface before the summit floor.
   const crown = bands[bands.length - 1]?.cornice ?? null;
-  const topZ = Math.max(summitRect.maxZ, crown?.outline.maxZ ?? -Infinity);
+  const arrivalOutward = Math.max(
+    stairOutwardCoordinate(summitRect, direction),
+    crown
+      ? stairOutwardCoordinate(crown.outline, direction)
+      : -Infinity,
+  );
 
   // Tread. The target is only a floor: the flight must also clear every face it
   // passes on the way down. The profile is piecewise linear between the corners
@@ -307,12 +520,18 @@ export function resolveStair(
 
   for (const band of bands) {
     const corners: readonly (readonly [number, number])[] = [
-      [band.bottomY, band.lower.maxZ],
-      [band.topY, band.upper.maxZ],
+      [band.bottomY, stairOutwardCoordinate(band.lower, direction)],
+      [band.topY, stairOutwardCoordinate(band.upper, direction)],
       ...(band.cornice
         ? [
-          [band.cornice.bottomY, band.cornice.outline.maxZ] as const,
-          [band.topY, band.cornice.outline.maxZ] as const,
+          [
+            band.cornice.bottomY,
+            stairOutwardCoordinate(band.cornice.outline, direction),
+          ] as const,
+          [
+            band.topY,
+            stairOutwardCoordinate(band.cornice.outline, direction),
+          ] as const,
         ]
         : []),
     ];
@@ -324,7 +543,9 @@ export function resolveStair(
         continue;
       }
 
-      const needed = ((z + STAIR_FACE_CLEARANCE - topZ) * riser) / drop;
+      const needed = (
+        (z + STAIR_FACE_CLEARANCE - arrivalOutward) * riser
+      ) / drop;
       tread = Math.max(tread, needed);
     }
   }
@@ -339,13 +560,14 @@ export function resolveStair(
   }
 
   const run = stepCount * tread;
-  const centerX = (groundRect.minX + groundRect.maxX) * 0.5;
-  const flightRect: Rect = {
-    minX: centerX - width * 0.5,
-    maxX: centerX + width * 0.5,
-    minZ: topZ,
-    maxZ: topZ + run,
-  };
+  const centerAcross = (acrossMin + acrossMax) * 0.5;
+  const flightRect = orientedFlightRect(
+    direction,
+    centerAcross,
+    arrivalOutward,
+    width,
+    run,
+  );
 
   const parapet = hasParapet
     ? {
@@ -361,10 +583,19 @@ export function resolveStair(
         : {}),
     }
     : null;
-  const flightPatch = stairFlightPatch(stairId, flightRect, groundY, rise, run, width);
+  const flightPatch = stairFlightPatch(
+    stairId,
+    direction,
+    flightRect,
+    groundY,
+    rise,
+    run,
+    width,
+  );
   const sidePatches = parapet
     ? stairSidePatches(
       stairId,
+      direction,
       flightRect,
       groundY,
       rise + parapet.height,
@@ -396,7 +627,7 @@ export function resolveStair(
       landingRule: spec.landingRule,
       lowerPatchId: input.lowerPatchId,
       upperPatchId: input.upperPatchId,
-      direction: "front",
+      direction,
       bottomY: groundY,
       topY: summitY,
       stepCount,
@@ -414,10 +645,13 @@ export function resolveStair(
     },
     patches,
     links,
-    spanX: [
-      flightRect.minX - parapetWidth - corniceProjection,
-      flightRect.maxX + parapetWidth + corniceProjection,
-    ],
+    spanU: (() => {
+      const basis = stairBasis(direction);
+      const center = arrivalPlanCenter(direction, flightRect);
+      const centerU = center.x * basis.across.x + center.z * basis.across.z;
+      const half = width * 0.5 + parapetWidth + corniceProjection;
+      return [centerU - half, centerU + half] as const;
+    })(),
   };
 }
 
@@ -429,6 +663,7 @@ export function resolveStair(
  */
 function stairFlightPatch(
   stairId: string,
+  direction: HorizontalOrientation,
   flightRect: Rect,
   groundY: number,
   rise: number,
@@ -437,11 +672,29 @@ function stairFlightPatch(
 ): Patch {
   const id = structurePath(stairId, "flight");
   const slope = Math.hypot(rise, run);
+  const basis = stairBasis(direction);
+  const arrival = arrivalPlanCenter(direction, flightRect);
+  const foot = {
+    x: arrival.x + basis.outward.x * run,
+    z: arrival.z + basis.outward.z * run,
+  };
   const frame: LocalFrame = {
-    origin: { x: flightRect.minX, y: groundY, z: flightRect.maxZ },
-    uAxis: { x: 1, y: 0, z: 0 },
-    vAxis: { x: 0, y: rise / slope, z: -run / slope },
-    normal: { x: 0, y: run / slope, z: rise / slope },
+    origin: {
+      x: foot.x - basis.across.x * width * 0.5,
+      y: groundY,
+      z: foot.z - basis.across.z * width * 0.5,
+    },
+    uAxis: basis.across,
+    vAxis: {
+      x: -basis.outward.x * run / slope,
+      y: rise / slope,
+      z: -basis.outward.z * run / slope,
+    },
+    normal: {
+      x: basis.outward.x * rise / slope,
+      y: run / slope,
+      z: basis.outward.z * rise / slope,
+    },
     uLength: width,
     vLength: slope,
   };
@@ -453,8 +706,8 @@ function stairFlightPatch(
     dimensions: { u: width, v: slope, thickness: 0 },
     evaluator: "stepped",
     edges: {
-      uMin: edge(id, "u_min", "sideNegativeU"),
-      uMax: edge(id, "u_max", "sidePositiveU"),
+      uMin: edge(id, "u_min", basis.negativeSide),
+      uMax: edge(id, "u_max", basis.positiveSide),
       vMin: edge(id, "v_min", "bottom", "projecting"),
       vMax: edge(id, "v_max", "top", "flush"),
     },
@@ -475,22 +728,46 @@ function stairFlightPatch(
  */
 function stairSidePatches(
   stairId: string,
+  direction: HorizontalOrientation,
   flightRect: Rect,
   groundY: number,
   height: number,
   parapetWidth: number,
   topTreatment: string,
 ): Patch[] {
-  const run = flightRect.maxZ - flightRect.minZ;
+  const basis = stairBasis(direction);
+  const arrival = arrivalPlanCenter(direction, flightRect);
+  const width = direction === "front" || direction === "rear"
+    ? rectWidth(flightRect)
+    : rectDepth(flightRect);
+  const run = direction === "front" || direction === "rear"
+    ? rectDepth(flightRect)
+    : rectWidth(flightRect);
+  const negativeOuter = {
+    x: arrival.x - basis.across.x * (width * 0.5 + parapetWidth),
+    z: arrival.z - basis.across.z * (width * 0.5 + parapetWidth),
+  };
+  const positiveFoot = {
+    x: arrival.x
+      + basis.across.x * (width * 0.5 + parapetWidth)
+      + basis.outward.x * run,
+    z: arrival.z
+      + basis.across.z * (width * 0.5 + parapetWidth)
+      + basis.outward.z * run,
+  };
 
   const negative: Patch = {
     id: structurePath(stairId, "side_negative_u"),
     role: PATCH_ROLES.stairSide,
     frame: {
-      origin: { x: flightRect.minX - parapetWidth, y: groundY, z: flightRect.minZ },
-      uAxis: { x: 0, y: 0, z: 1 },
+      origin: { x: negativeOuter.x, y: groundY, z: negativeOuter.z },
+      uAxis: basis.outward,
       vAxis: { x: 0, y: 1, z: 0 },
-      normal: { x: -1, y: 0, z: 0 },
+      normal: {
+        x: -basis.across.x,
+        y: 0,
+        z: -basis.across.z,
+      },
       uLength: run,
       vLength: height,
     },
@@ -498,25 +775,29 @@ function stairSidePatches(
     evaluator: "planar",
     edges: sideEdges(
       structurePath(stairId, "side_negative_u"),
-      "rear",
-      "front",
+      basis.inward,
+      direction,
       topTreatment,
     ),
     adjacency: [],
     regions: [],
     features: [],
     anchors: [],
-    tags: ["exterior", "sideNegativeU"],
+    tags: ["exterior", basis.negativeSide],
   };
 
   const positive: Patch = {
     id: structurePath(stairId, "side_positive_u"),
     role: PATCH_ROLES.stairSide,
     frame: {
-      origin: { x: flightRect.maxX + parapetWidth, y: groundY, z: flightRect.maxZ },
-      uAxis: { x: 0, y: 0, z: -1 },
+      origin: { x: positiveFoot.x, y: groundY, z: positiveFoot.z },
+      uAxis: {
+        x: -basis.outward.x,
+        y: 0,
+        z: -basis.outward.z,
+      },
       vAxis: { x: 0, y: 1, z: 0 },
-      normal: { x: 1, y: 0, z: 0 },
+      normal: basis.across,
       uLength: run,
       vLength: height,
     },
@@ -524,15 +805,15 @@ function stairSidePatches(
     evaluator: "planar",
     edges: sideEdges(
       structurePath(stairId, "side_positive_u"),
-      "front",
-      "rear",
+      direction,
+      basis.inward,
       topTreatment,
     ),
     adjacency: [],
     regions: [],
     features: [],
     anchors: [],
-    tags: ["exterior", "sidePositiveU"],
+    tags: ["exterior", basis.positiveSide],
   };
 
   return [negative, positive];
@@ -565,20 +846,20 @@ function edge(
   };
 }
 
-/** One step of a resolved flight, as the z-slice its blocks occupy. */
+/** One step of a resolved flight, in its local outward-v domain. */
 export interface StairStep {
   readonly index: number;
   readonly topY: number;
   /** The riser face the step presents to the approach. */
-  readonly zFront: number;
-  readonly zBack: number;
+  readonly vFront: number;
+  readonly vBack: number;
 }
 
 /**
  * The steps of a flight, foot first. Shared by tessellation and by anything
  * that needs to know where a particular tread actually is, so the two cannot
- * disagree about the arithmetic. The last step's back lands exactly on the
- * flight's upper edge because it is computed as `minZ + 0 * tread`.
+ * disagree about the arithmetic. Local v is zero at the summit arrival and
+ * increases outward, so the last step's back lands exactly at v = 0.
  */
 export function stairSteps(record: StairConnectorRecord): StairStep[] {
   const steps: StairStep[] = [];
@@ -587,8 +868,8 @@ export function stairSteps(record: StairConnectorRecord): StairStep[] {
     steps.push({
       index,
       topY: record.bottomY + (index + 1) * record.riser,
-      zFront: record.flightRect.minZ + (record.stepCount - index) * record.tread,
-      zBack: record.flightRect.minZ + (record.stepCount - index - 1) * record.tread,
+      vFront: (record.stepCount - index) * record.tread,
+      vBack: (record.stepCount - index - 1) * record.tread,
     });
   }
 

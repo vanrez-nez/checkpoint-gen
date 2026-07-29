@@ -1,4 +1,4 @@
-import type { Rect, Vec3 } from "./frame";
+import type { HorizontalOrientation, Rect, Vec3 } from "./frame";
 import type { Patch, PatchRole } from "./patch";
 import { resolvedSeeds, type SeedSet, type SeedSubsystem } from "./seed";
 import type { Diagnostic } from "./validate";
@@ -101,7 +101,7 @@ export interface StairConnectorRecord {
   /** The traversable patches this connector joins. */
   readonly lowerPatchId: string;
   readonly upperPatchId: string;
-  readonly direction: "front";
+  readonly direction: HorizontalOrientation;
   readonly bottomY: number;
   readonly topY: number;
   readonly stepCount: number;

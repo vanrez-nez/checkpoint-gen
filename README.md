@@ -98,15 +98,21 @@ a curve rather than authored one by one. Once bands are individually authorable,
 the rule becomes their default and nothing downstream changes. A cornice may take
 at most half the band it crowns; anything taller is shortened and reported.
 
-The primary stair supports open sides, stepped parapets, and **flat parapets**.
-Both parapet styles accept the same configurable cornice projection and height.
-On a stepped parapet the cornice repeats as one horizontal cap per tread; on a
-flat parapet it is one raked band following the continuous incline. In both
-cases it replaces the top of the wall rather than stacking above it. Square
-horizontal blocks finish the molding beyond the foot and onto the summit, with
-the parapet body continuing beneath them to the ground and summit floor. The
-endings are therefore supported parts of the wall rather than cantilevers, and
-their endpoints do not expose raw cuts.
+Front, rear, left, and right stairs are enabled independently, with at most one
+centred flight on each facade. Enabled stairs share their width, riser, tread,
+tiling, parapet, and cornice settings. Each one reserves its own facade strip
+and a forecourt on its side of the summit; selecting none leaves the full
+buildable summit available.
+
+Every stair supports open sides, stepped parapets, and **flat parapets**. Both
+parapet styles accept the same configurable cornice projection and height. On a
+stepped parapet the cornice repeats as one horizontal cap per tread; on a flat
+parapet it is one raked band following the continuous incline. In both cases it
+replaces the top of the wall rather than stacking above it. Square horizontal
+blocks finish the molding beyond the foot and onto the summit, with the parapet
+body continuing beneath them to the ground and summit floor. The endings are
+therefore supported parts of the wall rather than cantilevers, and their
+endpoints do not expose raw cuts.
 
 Masonry treads use an explicit **tiles per step** count. The count controls how
 many stones span every tread; stone-size variation may redistribute their

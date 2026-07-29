@@ -1,8 +1,15 @@
 import type { Block, BlockFaces, SolidBuilder, Vertex3 } from "../../geometry/solid-builder";
-import { rectIsValid } from "../kernel/frame";
+import { rectIsValid, type Rect } from "../kernel/frame";
 import type { ElevationBandRecord, StairConnectorRecord } from "../kernel/graph";
 import { divideRunByCount, masonrySeed, type MasonryRule } from "../kernel/masonry";
-import { stairSteps, type StairStep } from "./stair";
+import {
+  stairArrivalCenter,
+  stairBasis,
+  stairLocalVertex,
+  stairOutwardCoordinate,
+  stairSteps,
+  type StairStep,
+} from "./stair";
 
 /**
  * The stair, laid up out of blocks.
@@ -44,6 +51,16 @@ export interface StairBuildOptions {
 const EPS = 1e-9;
 type StairParapet = NonNullable<StairConnectorRecord["parapet"]>;
 
+/** Canonical plan domain used by every stair, independent of world facade. */
+function localFlightRect(record: StairConnectorRecord): Rect {
+  return {
+    minX: -record.width * 0.5,
+    maxX: record.width * 0.5,
+    minZ: 0,
+    maxZ: record.run,
+  };
+}
+
 export function buildStair(
   builder: SolidBuilder,
   record: StairConnectorRecord,
@@ -52,7 +69,7 @@ export function buildStair(
   options: StairBuildOptions,
 ): void {
   const steps = stairSteps(record);
-  const profile = frontProfile(bands);
+  const profile = facadeProfile(bands, record);
   const hasParapet = record.parapet !== null;
   const steppedParapet = record.sideTreatment === "stepped_parapet"
     ? record.parapet
@@ -87,18 +104,27 @@ export function buildStair(
 }
 
 /**
- * One stretch of the mass's front silhouette, outermost surface included —
+ * One stretch of the addressed facade's silhouette, outermost surface included —
  * a cornice's segment carries its outline, not the wall it springs from.
  */
 interface ProfileSegment {
   readonly y0: number;
-  readonly z0: number;
+  readonly v0: number;
   readonly y1: number;
-  readonly z1: number;
+  readonly v1: number;
 }
 
-function frontProfile(bands: readonly ElevationBandRecord[]): ProfileSegment[] {
+function facadeProfile(
+  bands: readonly ElevationBandRecord[],
+  record: StairConnectorRecord,
+): ProfileSegment[] {
   const segments: ProfileSegment[] = [];
+  const arrival = stairArrivalCenter(record);
+  const outward = stairBasis(record.direction).outward;
+  const arrivalV = arrival.x * outward.x + arrival.z * outward.z;
+  const localV = (rect: Rect): number => (
+    stairOutwardCoordinate(rect, record.direction) - arrivalV
+  );
 
   for (const band of bands) {
     const cornice = band.cornice && rectIsValid(band.cornice.springing)
@@ -109,15 +135,15 @@ function frontProfile(bands: readonly ElevationBandRecord[]): ProfileSegment[] {
       segments.push(
         {
           y0: band.bottomY,
-          z0: band.lower.maxZ,
+          v0: localV(band.lower),
           y1: cornice.bottomY,
-          z1: cornice.springing.maxZ,
+          v1: localV(cornice.springing),
         },
         {
           y0: cornice.bottomY,
-          z0: cornice.outline.maxZ,
+          v0: localV(cornice.outline),
           y1: band.topY,
-          z1: cornice.outline.maxZ,
+          v1: localV(cornice.outline),
         },
       );
       continue;
@@ -125,9 +151,9 @@ function frontProfile(bands: readonly ElevationBandRecord[]): ProfileSegment[] {
 
     segments.push({
       y0: band.bottomY,
-      z0: band.lower.maxZ,
+      v0: localV(band.lower),
       y1: band.topY,
-      z1: band.upper.maxZ,
+      v1: localV(band.upper),
     });
   }
 
@@ -136,20 +162,20 @@ function frontProfile(bands: readonly ElevationBandRecord[]): ProfileSegment[] {
 
 /**
  * The first elevation, scanning up from the ground, at which the silhouette
- * pulls strictly inside `z` — strictly, so a vertical wall lying exactly on
+ * pulls strictly inside local `v` — strictly, so a vertical wall lying exactly on
  * the plane never counts as crossed. Null when the profile never does.
  */
 function profileCrossingUp(
   profile: readonly ProfileSegment[],
-  z: number,
+  v: number,
 ): number | null {
   for (const segment of profile) {
-    if (segment.z0 < z - EPS) {
+    if (segment.v0 < v - EPS) {
       return segment.y0;
     }
 
-    if (segment.z1 < z - EPS) {
-      const t = (segment.z0 - z) / (segment.z0 - segment.z1);
+    if (segment.v1 < v - EPS) {
+      const t = (segment.v0 - v) / (segment.v0 - segment.v1);
       return segment.y0 + t * (segment.y1 - segment.y0);
     }
   }
@@ -159,14 +185,14 @@ function profileCrossingUp(
 
 /**
  * The first elevation at or above `fromY` where the silhouette reaches back
- * out to `z`. Within a segment the profile only narrows, so a return can only
+ * out to local `v`. Within a segment the profile only narrows, so a return can only
  * happen at a segment boundary — a terrace re-entry never occurs, but a
  * cornice jumping back out past the plane does, and it is what bounds the
  * exposed interval from above.
  */
 function profileReturnY(
   profile: readonly ProfileSegment[],
-  z: number,
+  v: number,
   fromY: number,
   fallback: number,
 ): number {
@@ -175,7 +201,7 @@ function profileReturnY(
       continue;
     }
 
-    if (segment.z0 >= z - EPS) {
+    if (segment.v0 >= v - EPS) {
       return segment.y0;
     }
   }
@@ -203,7 +229,7 @@ function sliceBottom(
   step: StairStep,
   record: StairConnectorRecord,
 ): number {
-  const buried = profileCrossingUp(profile, step.zFront) ?? record.bottomY;
+  const buried = profileCrossingUp(profile, step.vFront) ?? record.bottomY;
 
   return Math.min(
     Math.max(record.bottomY, buried),
@@ -228,14 +254,14 @@ function backExposure(
   profile: readonly ProfileSegment[],
   record: StairConnectorRecord,
 ): { readonly lo: number; readonly hi: number } | null {
-  const z = record.flightRect.minZ;
-  const lo = profileCrossingUp(profile, z);
+  const v = 0;
+  const lo = profileCrossingUp(profile, v);
 
   if (lo === null) {
     return null;
   }
 
-  const hi = Math.min(profileReturnY(profile, z, lo, record.topY), record.topY);
+  const hi = Math.min(profileReturnY(profile, v, lo, record.topY), record.topY);
 
   return hi - lo > EPS ? { lo, hi } : null;
 }
@@ -244,7 +270,7 @@ function backExposure(
 interface FaceSpec {
   readonly front?: boolean;
   readonly back?: boolean;
-  /** The max-x and min-x side faces (joint cheeks, silhouettes, parapet walls). */
+  /** The positive-u and negative-u side faces (joints and silhouettes). */
   readonly maxX?: boolean;
   readonly minX?: boolean;
   readonly top?: boolean;
@@ -257,6 +283,7 @@ interface FaceSpec {
  */
 function laySpan(
   builder: SolidBuilder,
+  record: StairConnectorRecord,
   x0: number,
   x1: number,
   step: StairStep,
@@ -306,7 +333,10 @@ function laySpan(
       continue;
     }
 
-    builder.addBlock(slice(x0, x1, step.zBack, step.zFront, from, to), faces);
+    builder.addBlock(
+      slice(record, x0, x1, step.vBack, step.vFront, from, to),
+      faces,
+    );
   }
 }
 
@@ -329,15 +359,26 @@ function layFlightSlice(
   hasParapet: boolean,
   back: { readonly lo: number; readonly hi: number } | null,
 ): void {
-  const { flightRect } = record;
+  const flightRect = localFlightRect(record);
   const { masonry } = options;
   const coverTop = step.index > 0 ? steps[step.index - 1]!.topY : bottomY;
   const ends: FaceSpec = { maxX: !hasParapet, minX: !hasParapet };
 
   if (!masonry) {
-    laySpan(builder, flightRect.minX, flightRect.maxX, step, bottomY, coverTop, ends, back);
     laySpan(
       builder,
+      record,
+      flightRect.minX,
+      flightRect.maxX,
+      step,
+      bottomY,
+      coverTop,
+      ends,
+      back,
+    );
+    laySpan(
+      builder,
+      record,
       flightRect.minX,
       flightRect.maxX,
       step,
@@ -355,9 +396,20 @@ function layFlightSlice(
     Math.max(step.index > 1 ? steps[step.index - 2]!.topY : bottomY, bottomY),
     coverTop,
   );
-  laySpan(builder, flightRect.minX, flightRect.maxX, step, bottomY, collarBottom, ends, back);
   laySpan(
     builder,
+    record,
+    flightRect.minX,
+    flightRect.maxX,
+    step,
+    bottomY,
+    collarBottom,
+    ends,
+    back,
+  );
+  laySpan(
+    builder,
+    record,
     flightRect.minX,
     flightRect.maxX,
     step,
@@ -391,7 +443,7 @@ function layFlightSlice(
       continue;
     }
 
-    laySpan(builder, from, to, step, coverTop, step.topY, {
+    laySpan(builder, record, from, to, step, coverTop, step.topY, {
       front: true,
       top: true,
       // Both cheeks of every internal joint are drawn, as on the mass: a
@@ -424,7 +476,8 @@ function layParapetSlices(
   parapet: StairParapet,
   back: { readonly lo: number; readonly hi: number } | null,
 ): void {
-  const { flightRect, topY } = record;
+  const { topY } = record;
+  const flightRect = localFlightRect(record);
   const isLast = step.index === record.stepCount - 1;
   const bodyHeight = parapet.height - (parapet.cornice?.height ?? 0);
   const capY = step.topY + bodyHeight;
@@ -454,7 +507,7 @@ function layParapetSlices(
 
   const sides: readonly (readonly [number, number, boolean])[] = [
     // Span, and whether the inner face — the one toward the flight — is the
-    // span's max-x face.
+    // span's positive-u face.
     [flightRect.minX - parapet.width, flightRect.minX, true],
     [flightRect.maxX, flightRect.maxX + parapet.width, false],
   ];
@@ -484,13 +537,24 @@ function layParapetSlices(
       const wantsFront = of.front === true;
 
       if (!parapet.cornice || !wantsFront) {
-        laySpan(builder, x0, x1, step, y0, y1, faces(of), backFor(y0));
+        laySpan(
+          builder,
+          record,
+          x0,
+          x1,
+          step,
+          y0,
+          y1,
+          faces(of),
+          backFor(y0),
+        );
         return;
       }
 
       const split = Math.min(y1, Math.max(y0, frontStartsAt));
       laySpan(
         builder,
+        record,
         x0,
         x1,
         step,
@@ -501,6 +565,7 @@ function layParapetSlices(
       );
       laySpan(
         builder,
+        record,
         x0,
         x1,
         step,
@@ -511,7 +576,17 @@ function layParapetSlices(
       );
     };
 
-    laySpan(builder, x0, x1, step, bottomY, lower, faces({ outer: true }), backFor(bottomY));
+    laySpan(
+      builder,
+      record,
+      x0,
+      x1,
+      step,
+      bottomY,
+      lower,
+      faces({ outer: true }),
+      backFor(bottomY),
+    );
     layBodySpan(
       lower,
       upper,
@@ -568,14 +643,15 @@ function laySteppedCorniceSlice(
     ? steps[step.index - 1]!.topY + parapet.height
     : capY;
   const frontFrom = Math.min(capY, Math.max(bodyTop, previousCap));
+  const flightRect = localFlightRect(record);
   const sides: readonly (readonly [number, number])[] = [
     [
-      record.flightRect.minX - parapet.width,
-      record.flightRect.minX,
+      flightRect.minX - parapet.width,
+      flightRect.minX,
     ],
     [
-      record.flightRect.maxX,
-      record.flightRect.maxX + parapet.width,
+      flightRect.maxX,
+      flightRect.maxX + parapet.width,
     ],
   ];
 
@@ -608,7 +684,7 @@ function laySteppedCorniceSlice(
         }
 
         builder.addBlock(
-          slice(x0, x1, step.zBack, step.zFront, y0, y1),
+          slice(record, x0, x1, step.vBack, step.vFront, y0, y1),
           {
             // The foot and summit endings close the terminal faces. At an
             // internal transition, the front shows above the preceding cap
@@ -649,9 +725,10 @@ function laySteppedParapetEndings(
   }
 
   const bodyHeight = parapet.height - cornice.height;
+  const flightRect = localFlightRect(record);
   const sides: readonly (readonly [number, number])[] = [
-    [record.flightRect.minX - parapet.width, record.flightRect.minX],
-    [record.flightRect.maxX, record.flightRect.maxX + parapet.width],
+    [flightRect.minX - parapet.width, flightRect.minX],
+    [flightRect.maxX, flightRect.maxX + parapet.width],
   ];
 
   laySupportedCorniceEndings(builder, record, sides, cornice, {
@@ -681,7 +758,8 @@ function laySlopedParapets(
   steps: readonly StairStep[],
   profile: readonly ProfileSegment[],
 ): void {
-  const { parapet, flightRect } = record;
+  const { parapet } = record;
+  const flightRect = localFlightRect(record);
   const lastStep = steps[steps.length - 1];
 
   if (!parapet || !lastStep) {
@@ -711,6 +789,7 @@ function laySlopedParapets(
     if (back) {
       laySpan(
         builder,
+        record,
         x0,
         x1,
         lastStep,
@@ -726,6 +805,7 @@ function laySlopedParapets(
       // the terminal above the summit still owns its exposed back.
       laySpan(
         builder,
+        record,
         x0,
         x1,
         lastStep,
@@ -785,7 +865,7 @@ function laySupportedCorniceEndings(
     readonly upperCapY: number;
   },
 ): void {
-  const { flightRect } = record;
+  const flightRect = localFlightRect(record);
 
   for (const [x0, x1] of sides) {
     const corniceX0 = x0 - cornice.projection;
@@ -794,6 +874,7 @@ function laySupportedCorniceEndings(
 
     builder.addBlock(
       horizontalBlock(
+        record,
         x0,
         x1,
         flightRect.maxZ,
@@ -811,6 +892,7 @@ function laySupportedCorniceEndings(
     );
     builder.addBlock(
       horizontalBlock(
+        record,
         corniceX0,
         corniceX1,
         flightRect.maxZ,
@@ -827,6 +909,7 @@ function laySupportedCorniceEndings(
     );
     builder.addBlock(
       horizontalBlock(
+        record,
         x0,
         x1,
         flightRect.minZ - terminalLength,
@@ -844,6 +927,7 @@ function laySupportedCorniceEndings(
     );
     builder.addBlock(
       horizontalBlock(
+        record,
         corniceX0,
         corniceX1,
         flightRect.minZ - terminalLength,
@@ -868,11 +952,21 @@ function groundBackedRakedBlock(
   record: StairConnectorRecord,
   topOffset: number,
 ): Block {
-  const { bottomY, topY, flightRect } = record;
+  const { bottomY, topY } = record;
+  const flightRect = localFlightRect(record);
 
   return {
-    bottom: rakedRing(x0, x1, flightRect.minZ, flightRect.maxZ, bottomY, bottomY),
+    bottom: rakedRing(
+      record,
+      x0,
+      x1,
+      flightRect.minZ,
+      flightRect.maxZ,
+      bottomY,
+      bottomY,
+    ),
     top: rakedRing(
+      record,
       x0,
       x1,
       flightRect.minZ,
@@ -891,10 +985,12 @@ function rakedBandBlock(
   bottomOffset: number,
   topOffset: number,
 ): Block {
-  const { bottomY, topY, flightRect } = record;
+  const { bottomY, topY } = record;
+  const flightRect = localFlightRect(record);
 
   return {
     bottom: rakedRing(
+      record,
       x0,
       x1,
       flightRect.minZ,
@@ -903,6 +999,7 @@ function rakedBandBlock(
       bottomY + bottomOffset,
     ),
     top: rakedRing(
+      record,
       x0,
       x1,
       flightRect.minZ,
@@ -915,16 +1012,25 @@ function rakedBandBlock(
 
 /** An axis-aligned terminal molding with a genuinely horizontal top and soffit. */
 function horizontalBlock(
+  record: StairConnectorRecord,
   x0: number,
   x1: number,
-  zBack: number,
-  zFront: number,
+  vBack: number,
+  vFront: number,
   bottomY: number,
   topY: number,
 ): Block {
   return {
-    bottom: rakedRing(x0, x1, zBack, zFront, bottomY, bottomY),
-    top: rakedRing(x0, x1, zBack, zFront, topY, topY),
+    bottom: rakedRing(
+      record,
+      x0,
+      x1,
+      vBack,
+      vFront,
+      bottomY,
+      bottomY,
+    ),
+    top: rakedRing(record, x0, x1, vBack, vFront, topY, topY),
   };
 }
 
@@ -934,47 +1040,38 @@ function horizontalBlock(
  * which turns the ring into one plane following the flight.
  */
 function rakedRing(
+  record: StairConnectorRecord,
   x0: number,
   x1: number,
-  zBack: number,
-  zFront: number,
+  vBack: number,
+  vFront: number,
   backY: number,
   frontY: number,
 ): Vertex3[] {
   return [
-    { x: x0, y: frontY, z: zFront },
-    { x: x1, y: frontY, z: zFront },
-    { x: x1, y: backY, z: zBack },
-    { x: x0, y: backY, z: zBack },
+    stairLocalVertex(record, x0, frontY, vFront),
+    stairLocalVertex(record, x1, frontY, vFront),
+    stairLocalVertex(record, x1, backY, vBack),
+    stairLocalVertex(record, x0, backY, vBack),
   ];
 }
 
 /**
  * An upright box over a plan slice. The ring runs front edge first — from
- * min-x to max-x along the riser face — then round the back, so edge indices
- * mean front, max-x side, back, min-x side wherever a slice is laid.
+ * negative-u to positive-u along the riser face — then round the back, so edge
+ * indices mean front, positive-u side, back, negative-u side everywhere.
  */
 function slice(
+  record: StairConnectorRecord,
   x0: number,
   x1: number,
-  zBack: number,
-  zFront: number,
+  vBack: number,
+  vFront: number,
   bottomY: number,
   topY: number,
 ): Block {
-  const ring = [
-    { x: x0, z: zFront },
-    { x: x1, z: zFront },
-    { x: x1, z: zBack },
-    { x: x0, z: zBack },
-  ];
-
   return {
-    bottom: ring.map((point) => at(point, bottomY)),
-    top: ring.map((point) => at(point, topY)),
+    bottom: rakedRing(record, x0, x1, vBack, vFront, bottomY, bottomY),
+    top: rakedRing(record, x0, x1, vBack, vFront, topY, topY),
   };
-}
-
-function at(point: { readonly x: number; readonly z: number }, y: number): Vertex3 {
-  return { x: point.x, y, z: point.z };
 }
