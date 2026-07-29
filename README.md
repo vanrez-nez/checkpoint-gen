@@ -98,6 +98,12 @@ a curve rather than authored one by one. Once bands are individually authorable,
 the rule becomes their default and nothing downstream changes. A cornice may take
 at most half the band it crowns; anything taller is shortened and reported.
 
+The primary stair supports open sides, the established stepped parapets, and
+**flat parapets**. A flat parapet is one ground-backed wall on each side whose
+top follows the continuous stair incline rather than repeating every tread. Its
+optional cornice is a single raked band with configurable projection and height;
+it replaces the top of the wall rather than stacking decorative solids above it.
+
 Tessellation draws one lofted solid per band and one ring per terrace — only the
 part the band above leaves exposed, so stacked bands never leave two coplanar
 faces fighting for the same depth.

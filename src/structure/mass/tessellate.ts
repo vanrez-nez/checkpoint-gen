@@ -124,8 +124,9 @@ export function faceIsCoveredByStair(
   const maxZ = Math.max(...zs);
   const { flightRect, parapet } = stair;
   const sideWidth = parapet?.width ?? 0;
-  const assemblyMinX = flightRect.minX - sideWidth;
-  const assemblyMaxX = flightRect.maxX + sideWidth;
+  const corniceProjection = parapet?.cornice?.projection ?? 0;
+  const assemblyMinX = flightRect.minX - sideWidth - corniceProjection;
+  const assemblyMaxX = flightRect.maxX + sideWidth + corniceProjection;
 
   if (
     minX < assemblyMinX - EPS
@@ -147,14 +148,37 @@ export function faceIsCoveredByStair(
     return false;
   }
 
+  const bodyMinX = flightRect.minX - sideWidth;
+  const bodyMaxX = flightRect.maxX + sideWidth;
   const whollyInNegativeSide = parapet !== null
-    && minX >= assemblyMinX - EPS
+    && minX >= bodyMinX - EPS
     && maxX < flightRect.minX - EPS;
   const whollyInPositiveSide = parapet !== null
     && minX > flightRect.maxX + EPS
-    && maxX <= assemblyMaxX + EPS;
+    && maxX <= bodyMaxX + EPS;
+  const whollyInSide = whollyInNegativeSide || whollyInPositiveSide;
+
+  // The flat parapet is a continuous ground-backed heightfield rather than one
+  // cap per tread. Its lowest point across a face's z span is at maxZ, toward
+  // the stair foot. Projection-only strips contain just the cornice, not wall
+  // below it, so they remain conservatively uncancelled.
+  if (stair.sideTreatment === "sloped_parapet" && parapet) {
+    if (!whollyInSide) {
+      return maxY <= coveringStep.topY + EPS
+        && minX >= flightRect.minX - EPS
+        && maxX <= flightRect.maxX + EPS;
+    }
+
+    const progress = (flightRect.maxZ - maxZ) / stair.run;
+    const coverY = stair.bottomY
+      + progress * (stair.topY - stair.bottomY)
+      + parapet.height;
+
+    return maxY <= coverY + EPS;
+  }
+
   const coverY = coveringStep.topY
-    + (whollyInNegativeSide || whollyInPositiveSide ? parapet?.height ?? 0 : 0);
+    + (whollyInSide ? parapet?.height ?? 0 : 0);
 
   return maxY <= coverY + EPS;
 }
@@ -297,7 +321,8 @@ export function graphExtents(graph: StructureGraph): {
   // A stair projects past the base of the mass it climbs, and its parapets rise
   // past the summit it arrives on; both are part of what the structure occupies.
   for (const connector of graph.connectors) {
-    const sideWidth = connector.parapet?.width ?? 0;
+    const sideWidth = (connector.parapet?.width ?? 0)
+      + (connector.parapet?.cornice?.projection ?? 0);
     const capY = connector.topY + (connector.parapet?.height ?? 0);
 
     if (min && max) {

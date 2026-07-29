@@ -51,6 +51,9 @@ export function buildStair(
   const steps = stairSteps(record);
   const profile = frontProfile(bands);
   const hasParapet = record.parapet !== null;
+  const steppedParapet = record.sideTreatment === "stepped_parapet"
+    ? record.parapet
+    : null;
 
   for (const step of steps) {
     const bottomY = sliceBottom(profile, step, record);
@@ -62,9 +65,13 @@ export function buildStair(
 
     layFlightSlice(builder, record, steps, step, bottomY, options, hasParapet, back);
 
-    if (record.parapet) {
-      layParapetSlices(builder, record, steps, step, bottomY, record.parapet, back);
+    if (steppedParapet) {
+      layParapetSlices(builder, record, steps, step, bottomY, steppedParapet, back);
     }
+  }
+
+  if (record.sideTreatment === "sloped_parapet" && record.parapet) {
+    laySlopedParapets(builder, record, steps, profile);
   }
 }
 
@@ -465,6 +472,171 @@ function layParapetSlices(
       backFor(upper),
     );
   }
+}
+
+/**
+ * Two ground-backed walls with one continuous raked crown.
+ *
+ * Unlike the stepped treatment, the wall is not repeated over every tread:
+ * each side is one block whose outer and inner elevations rise directly from
+ * the ground line to the parapet cap. The back face is omitted from that block
+ * where the mass owns it, then restored only over the crown-cornice niche and
+ * above the summit. An optional cornice is one more raked block per side. It
+ * takes over the top band and projects only across the wall, staying flush at
+ * the stair's foot and arrival.
+ */
+function laySlopedParapets(
+  builder: SolidBuilder,
+  record: StairConnectorRecord,
+  steps: readonly StairStep[],
+  profile: readonly ProfileSegment[],
+): void {
+  const { parapet, flightRect } = record;
+  const lastStep = steps[steps.length - 1];
+
+  if (!parapet || !lastStep) {
+    return;
+  }
+
+  const cornice = parapet.cornice;
+  const bodyTopOffset = parapet.height - (cornice?.height ?? 0);
+  const back = backExposure(profile, record);
+  const sides: readonly (readonly [number, number])[] = [
+    [flightRect.minX - parapet.width, flightRect.minX],
+    [flightRect.maxX, flightRect.maxX + parapet.width],
+  ];
+
+  for (const [x0, x1] of sides) {
+    builder.addBlock(
+      groundBackedRakedBlock(x0, x1, record, bodyTopOffset),
+      {
+        // Front, both public wall faces, but no buried full-height back.
+        sides: [true, true, false, true],
+        top: cornice === undefined,
+        bottom: false,
+      },
+    );
+
+    // A crown cornice can leave a laterally open niche below the arrival.
+    if (back) {
+      laySpan(
+        builder,
+        x0,
+        x1,
+        lastStep,
+        back.lo,
+        back.hi,
+        { back: true },
+        null,
+      );
+    }
+
+    // Above the summit the terminal faces the open arrival floor.
+    laySpan(
+      builder,
+      x0,
+      x1,
+      lastStep,
+      record.topY,
+      record.topY + bodyTopOffset,
+      { back: true },
+      null,
+    );
+
+    if (!cornice) {
+      continue;
+    }
+
+    builder.addBlock(
+      rakedBandBlock(
+        x0 - cornice.projection,
+        x1 + cornice.projection,
+        record,
+        bodyTopOffset,
+        parapet.height,
+      ),
+      {
+        sides: [true, true, true, true],
+        top: true,
+        // The projected portions read as a soffit. The supported middle has no
+        // competing wall top because the cornice took that band over.
+        bottom: true,
+      },
+    );
+  }
+}
+
+/** One wall side from a horizontal ground bed to a continuous raked top. */
+function groundBackedRakedBlock(
+  x0: number,
+  x1: number,
+  record: StairConnectorRecord,
+  topOffset: number,
+): Block {
+  const { bottomY, topY, flightRect } = record;
+
+  return {
+    bottom: rakedRing(x0, x1, flightRect.minZ, flightRect.maxZ, bottomY, bottomY),
+    top: rakedRing(
+      x0,
+      x1,
+      flightRect.minZ,
+      flightRect.maxZ,
+      topY + topOffset,
+      bottomY + topOffset,
+    ),
+  };
+}
+
+/** A constant-height band following the same raked line as the wall crown. */
+function rakedBandBlock(
+  x0: number,
+  x1: number,
+  record: StairConnectorRecord,
+  bottomOffset: number,
+  topOffset: number,
+): Block {
+  const { bottomY, topY, flightRect } = record;
+
+  return {
+    bottom: rakedRing(
+      x0,
+      x1,
+      flightRect.minZ,
+      flightRect.maxZ,
+      topY + bottomOffset,
+      bottomY + bottomOffset,
+    ),
+    top: rakedRing(
+      x0,
+      x1,
+      flightRect.minZ,
+      flightRect.maxZ,
+      topY + topOffset,
+      bottomY + topOffset,
+    ),
+  };
+}
+
+/**
+ * Ring order matches an ordinary stair slice: front edge, positive-x side,
+ * back edge, negative-x side. Rear and front may sit at different elevations,
+ * which turns the ring into one plane following the flight.
+ */
+function rakedRing(
+  x0: number,
+  x1: number,
+  zBack: number,
+  zFront: number,
+  backY: number,
+  frontY: number,
+): Vertex3[] {
+  return [
+    { x: x0, y: frontY, z: zFront },
+    { x: x1, y: frontY, z: zFront },
+    { x: x1, y: backY, z: zBack },
+    { x: x0, y: backY, z: zBack },
+  ];
 }
 
 /**

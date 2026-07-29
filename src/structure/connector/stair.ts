@@ -83,6 +83,7 @@ export type StairSideTreatment = (typeof STAIR_SIDE_TREATMENTS)[number];
 export const IMPLEMENTED_STAIR_SIDE_TREATMENTS: readonly StairSideTreatment[] = [
   "none",
   "stepped_parapet",
+  "sloped_parapet",
 ];
 
 export const STAIR_LANDING_RULES = [
@@ -113,6 +114,8 @@ export const STAIR_FACE_CLEARANCE = 0.01;
 
 /** Riser drift beyond this share of the target is worth reporting. */
 const RISER_DEVIATION_NOTICE = 0.2;
+/** Matches the mass cornice rule: a molding may take at most half its support. */
+const MAX_PARAPET_CORNICE_HEIGHT_SHARE = 0.5;
 
 export interface StairSpec {
   readonly id: string;
@@ -126,6 +129,8 @@ export interface StairSpec {
   readonly sideTreatment: StairSideTreatment;
   readonly parapetWidth: number;
   readonly parapetHeight: number;
+  readonly parapetCorniceProjection: number;
+  readonly parapetCorniceHeight: number;
 }
 
 /**
@@ -204,20 +209,46 @@ export function resolveStair(
 ): ResolvedStair | null {
   const { spec, groundY, groundRect, summitRect, summitY, bands } = input;
   const stairId = structurePath(input.structureId, spec.id);
-  const parapetWidth = spec.sideTreatment === "stepped_parapet"
+  const supportsParapet = spec.sideTreatment === "stepped_parapet"
+    || spec.sideTreatment === "sloped_parapet";
+  const parapetWidth = supportsParapet
     ? spec.parapetWidth
     : 0;
-  const parapetHeight = spec.sideTreatment === "stepped_parapet"
+  const parapetHeight = supportsParapet
     ? spec.parapetHeight
     : 0;
   const hasParapet = parapetWidth > 0 && parapetHeight > 0;
+  const requestedCornice = hasParapet
+    && spec.sideTreatment === "sloped_parapet"
+    && spec.parapetCorniceProjection > 0
+    && spec.parapetCorniceHeight > 0;
+  const corniceHeight = requestedCornice
+    ? Math.min(
+      spec.parapetCorniceHeight,
+      parapetHeight * MAX_PARAPET_CORNICE_HEIGHT_SHARE,
+    )
+    : 0;
+  const corniceProjection = requestedCornice
+    ? spec.parapetCorniceProjection
+    : 0;
+
+  if (requestedCornice && corniceHeight < spec.parapetCorniceHeight - 1e-9) {
+    diagnostics.notice(
+      "stair.parapet_cornice_height_reduced",
+      stairId,
+      "The requested parapet cornice occupied more than half the parapet; its height was reduced.",
+      corniceHeight.toFixed(4),
+    );
+  }
 
   // Width. The ratio is measured against the facade the stair climbs, and the
   // whole assembly — flight plus side treatments — must fit that facade and
   // must arrive within the summit's width.
   const facadeWidth = rectWidth(groundRect);
   const available = Math.min(facadeWidth, rectWidth(summitRect));
-  const sideWidth = hasParapet ? parapetWidth * 2 : 0;
+  const sideWidth = hasParapet
+    ? (parapetWidth + corniceProjection) * 2
+    : 0;
   let width = spec.widthRatio * facadeWidth;
 
   if (width + sideWidth > available) {
@@ -314,11 +345,31 @@ export function resolveStair(
   };
 
   const parapet = hasParapet
-    ? { width: parapetWidth, height: parapetHeight }
+    ? {
+      width: parapetWidth,
+      height: parapetHeight,
+      ...(requestedCornice
+        ? {
+          cornice: {
+            projection: corniceProjection,
+            height: corniceHeight,
+          },
+        }
+        : {}),
+    }
     : null;
   const flightPatch = stairFlightPatch(stairId, flightRect, groundY, rise, run, width);
   const sidePatches = parapet
-    ? stairSidePatches(stairId, flightRect, groundY, rise + parapet.height, parapet.width)
+    ? stairSidePatches(
+      stairId,
+      flightRect,
+      groundY,
+      rise + parapet.height,
+      parapet.width,
+      spec.sideTreatment === "sloped_parapet"
+        ? (parapet.cornice ? "cornice" : "sloped_cap")
+        : "stepped_cap",
+    )
     : [];
   const patches = [flightPatch, ...sidePatches];
 
@@ -358,7 +409,10 @@ export function resolveStair(
     },
     patches,
     links,
-    spanX: [flightRect.minX - parapetWidth, flightRect.maxX + parapetWidth],
+    spanX: [
+      flightRect.minX - parapetWidth - corniceProjection,
+      flightRect.maxX + parapetWidth + corniceProjection,
+    ],
   };
 }
 
@@ -420,6 +474,7 @@ function stairSidePatches(
   groundY: number,
   height: number,
   parapetWidth: number,
+  topTreatment: string,
 ): Patch[] {
   const run = flightRect.maxZ - flightRect.minZ;
 
@@ -436,7 +491,12 @@ function stairSidePatches(
     },
     dimensions: { u: run, v: height, thickness: parapetWidth },
     evaluator: "planar",
-    edges: sideEdges(structurePath(stairId, "side_negative_u"), "rear", "front"),
+    edges: sideEdges(
+      structurePath(stairId, "side_negative_u"),
+      "rear",
+      "front",
+      topTreatment,
+    ),
     adjacency: [],
     regions: [],
     features: [],
@@ -457,7 +517,12 @@ function stairSidePatches(
     },
     dimensions: { u: run, v: height, thickness: parapetWidth },
     evaluator: "planar",
-    edges: sideEdges(structurePath(stairId, "side_positive_u"), "front", "rear"),
+    edges: sideEdges(
+      structurePath(stairId, "side_positive_u"),
+      "front",
+      "rear",
+      topTreatment,
+    ),
     adjacency: [],
     regions: [],
     features: [],
@@ -472,12 +537,13 @@ function sideEdges(
   patchId: string,
   uMinOrientation: PatchEdges["uMin"]["orientation"],
   uMaxOrientation: PatchEdges["uMin"]["orientation"],
+  topTreatment: string,
 ): PatchEdges {
   return {
     uMin: edge(patchId, "u_min", uMinOrientation),
     uMax: edge(patchId, "u_max", uMaxOrientation),
     vMin: edge(patchId, "v_min", "bottom"),
-    vMax: edge(patchId, "v_max", "top", "stepped_cap"),
+    vMax: edge(patchId, "v_max", "top", topTreatment),
   };
 }
 

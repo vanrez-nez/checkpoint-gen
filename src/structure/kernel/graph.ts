@@ -120,7 +120,19 @@ export interface StairConnectorRecord {
   readonly flightRect: Rect;
   readonly sideTreatment: string;
   /** Resolved side-treatment dimensions, or null when the sides are open. */
-  readonly parapet: { readonly width: number; readonly height: number } | null;
+  readonly parapet: {
+    readonly width: number;
+    readonly height: number;
+    /**
+     * A single raked molding that takes over the top of a sloped parapet.
+     * Omitted for the established stepped treatment so its serialized record
+     * and geometry remain unchanged.
+     */
+    readonly cornice?: {
+      readonly projection: number;
+      readonly height: number;
+    };
+  } | null;
   readonly termination: { readonly lower: string; readonly upper: string };
   readonly patchIds: readonly string[];
 }

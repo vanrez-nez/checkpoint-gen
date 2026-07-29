@@ -112,6 +112,8 @@ assert.deepEqual(
     stairSides: DEFAULT_MASS_LAYOUT.stairSideTreatment,
     stairParapetWidth: DEFAULT_MASS_LAYOUT.stairParapetWidth,
     stairParapetHeight: DEFAULT_MASS_LAYOUT.stairParapetHeight,
+    stairParapetCorniceProjection: DEFAULT_MASS_LAYOUT.stairParapetCorniceProjection,
+    stairParapetCorniceHeight: DEFAULT_MASS_LAYOUT.stairParapetCorniceHeight,
   },
   {
     seed: 741,
@@ -137,6 +139,8 @@ assert.deepEqual(
     stairSides: "stepped_parapet",
     stairParapetWidth: 0.75,
     stairParapetHeight: 0.55,
+    stairParapetCorniceProjection: 0.2,
+    stairParapetCorniceHeight: 0.25,
   },
   "The Mass controls must open with the approved defaults.",
 );
@@ -1266,6 +1270,212 @@ assert.ok(cornicedCrown.cornice);
 assert.ok(
   Math.abs(cornicedStair.flightRect.minZ - cornicedCrown.cornice.outline.maxZ) < 1e-9,
   "With a crown cornice the flight must land on the molding's outer lip.",
+);
+
+// The alternate side treatment replaces the staircase silhouette with two
+// ground-backed walls. Their crown is one plane following the ideal flight,
+// and the optional cornice is one projected band on that same plane — no stack
+// of decorative caps and no change to the established stepped treatment.
+const flatParapetLayout: MassLayoutConfig = {
+  ...cloneMassLayout(),
+  stairSideTreatment: "sloped_parapet",
+};
+assert.doesNotThrow(() => validateMassLayout(flatParapetLayout));
+const flatParapetGraph = generateStructure(toStructureSpec(flatParapetLayout));
+assert.equal(
+  flatParapetGraph.diagnostics.filter((entry) => entry.severity === "error").length,
+  0,
+);
+const flatParapetRecord = flatParapetGraph.connectors[0]!;
+const flatParapet = flatParapetRecord.parapet!;
+assert.equal(flatParapetRecord.sideTreatment, "sloped_parapet");
+assert.deepEqual(flatParapet.cornice, { projection: 0.2, height: 0.25 });
+assert.equal(
+  patchIndex(flatParapetGraph)
+    .get(`${flatParapetRecord.id}/side_negative_u`)
+    ?.edges.vMax.treatment,
+  "cornice",
+);
+assert.ok(
+  flatParapetRecord.width
+    + 2 * (flatParapet.width + flatParapet.cornice.projection)
+    <= rectWidth(flatParapetGraph.masses[0]!.summit.rect) + 1e-9,
+  "The projected flat parapet cornice does not fit its summit.",
+);
+
+const flatParapetBuilder = new SolidBuilder();
+buildStair(
+  flatParapetBuilder,
+  flatParapetRecord,
+  flatParapetGraph.masses[0]!.bands,
+  { masonry: null, seed: 1 },
+);
+assert.equal(
+  flatParapetBuilder.blockCount,
+  flatParapetRecord.stepCount + 6,
+  "A flat parapet should add one wall, one terminal closure and one cornice per side.",
+);
+assert.equal(
+  flatParapetBuilder.blockFaces.length,
+  flatParapetRecord.stepCount * 2 + 20,
+  "The flat parapet emitted more surfaces than its simple decomposition.",
+);
+assert.equal(
+  flatParapetBuilder.blockFaces.length * 6,
+  flatParapetBuilder.indices.length,
+  "The flat parapet escaped the block-only geometry contract.",
+);
+
+const flatParapetFaces = readBlockFaces(flatParapetBuilder);
+const rakedTops = flatParapetFaces.filter((face) => {
+  const normal = faceNormal(face);
+  return normal.y > 0.1 && Math.abs(normal.z) > 0.1;
+});
+assert.equal(rakedTops.length, 2, "Each flat parapet needs exactly one raked cornice top.");
+
+for (const face of rakedTops) {
+  for (const corner of face) {
+    const progress = (
+      flatParapetRecord.flightRect.maxZ - corner.z
+    ) / flatParapetRecord.run;
+    const expectedY = flatParapetRecord.bottomY
+      + progress * (flatParapetRecord.topY - flatParapetRecord.bottomY)
+      + flatParapet.height;
+    assert.ok(
+      Math.abs(corner.y - expectedY) < 1e-9,
+      `Flat parapet top at z=${corner.z} left its continuous rake.`,
+    );
+  }
+}
+
+const flatOuterWalls = flatParapetFaces.filter((face) => {
+  const normal = faceNormal(face);
+  return Math.abs(normal.x) > 0.99
+    && face.some((corner) => Math.abs(corner.y - flatParapetRecord.bottomY) < 1e-9)
+    && face.some((corner) => corner.y > flatParapetRecord.topY);
+});
+assert.equal(
+  flatOuterWalls.length,
+  4,
+  "Both inner and outer faces of both flat parapets must rise from the ground.",
+);
+
+const flatParapetBox = boundsOfBuilder(flatParapetBuilder);
+assert.ok(Math.abs(
+  flatParapetBox.minX
+    - flatParapetRecord.flightRect.minX
+    + flatParapet.width
+    + flatParapet.cornice.projection,
+) < 1e-9);
+assert.ok(Math.abs(
+  flatParapetBox.maxX
+    - flatParapetRecord.flightRect.maxX
+    - flatParapet.width
+    - flatParapet.cornice.projection,
+) < 1e-9);
+assert.ok(Math.abs(
+  flatParapetBox.maxY - flatParapetRecord.topY - flatParapet.height
+) < 1e-9);
+
+const flatParapetGeometry = finalizeGeometry(flatParapetBuilder).geometry;
+assert.equal(
+  findCoincidentFaces(flatParapetGeometry).pairs,
+  0,
+  "A flat parapet has two faces at the same depth.",
+);
+
+const flatCornicedMassGraph = generateStructure(toStructureSpec({
+  ...flatParapetLayout,
+  cornicePlacement: "all",
+}));
+const flatCornicedMassGeometry = mergeParts(
+  tessellateStructure(flatCornicedMassGraph, { masonry: null, seed: 1 }).parts,
+  [MASS_SECTION],
+).geometry;
+assert.equal(
+  findCoincidentFaces(flatCornicedMassGeometry).pairs,
+  0,
+  "The flat parapet cornice overlaps a mass cornice at the arrival.",
+);
+assert.equal(
+  findBackfaces(flatCornicedMassGeometry).backfaces,
+  0,
+  "The flat parapet or its cornice exposes an inward face.",
+);
+const flatCornicedExtents = graphExtents(flatCornicedMassGraph);
+const flatCornicedBox = flatCornicedMassGeometry.boundingBox;
+assert.ok(flatCornicedExtents && flatCornicedBox);
+for (const axis of ["x", "y", "z"] as const) {
+  const tolerance = Math.max(
+    1e-5,
+    Math.abs(flatCornicedExtents.max[axis]) * 1e-6,
+  );
+  assert.ok(
+    Math.abs(flatCornicedBox.min[axis] - flatCornicedExtents.min[axis]) < tolerance,
+    `Flat corniced geometry min.${axis} disagrees with its graph.`,
+  );
+  assert.ok(
+    Math.abs(flatCornicedBox.max[axis] - flatCornicedExtents.max[axis]) < tolerance,
+    `Flat corniced geometry max.${axis} disagrees with its graph.`,
+  );
+}
+
+const flatSteps = stairSteps(flatParapetRecord);
+const flatProbeStep = flatSteps[Math.floor(flatSteps.length * 0.5)]!;
+const flatProbeZ0 = flatProbeStep.zBack + flatParapetRecord.tread * 0.2;
+const flatProbeZ1 = flatProbeStep.zFront - flatParapetRecord.tread * 0.2;
+const flatProbeCapY = flatParapetRecord.bottomY
+  + (
+    flatParapetRecord.flightRect.maxZ - flatProbeZ1
+  ) / flatParapetRecord.run
+    * (flatParapetRecord.topY - flatParapetRecord.bottomY)
+  + flatParapet.height;
+const flatBodyMinX = flatParapetRecord.flightRect.minX - flatParapet.width;
+assert.ok(faceIsCoveredByStair(
+  horizontalFace(
+    flatBodyMinX + flatParapet.width * 0.2,
+    flatParapetRecord.flightRect.minX - flatParapet.width * 0.2,
+    flatProbeZ0,
+    flatProbeZ1,
+    flatProbeCapY - 0.01,
+  ),
+  flatParapetRecord,
+), "A face beneath the continuous parapet plane was not selected.");
+assert.equal(faceIsCoveredByStair(
+  horizontalFace(
+    flatBodyMinX - flatParapet.cornice.projection * 0.8,
+    flatBodyMinX - flatParapet.cornice.projection * 0.2,
+    flatProbeZ0,
+    flatProbeZ1,
+    flatProbeCapY - flatParapet.cornice.height * 0.5,
+  ),
+  flatParapetRecord,
+), false, "The cornice overhang incorrectly hid empty space below the wall.");
+
+const uncornicedFlatGraph = generateStructure(toStructureSpec({
+  ...flatParapetLayout,
+  stairParapetCorniceHeight: 0,
+}));
+const uncornicedFlatRecord = uncornicedFlatGraph.connectors[0]!;
+assert.equal(uncornicedFlatRecord.parapet?.cornice, undefined);
+assert.equal(
+  patchIndex(uncornicedFlatGraph)
+    .get(`${uncornicedFlatRecord.id}/side_negative_u`)
+    ?.edges.vMax.treatment,
+  "sloped_cap",
+);
+
+const clampedParapetCornice = generateStructure(toStructureSpec({
+  ...flatParapetLayout,
+  stairParapetHeight: 0.2,
+  stairParapetCorniceHeight: 0.3,
+}));
+assert.equal(clampedParapetCornice.connectors[0]?.parapet?.cornice?.height, 0.1);
+assert.equal(
+  clampedParapetCornice.diagnostics.find(
+    (entry) => entry.code === "stair.parapet_cornice_height_reduced",
+  )?.severity,
+  "notice",
 );
 
 // The geometry: blocks, and nothing else, exactly like the mass. Every slice

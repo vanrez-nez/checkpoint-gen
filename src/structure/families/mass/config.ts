@@ -96,6 +96,8 @@ export interface MassLayoutConfig {
   stairSideTreatment: StairSideTreatment;
   stairParapetWidth: number;
   stairParapetHeight: number;
+  stairParapetCorniceProjection: number;
+  stairParapetCorniceHeight: number;
   seed: number;
 }
 
@@ -140,6 +142,8 @@ export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
   stairSideTreatment: "stepped_parapet",
   stairParapetWidth: 0.75,
   stairParapetHeight: 0.55,
+  stairParapetCorniceProjection: 0.2,
+  stairParapetCorniceHeight: 0.25,
   seed: 1,
 };
 
@@ -197,6 +201,7 @@ const CORNER_RULE_OPTIONS: Readonly<Record<string, CornerRule>> = {
 const STAIR_SIDE_TREATMENT_OPTIONS: Readonly<Record<string, StairSideTreatment>> = {
   None: "none",
   "Stepped parapet": "stepped_parapet",
+  "Flat parapet": "sloped_parapet",
 };
 
 const control = controlsFor<MassLayoutConfig>();
@@ -538,6 +543,30 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
       layout.stairEnabled && layout.stairSideTreatment !== "none",
   }),
   control.number({
+    key: "stairParapetCorniceProjection",
+    label: "cornice projection",
+    name: "Stair parapet cornice projection",
+    group: "Stair",
+    min: 0,
+    max: 0.3,
+    step: 0.005,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.stairEnabled && layout.stairSideTreatment === "sloped_parapet",
+  }),
+  control.number({
+    key: "stairParapetCorniceHeight",
+    label: "cornice height",
+    name: "Stair parapet cornice height",
+    group: "Stair",
+    min: 0,
+    max: 0.3,
+    step: 0.005,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.stairEnabled && layout.stairSideTreatment === "sloped_parapet",
+  }),
+  control.number({
     key: "seed",
     label: "seed",
     name: "Structure seed",
@@ -671,5 +700,7 @@ function toStairSpec(layout: MassLayoutConfig): StairSpec | null {
     sideTreatment: layout.stairSideTreatment,
     parapetWidth: layout.stairParapetWidth,
     parapetHeight: layout.stairParapetHeight,
+    parapetCorniceProjection: layout.stairParapetCorniceProjection,
+    parapetCorniceHeight: layout.stairParapetCorniceHeight,
   };
 }
