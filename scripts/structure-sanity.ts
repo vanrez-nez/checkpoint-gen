@@ -1312,12 +1312,12 @@ buildStair(
 );
 assert.equal(
   flatParapetBuilder.blockCount,
-  flatParapetRecord.stepCount + 6,
-  "A flat parapet should add one wall, one terminal closure and one cornice per side.",
+  flatParapetRecord.stepCount + 12,
+  "A flat parapet should add one wall, one rake and two supported endings per side.",
 );
 assert.equal(
   flatParapetBuilder.blockFaces.length,
-  flatParapetRecord.stepCount * 2 + 20,
+  flatParapetRecord.stepCount * 2 + 44,
   "The flat parapet emitted more surfaces than its simple decomposition.",
 );
 assert.equal(
@@ -1348,6 +1348,59 @@ for (const face of rakedTops) {
   }
 }
 
+const horizontalEndTops = flatParapetFaces.filter((face) => {
+  const normal = faceNormal(face);
+  return normal.y > 0.99
+    && (
+      face.some((corner) => corner.z > flatParapetRecord.flightRect.maxZ + 1e-9)
+      || face.some((corner) => corner.z < flatParapetRecord.flightRect.minZ - 1e-9)
+    );
+});
+assert.equal(
+  horizontalEndTops.length,
+  4,
+  "Both ends of both flat parapet cornices need one horizontal top block.",
+);
+for (const face of horizontalEndTops) {
+  assert.ok(
+    face.every((corner) => Math.abs(corner.y - face[0]!.y) < 1e-9),
+    "A flat parapet ending is not horizontal.",
+  );
+}
+
+const flatBodyTopOffset = flatParapet.height - flatParapet.cornice.height;
+const lowerEndingWalls = flatParapetFaces.filter((face) => {
+  const normal = faceNormal(face);
+  return Math.abs(normal.x) > 0.99
+    && face.every((corner) => corner.z >= flatParapetRecord.flightRect.maxZ - 1e-9)
+    && face.some((corner) => Math.abs(corner.y - flatParapetRecord.bottomY) < 1e-9)
+    && face.some((corner) =>
+      Math.abs(
+        corner.y - flatParapetRecord.bottomY - flatBodyTopOffset,
+      ) < 1e-9);
+});
+assert.equal(
+  lowerEndingWalls.length,
+  4,
+  "Both lower cornice endings must carry inner and outer walls to the ground.",
+);
+
+const upperEndingWalls = flatParapetFaces.filter((face) => {
+  const normal = faceNormal(face);
+  return Math.abs(normal.x) > 0.99
+    && face.every((corner) => corner.z <= flatParapetRecord.flightRect.minZ + 1e-9)
+    && face.some((corner) => Math.abs(corner.y - flatParapetRecord.topY) < 1e-9)
+    && face.some((corner) =>
+      Math.abs(
+        corner.y - flatParapetRecord.topY - flatBodyTopOffset,
+      ) < 1e-9);
+});
+assert.equal(
+  upperEndingWalls.length,
+  4,
+  "Both upper cornice endings must carry inner and outer walls to the summit floor.",
+);
+
 const flatOuterWalls = flatParapetFaces.filter((face) => {
   const normal = faceNormal(face);
   return Math.abs(normal.x) > 0.99
@@ -1361,6 +1414,8 @@ assert.equal(
 );
 
 const flatParapetBox = boundsOfBuilder(flatParapetBuilder);
+const flatTerminalLength = flatParapet.width
+  + flatParapet.cornice.projection * 2;
 assert.ok(Math.abs(
   flatParapetBox.minX
     - flatParapetRecord.flightRect.minX
@@ -1375,6 +1430,16 @@ assert.ok(Math.abs(
 ) < 1e-9);
 assert.ok(Math.abs(
   flatParapetBox.maxY - flatParapetRecord.topY - flatParapet.height
+) < 1e-9);
+assert.ok(Math.abs(
+  flatParapetBox.minZ
+    - flatParapetRecord.flightRect.minZ
+    + flatTerminalLength
+) < 1e-9);
+assert.ok(Math.abs(
+  flatParapetBox.maxZ
+    - flatParapetRecord.flightRect.maxZ
+    - flatTerminalLength
 ) < 1e-9);
 
 const flatParapetGeometry = finalizeGeometry(flatParapetBuilder).geometry;

@@ -482,8 +482,10 @@ function layParapetSlices(
  * the ground line to the parapet cap. The back face is omitted from that block
  * where the mass owns it, then restored only over the crown-cornice niche and
  * above the summit. An optional cornice is one more raked block per side. It
- * takes over the top band and projects only across the wall, staying flush at
- * the stair's foot and arrival.
+ * takes over the top band and projects across the wall. One square horizontal
+ * block finishes it beyond the stair foot and another finishes it on the
+ * summit. Each ending carries a wall block down to its supporting floor, so
+ * neither cap cantilevers in open air or exposes a raw diagonal cut.
  */
 function laySlopedParapets(
   builder: SolidBuilder,
@@ -510,8 +512,8 @@ function laySlopedParapets(
     builder.addBlock(
       groundBackedRakedBlock(x0, x1, record, bodyTopOffset),
       {
-        // Front, both public wall faces, but no buried full-height back.
-        sides: [true, true, false, true],
+        // A lower ending owns the front closure when the cornice is present.
+        sides: [cornice === undefined, true, false, true],
         top: cornice === undefined,
         bottom: false,
       },
@@ -531,35 +533,106 @@ function laySlopedParapets(
       );
     }
 
-    // Above the summit the terminal faces the open arrival floor.
-    laySpan(
-      builder,
-      x0,
-      x1,
-      lastStep,
-      record.topY,
-      record.topY + bodyTopOffset,
-      { back: true },
-      null,
-    );
-
     if (!cornice) {
+      // Without a cornice there is no horizontal ending to close the wall, so
+      // the terminal above the summit still owns its exposed back.
+      laySpan(
+        builder,
+        x0,
+        x1,
+        lastStep,
+        record.topY,
+        record.topY + bodyTopOffset,
+        { back: true },
+        null,
+      );
       continue;
     }
 
+    const corniceX0 = x0 - cornice.projection;
+    const corniceX1 = x1 + cornice.projection;
+    const terminalLength = corniceX1 - corniceX0;
     builder.addBlock(
       rakedBandBlock(
-        x0 - cornice.projection,
-        x1 + cornice.projection,
+        corniceX0,
+        corniceX1,
         record,
         bodyTopOffset,
         parapet.height,
       ),
       {
-        sides: [true, true, true, true],
+        // The horizontal terminals own the front and back closures.
+        sides: [false, true, false, true],
         top: true,
         // The projected portions read as a soffit. The supported middle has no
         // competing wall top because the cornice took that band over.
+        bottom: true,
+      },
+    );
+
+    builder.addBlock(
+      horizontalBlock(
+        x0,
+        x1,
+        flightRect.maxZ,
+        flightRect.maxZ + terminalLength,
+        record.bottomY,
+        record.bottomY + bodyTopOffset,
+      ),
+      {
+        // Its back is welded to the triangular wall. The cornice above owns
+        // the top, and the ground owns the bottom.
+        sides: [true, true, false, true],
+        top: false,
+        bottom: false,
+      },
+    );
+    builder.addBlock(
+      horizontalBlock(
+        corniceX0,
+        corniceX1,
+        flightRect.maxZ,
+        flightRect.maxZ + terminalLength,
+        record.bottomY + bodyTopOffset,
+        record.bottomY + parapet.height,
+      ),
+      {
+        // Its back is pressed against the raked cornice.
+        sides: [true, true, false, true],
+        top: true,
+        bottom: true,
+      },
+    );
+    builder.addBlock(
+      horizontalBlock(
+        x0,
+        x1,
+        flightRect.minZ - terminalLength,
+        flightRect.minZ,
+        record.topY,
+        record.topY + bodyTopOffset,
+      ),
+      {
+        // Its front is welded to the triangular wall. The summit floor owns
+        // the bottom and the cornice owns the top.
+        sides: [false, true, true, true],
+        top: false,
+        bottom: false,
+      },
+    );
+    builder.addBlock(
+      horizontalBlock(
+        corniceX0,
+        corniceX1,
+        flightRect.minZ - terminalLength,
+        flightRect.minZ,
+        record.topY + bodyTopOffset,
+        record.topY + parapet.height,
+      ),
+      {
+        // Its front is pressed against the raked cornice.
+        sides: [false, true, true, true],
+        top: true,
         bottom: true,
       },
     );
@@ -615,6 +688,21 @@ function rakedBandBlock(
       topY + topOffset,
       bottomY + topOffset,
     ),
+  };
+}
+
+/** An axis-aligned terminal molding with a genuinely horizontal top and soffit. */
+function horizontalBlock(
+  x0: number,
+  x1: number,
+  zBack: number,
+  zFront: number,
+  bottomY: number,
+  topY: number,
+): Block {
+  return {
+    bottom: rakedRing(x0, x1, zBack, zFront, bottomY, bottomY),
+    top: rakedRing(x0, x1, zBack, zFront, topY, topY),
   };
 }
 

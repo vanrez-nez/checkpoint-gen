@@ -321,20 +321,24 @@ export function graphExtents(graph: StructureGraph): {
   // A stair projects past the base of the mass it climbs, and its parapets rise
   // past the summit it arrives on; both are part of what the structure occupies.
   for (const connector of graph.connectors) {
+    const cornice = connector.parapet?.cornice;
     const sideWidth = (connector.parapet?.width ?? 0)
-      + (connector.parapet?.cornice?.projection ?? 0);
+      + (cornice?.projection ?? 0);
     const capY = connector.topY + (connector.parapet?.height ?? 0);
+    const terminalLength = cornice
+      ? (connector.parapet?.width ?? 0) + cornice.projection * 2
+      : 0;
 
     if (min && max) {
       min = {
         x: Math.min(min.x, connector.flightRect.minX - sideWidth),
         y: Math.min(min.y, connector.bottomY),
-        z: Math.min(min.z, connector.flightRect.minZ),
+        z: Math.min(min.z, connector.flightRect.minZ - terminalLength),
       };
       max = {
         x: Math.max(max.x, connector.flightRect.maxX + sideWidth),
         y: Math.max(max.y, capY),
-        z: Math.max(max.z, connector.flightRect.maxZ),
+        z: Math.max(max.z, connector.flightRect.maxZ + terminalLength),
       };
     }
   }

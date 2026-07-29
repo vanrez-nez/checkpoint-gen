@@ -103,6 +103,10 @@ The primary stair supports open sides, the established stepped parapets, and
 top follows the continuous stair incline rather than repeating every tread. Its
 optional cornice is a single raked band with configurable projection and height;
 it replaces the top of the wall rather than stacking decorative solids above it.
+Square horizontal blocks finish the molding beyond the foot and onto the summit,
+with the parapet body continuing beneath them to the ground and summit floor.
+The endings are therefore supported parts of the wall rather than cantilevers,
+and their endpoints do not expose diagonal cuts.
 
 Tessellation draws one lofted solid per band and one ring per terrace — only the
 part the band above leaves exposed, so stacked bands never leave two coplanar
