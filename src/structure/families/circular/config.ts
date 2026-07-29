@@ -49,7 +49,6 @@ export const CIRCULAR_LAYOUT_CONTROLS: readonly ControlSpec<CircularLayoutConfig
     // The plate radius sets where entries meet the boundary, so the pillars
     // flanking each entry move with it.
     scopes: ["layout", "pillars"],
-    reframe: true,
   }),
   control.number({
     key: "rowsPerTier",
@@ -71,7 +70,6 @@ export const CIRCULAR_LAYOUT_CONTROLS: readonly ControlSpec<CircularLayoutConfig
     max: 1.5,
     step: 0.01,
     scopes: ["layout", "pillars"],
-    reframe: true,
   }),
   control.number({
     key: "entryLengthRatio",
@@ -82,7 +80,6 @@ export const CIRCULAR_LAYOUT_CONTROLS: readonly ControlSpec<CircularLayoutConfig
     max: 3,
     step: 0.05,
     scopes: ["layout"],
-    reframe: true,
   }),
   control.number({
     key: "entryCount",
@@ -96,7 +93,6 @@ export const CIRCULAR_LAYOUT_CONTROLS: readonly ControlSpec<CircularLayoutConfig
     // Entry count changes each pillar's placement label, which feeds
     // derivePillarSeed, so the pillars must regenerate too.
     scopes: ["layout", "pillars"],
-    reframe: true,
   }),
   control.number({
     key: "entryFadeRatio",

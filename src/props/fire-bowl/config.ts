@@ -25,7 +25,6 @@ export const FIRE_BOWL_CONTROLS: readonly ControlSpec<FireBowlConfig>[] = [
     group: "Fire Bowl",
     name: "Fire bowl enabled",
     scopes: ["bowls"],
-    reframe: true,
   }),
   control.number({
     key: "scale",
@@ -35,7 +34,6 @@ export const FIRE_BOWL_CONTROLS: readonly ControlSpec<FireBowlConfig>[] = [
     max: 2,
     step: 0.05,
     scopes: ["bowls"],
-    reframe: true,
   }),
   control.number({
     key: "radialSegments",

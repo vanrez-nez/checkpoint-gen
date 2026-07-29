@@ -27,8 +27,6 @@ interface BaseControlSpec<T> {
   /** Folder title this control belongs to. */
   readonly group: string;
   readonly scopes?: readonly RebuildScope[];
-  /** Whether changing this control should re-frame the camera. */
-  readonly reframe?: boolean;
   /**
    * Hides the control when this returns false, for a field that only means
    * something under some other field's setting — the bezier handles matter only

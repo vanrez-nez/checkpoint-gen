@@ -56,7 +56,6 @@ export const PILLAR_LAYOUT_CONTROLS: readonly ControlSpec<PillarConfig>[] = [
     max: 12,
     step: 0.1,
     scopes: ["pillars"],
-    reframe: true,
   }),
   control.number({
     key: "shaftWidth",
@@ -67,7 +66,6 @@ export const PILLAR_LAYOUT_CONTROLS: readonly ControlSpec<PillarConfig>[] = [
     max: 3,
     step: 0.01,
     scopes: ["pillars"],
-    reframe: true,
   }),
   control.number({
     key: "baseSteps",
@@ -79,7 +77,6 @@ export const PILLAR_LAYOUT_CONTROLS: readonly ControlSpec<PillarConfig>[] = [
     step: 1,
     integer: true,
     scopes: ["pillars"],
-    reframe: true,
   }),
   control.number({
     key: "shaftCourses",

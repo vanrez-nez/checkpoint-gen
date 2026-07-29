@@ -59,7 +59,6 @@ export interface ControlPaneOptions {
   config: StructureConfig;
   scene: MainScene;
   rendererLabel: string;
-  onReframe: () => void;
 }
 
 export interface ControlPane {
@@ -71,7 +70,7 @@ const SHARED_STONE_CONTROLS = createStoneControls(["layout"]);
 const SHARED_BEVEL_CONTROLS = createBevelControls(["layout"]);
 
 export function createControlPane(options: ControlPaneOptions): ControlPane {
-  const { container, config, scene, rendererLabel, onReframe } = options;
+  const { container, config, scene, rendererLabel } = options;
   const pane = new Pane({ container, title: "Structure" });
   pane.registerPlugin(StatsPanePluginBundle);
   // Supplies the cubic-bezier curve editor the shaping controls bind to.
@@ -90,7 +89,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
   }).on("change", () => {
     buildControlTabs();
     // Every section belongs to the previous type's layout, so rebuild all.
-    dispatch(["layout", "pillars", "bowls", "fire", "offering"], true);
+    dispatch(["layout", "pillars", "bowls", "fire", "offering"]);
   });
 
   buildControlTabs();
@@ -145,7 +144,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     buildSceneTab(scenePage);
   }
 
-  function dispatch(scopes: readonly RebuildScope[], reframe: boolean): void {
+  function dispatch(scopes: readonly RebuildScope[]): void {
     try {
       validateActiveStructureConfig(config);
     } catch (error) {
@@ -186,10 +185,6 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
 
     refreshStats();
     visibility.apply(config);
-
-    if (reframe) {
-      onReframe();
-    }
   }
 
   function refreshStats(): void {
@@ -399,7 +394,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
       for (const { key, label } of ILLUMINATION_COLOR_KEYS) {
         illuminationFolder
           .addBinding(config.illumination, key, { label })
-          .on("change", () => dispatch(["illumination"], false));
+          .on("change", () => dispatch(["illumination"]));
       }
     }
 

@@ -2,10 +2,7 @@ import type { BindingApi, BladeApi, FolderApi, TabPageApi } from "@tweakpane/cor
 import { CubicBezier, type CubicBezierApi } from "@tweakpane/plugin-essentials";
 import type { BezierValue, ControlSpec, RebuildScope } from "../config/control-spec";
 
-export type Dispatch = (
-  scopes: readonly RebuildScope[],
-  reframe: boolean,
-) => void;
+export type Dispatch = (scopes: readonly RebuildScope[]) => void;
 
 export interface BoundControl<T> {
   readonly spec: ControlSpec<T>;
@@ -67,7 +64,7 @@ export function bindControls<T extends object>(
     const label = spec.label ?? spec.key;
     const notify = () => {
       spec.onChange?.(target);
-      dispatch(spec.scopes ?? [], spec.reframe === true);
+      dispatch(spec.scopes ?? []);
     };
 
     if (spec.kind === "bezier") {

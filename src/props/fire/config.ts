@@ -55,7 +55,6 @@ export const FIRE_CONTROLS: readonly ControlSpec<FireConfig>[] = [
     group: "Flame",
     name: "Fire enabled",
     scopes: ["fire"],
-    reframe: true,
   }),
   control.number({
     key: "scale",
@@ -65,7 +64,6 @@ export const FIRE_CONTROLS: readonly ControlSpec<FireConfig>[] = [
     max: 5,
     step: 0.05,
     scopes: ["fire"],
-    reframe: true,
   }),
   control.number({
     key: "radius",
@@ -75,7 +73,6 @@ export const FIRE_CONTROLS: readonly ControlSpec<FireConfig>[] = [
     max: 1,
     step: 0.005,
     scopes: ["fire"],
-    reframe: true,
   }),
   control.number({
     key: "height",
@@ -85,7 +82,6 @@ export const FIRE_CONTROLS: readonly ControlSpec<FireConfig>[] = [
     max: 2,
     step: 0.01,
     scopes: ["fire"],
-    reframe: true,
   }),
   control.number({
     key: "baseHeight",
@@ -96,7 +92,6 @@ export const FIRE_CONTROLS: readonly ControlSpec<FireConfig>[] = [
     max: 1,
     step: 0.005,
     scopes: ["fire"],
-    reframe: true,
   }),
   control.number({
     key: "radialSegments",

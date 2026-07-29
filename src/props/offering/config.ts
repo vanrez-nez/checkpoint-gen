@@ -28,7 +28,6 @@ export const OFFERING_CONTROLS: readonly ControlSpec<OfferingConfig>[] = [
     group: "Layout",
     name: "Offering enabled",
     scopes: ["offering"],
-    reframe: true,
   }),
   control.number({
     key: "pedestalFit",
@@ -39,7 +38,6 @@ export const OFFERING_CONTROLS: readonly ControlSpec<OfferingConfig>[] = [
     max: 1.5,
     step: 0.01,
     scopes: ["offering"],
-    reframe: true,
   }),
   control.number({
     key: "verticalOffset",
@@ -50,7 +48,6 @@ export const OFFERING_CONTROLS: readonly ControlSpec<OfferingConfig>[] = [
     max: 1,
     step: 0.01,
     scopes: ["offering"],
-    reframe: true,
   }),
   control.number({
     key: "rotationDegrees",
@@ -61,7 +58,6 @@ export const OFFERING_CONTROLS: readonly ControlSpec<OfferingConfig>[] = [
     max: 180,
     step: 1,
     scopes: ["offering"],
-    reframe: true,
   }),
   control.number({
     key: "materialScale",

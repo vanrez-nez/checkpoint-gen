@@ -87,7 +87,6 @@ const pane = createControlPane({
   config,
   scene: mainScene,
   rendererLabel: rendererBackend.isWebGPUBackend === true ? "WebGPU" : "WebGL2",
-  onReframe: frameComposition,
 });
 const { stats } = pane;
 

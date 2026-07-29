@@ -264,7 +264,6 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     max: 80,
     step: 0.5,
     scopes: ["layout"],
-    reframe: true,
   }),
   control.number({
     key: "footprintDepth",
@@ -275,7 +274,6 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     max: 80,
     step: 0.5,
     scopes: ["layout"],
-    reframe: true,
   }),
   control.number({
     key: "bandCount",
@@ -297,7 +295,6 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     max: 60,
     step: 0.25,
     scopes: ["layout"],
-    reframe: true,
   }),
   control.number({
     key: "batterAngle",
@@ -521,7 +518,6 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     max: 4,
     step: 0.05,
     scopes: ["layout"],
-    reframe: true,
     visibleWhen: (layout) => layout.summitTreatment === "raised_pad",
   }),
   control.boolean({
@@ -530,7 +526,6 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     name: "Summit building",
     group: "Summit building",
     scopes: ["layout"],
-    reframe: true,
   }),
   control.number({
     key: "summitBuildingWidthRatio",
@@ -563,7 +558,6 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     max: 16,
     step: 0.1,
     scopes: ["layout"],
-    reframe: true,
     visibleWhen: (layout) => layout.summitBuildingEnabled,
   }),
   control.number({
@@ -597,7 +591,6 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     max: 12,
     step: 0.1,
     scopes: ["layout"],
-    reframe: true,
     visibleWhen: (layout) => layout.summitBuildingEnabled,
   }),
   control.boolean({
@@ -606,7 +599,6 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     name: "Front stair",
     group: "Stair",
     scopes: ["layout"],
-    reframe: true,
   }),
   control.boolean({
     key: "stairRearEnabled",
@@ -614,7 +606,6 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     name: "Rear stair",
     group: "Stair",
     scopes: ["layout"],
-    reframe: true,
   }),
   control.boolean({
     key: "stairLeftEnabled",
@@ -622,7 +613,6 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     name: "Left stair",
     group: "Stair",
     scopes: ["layout"],
-    reframe: true,
   }),
   control.boolean({
     key: "stairRightEnabled",
@@ -630,7 +620,6 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     name: "Right stair",
     group: "Stair",
     scopes: ["layout"],
-    reframe: true,
   }),
   control.number({
     key: "stairWidthRatio",
