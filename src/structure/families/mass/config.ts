@@ -98,6 +98,10 @@ export interface MassLayoutConfig {
   stairSideTreatment: StairSideTreatment;
   stairParapetWidth: number;
   stairParapetHeight: number;
+  /** Horizontal cornice repeated over stepped parapet caps. */
+  stairSteppedParapetCorniceProjection: number;
+  stairSteppedParapetCorniceHeight: number;
+  /** Continuous raked cornice over a flat parapet. */
   stairParapetCorniceProjection: number;
   stairParapetCorniceHeight: number;
   seed: number;
@@ -145,6 +149,8 @@ export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
   stairSideTreatment: "stepped_parapet",
   stairParapetWidth: 0.75,
   stairParapetHeight: 0.55,
+  stairSteppedParapetCorniceProjection: 0,
+  stairSteppedParapetCorniceHeight: 0,
   stairParapetCorniceProjection: 0.2,
   stairParapetCorniceHeight: 0.25,
   seed: 1,
@@ -559,9 +565,33 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
       layout.stairEnabled && layout.stairSideTreatment !== "none",
   }),
   control.number({
+    key: "stairSteppedParapetCorniceProjection",
+    label: "cornice projection",
+    name: "Stepped stair parapet cornice projection",
+    group: "Stair",
+    min: 0,
+    max: 0.3,
+    step: 0.005,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.stairEnabled && layout.stairSideTreatment === "stepped_parapet",
+  }),
+  control.number({
+    key: "stairSteppedParapetCorniceHeight",
+    label: "cornice height",
+    name: "Stepped stair parapet cornice height",
+    group: "Stair",
+    min: 0,
+    max: 0.3,
+    step: 0.005,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.stairEnabled && layout.stairSideTreatment === "stepped_parapet",
+  }),
+  control.number({
     key: "stairParapetCorniceProjection",
     label: "cornice projection",
-    name: "Stair parapet cornice projection",
+    name: "Flat stair parapet cornice projection",
     group: "Stair",
     min: 0,
     max: 0.3,
@@ -573,7 +603,7 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
   control.number({
     key: "stairParapetCorniceHeight",
     label: "cornice height",
-    name: "Stair parapet cornice height",
+    name: "Flat stair parapet cornice height",
     group: "Stair",
     min: 0,
     max: 0.3,
@@ -716,7 +746,11 @@ function toStairSpec(layout: MassLayoutConfig): StairSpec | null {
     sideTreatment: layout.stairSideTreatment,
     parapetWidth: layout.stairParapetWidth,
     parapetHeight: layout.stairParapetHeight,
-    parapetCorniceProjection: layout.stairParapetCorniceProjection,
-    parapetCorniceHeight: layout.stairParapetCorniceHeight,
+    parapetCorniceProjection: layout.stairSideTreatment === "stepped_parapet"
+      ? layout.stairSteppedParapetCorniceProjection
+      : layout.stairParapetCorniceProjection,
+    parapetCorniceHeight: layout.stairSideTreatment === "stepped_parapet"
+      ? layout.stairSteppedParapetCorniceHeight
+      : layout.stairParapetCorniceHeight,
   };
 }

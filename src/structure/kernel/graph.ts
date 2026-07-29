@@ -124,9 +124,9 @@ export interface StairConnectorRecord {
     readonly width: number;
     readonly height: number;
     /**
-     * A single raked molding that takes over the top of a sloped parapet.
-     * Omitted for the established stepped treatment so its serialized record
-     * and geometry remain unchanged.
+     * A molding that takes over the parapet's top band. It follows the
+     * continuous rake on a sloped parapet and repeats as horizontal blocks on
+     * a stepped parapet.
      */
     readonly cornice?: {
       readonly projection: number;

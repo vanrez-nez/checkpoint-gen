@@ -219,7 +219,10 @@ export function resolveStair(
     : 0;
   const hasParapet = parapetWidth > 0 && parapetHeight > 0;
   const requestedCornice = hasParapet
-    && spec.sideTreatment === "sloped_parapet"
+    && (
+      spec.sideTreatment === "stepped_parapet"
+      || spec.sideTreatment === "sloped_parapet"
+    )
     && spec.parapetCorniceProjection > 0
     && spec.parapetCorniceHeight > 0;
   const corniceHeight = requestedCornice
@@ -366,9 +369,11 @@ export function resolveStair(
       groundY,
       rise + parapet.height,
       parapet.width,
-      spec.sideTreatment === "sloped_parapet"
-        ? (parapet.cornice ? "cornice" : "sloped_cap")
-        : "stepped_cap",
+      parapet.cornice
+        ? "cornice"
+        : spec.sideTreatment === "sloped_parapet"
+          ? "sloped_cap"
+          : "stepped_cap",
     )
     : [];
   const patches = [flightPatch, ...sidePatches];

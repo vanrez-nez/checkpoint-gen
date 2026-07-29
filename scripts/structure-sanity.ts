@@ -113,6 +113,10 @@ assert.deepEqual(
     stairSides: DEFAULT_MASS_LAYOUT.stairSideTreatment,
     stairParapetWidth: DEFAULT_MASS_LAYOUT.stairParapetWidth,
     stairParapetHeight: DEFAULT_MASS_LAYOUT.stairParapetHeight,
+    steppedParapetCorniceProjection:
+      DEFAULT_MASS_LAYOUT.stairSteppedParapetCorniceProjection,
+    steppedParapetCorniceHeight:
+      DEFAULT_MASS_LAYOUT.stairSteppedParapetCorniceHeight,
     stairParapetCorniceProjection: DEFAULT_MASS_LAYOUT.stairParapetCorniceProjection,
     stairParapetCorniceHeight: DEFAULT_MASS_LAYOUT.stairParapetCorniceHeight,
   },
@@ -141,6 +145,8 @@ assert.deepEqual(
     stairSides: "stepped_parapet",
     stairParapetWidth: 0.75,
     stairParapetHeight: 0.55,
+    steppedParapetCorniceProjection: 0,
+    steppedParapetCorniceHeight: 0,
     stairParapetCorniceProjection: 0.2,
     stairParapetCorniceHeight: 0.25,
   },
@@ -1288,10 +1294,203 @@ assert.ok(
   "With a crown cornice the flight must land on the molding's outer lip.",
 );
 
+// The stepped parapet accepts its own optional projected cornice. It remains a
+// sequence of horizontal caps, and the same square foot and summit endings as
+// the flat treatment carry those caps down to their supporting floors.
+const steppedCorniceLayout: MassLayoutConfig = {
+  ...cloneMassLayout(),
+  stairSteppedParapetCorniceProjection: 0.2,
+  stairSteppedParapetCorniceHeight: 0.25,
+};
+assert.doesNotThrow(() => validateMassLayout(steppedCorniceLayout));
+const steppedCorniceGraph = generateStructure(toStructureSpec(steppedCorniceLayout));
+const steppedCorniceRecord = steppedCorniceGraph.connectors[0]!;
+const steppedCornice = steppedCorniceRecord.parapet!;
+assert.equal(steppedCorniceRecord.sideTreatment, "stepped_parapet");
+assert.deepEqual(steppedCornice.cornice, { projection: 0.2, height: 0.25 });
+assert.equal(
+  patchIndex(steppedCorniceGraph)
+    .get(`${steppedCorniceRecord.id}/side_negative_u`)
+    ?.edges.vMax.treatment,
+  "cornice",
+);
+assert.ok(
+  steppedCorniceRecord.width
+    + 2 * (steppedCornice.width + steppedCornice.cornice.projection)
+    <= rectWidth(steppedCorniceGraph.masses[0]!.summit.rect) + 1e-9,
+  "The projected stepped parapet cornice does not fit its summit.",
+);
+
+const steppedCorniceBuilder = new SolidBuilder();
+buildStair(
+  steppedCorniceBuilder,
+  steppedCorniceRecord,
+  steppedCorniceGraph.masses[0]!.bands,
+  { masonry: null, seed: 1, tilesPerStep: DEFAULT_MASS_LAYOUT.stairTilesPerStep },
+);
+assert.equal(
+  steppedCorniceBuilder.blockFaces.length * 6,
+  steppedCorniceBuilder.indices.length,
+  "The stepped cornice escaped the block-only geometry contract.",
+);
+const steppedCorniceFaces = readBlockFaces(steppedCorniceBuilder);
+const steppedCapTops = steppedCorniceFaces.filter((face) => {
+  const normal = faceNormal(face);
+  return normal.y > 0.99
+    && face.every((corner) =>
+      corner.z >= steppedCorniceRecord.flightRect.minZ - 1e-9
+      && corner.z <= steppedCorniceRecord.flightRect.maxZ + 1e-9)
+    && Math.max(...face.map((corner) => corner.x))
+      - Math.min(...face.map((corner) => corner.x))
+      <= steppedCornice.width + 1e-9;
+});
+const steppedCapRuns = new Map<string, number>();
+for (const face of steppedCapTops) {
+  const xs = face.map((corner) => corner.x);
+  const zs = face.map((corner) => corner.z);
+  const side = sum(xs) < 0 ? "negative" : "positive";
+  const key = [
+    side,
+    face[0]!.y.toFixed(9),
+    Math.min(...zs).toFixed(9),
+    Math.max(...zs).toFixed(9),
+  ].join("/");
+  steppedCapRuns.set(
+    key,
+    (steppedCapRuns.get(key) ?? 0) + Math.max(...xs) - Math.min(...xs),
+  );
+}
+assert.equal(
+  steppedCapRuns.size,
+  steppedCorniceRecord.stepCount * 2,
+  "Each stepped parapet tread needs one complete horizontal cornice cap per side.",
+);
+for (const width of steppedCapRuns.values()) {
+  assert.ok(Math.abs(
+    width - steppedCornice.width - steppedCornice.cornice.projection * 2
+  ) < 1e-9, "A stepped parapet cornice cap does not span its full projection.");
+}
+for (const face of steppedCapTops) {
+  assert.ok(
+    face.every((corner) => Math.abs(corner.y - face[0]!.y) < 1e-9),
+    "A stepped parapet cornice cap is not horizontal.",
+  );
+}
+
+const steppedEndTops = steppedCorniceFaces.filter((face) => {
+  const normal = faceNormal(face);
+  return normal.y > 0.99
+    && (
+      face.some((corner) =>
+        corner.z > steppedCorniceRecord.flightRect.maxZ + 1e-9)
+      || face.some((corner) =>
+        corner.z < steppedCorniceRecord.flightRect.minZ - 1e-9)
+    );
+});
+assert.equal(
+  steppedEndTops.length,
+  4,
+  "Both ends of both stepped parapet cornices need one horizontal top.",
+);
+for (const face of steppedEndTops) {
+  assert.ok(
+    face.every((corner) => Math.abs(corner.y - face[0]!.y) < 1e-9),
+    "A stepped parapet ending is not horizontal.",
+  );
+}
+
+const steppedCorniceBox = boundsOfBuilder(steppedCorniceBuilder);
+const steppedTerminalLength = steppedCornice.width
+  + steppedCornice.cornice.projection * 2;
+assert.ok(Math.abs(
+  steppedCorniceBox.minX
+    - steppedCorniceRecord.flightRect.minX
+    + steppedCornice.width
+    + steppedCornice.cornice.projection,
+) < 1e-9);
+assert.ok(Math.abs(
+  steppedCorniceBox.maxX
+    - steppedCorniceRecord.flightRect.maxX
+    - steppedCornice.width
+    - steppedCornice.cornice.projection,
+) < 1e-9);
+assert.ok(Math.abs(
+  steppedCorniceBox.minZ
+    - steppedCorniceRecord.flightRect.minZ
+    + steppedTerminalLength
+) < 1e-9);
+assert.ok(Math.abs(
+  steppedCorniceBox.maxZ
+    - steppedCorniceRecord.flightRect.maxZ
+    - steppedTerminalLength
+) < 1e-9);
+
+const steppedCorniceGeometry = finalizeGeometry(steppedCorniceBuilder).geometry;
+assert.equal(
+  findCoincidentFaces(steppedCorniceGeometry).pairs,
+  0,
+  "A stepped parapet cornice has two faces at the same depth.",
+);
+assert.equal(
+  findBuriedFaces(steppedCorniceGeometry).faces,
+  0,
+  "A stepped parapet cornice emits a face buried in its wall.",
+);
+
+// A cornice taller than its riser overlaps the next cap in elevation. The
+// ownership split must still close the overhang without coincident faces.
+const tallSteppedCorniceGraph = generateStructure(toStructureSpec({
+  ...cloneMassLayout(),
+  baseTreatment: "none",
+  bandCount: 1,
+  totalHeight: 0.65,
+  stairRiser: 0.12,
+  stairParapetHeight: 0.6,
+  stairSteppedParapetCorniceProjection: 0.2,
+  stairSteppedParapetCorniceHeight: 0.3,
+}));
+const tallSteppedCorniceRecord = tallSteppedCorniceGraph.connectors[0]!;
+assert.ok(
+  tallSteppedCorniceRecord.parapet!.cornice!.height
+    > tallSteppedCorniceRecord.riser,
+);
+const tallSteppedCorniceBuilder = new SolidBuilder();
+buildStair(
+  tallSteppedCorniceBuilder,
+  tallSteppedCorniceRecord,
+  tallSteppedCorniceGraph.masses[0]!.bands,
+  { masonry: null, seed: 1, tilesPerStep: DEFAULT_MASS_LAYOUT.stairTilesPerStep },
+);
+const tallSteppedCorniceGeometry =
+  finalizeGeometry(tallSteppedCorniceBuilder).geometry;
+assert.equal(findCoincidentFaces(tallSteppedCorniceGeometry).pairs, 0);
+assert.equal(findBuriedFaces(tallSteppedCorniceGeometry).faces, 0);
+
+const steppedCornicedMassGraph = generateStructure(toStructureSpec({
+  ...steppedCorniceLayout,
+  cornicePlacement: "all",
+}));
+const steppedCornicedMassGeometry = mergeParts(
+  tessellateStructure(steppedCornicedMassGraph, {
+    masonry: null,
+    seed: 1,
+  }).parts,
+  [MASS_SECTION],
+).geometry;
+assert.equal(
+  findCoincidentFaces(steppedCornicedMassGeometry).pairs,
+  0,
+  "The stepped parapet cornice overlaps a mass cornice at the arrival.",
+);
+assert.equal(
+  findBackfaces(steppedCornicedMassGeometry).backfaces,
+  0,
+  "The stepped parapet cornice leaves an open inward face.",
+);
+
 // The alternate side treatment replaces the staircase silhouette with two
-// ground-backed walls. Their crown is one plane following the ideal flight,
-// and the optional cornice is one projected band on that same plane — no stack
-// of decorative caps and no change to the established stepped treatment.
+// ground-backed walls. Its crown is one plane following the ideal flight, and
+// the optional cornice is one projected band on that same plane.
 const flatParapetLayout: MassLayoutConfig = {
   ...cloneMassLayout(),
   stairSideTreatment: "sloped_parapet",

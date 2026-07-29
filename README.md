@@ -98,15 +98,15 @@ a curve rather than authored one by one. Once bands are individually authorable,
 the rule becomes their default and nothing downstream changes. A cornice may take
 at most half the band it crowns; anything taller is shortened and reported.
 
-The primary stair supports open sides, the established stepped parapets, and
-**flat parapets**. A flat parapet is one ground-backed wall on each side whose
-top follows the continuous stair incline rather than repeating every tread. Its
-optional cornice is a single raked band with configurable projection and height;
-it replaces the top of the wall rather than stacking decorative solids above it.
-Square horizontal blocks finish the molding beyond the foot and onto the summit,
-with the parapet body continuing beneath them to the ground and summit floor.
-The endings are therefore supported parts of the wall rather than cantilevers,
-and their endpoints do not expose diagonal cuts.
+The primary stair supports open sides, stepped parapets, and **flat parapets**.
+Both parapet styles accept the same configurable cornice projection and height.
+On a stepped parapet the cornice repeats as one horizontal cap per tread; on a
+flat parapet it is one raked band following the continuous incline. In both
+cases it replaces the top of the wall rather than stacking above it. Square
+horizontal blocks finish the molding beyond the foot and onto the summit, with
+the parapet body continuing beneath them to the ground and summit floor. The
+endings are therefore supported parts of the wall rather than cantilevers, and
+their endpoints do not expose raw cuts.
 
 Masonry treads use an explicit **tiles per step** count. The count controls how
 many stones span every tread; stone-size variation may redistribute their

@@ -42,6 +42,7 @@ export interface StairBuildOptions {
 }
 
 const EPS = 1e-9;
+type StairParapet = NonNullable<StairConnectorRecord["parapet"]>;
 
 export function buildStair(
   builder: SolidBuilder,
@@ -69,7 +70,15 @@ export function buildStair(
 
     if (steppedParapet) {
       layParapetSlices(builder, record, steps, step, bottomY, steppedParapet, back);
+
+      if (steppedParapet.cornice) {
+        laySteppedCorniceSlice(builder, record, steps, step, steppedParapet);
+      }
     }
+  }
+
+  if (steppedParapet?.cornice) {
+    laySteppedParapetEndings(builder, record, steps, steppedParapet);
   }
 
   if (record.sideTreatment === "sloped_parapet" && record.parapet) {
@@ -395,8 +404,8 @@ function layFlightSlice(
 }
 
 /**
- * The side treatment over one step: a stepped parapet is the same slice again,
- * carried one parapet-height above the tread, cut at what covers each stretch.
+ * The wall below one stepped-parapet cap: the stair slice carried up to the
+ * underside of its optional cornice, cut at what covers each stretch.
  * From the ground up: pressed against the flight and the previous parapet
  * slice (outer silhouette only), then the balustrade's inner wall above the
  * tread, then the crown strip above the previous cap — the only part that
@@ -412,15 +421,19 @@ function layParapetSlices(
   steps: readonly StairStep[],
   step: StairStep,
   bottomY: number,
-  parapet: { readonly width: number; readonly height: number },
+  parapet: StairParapet,
   back: { readonly lo: number; readonly hi: number } | null,
 ): void {
   const { flightRect, topY } = record;
   const isLast = step.index === record.stepCount - 1;
-  const capY = step.topY + parapet.height;
+  const bodyHeight = parapet.height - (parapet.cornice?.height ?? 0);
+  const capY = step.topY + bodyHeight;
   const previousCap = step.index > 0
-    ? steps[step.index - 1]!.topY + parapet.height
+    ? steps[step.index - 1]!.topY + bodyHeight
     : bottomY;
+  const frontStartsAt = parapet.cornice && step.index > 0
+    ? steps[step.index - 1]!.topY + parapet.height
+    : capY;
   const lower = Math.min(previousCap, step.topY);
   const upper = Math.max(previousCap, step.topY);
   // The terminal above the summit always shows its back — it faces open air
@@ -432,7 +445,11 @@ function layParapetSlices(
       return null;
     }
 
-    return spanBottom >= topY - EPS ? { lo: spanBottom, hi: capY } : back;
+    if (spanBottom >= topY - EPS) {
+      return parapet.cornice ? null : { lo: spanBottom, hi: capY };
+    }
+
+    return back;
   };
 
   const sides: readonly (readonly [number, number, boolean])[] = [
@@ -454,27 +471,195 @@ function layParapetSlices(
       maxX: innerIsMaxX ? of.inner : of.outer,
       minX: innerIsMaxX ? of.outer : of.inner,
     });
-    const middle = step.topY <= previousCap
-      // The balustrade wall above the tread: inner and outer show, the front
-      // is pressed against the previous, taller parapet slice.
-      ? faces({ outer: true, inner: true })
-      // A parapet shallower than a riser: this stretch is the exposed front
-      // strip of the silhouette, its inner side still pressed on the flight.
-      : faces({ outer: true, front: true });
+    const layBodySpan = (
+      y0: number,
+      y1: number,
+      of: {
+        readonly outer?: boolean;
+        readonly inner?: boolean;
+        readonly front?: boolean;
+        readonly top?: boolean;
+      },
+    ): void => {
+      const wantsFront = of.front === true;
+
+      if (!parapet.cornice || !wantsFront) {
+        laySpan(builder, x0, x1, step, y0, y1, faces(of), backFor(y0));
+        return;
+      }
+
+      const split = Math.min(y1, Math.max(y0, frontStartsAt));
+      laySpan(
+        builder,
+        x0,
+        x1,
+        step,
+        y0,
+        split,
+        faces({ ...of, front: false, top: false }),
+        backFor(y0),
+      );
+      laySpan(
+        builder,
+        x0,
+        x1,
+        step,
+        split,
+        y1,
+        faces(of),
+        backFor(split),
+      );
+    };
 
     laySpan(builder, x0, x1, step, bottomY, lower, faces({ outer: true }), backFor(bottomY));
-    laySpan(builder, x0, x1, step, lower, upper, middle, backFor(lower));
-    laySpan(
-      builder,
-      x0,
-      x1,
-      step,
+    layBodySpan(
+      lower,
+      upper,
+      step.topY <= previousCap
+        // The balustrade wall above the tread: inner and outer show, the front
+        // is pressed against the previous, taller parapet slice.
+        ? { outer: true, inner: true }
+        // A parapet shallower than a riser: this stretch is the exposed front
+        // strip of the silhouette, its inner side still pressed on the flight.
+        : {
+          outer: true,
+          front: step.index > 0 || parapet.cornice === undefined,
+        },
+    );
+    layBodySpan(
       upper,
       capY,
-      faces({ outer: true, inner: true, front: true, top: true }),
-      backFor(upper),
+      {
+        outer: true,
+        inner: true,
+        front: step.index > 0 || parapet.cornice === undefined,
+        top: parapet.cornice === undefined,
+      },
     );
   }
+}
+
+/**
+ * One horizontal cornice cap over one parapet tread.
+ *
+ * The block replaces the top band of the wall. Its projected soffit is one
+ * face and its top stays level. The visible cap remains one rectangular form;
+ * its two overhangs and supported centre are separate ownership strips so no
+ * soffit is buried in the wall. Where a cornice is taller than the riser, the
+ * next cap hides its lower front portion; splitting only at that cover line
+ * avoids a coincident face without changing the stepped silhouette.
+ */
+function laySteppedCorniceSlice(
+  builder: SolidBuilder,
+  record: StairConnectorRecord,
+  steps: readonly StairStep[],
+  step: StairStep,
+  parapet: StairParapet,
+): void {
+  const cornice = parapet.cornice;
+
+  if (!cornice) {
+    return;
+  }
+
+  const bodyTop = step.topY + parapet.height - cornice.height;
+  const capY = step.topY + parapet.height;
+  const previousCap = step.index > 0
+    ? steps[step.index - 1]!.topY + parapet.height
+    : capY;
+  const frontFrom = Math.min(capY, Math.max(bodyTop, previousCap));
+  const sides: readonly (readonly [number, number])[] = [
+    [
+      record.flightRect.minX - parapet.width,
+      record.flightRect.minX,
+    ],
+    [
+      record.flightRect.maxX,
+      record.flightRect.maxX + parapet.width,
+    ],
+  ];
+
+  for (const [wallX0, wallX1] of sides) {
+    // The two projected strips own their soffits and the exposed part of the
+    // rear step. The supported centre owns neither. This is the smallest block
+    // decomposition that closes the overhang without burying a full soffit in
+    // the wall or overlapping the next slice.
+    const strips: readonly (readonly [number, number, boolean])[] = [
+      [wallX0 - cornice.projection, wallX0, true],
+      [wallX0, wallX1, false],
+      [wallX1, wallX1 + cornice.projection, true],
+    ];
+    const nextBodyTop = step.index < record.stepCount - 1
+      ? steps[step.index + 1]!.topY + parapet.height - cornice.height
+      : bodyTop;
+    const backTo = Math.min(capY, Math.max(bodyTop, nextBodyTop));
+    const cuts = [...new Set([bodyTop, frontFrom, backTo, capY])]
+      .sort((a, b) => a - b);
+
+    for (let strip = 0; strip < strips.length; strip += 1) {
+      const [x0, x1, projected] = strips[strip]!;
+
+      for (let piece = 0; piece < cuts.length - 1; piece += 1) {
+        const y0 = cuts[piece]!;
+        const y1 = cuts[piece + 1]!;
+
+        if (y1 - y0 <= EPS) {
+          continue;
+        }
+
+        builder.addBlock(
+          slice(x0, x1, step.zBack, step.zFront, y0, y1),
+          {
+            // The foot and summit endings close the terminal faces. At an
+            // internal transition, the front shows above the preceding cap
+            // and only the overhang shows behind the supporting wall.
+            sides: [
+              step.index > 0 && y0 >= frontFrom - EPS,
+              strip === strips.length - 1,
+              projected
+                && step.index < record.stepCount - 1
+                && y1 <= backTo + EPS,
+              strip === 0,
+            ],
+            top: piece === cuts.length - 2,
+            bottom: projected && piece === 0,
+          },
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Square horizontal blocks finish a stepped cornice at the foot and summit.
+ * Each has a wall below it down to the ground or arrival floor, matching the
+ * supported endings of the continuous parapet rather than cantilevering.
+ */
+function laySteppedParapetEndings(
+  builder: SolidBuilder,
+  record: StairConnectorRecord,
+  steps: readonly StairStep[],
+  parapet: StairParapet,
+): void {
+  const cornice = parapet.cornice;
+  const firstStep = steps[0];
+
+  if (!cornice || !firstStep) {
+    return;
+  }
+
+  const bodyHeight = parapet.height - cornice.height;
+  const sides: readonly (readonly [number, number])[] = [
+    [record.flightRect.minX - parapet.width, record.flightRect.minX],
+    [record.flightRect.maxX, record.flightRect.maxX + parapet.width],
+  ];
+
+  laySupportedCorniceEndings(builder, record, sides, cornice, {
+    lowerBodyTop: firstStep.topY + bodyHeight,
+    lowerCapY: firstStep.topY + parapet.height,
+    upperBodyTop: record.topY + bodyHeight,
+    upperCapY: record.topY + parapet.height,
+  });
 }
 
 /**
@@ -554,7 +739,6 @@ function laySlopedParapets(
 
     const corniceX0 = x0 - cornice.projection;
     const corniceX1 = x1 + cornice.projection;
-    const terminalLength = corniceX1 - corniceX0;
     builder.addBlock(
       rakedBandBlock(
         corniceX0,
@@ -572,6 +756,41 @@ function laySlopedParapets(
         bottom: true,
       },
     );
+  }
+
+  if (cornice) {
+    laySupportedCorniceEndings(builder, record, sides, cornice, {
+      lowerBodyTop: record.bottomY + bodyTopOffset,
+      lowerCapY: record.bottomY + parapet.height,
+      upperBodyTop: record.topY + bodyTopOffset,
+      upperCapY: record.topY + parapet.height,
+    });
+  }
+}
+
+/**
+ * The shared square foot and summit endings for either parapet profile.
+ * The wall-width block bears on the floor; the projected cornice replaces its
+ * top and owns the exposed soffit.
+ */
+function laySupportedCorniceEndings(
+  builder: SolidBuilder,
+  record: StairConnectorRecord,
+  sides: readonly (readonly [number, number])[],
+  cornice: { readonly projection: number },
+  levels: {
+    readonly lowerBodyTop: number;
+    readonly lowerCapY: number;
+    readonly upperBodyTop: number;
+    readonly upperCapY: number;
+  },
+): void {
+  const { flightRect } = record;
+
+  for (const [x0, x1] of sides) {
+    const corniceX0 = x0 - cornice.projection;
+    const corniceX1 = x1 + cornice.projection;
+    const terminalLength = corniceX1 - corniceX0;
 
     builder.addBlock(
       horizontalBlock(
@@ -580,11 +799,11 @@ function laySlopedParapets(
         flightRect.maxZ,
         flightRect.maxZ + terminalLength,
         record.bottomY,
-        record.bottomY + bodyTopOffset,
+        levels.lowerBodyTop,
       ),
       {
-        // Its back is welded to the triangular wall. The cornice above owns
-        // the top, and the ground owns the bottom.
+        // Its back is welded to the parapet wall. The cornice above owns the
+        // top, and the ground owns the bottom.
         sides: [true, true, false, true],
         top: false,
         bottom: false,
@@ -596,11 +815,11 @@ function laySlopedParapets(
         corniceX1,
         flightRect.maxZ,
         flightRect.maxZ + terminalLength,
-        record.bottomY + bodyTopOffset,
-        record.bottomY + parapet.height,
+        levels.lowerBodyTop,
+        levels.lowerCapY,
       ),
       {
-        // Its back is pressed against the raked cornice.
+        // Its back is pressed against the parapet cornice.
         sides: [true, true, false, true],
         top: true,
         bottom: true,
@@ -613,10 +832,10 @@ function laySlopedParapets(
         flightRect.minZ - terminalLength,
         flightRect.minZ,
         record.topY,
-        record.topY + bodyTopOffset,
+        levels.upperBodyTop,
       ),
       {
-        // Its front is welded to the triangular wall. The summit floor owns
+        // Its front is welded to the parapet wall. The summit floor owns
         // the bottom and the cornice owns the top.
         sides: [false, true, true, true],
         top: false,
@@ -629,11 +848,11 @@ function laySlopedParapets(
         corniceX1,
         flightRect.minZ - terminalLength,
         flightRect.minZ,
-        record.topY + bodyTopOffset,
-        record.topY + parapet.height,
+        levels.upperBodyTop,
+        levels.upperCapY,
       ),
       {
-        // Its front is pressed against the raked cornice.
+        // Its front is pressed against the parapet cornice.
         sides: [false, true, true, true],
         top: true,
         bottom: true,
