@@ -15,6 +15,7 @@ import {
   DEFAULT_MASS_LAYOUT,
   DEFAULT_MASS_STONE_CONFIG,
   HEIGHT_CURVE_OPTIONS,
+  MASS_LAYOUT_G1_BASELINE,
   cloneMassLayout,
   heightCurveBezier,
   toHeightCurve,
@@ -112,7 +113,10 @@ assert.deepEqual(
     height: DEFAULT_MASS_LAYOUT.totalHeight,
     batter: DEFAULT_MASS_LAYOUT.batterAngle,
     heightCurve: DEFAULT_MASS_LAYOUT.heightCurve,
+    summitRatio: DEFAULT_MASS_LAYOUT.summitRatio,
     corniceBands: DEFAULT_MASS_LAYOUT.cornicePlacement,
+    corniceProjection: DEFAULT_MASS_LAYOUT.corniceProjection,
+    corniceHeight: DEFAULT_MASS_LAYOUT.corniceHeight,
     stoneworkEnabled: DEFAULT_MASS_LAYOUT.stoneworkEnabled,
     course: DEFAULT_MASS_LAYOUT.courseHeight,
     stone: DEFAULT_MASS_LAYOUT.stoneWidth,
@@ -161,7 +165,10 @@ assert.deepEqual(
     height: 8.25,
     batter: 12,
     heightCurve: "even",
-    corniceBands: "none",
+    summitRatio: 0.4,
+    corniceBands: "all",
+    corniceProjection: 0.3,
+    corniceHeight: 0.3,
     stoneworkEnabled: true,
     course: 0.86,
     stone: 1.65,
@@ -175,19 +182,19 @@ assert.deepEqual(
     stairRiser: 0.26,
     stairTread: 0.32,
     stairTiles: 5,
-    stairSides: "stepped_parapet",
+    stairSides: "sloped_parapet",
     stairParapetWidth: 0.75,
     stairParapetHeight: 0.55,
     steppedParapetCorniceProjection: 0,
     steppedParapetCorniceHeight: 0,
     stairParapetCorniceProjection: 0.2,
     stairParapetCorniceHeight: 0.25,
-    summitTreatment: "open_floor",
+    summitTreatment: "raised_pad",
     summitPadHeight: 0.35,
-    summitBuildingEnabled: false,
+    summitBuildingEnabled: true,
     summitBuildingWidthRatio: 0.8,
     summitBuildingDepthRatio: 0.75,
-    summitBuildingHeight: 4,
+    summitBuildingHeight: 3,
     summitBuildingWallThickness: 0.5,
     summitBuildingPortalWidth: 2,
     summitBuildingPortalHeight: 2.6,
@@ -215,7 +222,10 @@ const FRONT_STAIR_ONLY = {
 } as const;
 
 function cloneFrontStairLayout(): MassLayoutConfig {
-  return { ...cloneMassLayout(), ...FRONT_STAIR_ONLY };
+  return {
+    ...cloneMassLayout(MASS_LAYOUT_G1_BASELINE),
+    ...FRONT_STAIR_ONLY,
+  };
 }
 
 /**

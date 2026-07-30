@@ -3,6 +3,10 @@ import * as THREE from "three";
 import { WebGPURenderer } from "three/webgpu";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { createDefaultStructureConfig } from "./config/structure-config";
+import {
+  applyStructureHash,
+  encodeStructureHash,
+} from "./config/structure-hash";
 import { MainScene } from "./scene/main";
 import { createControlPane } from "./ui/create-pane";
 
@@ -21,6 +25,15 @@ if (!canvas || !paneHost) {
 
 const sceneCanvas = canvas;
 const config = createDefaultStructureConfig();
+
+if (window.location.hash.length > 1) {
+  try {
+    applyStructureHash(config, window.location.hash);
+  } catch (error) {
+    console.warn("Ignoring invalid geometry code.", error);
+  }
+}
+
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
 const renderer = new WebGPURenderer({ canvas: sceneCanvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -87,8 +100,10 @@ const pane = createControlPane({
   config,
   scene: mainScene,
   rendererLabel: rendererBackend.isWebGPUBackend === true ? "WebGPU" : "WebGL2",
+  onStructureConfigChange: writeGeometryHash,
 });
 const { stats } = pane;
+writeGeometryHash();
 
 const timer = new THREE.Timer();
 timer.connect(document);
@@ -127,7 +142,38 @@ function frameComposition(): void {
   mainScene.updateShadowFrustums();
 }
 
+function writeGeometryHash(): void {
+  const code = encodeStructureHash(config);
+
+  if (window.location.hash.slice(1) === code) {
+    return;
+  }
+
+  window.history.replaceState(
+    window.history.state,
+    "",
+    `${window.location.pathname}${window.location.search}#${code}`,
+  );
+}
+
+function restoreGeometryHash(): void {
+  try {
+    if (window.location.hash.length <= 1) {
+      const defaults = createDefaultStructureConfig();
+      applyStructureHash(config, encodeStructureHash(defaults));
+    } else {
+      applyStructureHash(config, window.location.hash);
+    }
+
+    pane.reloadStructureConfig();
+  } catch (error) {
+    console.warn("Ignoring invalid geometry code.", error);
+    writeGeometryHash();
+  }
+}
+
 window.addEventListener("resize", resize);
+window.addEventListener("hashchange", restoreGeometryHash);
 window.addEventListener("beforeunload", dispose, { once: true });
 resize();
 frameComposition();
@@ -135,6 +181,7 @@ void renderer.setAnimationLoop(animate);
 
 function dispose(): void {
   window.removeEventListener("resize", resize);
+  window.removeEventListener("hashchange", restoreGeometryHash);
   void renderer.setAnimationLoop(null);
   controls.dispose();
   pane.dispose();

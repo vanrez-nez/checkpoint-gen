@@ -59,10 +59,14 @@ export interface ControlPaneOptions {
   config: StructureConfig;
   scene: MainScene;
   rendererLabel: string;
+  /** Called only after a valid structure-owned control has been applied. */
+  onStructureConfigChange?: () => void;
 }
 
 export interface ControlPane {
   readonly stats: StatsBladeApi;
+  /** Rebinds the tabs and regenerates after an external geometry-code restore. */
+  reloadStructureConfig(): void;
   dispose(): void;
 }
 
@@ -70,7 +74,13 @@ const SHARED_STONE_CONTROLS = createStoneControls(["layout"]);
 const SHARED_BEVEL_CONTROLS = createBevelControls(["layout"]);
 
 export function createControlPane(options: ControlPaneOptions): ControlPane {
-  const { container, config, scene, rendererLabel } = options;
+  const {
+    container,
+    config,
+    scene,
+    rendererLabel,
+    onStructureConfigChange,
+  } = options;
   const pane = new Pane({ container, title: "Structure" });
   pane.registerPlugin(StatsPanePluginBundle);
   // Supplies the cubic-bezier curve editor the shaping controls bind to.
@@ -113,6 +123,10 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
 
   return {
     stats,
+    reloadStructureConfig(): void {
+      buildControlTabs();
+      dispatch(["layout", "pillars", "bowls", "fire", "offering"]);
+    },
     dispose(): void {
       pane.dispose();
     },
@@ -200,6 +214,10 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
 
     refreshStats();
     visibility.apply(config);
+
+    if (scopes.some(isStructureScope)) {
+      onStructureConfigChange?.();
+    }
   }
 
   function refreshStats(): void {
@@ -448,6 +466,14 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
       });
     }
   }
+}
+
+function isStructureScope(scope: RebuildScope): boolean {
+  return scope === "layout"
+    || scope === "pillars"
+    || scope === "bowls"
+    || scope === "fire"
+    || scope === "offering";
 }
 
 function applyStats(

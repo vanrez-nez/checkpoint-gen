@@ -118,30 +118,60 @@ export function createDefaultStructureConfig(): StructureConfig {
  * an invalid family in order to keep working on another one.
  */
 export function validateActiveStructureConfig(config: StructureConfig): void {
+  validateActiveStructureGeometryConfig(config);
+  validateIlluminationConfig(config.illumination);
+  validateViewConfig(config.view);
+}
+
+/**
+ * Validates only the state owned by the selected structure.
+ *
+ * This is deliberately separate from `validateActiveStructureConfig`: URL
+ * geometry codes use this boundary, so a camera/debug/lighting value can never
+ * become part of whether a structure is encodable.
+ */
+export function validateActiveStructureGeometryConfig(
+  config: StructureConfig,
+): void {
   const definition = getStructure(config.typeId);
   const layout = config.layouts[definition.id];
-  const stone = config.stones[definition.id];
-  const bevel = config.bevels[definition.id];
 
   if (!layout) {
     throw new Error(`Missing layout config for structure "${definition.id}".`);
   }
-  if (!stone) {
-    throw new Error(`Missing stone config for structure "${definition.id}".`);
-  }
-  if (!bevel) {
-    throw new Error(`Missing bevel config for structure "${definition.id}".`);
-  }
 
   definition.validateLayout(layout);
-  validateStoneConfig(stone);
-  validateBevelConfig(bevel);
-  validatePillarConfig(config.pillar);
-  validateFireBowlConfig(config.fireBowl, config.pillar.shaftWidth);
-  validateFireConfig(config.fire);
-  validateOfferingConfig(config.offering);
-  validateIlluminationConfig(config.illumination);
-  validateViewConfig(config.view);
+
+  if (definition.props.includes("stone")) {
+    const stone = config.stones[definition.id];
+
+    if (!stone) {
+      throw new Error(`Missing stone config for structure "${definition.id}".`);
+    }
+
+    validateStoneConfig(stone);
+  }
+  if (definition.props.includes("bevel")) {
+    const bevel = config.bevels[definition.id];
+
+    if (!bevel) {
+      throw new Error(`Missing bevel config for structure "${definition.id}".`);
+    }
+
+    validateBevelConfig(bevel);
+  }
+  if (definition.props.includes("pillar")) {
+    validatePillarConfig(config.pillar);
+  }
+  if (definition.props.includes("fireBowl")) {
+    validateFireBowlConfig(config.fireBowl, config.pillar.shaftWidth);
+  }
+  if (definition.props.includes("fire")) {
+    validateFireConfig(config.fire);
+  }
+  if (definition.props.includes("offering")) {
+    validateOfferingConfig(config.offering);
+  }
 }
 
 /**

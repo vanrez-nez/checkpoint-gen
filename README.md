@@ -26,6 +26,27 @@ have nothing in common, and neither has to know the other exists. Where a
 structure's own controls need a scope to mean something different from the
 shared prop table, it declares `sectionsByScope`.
 
+### Geometry codes
+
+The URL fragment is a versioned, bit-packed code for the selected structure:
+`#g1...`. It contains the structure type plus every value from that structure's
+layout and declared prop controls, including values currently hidden behind a
+disabled feature. Defaults and values derived from an earlier control are
+implicit, and only changes are written, so a schema-baseline structure is four
+characters and a typical single edit remains around six; a heavily customized
+structure grows only by the bits needed for those edits.
+The `g1` schema keeps its original defaults as an immutable decoding baseline,
+so later UI-default tuning does not reinterpret an existing shared code.
+
+Scene state is deliberately outside this boundary. Camera/view state, global
+lighting, the Scene tab's material tuning, diagnostics and tools neither change
+the code nor get overwritten when one is restored. Inactive structure families
+are excluded too. Pasting a code into the address bar switches to that structure
+and regenerates it in place, while control edits update the current history
+entry rather than adding one entry per slider movement. Codec field order comes
+from the registered control tables; a control-schema change must bump the prefix
+version.
+
 ## The structure kernel
 
 `src/structure/kernel/` holds the semantic layer that the mass system — and

@@ -34,6 +34,11 @@ import {
   validateActiveStructureConfig,
   type StructureConfig,
 } from "../src/config/structure-config";
+import {
+  applyStructureHash,
+  encodeStructureHash,
+  isStructureHash,
+} from "../src/config/structure-hash";
 import { validateControls, type ControlSpec } from "../src/config/control-spec";
 import {
   ILLUMINATION_CONTROLS,
@@ -143,6 +148,144 @@ assert.notStrictEqual(
   "Circular and Mass must not share one mutable Stone target.",
 );
 assert.deepEqual(config.bevels.circular, DEFAULT_BEVEL_CONFIG);
+
+// --- structure geometry codes ---------------------------------------------
+const circularDefaultCode = encodeStructureHash(config);
+assert.ok(circularDefaultCode.length <= 10);
+assert.ok(isStructureHash(circularDefaultCode));
+
+const massDefaultHashConfig = createDefaultStructureConfig();
+massDefaultHashConfig.typeId = "mass";
+const massDefaultCode = encodeStructureHash(massDefaultHashConfig);
+assert.equal(massDefaultCode, "g1xRQ4T4fGZF7WGs-D");
+assert.notEqual(massDefaultCode, circularDefaultCode);
+
+const oneEditHashConfig = createDefaultStructureConfig();
+oneEditHashConfig.typeId = "mass";
+(oneEditHashConfig.layouts.mass as MassLayoutConfig).footprintWidth = 30;
+assert.notEqual(encodeStructureHash(oneEditHashConfig), massDefaultCode);
+
+const sceneOnlyHashConfig = createDefaultStructureConfig();
+const sceneIndependentCode = encodeStructureHash(sceneOnlyHashConfig);
+sceneOnlyHashConfig.view.wireframe = !sceneOnlyHashConfig.view.wireframe;
+sceneOnlyHashConfig.view.patchDebug = !sceneOnlyHashConfig.view.patchDebug;
+sceneOnlyHashConfig.illumination.keyIntensity = 1.2;
+sceneOnlyHashConfig.illumination.keyColor = "#ff0000";
+assert.equal(
+  encodeStructureHash(sceneOnlyHashConfig),
+  sceneIndependentCode,
+  "Scene and debug controls must not enter a structure geometry code.",
+);
+
+const inactiveFamilyHashConfig = createDefaultStructureConfig();
+const activeCircularCode = encodeStructureHash(inactiveFamilyHashConfig);
+(inactiveFamilyHashConfig.layouts.mass as MassLayoutConfig).footprintWidth = 40;
+inactiveFamilyHashConfig.stones.mass!.seed = 1234;
+inactiveFamilyHashConfig.layouts.mass = { invalid: Number.NaN };
+assert.equal(
+  encodeStructureHash(inactiveFamilyHashConfig),
+  activeCircularCode,
+  "Inactive structure state must not enter the selected structure's code.",
+);
+
+assert.throws(() => applyStructureHash(createDefaultStructureConfig(), "nope"));
+assert.throws(() => applyStructureHash(createDefaultStructureConfig(), "g1"));
+assert.throws(
+  () => applyStructureHash(createDefaultStructureConfig(), `${circularDefaultCode}A`),
+  /non-canonical|trailing/,
+);
+const offStepHashConfig = createDefaultStructureConfig();
+(offStepHashConfig.layouts.circular as { radius: number }).radius = 3.14159;
+assert.throws(
+  () => encodeStructureHash(offStepHashConfig),
+  /does not align/,
+  "Geometry codes must reject lossy numeric quantization.",
+);
+
+const geometryHashCoverage = new Set<string>();
+
+for (const scenario of geometryHashScenarios()) {
+  const baseline = scenario.create();
+  const baselineCode = encodeStructureHash(baseline);
+
+  for (const section of hashControlSections(baseline)) {
+    for (const spec of section.specs) {
+      const mutated = scenario.create();
+      const matching = hashControlSections(mutated).find(
+        (candidate) => candidate.label === section.label,
+      );
+      assert.ok(matching);
+      mutateHashControl(matching.target, spec);
+      const code = encodeStructureHash(mutated);
+      geometryHashCoverage.add(
+        `${mutated.typeId}.${section.label}.${spec.key}`,
+      );
+      assert.notEqual(
+        code,
+        baselineCode,
+        `${scenario.label}: ${section.label}.${spec.key} must change the geometry code`,
+      );
+
+      const restored = createDefaultStructureConfig();
+      restored.view.wireframe = true;
+      const layoutReference = restored.layouts[mutated.typeId];
+      const viewReference = restored.view;
+      applyStructureHash(restored, code);
+      assert.equal(encodeStructureHash(restored), code);
+      assertEffectiveHashValuesEqual(mutated, restored);
+      assert.strictEqual(restored.layouts[mutated.typeId], layoutReference);
+      assert.strictEqual(restored.view, viewReference);
+      assert.equal(restored.view.wireframe, true);
+    }
+  }
+}
+
+for (const typeId of ["circular", "mass"]) {
+  const expected = createGeometryHashScenario(typeId, "all");
+
+  for (const section of hashControlSections(expected)) {
+    for (const spec of section.specs) {
+      assert.ok(
+        geometryHashCoverage.has(`${typeId}.${section.label}.${spec.key}`),
+        `${typeId}.${section.label}.${spec.key} has no active hash-sensitivity case`,
+      );
+    }
+  }
+}
+
+const circularRoundTripSource = createDefaultStructureConfig();
+(circularRoundTripSource.layouts.circular as { radius: number }).radius = 4.2;
+circularRoundTripSource.stones.circular!.seed = 314;
+circularRoundTripSource.pillar.height = 2.4;
+circularRoundTripSource.fireBowl.radialSegments = 32;
+const circularRoundTripTarget = createDefaultStructureConfig();
+applyStructureHash(
+  circularRoundTripTarget,
+  encodeStructureHash(circularRoundTripSource),
+);
+assertCompositionGeometryEqual(
+  new StructureComposer().build(circularRoundTripSource).geometry,
+  new StructureComposer().build(circularRoundTripTarget).geometry,
+  "Circular geometry-code round trip",
+);
+
+const massRoundTripSource = createDefaultStructureConfig();
+massRoundTripSource.typeId = "mass";
+const massRoundTripLayout = massRoundTripSource.layouts.mass as MassLayoutConfig;
+massRoundTripLayout.footprintWidth = 30;
+massRoundTripLayout.bandCount = 5;
+massRoundTripLayout.stairSideTreatment = "sloped_parapet";
+massRoundTripLayout.stairParapetCorniceProjection = 0.1;
+massRoundTripLayout.summitBuildingEnabled = true;
+massRoundTripLayout.summitRoofEnabled = true;
+const massRoundTripTarget = createDefaultStructureConfig();
+applyStructureHash(massRoundTripTarget, encodeStructureHash(massRoundTripSource));
+assertCompositionGeometryEqual(
+  new StructureComposer().build(massRoundTripSource).geometry,
+  new StructureComposer().build(massRoundTripTarget).geometry,
+  "Mass geometry-code round trip",
+);
+
 const editedCircularConfig = createDefaultStructureConfig();
 editedCircularConfig.stones.circular!.displacement = 0.2;
 editedCircularConfig.typeId = "mass";
@@ -1462,6 +1605,203 @@ function countZeroNormals(
   }
 
   return zero;
+}
+
+interface HashControlSection {
+  readonly label: string;
+  readonly target: Record<string, unknown>;
+  readonly specs: readonly ControlSpec<object>[];
+}
+
+function geometryHashScenarios(): readonly {
+  readonly label: string;
+  readonly create: () => StructureConfig;
+}[] {
+  return [
+    {
+      label: "circular",
+      create: () => createGeometryHashScenario("circular", "all"),
+    },
+    {
+      label: "mass stepped parapet",
+      create: () => createGeometryHashScenario("mass", "stepped"),
+    },
+    {
+      label: "mass flat parapet",
+      create: () => createGeometryHashScenario("mass", "sloped"),
+    },
+  ];
+}
+
+function createGeometryHashScenario(
+  typeId: string,
+  stairVariant: "all" | "stepped" | "sloped",
+): StructureConfig {
+  const scenario = createDefaultStructureConfig();
+  scenario.typeId = typeId;
+
+  if (typeId === "mass") {
+    const mass = scenario.layouts.mass as MassLayoutConfig;
+    mass.heightCurve = "custom";
+    mass.cornicePlacement = "all";
+    mass.stoneworkEnabled = true;
+    mass.summitTreatment = "raised_pad";
+    mass.summitBuildingEnabled = true;
+    mass.summitRoofEnabled = true;
+    mass.stairFrontEnabled = true;
+    mass.stairSideTreatment = stairVariant === "sloped"
+      ? "sloped_parapet"
+      : "stepped_parapet";
+  }
+
+  return scenario;
+}
+
+function hashControlSections(config: StructureConfig): HashControlSection[] {
+  const definition = getStructure(config.typeId);
+  const sections: HashControlSection[] = [{
+    label: "layout",
+    target: config.layouts[definition.id] as Record<string, unknown>,
+    specs: definition.layoutControls as readonly ControlSpec<object>[],
+  }];
+
+  for (const prop of definition.props) {
+    switch (prop) {
+      case "stone":
+        sections.push({
+          label: "stone",
+          target: config.stones[definition.id] as unknown as Record<string, unknown>,
+          specs: createStoneControls([]) as unknown as readonly ControlSpec<object>[],
+        });
+        break;
+      case "bevel":
+        sections.push({
+          label: "bevel",
+          target: config.bevels[definition.id] as unknown as Record<string, unknown>,
+          specs: createBevelControls([]) as unknown as readonly ControlSpec<object>[],
+        });
+        break;
+      case "pillar":
+        sections.push(
+          {
+            label: "pillar",
+            target: config.pillar as unknown as Record<string, unknown>,
+            specs: PILLAR_LAYOUT_CONTROLS as unknown as readonly ControlSpec<object>[],
+          },
+          {
+            label: "pillar.stone",
+            target: config.pillar.stone as unknown as Record<string, unknown>,
+            specs: PILLAR_STONE_CONTROLS as unknown as readonly ControlSpec<object>[],
+          },
+          {
+            label: "pillar.bevel",
+            target: config.pillar.bevel as unknown as Record<string, unknown>,
+            specs: PILLAR_BEVEL_CONTROLS as unknown as readonly ControlSpec<object>[],
+          },
+        );
+        break;
+      case "fireBowl":
+        sections.push({
+          label: "fireBowl",
+          target: config.fireBowl as unknown as Record<string, unknown>,
+          specs: FIRE_BOWL_CONTROLS as unknown as readonly ControlSpec<object>[],
+        });
+        break;
+      case "fire":
+        sections.push({
+          label: "fire",
+          target: config.fire as unknown as Record<string, unknown>,
+          specs: FIRE_CONTROLS as unknown as readonly ControlSpec<object>[],
+        });
+        break;
+      case "offering":
+        sections.push({
+          label: "offering",
+          target: config.offering as unknown as Record<string, unknown>,
+          specs: OFFERING_CONTROLS as unknown as readonly ControlSpec<object>[],
+        });
+        break;
+    }
+  }
+
+  return sections;
+}
+
+function mutateHashControl(
+  target: Record<string, unknown>,
+  spec: ControlSpec<object>,
+): void {
+  const current = target[spec.key];
+
+  switch (spec.kind) {
+    case "boolean":
+      target[spec.key] = current !== true;
+      return;
+    case "list": {
+      const options = Object.values(spec.options);
+      const index = options.indexOf(current as string);
+      target[spec.key] = options[(index + 1) % options.length];
+      spec.onChange?.(target);
+      return;
+    }
+    case "number": {
+      const value = current as number;
+      const count = Math.round((spec.max - spec.min) / spec.step) + 1;
+      const currentTick = Math.round((value - spec.min) / spec.step);
+      const nextTick = currentTick + 1 < count
+        ? currentTick + 1
+        : currentTick - 1;
+      const decimals = spec.step.toString().split(".")[1]?.length ?? 0;
+      target[spec.key] = Number(
+        (spec.min + nextTick * spec.step).toFixed(decimals),
+      );
+      return;
+    }
+    case "bezier": {
+      const value = current as [number, number, number, number];
+      target[spec.key] = [value[0], value[1] + 0.25, value[2], value[3]];
+    }
+  }
+}
+
+function assertEffectiveHashValuesEqual(
+  expected: StructureConfig,
+  actual: StructureConfig,
+): void {
+  assert.equal(actual.typeId, expected.typeId);
+  const actualSections = hashControlSections(actual);
+
+  for (const section of hashControlSections(expected)) {
+    const actualSection = actualSections.find(
+      (candidate) => candidate.label === section.label,
+    );
+    assert.ok(actualSection);
+
+    for (const spec of section.specs) {
+      assert.deepEqual(
+        actualSection.target[spec.key],
+        section.target[spec.key],
+        `${expected.typeId}.${section.label}.${spec.key} did not round trip`,
+      );
+    }
+  }
+}
+
+function assertCompositionGeometryEqual(
+  actual: THREE.BufferGeometry,
+  expected: THREE.BufferGeometry,
+  label: string,
+): void {
+  assert.deepEqual(
+    Array.from(actual.getAttribute("position").array),
+    Array.from(expected.getAttribute("position").array),
+    `${label}: positions differ`,
+  );
+  assert.deepEqual(
+    Array.from(actual.getIndex()?.array ?? []),
+    Array.from(expected.getIndex()?.array ?? []),
+    `${label}: indices differ`,
+  );
 }
 
 /**

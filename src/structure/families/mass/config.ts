@@ -140,7 +140,14 @@ export const DEFAULT_MASS_STONE_CONFIG: Readonly<StoneConfig> = {
   displacement: 0.01,
 };
 
-export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
+/**
+ * Immutable baseline used by the `g1` geometry-code schema.
+ *
+ * Geometry codes omit values equal to their schema defaults. Keeping this
+ * snapshot separate from the live UI defaults means retuning what Mass opens
+ * with does not reinterpret existing shared codes.
+ */
+export const MASS_LAYOUT_G1_BASELINE: Readonly<MassLayoutConfig> = {
   footprintWidth: 24,
   footprintDepth: 18,
   bandCount: 3,
@@ -193,6 +200,20 @@ export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
   stairParapetCorniceProjection: 0.2,
   stairParapetCorniceHeight: 0.25,
   seed: 1,
+};
+
+/** Mass opens with the configuration captured by `g1xRQ4T4fGZF7WGs-D`. */
+export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
+  ...MASS_LAYOUT_G1_BASELINE,
+  heightCurveBezier: [...MASS_LAYOUT_G1_BASELINE.heightCurveBezier],
+  summitRatio: 0.4,
+  cornicePlacement: "all",
+  corniceProjection: 0.3,
+  corniceHeight: 0.3,
+  summitTreatment: "raised_pad",
+  summitBuildingEnabled: true,
+  summitBuildingHeight: 3,
+  stairSideTreatment: "sloped_parapet",
 };
 
 /**
