@@ -4251,7 +4251,11 @@ for (const axis of ["x", "y", "z"] as const) {
 assertMassNormals(merged.geometry, "stepped pyramid", pyramid);
 assert.deepEqual(
   merged.geometry.groups.map((group) => group.materialIndex),
-  [materialSlotIndex("stone"), materialSlotIndex("stairs")],
+  [
+    materialSlotIndex("stone"),
+    materialSlotIndex("stairs"),
+    materialSlotIndex("parapet"),
+  ],
 );
 assert.equal(
   merged.geometry.groups.reduce((sum, group) => sum + group.count, 0),

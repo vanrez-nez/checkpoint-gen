@@ -9,6 +9,7 @@ export const MATERIAL_SLOTS = [
   "stone",
   "trim",
   "stairs",
+  "parapet",
   "summit",
   "interior",
   "roof",

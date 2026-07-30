@@ -71,6 +71,9 @@ export const MATERIAL_SURFACE_LABELS: Readonly<
   stone: "Main structure",
   trim: "Trim",
   stairs: "Stairs",
+  // The stair's flanking parapets, named for what they read as rather than for
+  // the `parapet` records and controls they are generated from.
+  parapet: "Stair walls",
   summit: "Summit walls",
   interior: "Interior floors",
   roof: "Roof",
@@ -96,6 +99,7 @@ export const DEFAULT_STRUCTURE_MATERIAL_PALETTE: Readonly<
   stone: surface("stone"),
   trim: surface("stone"),
   stairs: surface("stone"),
+  parapet: surface("stone"),
   summit: surface("stone"),
   interior: surface("stone"),
   roof: surface("stone"),
@@ -125,6 +129,9 @@ export const DEFAULT_MASS_MATERIAL_PALETTE: Readonly<
   stone: surface("dark-volcanic-stone"),
   trim: surface("flamed-basalt"),
   stairs: surface("cobblestone-setts"),
+  // Split out of the stairs, and opening on what the stairs already were, so
+  // gaining the control is not itself a change of appearance.
+  parapet: surface("cobblestone-setts"),
   summit: surface("eroded-rock"),
   interior: surface("volcanic-stone"),
   roof: surface("lichen-stone"),

@@ -86,7 +86,13 @@ export function buildStair(
     layFlightSlice(builder, record, steps, step, bottomY, options, hasParapet, back);
 
     if (steppedParapet) {
-      layParapetSlices(builder, record, steps, step, bottomY, steppedParapet, back);
+      // The flight is what the caller set the stair material for; its flanking
+      // walls are their own surface, and their cornices are trim, so the
+      // material each assembly carries is decided here rather than inside the
+      // block-laying functions.
+      builder.withMaterial("parapet", () => {
+        layParapetSlices(builder, record, steps, step, bottomY, steppedParapet, back);
+      });
 
       if (steppedParapet.cornice) {
         builder.withMaterial("trim", () => {
@@ -97,11 +103,15 @@ export function buildStair(
   }
 
   if (steppedParapet?.cornice) {
-    laySteppedParapetEndings(builder, record, steps, steppedParapet);
+    builder.withMaterial("parapet", () => {
+      laySteppedParapetEndings(builder, record, steps, steppedParapet);
+    });
   }
 
   if (record.sideTreatment === "sloped_parapet" && record.parapet) {
-    laySlopedParapets(builder, record, steps, profile);
+    builder.withMaterial("parapet", () => {
+      laySlopedParapets(builder, record, steps, profile);
+    });
   }
 }
 

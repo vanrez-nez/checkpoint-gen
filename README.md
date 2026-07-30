@@ -178,7 +178,8 @@ replaces the top of the wall rather than stacking above it. Square horizontal
 blocks finish the molding beyond the foot and onto the summit, with the parapet
 body continuing beneath them to the ground and summit floor. The endings are
 therefore supported parts of the wall rather than cantilevers, and their
-endpoints do not expose raw cuts.
+endpoints do not expose raw cuts. Either style's wall is its own material
+surface, dressed apart from the flight it flanks while its cornice stays trim.
 
 Masonry treads use an explicit **tiles per step** count. The count controls how
 many stones span every tread; stone-size variation may redistribute their
@@ -253,8 +254,8 @@ exactly the same extents, and that facing costs no more geometry than it saves.
 
 `StructureComposer` merges every part into **one indexed geometry** with one
 coalesced draw group per used semantic material slot, rendered as a single mesh.
-The stable slots are masonry, trim, stairs, summit walls, interior floors, roof,
-pillars, and iron. Every emitted face owns one `surfaceMaterial` vertex value; culling
+The stable slots are masonry, trim, stairs, stair walls, summit walls, interior
+floors, roof, pillars, and iron. Every emitted face owns one `surfaceMaterial` vertex value; culling
 and merging preserve it, then the merger buckets whole triangles into the
 corresponding indexed group. The same attribute is ready for a future
 texture-array shader without changing generator topology. Parts are authored in
@@ -375,7 +376,7 @@ Each structure exposes only the **material surfaces** it actually has, and the
 Materials tab gives each one its own folder holding a Material Designer document
 and a texture scale. The circular checkpoint dresses its plate, its pillars, its
 fire bowls, and the offering statue apart; Mass dresses masonry, trim, stairs,
-summit walls, interior floors, and roof. Documents are loaded lazily, cached by
+stair walls, summit walls, interior floors, and roof. Documents are loaded lazily, cached by
 id, and baked at 512px, so surfaces that select the same document share one
 material and one bake rather than paying for it twice. Changing an assignment
 updates mesh materials without regenerating geometry or reframing the camera.

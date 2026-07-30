@@ -65,6 +65,7 @@ export const massStructure = defineStructure<MassLayoutConfig>({
     "stone",
     "trim",
     "stairs",
+    "parapet",
     "summit",
     "interior",
     "roof",

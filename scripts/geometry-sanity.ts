@@ -230,6 +230,7 @@ assert.deepEqual(
     materialSlotIndex("stone"),
     materialSlotIndex("trim"),
     materialSlotIndex("stairs"),
+    materialSlotIndex("parapet"),
     materialSlotIndex("summit"),
     materialSlotIndex("interior"),
     materialSlotIndex("roof"),
