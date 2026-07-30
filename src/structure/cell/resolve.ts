@@ -43,14 +43,16 @@ export interface ResolvedCell {
 }
 
 /**
- * Resolves the first cell assembly: one centred room with one axial front
- * portal. All dimensions are fixed here so patch emission and tessellation read
- * the same rectangles rather than independently reapplying ratios.
+ * Resolves the first cell assembly: one centred room whose portals follow the
+ * configured stair facades. All dimensions are fixed here so patch emission
+ * and tessellation read the same rectangles rather than independently
+ * reapplying ratios or inventing openings.
  */
 export function resolveSummitCell(
   structureId: string,
   spec: SummitCellSpec,
   placement: SummitPlacementRecord | null,
+  portalDirections: readonly HorizontalOrientation[],
   diagnostics: DiagnosticCollector,
 ): ResolvedCell | null {
   const id = structurePath(structureId, spec.id);
@@ -83,7 +85,7 @@ export function resolveSummitCell(
   // of ratios and silently shrinking the building again.
   const footprint: Rect = { ...placement.rect };
   const interior = insetRect(footprint, uniformSetbacks(spec.wallThickness));
-  const centerX = (footprint.minX + footprint.maxX) * 0.5;
+  const portalFacades = new Set(portalDirections);
 
   if (!rectIsValid(footprint) || !rectIsValid(interior)) {
     diagnostics.error(
@@ -94,13 +96,17 @@ export function resolveSummitCell(
     return null;
   }
 
-  if (spec.portalWidth >= rectWidth(interior)) {
-    diagnostics.error(
-      "cell.portal_too_wide",
-      id,
-      `Portal width ${spec.portalWidth} must be smaller than the ${rectWidth(interior)} chamber interior.`,
-    );
-    return null;
+  for (const direction of portalFacades) {
+    const span = wallSpan(interior, direction);
+
+    if (spec.portalWidth >= span) {
+      diagnostics.error(
+        "cell.portal_too_wide",
+        id,
+        `Portal width ${spec.portalWidth} must be smaller than the ${span} ${wallSegment(direction)} wall interior.`,
+      );
+      return null;
+    }
   }
 
   if (spec.portalHeight >= spec.height) {
@@ -114,8 +120,6 @@ export function resolveSummitCell(
 
   const bottomY = placement.y;
   const topY = bottomY + spec.height;
-  const portalMinX = centerX - spec.portalWidth * 0.5;
-  const portalMaxX = centerX + spec.portalWidth * 0.5;
   const floorPatchId = structurePath(id, "floor");
   const wallRecords: CellWallRecord[] = [];
   const patches: Patch[] = [];
@@ -131,12 +135,26 @@ export function resolveSummitCell(
   ] as const) {
     const outerPatchId = structurePath(id, `wall_${wallSegment(orientation)}_exterior`);
     const innerPatchId = structurePath(id, `wall_${wallSegment(orientation)}_interior`);
-    const hasPortal = orientation === "front";
+    const hasPortal = portalFacades.has(orientation);
     const outerPortal = hasPortal
-      ? portalRegion(outerPatchId, footprint, spec.portalWidth, spec.portalHeight, spec.height)
+      ? portalRegion(
+        outerPatchId,
+        footprint,
+        orientation,
+        spec.portalWidth,
+        spec.portalHeight,
+        spec.height,
+      )
       : null;
     const innerPortal = hasPortal
-      ? portalRegion(innerPatchId, interior, spec.portalWidth, spec.portalHeight, spec.height)
+      ? portalRegion(
+        innerPatchId,
+        interior,
+        orientation,
+        spec.portalWidth,
+        spec.portalHeight,
+        spec.height,
+      )
       : null;
 
     patches.push(
@@ -169,65 +187,72 @@ export function resolveSummitCell(
   linkWallLoop(wallRecords, "outerPatchId", links);
   linkWallLoop(wallRecords, "innerPatchId", links);
 
-  const frontWall = wallRecords.find((wall) => wall.orientation === "front")!;
-  const revealIds = {
-    left: structurePath(id, "portal", "jamb_left"),
-    right: structurePath(id, "portal", "jamb_right"),
-    head: structurePath(id, "portal", "soffit"),
-  };
-  patches.push(
-    portalJambPatch(
-      revealIds.left,
-      portalMinX,
-      interior.maxZ,
-      footprint.maxZ,
-      bottomY,
-      spec.portalHeight,
-      1,
-    ),
-    portalJambPatch(
-      revealIds.right,
-      portalMaxX,
-      interior.maxZ,
-      footprint.maxZ,
-      bottomY,
-      spec.portalHeight,
-      -1,
-    ),
-    portalSoffitPatch(
-      revealIds.head,
-      portalMinX,
-      portalMaxX,
-      interior.maxZ,
-      footprint.maxZ,
-      bottomY + spec.portalHeight,
-    ),
-  );
-  for (const revealId of Object.values(revealIds)) {
-    links.push(
-      [frontWall.outerPatchId, revealId],
-      [frontWall.innerPatchId, revealId],
-    );
-  }
-  links.push(
-    [revealIds.left, revealIds.head],
-    [revealIds.right, revealIds.head],
-  );
+  const openings: CellOpeningRecord[] = [];
 
-  const opening: CellOpeningRecord = {
-    id: structurePath(id, "portal"),
-    kind: "portal",
-    direction: "front",
-    width: spec.portalWidth,
-    height: spec.portalHeight,
-    bottomY,
-    topY: bottomY + spec.portalHeight,
-    minX: portalMinX,
-    maxX: portalMaxX,
-    exteriorPatchId: placement.patchId,
-    interiorPatchId: floorPatchId,
-    revealPatchIds: Object.values(revealIds),
-  };
+  for (const direction of portalFacades) {
+    const wall = wallRecords.find((candidate) => candidate.orientation === direction)!;
+    const portalId = structurePath(id, "portal", wallSegment(direction));
+    const threshold = portalThreshold(
+      footprint,
+      interior,
+      direction,
+      spec.portalWidth,
+    );
+    const revealIds = {
+      start: structurePath(portalId, "jamb_start"),
+      end: structurePath(portalId, "jamb_end"),
+      head: structurePath(portalId, "soffit"),
+    };
+
+    patches.push(
+      portalJambPatch(
+        revealIds.start,
+        threshold,
+        direction,
+        "start",
+        bottomY,
+        spec.portalHeight,
+      ),
+      portalJambPatch(
+        revealIds.end,
+        threshold,
+        direction,
+        "end",
+        bottomY,
+        spec.portalHeight,
+      ),
+      portalSoffitPatch(
+        revealIds.head,
+        threshold,
+        bottomY + spec.portalHeight,
+      ),
+    );
+    for (const revealId of Object.values(revealIds)) {
+      links.push(
+        [wall.outerPatchId, revealId],
+        [wall.innerPatchId, revealId],
+      );
+    }
+    links.push(
+      [revealIds.start, revealIds.head],
+      [revealIds.end, revealIds.head],
+    );
+
+    openings.push({
+      id: portalId,
+      kind: "portal",
+      direction,
+      width: spec.portalWidth,
+      height: spec.portalHeight,
+      bottomY,
+      topY: bottomY + spec.portalHeight,
+      threshold,
+      exteriorPatchId: placement.patchId,
+      interiorPatchId: floorPatchId,
+      revealPatchIds: Object.values(revealIds),
+    });
+  }
+
   const record: CellRecord = {
     id,
     kind: "cell",
@@ -243,7 +268,7 @@ export function resolveSummitCell(
     placementAnchorId: placement.anchorId,
     floorPatchId,
     walls: wallRecords,
-    openings: [opening],
+    openings,
     patchIds: patches.map((patch) => patch.id),
   };
 
@@ -266,12 +291,13 @@ function wallSegment(orientation: HorizontalOrientation): string {
 function portalRegion(
   patchId: string,
   rect: Rect,
+  orientation: HorizontalOrientation,
   portalWidth: number,
   portalHeight: number,
   wallHeight: number,
 ): PatchRegion {
   const centerU = 0.5;
-  const halfU = portalWidth / rectWidth(rect) * 0.5;
+  const halfU = portalWidth / wallSpan(rect, orientation) * 0.5;
 
   return {
     id: structurePath(patchId, "portal"),
@@ -280,6 +306,53 @@ function portalRegion(
     priority: 100,
     tags: ["opening", "portal", "circulation"],
   };
+}
+
+function wallSpan(rect: Rect, orientation: HorizontalOrientation): number {
+  return orientation === "front" || orientation === "rear"
+    ? rectWidth(rect)
+    : rectDepth(rect);
+}
+
+function portalThreshold(
+  footprint: Rect,
+  interior: Rect,
+  direction: HorizontalOrientation,
+  width: number,
+): Rect {
+  const centerX = (footprint.minX + footprint.maxX) * 0.5;
+  const centerZ = (footprint.minZ + footprint.maxZ) * 0.5;
+
+  switch (direction) {
+    case "front":
+      return {
+        minX: centerX - width * 0.5,
+        maxX: centerX + width * 0.5,
+        minZ: interior.maxZ,
+        maxZ: footprint.maxZ,
+      };
+    case "rear":
+      return {
+        minX: centerX - width * 0.5,
+        maxX: centerX + width * 0.5,
+        minZ: footprint.minZ,
+        maxZ: interior.minZ,
+      };
+    case "sidePositiveU":
+      return {
+        minX: interior.maxX,
+        maxX: footprint.maxX,
+        minZ: centerZ - width * 0.5,
+        maxZ: centerZ + width * 0.5,
+      };
+    case "sideNegativeU":
+      return {
+        minX: footprint.minX,
+        maxX: interior.minX,
+        minZ: centerZ - width * 0.5,
+        maxZ: centerZ + width * 0.5,
+      };
+  }
 }
 
 function wallPatch(input: {
@@ -367,40 +440,55 @@ function floorPatch(id: string, rect: Rect, y: number): Patch {
 
 function portalJambPatch(
   id: string,
-  x: number,
-  innerZ: number,
-  outerZ: number,
+  threshold: Rect,
+  direction: HorizontalOrientation,
+  end: "start" | "end",
   bottomY: number,
   height: number,
-  normalX: 1 | -1,
 ): Patch {
-  const frame: LocalFrame = {
-    origin: { x, y: bottomY, z: innerZ },
-    uAxis: { x: 0, y: 0, z: 1 },
-    vAxis: { x: 0, y: 1, z: 0 },
-    normal: { x: normalX, y: 0, z: 0 },
-    uLength: outerZ - innerZ,
-    vLength: height,
-  };
+  const alongX = direction === "front" || direction === "rear";
+  const atStart = end === "start";
+  const frame: LocalFrame = alongX
+    ? {
+      origin: {
+        x: atStart ? threshold.minX : threshold.maxX,
+        y: bottomY,
+        z: threshold.minZ,
+      },
+      uAxis: { x: 0, y: 0, z: 1 },
+      vAxis: { x: 0, y: 1, z: 0 },
+      normal: { x: atStart ? 1 : -1, y: 0, z: 0 },
+      uLength: rectDepth(threshold),
+      vLength: height,
+    }
+    : {
+      origin: {
+        x: threshold.minX,
+        y: bottomY,
+        z: atStart ? threshold.minZ : threshold.maxZ,
+      },
+      uAxis: { x: 1, y: 0, z: 0 },
+      vAxis: { x: 0, y: 1, z: 0 },
+      normal: { x: 0, y: 0, z: atStart ? 1 : -1 },
+      uLength: rectWidth(threshold),
+      vLength: height,
+    };
 
   return revealPatch(id, frame, "jamb");
 }
 
 function portalSoffitPatch(
   id: string,
-  minX: number,
-  maxX: number,
-  innerZ: number,
-  outerZ: number,
+  threshold: Rect,
   y: number,
 ): Patch {
   const frame: LocalFrame = {
-    origin: { x: minX, y, z: innerZ },
+    origin: { x: threshold.minX, y, z: threshold.minZ },
     uAxis: { x: 1, y: 0, z: 0 },
     vAxis: { x: 0, y: 0, z: 1 },
     normal: { x: 0, y: -1, z: 0 },
-    uLength: maxX - minX,
-    vLength: outerZ - innerZ,
+    uLength: rectWidth(threshold),
+    vLength: rectDepth(threshold),
   };
 
   return revealPatch(id, frame, "soffit");

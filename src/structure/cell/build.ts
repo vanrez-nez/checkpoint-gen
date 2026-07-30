@@ -80,91 +80,220 @@ export function addBareCellFloorSurface(
   addHorizontalRing(builder, surface, cell.footprint, y);
   addHorizontalRect(builder, cell.interior, y);
 
-  const portal = cell.openings[0];
-  if (portal) {
-    addHorizontalRect(builder, {
-      minX: portal.minX,
-      maxX: portal.maxX,
-      minZ: cell.interior.maxZ,
-      maxZ: cell.footprint.maxZ,
-    }, y);
+  for (const portal of cell.openings) {
+    addHorizontalRect(builder, portal.threshold, y);
   }
 }
 
 function cellPanels(cell: CellRecord): CellPanel[] {
   const { footprint: outer, interior: inner, bottomY, topY } = cell;
-  const portal = cell.openings[0];
-
-  if (!portal) {
-    return [];
-  }
-
-  const headerBottom = portal.topY;
   const panels: CellPanel[] = [
-    // Left wall: the corner segments own the rear/front returns; only the
-    // centre segment exposes its inner face to the chamber.
-    panel("left_rear", {
+    // Corner blocks own the returns between adjacent wall spans. Their contact
+    // faces stay closed, so adding portals to either neighbour cannot create
+    // overlaps or expose the room through a corner joint.
+    panel("corner_left_rear", {
       minX: outer.minX, maxX: inner.minX,
       minZ: outer.minZ, maxZ: inner.minZ,
     }, bottomY, topY, [true, false, false, true], "z"),
-    panel("left_center", {
-      minX: outer.minX, maxX: inner.minX,
-      minZ: inner.minZ, maxZ: inner.maxZ,
-    }, bottomY, topY, [true, false, true, false], "z"),
-    panel("left_front", {
+    panel("corner_left_front", {
       minX: outer.minX, maxX: inner.minX,
       minZ: inner.maxZ, maxZ: outer.maxZ,
     }, bottomY, topY, [true, true, false, false], "z"),
-
-    // Right wall, mirrored.
-    panel("right_rear", {
+    panel("corner_right_rear", {
       minX: inner.maxX, maxX: outer.maxX,
       minZ: outer.minZ, maxZ: inner.minZ,
     }, bottomY, topY, [false, false, true, true], "z"),
-    panel("right_center", {
-      minX: inner.maxX, maxX: outer.maxX,
-      minZ: inner.minZ, maxZ: inner.maxZ,
-    }, bottomY, topY, [true, false, true, false], "z"),
-    panel("right_front", {
+    panel("corner_right_front", {
       minX: inner.maxX, maxX: outer.maxX,
       minZ: inner.maxZ, maxZ: outer.maxZ,
     }, bottomY, topY, [false, true, true, false], "z"),
-
-    // Rear wall between the two side walls.
-    panel("rear", {
-      minX: inner.minX, maxX: inner.maxX,
-      minZ: outer.minZ, maxZ: inner.minZ,
-    }, bottomY, topY, [false, true, false, true], "x"),
-
-    // Portal piers. Their tops are supported by the header and stay un-emitted.
-    panel("front_pier_left", {
-      minX: inner.minX, maxX: portal.minX,
-      minZ: inner.maxZ, maxZ: outer.maxZ,
-    }, bottomY, headerBottom, [false, true, true, true], "x", false),
-    panel("front_pier_right", {
-      minX: portal.maxX, maxX: inner.maxX,
-      minZ: inner.maxZ, maxZ: outer.maxZ,
-    }, bottomY, headerBottom, [true, true, false, true], "x", false),
-
-    // Three header blocks keep the portal soffit exposed only over the void.
-    panel("front_header_left", {
-      minX: inner.minX, maxX: portal.minX,
-      minZ: inner.maxZ, maxZ: outer.maxZ,
-    }, headerBottom, topY, [false, true, false, true], "x"),
-    panel("front_header_portal", {
-      minX: portal.minX, maxX: portal.maxX,
-      minZ: inner.maxZ, maxZ: outer.maxZ,
-    }, headerBottom, topY, [false, true, false, true], "x", true, true),
-    panel("front_header_right", {
-      minX: portal.maxX, maxX: inner.maxX,
-      minZ: inner.maxZ, maxZ: outer.maxZ,
-    }, headerBottom, topY, [false, true, false, true], "x"),
   ];
+
+  for (const direction of [
+    "front",
+    "rear",
+    "sidePositiveU",
+    "sideNegativeU",
+  ] as const) {
+    panels.push(...wallPanels(
+      cell,
+      direction,
+      cell.openings.find((opening) => opening.direction === direction) ?? null,
+    ));
+  }
 
   return panels.filter(
     (candidate) =>
       rectIsValid(candidate.rect) && candidate.topY > candidate.bottomY,
   );
+}
+
+function wallPanels(
+  cell: CellRecord,
+  direction: CellRecord["walls"][number]["orientation"],
+  opening: CellRecord["openings"][number] | null,
+): CellPanel[] {
+  const { footprint: outer, interior: inner, bottomY, topY } = cell;
+  const axis = direction === "front" || direction === "rear" ? "x" : "z";
+  const rect = wallCenterRect(outer, inner, direction);
+  const id = wallPanelId(direction);
+  const surfaces = wallSurfaceSides(direction);
+
+  if (!opening) {
+    return [panel(id, rect, bottomY, topY, surfaces, axis)];
+  }
+
+  const start = axis === "x" ? rect.minX : rect.minZ;
+  const end = axis === "x" ? rect.maxX : rect.maxZ;
+  const portalStart = axis === "x"
+    ? opening.threshold.minX
+    : opening.threshold.minZ;
+  const portalEnd = axis === "x"
+    ? opening.threshold.maxX
+    : opening.threshold.maxZ;
+  const startRect = spanRect(rect, axis, start, portalStart);
+  const portalRect = spanRect(rect, axis, portalStart, portalEnd);
+  const endRect = spanRect(rect, axis, portalEnd, end);
+  const startSide = axis === "x" ? 0 : 3;
+  const endSide = axis === "x" ? 2 : 1;
+  const startPierSides = withSide(surfaces, endSide);
+  const endPierSides = withSide(surfaces, startSide);
+  const headerBottom = opening.topY;
+
+  return [
+    // The piers expose only their portal-facing jamb. Their tops are supported
+    // by the header and remain un-emitted.
+    panel(
+      `${id}_pier_start`,
+      startRect,
+      bottomY,
+      headerBottom,
+      startPierSides,
+      axis,
+      false,
+    ),
+    panel(
+      `${id}_pier_end`,
+      endRect,
+      bottomY,
+      headerBottom,
+      endPierSides,
+      axis,
+      false,
+    ),
+    // Three header blocks keep the soffit limited to the opening itself while
+    // retaining whole rectangular masonry blocks on either side.
+    panel(
+      `${id}_header_start`,
+      startRect,
+      headerBottom,
+      topY,
+      surfaces,
+      axis,
+    ),
+    panel(
+      `${id}_header_portal`,
+      portalRect,
+      headerBottom,
+      topY,
+      surfaces,
+      axis,
+      true,
+      true,
+    ),
+    panel(
+      `${id}_header_end`,
+      endRect,
+      headerBottom,
+      topY,
+      surfaces,
+      axis,
+    ),
+  ];
+}
+
+function wallCenterRect(
+  outer: Rect,
+  inner: Rect,
+  direction: CellRecord["walls"][number]["orientation"],
+): Rect {
+  switch (direction) {
+    case "front":
+      return {
+        minX: inner.minX,
+        maxX: inner.maxX,
+        minZ: inner.maxZ,
+        maxZ: outer.maxZ,
+      };
+    case "rear":
+      return {
+        minX: inner.minX,
+        maxX: inner.maxX,
+        minZ: outer.minZ,
+        maxZ: inner.minZ,
+      };
+    case "sidePositiveU":
+      return {
+        minX: inner.maxX,
+        maxX: outer.maxX,
+        minZ: inner.minZ,
+        maxZ: inner.maxZ,
+      };
+    case "sideNegativeU":
+      return {
+        minX: outer.minX,
+        maxX: inner.minX,
+        minZ: inner.minZ,
+        maxZ: inner.maxZ,
+      };
+  }
+}
+
+function wallPanelId(
+  direction: CellRecord["walls"][number]["orientation"],
+): string {
+  switch (direction) {
+    case "front":
+      return "front";
+    case "rear":
+      return "rear";
+    case "sidePositiveU":
+      return "right";
+    case "sideNegativeU":
+      return "left";
+  }
+}
+
+function wallSurfaceSides(
+  direction: CellRecord["walls"][number]["orientation"],
+): SideFlags {
+  switch (direction) {
+    case "front":
+      return [false, true, false, true];
+    case "rear":
+      return [false, true, false, true];
+    case "sidePositiveU":
+      return [true, false, true, false];
+    case "sideNegativeU":
+      return [true, false, true, false];
+  }
+}
+
+function spanRect(
+  rect: Rect,
+  axis: CellPanel["axis"],
+  from: number,
+  to: number,
+): Rect {
+  return axis === "x"
+    ? { ...rect, minX: from, maxX: to }
+    : { ...rect, minZ: from, maxZ: to };
+}
+
+function withSide(sides: SideFlags, index: number): SideFlags {
+  const result: [boolean, boolean, boolean, boolean] = [...sides];
+  result[index] = true;
+  return result;
 }
 
 function panel(

@@ -77,6 +77,7 @@ export interface FlameStats {
 export interface CompositionStats {
   sections: Readonly<Record<PartSection, PartStats>>;
   totals: PartStats;
+  generationMs: number;
   flames: FlameStats;
   glowLightCount: number;
   offering: OfferingStats;
@@ -124,6 +125,7 @@ export class MainScene {
   private anchors: CompositionAnchors;
   private sectionStats = emptySectionStats();
   private totalStats = emptyPartStats();
+  private generationMs = 0;
   private currentOfferingStats: OfferingStats = emptyOfferingStats();
   private offeringConfig: OfferingConfig;
   private stoneSurfaceMaterial: THREE.Material;
@@ -220,6 +222,7 @@ export class MainScene {
     this.graph = composition.graph;
     this.sectionStats = composition.sections;
     this.totalStats = composition.totals;
+    this.generationMs = composition.generationMs;
     this.applyGeometryAttributes(composition.geometry);
     // Always both materials, so material group 1 stays addressable even on a
     // build with no iron parts.
@@ -401,6 +404,7 @@ export class MainScene {
     this.graph = composition.graph;
     this.sectionStats = composition.sections;
     this.totalStats = composition.totals;
+    this.generationMs = composition.generationMs;
     // Rebuilding the wireframe on every geometry swap costs more than the
     // geometry itself, and it is hidden almost always, so drop it and rebuild
     // lazily if the user is actually looking at it.
@@ -427,6 +431,7 @@ export class MainScene {
     return {
       sections: this.sectionStats,
       totals: this.totalStats,
+      generationMs: this.generationMs,
       flames: {
         count: flames.flameCount,
         vertexCount: flames.vertexCount,

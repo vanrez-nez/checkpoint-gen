@@ -311,7 +311,13 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     summitPad,
   );
   const cell = spec.cells[0]
-    ? resolveSummitCell(spec.id, spec.cells[0], placement, diagnostics)
+    ? resolveSummitCell(
+      spec.id,
+      spec.cells[0],
+      placement,
+      stairs.map((stair) => stair.record.direction),
+      diagnostics,
+    )
     : null;
 
   if (spec.cells[0] && !cell) {

@@ -20,6 +20,8 @@ export interface CompositionResult {
   readonly anchors: CompositionAnchors;
   readonly sections: Readonly<Record<PartSection, PartStats>>;
   readonly totals: PartStats;
+  /** Time spent validating, generating requested sections, and merging them. */
+  readonly generationMs: number;
   /** The semantic layer, for structures that resolve one. */
   readonly graph: StructureGraph | null;
 }
@@ -41,6 +43,7 @@ export class StructureComposer {
     config: StructureConfig,
     sections?: Iterable<PartSection>,
   ): CompositionResult {
+    const startedAt = performance.now();
     // Validation runs before cache invalidation, so a bad parameter combination
     // cannot discard the last renderable composition or reach the renderer.
     validateActiveStructureConfig(config);
@@ -108,6 +111,7 @@ export class StructureComposer {
       anchors: this.anchors,
       sections: merged.sections,
       totals: merged.totals,
+      generationMs: performance.now() - startedAt,
       graph: this.graph,
     };
   }

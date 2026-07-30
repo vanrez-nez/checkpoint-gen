@@ -77,10 +77,25 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
   pane.registerPlugin(EssentialsPlugin);
   const stats = pane.addBlade({ view: "stats" }) as StatsBladeApi;
   stats.setRenderer(rendererLabel);
+  const mirrors = createStatMirrors();
+
+  // These rows describe whichever structure type is currently selected, so
+  // they remain global and stable while the type-specific tab bar is rebuilt.
+  for (const row of [
+    statRow(mirrors.structure, "stones", "stones"),
+    statRow(mirrors.structure, "vertices", "vertices"),
+    statRow(mirrors.structure, "triangles", "triangles"),
+    statRow(mirrors.structure, "generationMs", "generation (ms)"),
+    statRow(mirrors.validation, "status", "status"),
+  ]) {
+    pane.addBinding(row.target as Record<string, number | string>, row.key, {
+      label: row.label,
+      readonly: true,
+    });
+  }
 
   let visibility = new VisibilityRegistry();
   let tabs: TabApi | null = null;
-  const mirrors = createStatMirrors();
 
   // Global state, so it sits above the tab bar rather than inside a tab.
   pane.addBinding(config, "typeId", {
@@ -132,7 +147,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
         throw new Error(`Failed to create "${tab.label}" control tab.`);
       }
 
-      buildStructureTab(page, definition, tab, index === 0);
+      buildStructureTab(page, definition, tab);
     });
 
     const scenePage = tabs.pages[definition.controlTabs.length];
@@ -196,7 +211,6 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     page: TabPageApi,
     definition: StructureDefinition,
     tab: StructureControlTab,
-    includeStructureStats: boolean,
   ): void {
     const folders = createFolderRegistry();
     const layout = config.layouts[definition.id] ?? definition.cloneLayout();
@@ -227,14 +241,6 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     }
 
     autoHideFolders(folders);
-    if (includeStructureStats) {
-      addStatsFolder(page, "Geometry", [
-        statRow(mirrors.structure, "stones", "stones"),
-        statRow(mirrors.structure, "vertices", "vertices"),
-        statRow(mirrors.structure, "triangles", "triangles"),
-        statRow(mirrors.validation, "status", "validation"),
-      ]);
-    }
     addPropStats(page, tab.props ?? []);
   }
 
@@ -458,6 +464,7 @@ function applyStats(
   mirrors.structure.stones = primary.stoneCount;
   mirrors.structure.vertices = primary.vertexCount;
   mirrors.structure.triangles = primary.triangleCount;
+  mirrors.structure.generationMs = Math.round(stats.generationMs * 100) / 100;
   mirrors.pillars.parts = section("pillars").partCount;
   mirrors.pillars.stones = section("pillars").stoneCount;
   mirrors.pillars.vertices = section("pillars").vertexCount;

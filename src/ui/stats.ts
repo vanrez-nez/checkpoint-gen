@@ -10,7 +10,12 @@ export interface StatMirrors {
    * this reports the circular checkpoint's paving and the mass structure's
    * massing without either of them being named here.
    */
-  structure: { stones: number; vertices: number; triangles: number };
+  structure: {
+    stones: number;
+    vertices: number;
+    triangles: number;
+    generationMs: number;
+  };
   pillars: { parts: number; stones: number; vertices: number; triangles: number };
   bowls: { parts: number; vertices: number; triangles: number };
   flames: {
@@ -39,7 +44,7 @@ export interface StatRow {
 
 export function createStatMirrors(): StatMirrors {
   return {
-    structure: { stones: 0, vertices: 0, triangles: 0 },
+    structure: { stones: 0, vertices: 0, triangles: 0, generationMs: 0 },
     pillars: { parts: 0, stones: 0, vertices: 0, triangles: 0 },
     bowls: { parts: 0, vertices: 0, triangles: 0 },
     flames: { count: 0, vertices: 0, triangles: 0, draws: 0, glowLights: 0 },

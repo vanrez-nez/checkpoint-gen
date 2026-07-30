@@ -53,6 +53,8 @@ import {
   patchIndex,
   serializeGraph,
   STRUCTURE_SCHEMA_VERSION,
+  type CellOpeningRecord,
+  type CellRecord,
   type ElevationBandRecord,
   type StructureGraph,
 } from "../src/structure/kernel/graph";
@@ -227,6 +229,49 @@ function faceNormal(face: readonly THREE.Vector3[]): THREE.Vector3 {
     face[1]!.clone().sub(face[0]!),
     face[2]!.clone().sub(face[0]!),
   ).normalize();
+}
+
+function portalIsBlocked(
+  builder: SolidBuilder,
+  cell: CellRecord,
+  opening: CellOpeningRecord,
+): boolean {
+  const outward = {
+    front: new THREE.Vector3(0, 0, 1),
+    rear: new THREE.Vector3(0, 0, -1),
+    sidePositiveU: new THREE.Vector3(1, 0, 0),
+    sideNegativeU: new THREE.Vector3(-1, 0, 0),
+  }[opening.direction];
+  const plane = opening.direction === "front"
+    ? cell.footprint.maxZ
+    : opening.direction === "rear"
+      ? cell.footprint.minZ
+      : opening.direction === "sidePositiveU"
+        ? cell.footprint.maxX
+        : cell.footprint.minX;
+  const alongX = opening.direction === "front" || opening.direction === "rear";
+
+  return readBlockFaces(builder).some((face) => {
+    const normal = faceNormal(face);
+    const center = face.reduce(
+      (sum, point) => sum.addScaledVector(point, 1 / face.length),
+      new THREE.Vector3(),
+    );
+    const onPlane = alongX
+      ? Math.abs(center.z - plane) < 1e-6
+      : Math.abs(center.x - plane) < 1e-6;
+    const withinOpening = alongX
+      ? center.x > opening.threshold.minX + 1e-6
+        && center.x < opening.threshold.maxX - 1e-6
+      : center.z > opening.threshold.minZ + 1e-6
+        && center.z < opening.threshold.maxZ - 1e-6;
+
+    return normal.dot(outward) > 0.99
+      && onPlane
+      && withinOpening
+      && center.y > opening.bottomY + 1e-6
+      && center.y < opening.topY - 1e-6;
+  });
 }
 
 function sum(values: readonly number[]): number {
@@ -1760,9 +1805,9 @@ for (const masonry of [null, squareRaisedPadRule] as const) {
 }
 
 // --- first summit cell assembly -------------------------------------------
-// One centred chamber consumes the authoritative placement anchor. Its front
-// portal is a topological cut in both wall patches and a real void in the block
-// geometry, not a dark rectangle placed over a solid wall.
+// One centred chamber consumes the authoritative placement anchor. Its portals
+// follow the enabled stair facades as topological cuts in both wall patches and
+// real voids in the block geometry, not dark rectangles over solid walls.
 const summitCellLayout: MassLayoutConfig = {
   ...cloneFrontStairLayout(),
   summitBuildingEnabled: true,
@@ -1827,6 +1872,40 @@ assert.equal(
   3,
 );
 
+const allPortalLayout: MassLayoutConfig = {
+  ...summitCellLayout,
+  stairFrontEnabled: true,
+  stairRearEnabled: true,
+  stairLeftEnabled: true,
+  stairRightEnabled: true,
+};
+const allPortalGraph = generateStructure(toStructureSpec(allPortalLayout));
+assertGraphInvariants(allPortalGraph, "four-portal summit chamber");
+const allPortalCell = allPortalGraph.cells[0]!;
+assert.deepEqual(
+  allPortalCell.openings.map((opening) => opening.direction),
+  ["front", "rear", "sideNegativeU", "sidePositiveU"],
+);
+assert.equal(
+  allPortalGraph.patches.filter(
+    (patch) => patch.role === PATCH_ROLES.cellOpeningReveal,
+  ).length,
+  12,
+);
+for (const opening of allPortalCell.openings) {
+  const wall = allPortalCell.walls.find(
+    (candidate) => candidate.orientation === opening.direction,
+  )!;
+  for (const patchId of [wall.outerPatchId, wall.innerPatchId]) {
+    const wallPatch = allPortalGraph.patches.find((patch) => patch.id === patchId)!;
+    assert.equal(
+      wallPatch.features.filter((feature) => feature.operation === "cut").length,
+      1,
+      `${opening.direction}: portal is not cut through both wall surfaces.`,
+    );
+  }
+}
+
 const raisedCellGraph = generateStructure(toStructureSpec({
   ...summitCellLayout,
   summitTreatment: "raised_pad",
@@ -1854,15 +1933,20 @@ const isolatedCellLayout: MassLayoutConfig = {
 const isolatedCellGraph = generateStructure(toStructureSpec(isolatedCellLayout));
 assertGraphInvariants(isolatedCellGraph, "isolated summit chamber");
 const isolatedCell = isolatedCellGraph.cells[0]!;
+assert.deepEqual(
+  isolatedCell.openings,
+  [],
+  "A summit building without stairs must remain closed.",
+);
 const squareCellRule = toMasonry(
-  isolatedCellLayout,
+  summitCellLayout,
   { ...DEFAULT_MASS_STONE_CONFIG, displacement: 0 },
 );
 assert.ok(squareCellRule);
 
 for (const masonry of [null, squareCellRule] as const) {
   const cellBuilder = new SolidBuilder();
-  buildCell(cellBuilder, isolatedCell, masonry, 71);
+  buildCell(cellBuilder, summitCell, masonry, 71);
   const cellGeometry = finalizeGeometry(cellBuilder).geometry;
   assert.equal(
     findCoincidentFaces(cellGeometry).pairs,
@@ -1880,30 +1964,34 @@ for (const masonry of [null, squareCellRule] as const) {
     `Cell ${masonry ? "masonry" : "bare"} geometry left visible backfaces.`,
   );
 
-  const opening = isolatedCell.openings[0]!;
-  const portalBlocked = readBlockFaces(cellBuilder).some((face) => {
-    const normal = faceNormal(face);
-    const center = face.reduce(
-      (sum, point) => ({
-        x: sum.x + point.x / face.length,
-        y: sum.y + point.y / face.length,
-        z: sum.z + point.z / face.length,
-      }),
-      { x: 0, y: 0, z: 0 },
-    );
-
-    return normal.z > 0.99
-      && Math.abs(center.z - isolatedCell.footprint.maxZ) < 1e-6
-      && center.x > opening.minX + 1e-6
-      && center.x < opening.maxX - 1e-6
-      && center.y > opening.bottomY + 1e-6
-      && center.y < opening.topY - 1e-6;
-  });
+  const opening = summitCell.openings[0]!;
+  const portalBlocked = portalIsBlocked(cellBuilder, summitCell, opening);
   assert.equal(
     portalBlocked,
     false,
     `Cell ${masonry ? "masonry" : "bare"} geometry filled its portal.`,
   );
+
+  const allPortalBuilder = new SolidBuilder();
+  buildCell(allPortalBuilder, allPortalCell, masonry, 73);
+  const allPortalGeometry = finalizeGeometry(allPortalBuilder).geometry;
+  assert.equal(
+    findCoincidentFaces(allPortalGeometry).pairs,
+    0,
+    `Four-portal cell ${masonry ? "masonry" : "bare"} geometry emitted coincident faces.`,
+  );
+  assert.equal(
+    findBackfaces(allPortalGeometry).backfaces,
+    0,
+    `Four-portal cell ${masonry ? "masonry" : "bare"} geometry left visible backfaces.`,
+  );
+  for (const sideOpening of allPortalCell.openings) {
+    assert.equal(
+      portalIsBlocked(allPortalBuilder, allPortalCell, sideOpening),
+      false,
+      `${sideOpening.direction}: ${masonry ? "masonry" : "bare"} geometry filled its portal.`,
+    );
+  }
 
   const assemblyGeometry = tessellateStructure(isolatedCellGraph, {
     masonry,
@@ -1931,7 +2019,7 @@ for (const masonry of [null, squareCellRule] as const) {
 }
 
 const cellWithOversizedPortal = generateStructure(toStructureSpec({
-  ...isolatedCellLayout,
+  ...summitCellLayout,
   summitBuildingPortalWidth: 100,
 }));
 assert.equal(
@@ -4079,12 +4167,20 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
       assert.equal(interior?.edges.vMax.treatment, "roof_bearing");
     }
 
-    assert.equal(cell.openings.length, 1);
+    assert.deepEqual(
+      cell.openings.map((opening) => opening.direction),
+      graph.connectors.map((connector) => connector.direction),
+      `${label}: summit portals do not match the configured stair facades.`,
+    );
     for (const opening of cell.openings) {
       assert.equal(opening.kind, "portal");
-      assert.equal(opening.direction, "front");
       assert.ok(opening.width > 0 && opening.height > 0);
       assert.ok(opening.topY < cell.topY);
+      assert.ok(
+        opening.threshold.maxX > opening.threshold.minX
+        && opening.threshold.maxZ > opening.threshold.minZ,
+        `${label}: ${opening.direction} portal has no threshold area.`,
+      );
       assert.equal(byId.get(opening.exteriorPatchId)?.tags.includes("traversable"), true);
       assert.equal(byId.get(opening.interiorPatchId)?.role, PATCH_ROLES.cellFloor);
       for (const patchId of opening.revealPatchIds) {

@@ -12,7 +12,7 @@ import type { Diagnostic } from "./validate";
  * systems fills known positions rather than reshaping the graph. Connectors and
  * cells are the first containers now populated.
  */
-export const STRUCTURE_SCHEMA_VERSION = "1.2";
+export const STRUCTURE_SCHEMA_VERSION = "1.3";
 
 /**
  * Placeholder element type for a subsystem that has not been implemented yet.
@@ -179,9 +179,8 @@ export interface CellOpeningRecord {
   readonly height: number;
   readonly bottomY: number;
   readonly topY: number;
-  /** Portal jamb positions in world X for the currently axial front opening. */
-  readonly minX: number;
-  readonly maxX: number;
+  /** Walkable rectangle through the wall thickness beneath the opening. */
+  readonly threshold: Rect;
   readonly exteriorPatchId: string;
   readonly interiorPatchId: string;
   readonly revealPatchIds: readonly string[];

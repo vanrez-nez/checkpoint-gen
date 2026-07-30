@@ -559,7 +559,8 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     max: 8,
     step: 0.1,
     scopes: ["layout"],
-    visibleWhen: (layout) => layout.summitBuildingEnabled,
+    visibleWhen: (layout) =>
+      layout.summitBuildingEnabled && hasEnabledStair(layout),
   }),
   control.number({
     key: "summitBuildingPortalHeight",
@@ -570,7 +571,8 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     max: 12,
     step: 0.1,
     scopes: ["layout"],
-    visibleWhen: (layout) => layout.summitBuildingEnabled,
+    visibleWhen: (layout) =>
+      layout.summitBuildingEnabled && hasEnabledStair(layout),
   }),
   control.boolean({
     key: "stairFrontEnabled",
@@ -822,6 +824,8 @@ export function toMasonry(
 
 /** Flattens the tunable config into the shape the mass generator consumes. */
 export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
+  const stairs = toStairSpecs(layout);
+
   return {
     id: "structure",
     seeds: createSeedSet(layout.seed),
@@ -857,7 +861,7 @@ export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
       summitBuildingDepthRatio: layout.summitBuildingDepthRatio,
       summitPadHeight: layout.summitPadHeight,
     },
-    stairs: toStairSpecs(layout),
+    stairs,
     cells: toCellSpecs(layout),
   };
 }

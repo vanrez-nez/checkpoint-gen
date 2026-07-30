@@ -115,9 +115,10 @@ anchor to the pad top. The summit surface beneath the pad is omitted rather than
 left as hidden supporting geometry.
 
 An optional **summit building** consumes the complete placement footprint as a
-single chamber. Wall height, wall thickness, and the centred front portal are
-real dimensions. The graph records the room, its support and floor, exterior and
-interior wall
+single chamber. Wall height, wall thickness, and the shared portal dimensions
+are real dimensions. Every enabled stair facade cuts one centred portal through
+the matching building wall; with no stairs the chamber remains closed. The graph
+records the room, its support and floor, exterior and interior wall
 patches, roof-bearing wall crowns, and the portal connection. The portal is
 constructed as two piers and a three-part header with explicit jamb and soffit
 patches—not as a boolean or a facade drawn over a solid wall. The existing
@@ -296,9 +297,12 @@ folder whose contents are all hidden hides itself. Tab pages themselves are
 never gated directly because Tweakpane rebinds a page's hidden state from its own
 selection.
 
-The Structure tab's Geometry folder reports the active structure's own section
-plus a **validation** line: the worst diagnostic from the last build, with the
-value the generator substituted when it repaired rather than refused.
+Immediately below the FPS panel, global readonly fields report the selected
+structure type's stones, vertices, triangles, generation time, and validation
+status. They update when the type or its geometry changes and stay outside the
+type-specific tab bar. The status shows the worst diagnostic from the last
+build, with the value the generator substituted when it repaired rather than
+refused.
 
 Two Scene toggles serve the semantic layer. **Greybox shading** replaces both
 surface materials with a neutral matte, so massing is judged on silhouette and
