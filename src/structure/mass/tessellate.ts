@@ -20,6 +20,7 @@ import { buildMassShell } from "./shell";
 import {
   addBareCellFloorSurface,
   buildCell,
+  faceIsCellInteriorFloor,
   faceIsCoveredByCellWall,
 } from "../cell/build";
 import { buildRoof, faceIsCoveredByRoof } from "../roof/build";
@@ -87,6 +88,10 @@ export function tessellateStructure(
   // Cull before the cells themselves are emitted so no wall or floor face can
   // select itself.
   for (const cell of graph.cells) {
+    builder.assignFaceMaterial(
+      (face) => faceIsCellInteriorFloor(face, cell),
+      "interior",
+    );
     builder.cullFaces((face) => faceIsCoveredByCellWall(face, cell));
   }
 
@@ -101,7 +106,10 @@ export function tessellateStructure(
   }
 
   for (const cell of graph.cells) {
-    buildCell(builder, cell, masonry, seed);
+    builder.withMaterial(
+      "summit",
+      () => buildCell(builder, cell, masonry, seed),
+    );
   }
 
   // The roof owns the room ceiling and projected soffits. Remove only the
@@ -109,7 +117,7 @@ export function tessellateStructure(
   // so neither assembly leaves a coincident contact plane.
   for (const roof of graph.roofs) {
     builder.cullFaces((face) => faceIsCoveredByRoof(face, roof));
-    buildRoof(builder, roof);
+    builder.withMaterial("roof", () => buildRoof(builder, roof));
   }
 
   // Connectors are read from the same graph and drawn with the same one
@@ -117,10 +125,12 @@ export function tessellateStructure(
   // handed over for the burial profile: a slice stops where the mass it climbs
   // swallows it.
   for (const connector of graph.connectors) {
-    buildStair(builder, connector, graph.masses[0]?.bands ?? [], {
-      masonry,
-      seed,
-      tilesPerStep: stairTilesPerStep,
+    builder.withMaterial("stairs", () => {
+      buildStair(builder, connector, graph.masses[0]?.bands ?? [], {
+        masonry,
+        seed,
+        tilesPerStep: stairTilesPerStep,
+      });
     });
   }
 
@@ -295,38 +305,40 @@ function layBareMass(
         && cell !== null
         && Math.abs(cell.bottomY - piece.topY) <= EPS;
 
-      builder.addBlock(
-        {
-          bottom: rectCorners(piece.lower).map((point) => ({
-            x: point.x,
-            y: piece.bottomY,
-            z: point.z,
-          })),
-          top: rectCorners(piece.upper).map((point) => ({
-            x: point.x,
-            y: piece.topY,
-            z: point.z,
-          })),
-        },
-        {
-          sides: [true, true, true, true],
-          // Only the topmost piece shows its crown; whatever sits above a lower
-          // one covers it. The mass's ground face is buried and is never emitted.
-          // A moulding's underside is its soffit, which oversails the wall and
-          // remains visible around the supporting wall.
-          // If another band stands here, its footprint owns that part of the
-          // crown. The exposed remainder is emitted as four simple rectangles
-          // below instead of hiding a full summit quad beneath the child.
-          top: isCrown && under === null && !supportsCell,
-          bottom: cornice !== null && part === 1,
-        },
-      );
+      builder.withMaterial(part === 1 ? "trim" : "stone", () => {
+        builder.addBlock(
+          {
+            bottom: rectCorners(piece.lower).map((point) => ({
+              x: point.x,
+              y: piece.bottomY,
+              z: point.z,
+            })),
+            top: rectCorners(piece.upper).map((point) => ({
+              x: point.x,
+              y: piece.topY,
+              z: point.z,
+            })),
+          },
+          {
+            sides: [true, true, true, true],
+            // Only the topmost piece shows its crown; whatever sits above a lower
+            // one covers it. The mass's ground face is buried and is never emitted.
+            // A moulding's underside is its soffit, which oversails the wall and
+            // remains visible around the supporting wall.
+            // If another band stands here, its footprint owns that part of the
+            // crown. The exposed remainder is emitted as four simple rectangles
+            // below instead of hiding a full summit quad beneath the child.
+            top: isCrown && under === null && !supportsCell,
+            bottom: cornice !== null && part === 1,
+          },
+        );
 
-      if (isCrown && under) {
-        addHorizontalRing(builder, piece.upper, under, piece.topY);
-      } else if (supportsCell) {
-        addBareCellFloorSurface(builder, piece.upper, cell, piece.topY);
-      }
+        if (isCrown && under) {
+          addHorizontalRing(builder, piece.upper, under, piece.topY);
+        } else if (supportsCell) {
+          addBareCellFloorSurface(builder, piece.upper, cell, piece.topY);
+        }
+      });
     }
   }
 }

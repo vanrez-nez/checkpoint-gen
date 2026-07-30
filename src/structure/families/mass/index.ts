@@ -1,5 +1,6 @@
 import { emptyCompositionAnchors, type GeometryPart } from "../../../geometry/part";
 import { defineStructure } from "../../definition";
+import { DEFAULT_MASS_MATERIAL_PALETTE } from "../../../config/material-palette";
 import { MASS_SECTION, tessellateStructure } from "../../mass/tessellate";
 import {
   DEFAULT_MASS_LAYOUT,
@@ -29,7 +30,7 @@ import {
 export const massStructure = defineStructure<MassLayoutConfig>({
   id: "mass",
   label: "Mass",
-  props: ["stone"],
+  props: ["stone", "materialPalette"],
   controlTabs: [
     {
       id: "structure",
@@ -51,6 +52,7 @@ export const massStructure = defineStructure<MassLayoutConfig>({
       label: "Summit",
       layoutGroups: ["Summit", "Summit building", "Roof"],
     },
+    { id: "materials", label: "Materials", props: ["materialPalette"] },
   ],
   sections: [MASS_SECTION],
   // Layout controls invalidate this structure's own section, not the circular
@@ -58,6 +60,15 @@ export const massStructure = defineStructure<MassLayoutConfig>({
   sectionsByScope: { layout: [MASS_SECTION] },
   defaultLayout: DEFAULT_MASS_LAYOUT,
   defaultStone: DEFAULT_MASS_STONE_CONFIG,
+  defaultMaterialPalette: DEFAULT_MASS_MATERIAL_PALETTE,
+  surfaceMaterialSlots: [
+    "stone",
+    "trim",
+    "stairs",
+    "summit",
+    "interior",
+    "roof",
+  ],
   layoutControls: MASS_LAYOUT_CONTROLS,
   cloneLayout: cloneMassLayout,
   validateLayout: validateMassLayout,

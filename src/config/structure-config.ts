@@ -47,6 +47,12 @@ import {
   type ViewConfig,
 } from "./sections";
 import type { RebuildScope } from "./control-spec";
+import {
+  DEFAULT_STRUCTURE_MATERIAL_PALETTE,
+  cloneMaterialPalette,
+  validateMaterialPalette,
+  type StructureMaterialPalette,
+} from "./material-palette";
 
 /**
  * Per-structure layout state, keyed by structure id. Every registered structure
@@ -69,6 +75,7 @@ export interface StructureConfig {
   layouts: StructureLayouts;
   stones: Record<string, StoneConfig>;
   bevels: Record<string, BevelConfig>;
+  materialPalettes: Record<string, StructureMaterialPalette>;
   pillar: PillarConfig;
   fireBowl: FireBowlConfig;
   fire: FireConfig;
@@ -81,6 +88,7 @@ export function createDefaultStructureConfig(): StructureConfig {
   const layouts: StructureLayouts = {};
   const stones: Record<string, StoneConfig> = {};
   const bevels: Record<string, BevelConfig> = {};
+  const materialPalettes: Record<string, StructureMaterialPalette> = {};
 
   // Every registered structure gets its live layout up front, so the pane can
   // bind all of them once. Surface objects follow the same rule, allowing one
@@ -93,6 +101,9 @@ export function createDefaultStructureConfig(): StructureConfig {
     bevels[definition.id] = cloneBevelConfig(
       definition.defaultBevel ?? DEFAULT_BEVEL_CONFIG,
     );
+    materialPalettes[definition.id] = cloneMaterialPalette(
+      definition.defaultMaterialPalette ?? DEFAULT_STRUCTURE_MATERIAL_PALETTE,
+    );
   }
 
   return {
@@ -100,6 +111,7 @@ export function createDefaultStructureConfig(): StructureConfig {
     layouts,
     stones,
     bevels,
+    materialPalettes,
     pillar: clonePillarConfig(DEFAULT_PILLAR_CONFIG),
     fireBowl: cloneFireBowlConfig(DEFAULT_FIRE_BOWL_CONFIG),
     fire: cloneFireConfig(DEFAULT_FIRE_CONFIG),
@@ -119,6 +131,16 @@ export function createDefaultStructureConfig(): StructureConfig {
  */
 export function validateActiveStructureConfig(config: StructureConfig): void {
   validateActiveStructureGeometryConfig(config);
+  const definition = getStructure(config.typeId);
+  const palette = config.materialPalettes[definition.id];
+
+  if (!palette) {
+    throw new Error(
+      `Missing material palette for structure "${definition.id}".`,
+    );
+  }
+
+  validateMaterialPalette(palette);
   validateIlluminationConfig(config.illumination);
   validateViewConfig(config.view);
 }

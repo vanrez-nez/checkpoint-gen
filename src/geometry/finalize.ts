@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { MATERIAL_SLOTS } from "./part";
 
 /**
  * A point on the ground plane. Every builder here works from horizontal
@@ -24,6 +25,8 @@ export interface GeometryBuffers {
   readonly ambientOcclusion: readonly number[];
   /** One per vertex. Crack/contact shadow, sampled independently of AO. */
   readonly bakedShadow: readonly number[];
+  /** One semantic material-slot index per vertex. */
+  readonly surfaceMaterials?: readonly number[];
 }
 
 export interface FinalizedGeometry {
@@ -40,9 +43,49 @@ export interface FinalizedGeometry {
  * recover the generated values on the next pass.
  */
 export function finalizeGeometry(buffers: GeometryBuffers): FinalizedGeometry {
+  const vertexCount = buffers.positions.length / 3;
+
+  if (!Number.isInteger(vertexCount)) {
+    throw new Error("Position buffer length must be divisible by three.");
+  }
+  if (buffers.ambientOcclusion.length !== vertexCount) {
+    throw new Error(
+      `Ambient-occlusion buffer has ${buffers.ambientOcclusion.length} entries; expected ${vertexCount}.`,
+    );
+  }
+  if (buffers.bakedShadow.length !== vertexCount) {
+    throw new Error(
+      `Baked-shadow buffer has ${buffers.bakedShadow.length} entries; expected ${vertexCount}.`,
+    );
+  }
+  if (
+    buffers.surfaceMaterials
+    && buffers.surfaceMaterials.length !== vertexCount
+  ) {
+    throw new Error(
+      `Surface-material buffer has ${buffers.surfaceMaterials.length} entries; expected ${vertexCount}.`,
+    );
+  }
+
   const geometry = new THREE.BufferGeometry();
   const ambientOcclusion = new Float32Array(buffers.ambientOcclusion);
   const bakedShadow = new Float32Array(buffers.bakedShadow);
+  const surfaceMaterials = Uint8Array.from(
+    buffers.surfaceMaterials ?? new Array(vertexCount).fill(0),
+    (value) => {
+      if (
+        !Number.isInteger(value)
+        || value < 0
+        || value >= MATERIAL_SLOTS.length
+      ) {
+        throw new RangeError(
+          `Surface material ${value} must identify a registered material slot.`,
+        );
+      }
+
+      return value;
+    },
+  );
   const vertexColors = new Float32Array(bakedShadow.length * 3).fill(1);
   geometry.setAttribute(
     "position",
@@ -51,6 +94,10 @@ export function finalizeGeometry(buffers: GeometryBuffers): FinalizedGeometry {
   geometry.setAttribute(
     "vertexAo",
     new THREE.Float32BufferAttribute(ambientOcclusion.slice(), 1),
+  );
+  geometry.setAttribute(
+    "surfaceMaterial",
+    new THREE.Uint8BufferAttribute(surfaceMaterials, 1),
   );
   geometry.setAttribute("color", new THREE.Float32BufferAttribute(vertexColors, 3));
   geometry.userData.vertexAoBase = ambientOcclusion;
@@ -65,7 +112,7 @@ export function finalizeGeometry(buffers: GeometryBuffers): FinalizedGeometry {
 
   return {
     geometry,
-    vertexCount: buffers.positions.length / 3,
+    vertexCount,
     triangleCount: buffers.indices.length / 3,
   };
 }

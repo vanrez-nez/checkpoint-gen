@@ -39,13 +39,13 @@ The `g1` schema keeps its original defaults as an immutable decoding baseline,
 so later UI-default tuning does not reinterpret an existing shared code.
 
 Scene state is deliberately outside this boundary. Camera/view state, global
-lighting, the Scene tab's material tuning, diagnostics and tools neither change
-the code nor get overwritten when one is restored. Inactive structure families
-are excluded too. Pasting a code into the address bar switches to that structure
-and regenerates it in place, while control edits update the current history
-entry rather than adding one entry per slider movement. Codec field order comes
-from the registered control tables; a control-schema change must bump the prefix
-version.
+lighting, semantic material-palette selections, the Scene tab's material tuning,
+diagnostics and tools neither change the code nor get overwritten when one is
+restored. Inactive structure families are excluded too. Pasting a code into the
+address bar switches to that structure and regenerates it in place, while
+control edits update the current history entry rather than adding one entry per
+slider movement. Codec field order comes from the registered control tables; a
+control-schema change must bump the prefix version.
 
 ## The structure kernel
 
@@ -244,11 +244,16 @@ exactly the same extents, and that facing costs no more geometry than it saves.
 
 ## Composition
 
-`StructureComposer` merges every part into **one indexed geometry** with two
-coalesced material groups (0 stone, 1 iron), rendered as a single mesh. Parts are
-authored in local space and placed by a matrix, so no part geometry is ever
-mutated or cloned, and each prop keeps the per-part seeding that makes its
-masonry deterministic.
+`StructureComposer` merges every part into **one indexed geometry** with one
+coalesced draw group per used semantic material slot, rendered as a single mesh.
+The stable slots are masonry, trim, stairs, summit walls, interior floors, roof,
+and iron. Every emitted face owns one `surfaceMaterial` vertex value; culling
+and merging preserve it, then the merger buckets whole triangles into the
+corresponding indexed group. The same attribute is ready for a future
+texture-array shader without changing generator topology. Parts are authored in
+local space and placed by a matrix, so no part geometry is ever mutated or
+cloned, and each prop keeps the per-part seeding that makes its masonry
+deterministic.
 
 Parts are cached per section, so a control change regenerates only what it
 actually invalidated rather than the whole composition. The animated flames, the
@@ -342,8 +347,8 @@ type-specific tab bar. The status shows the worst diagnostic from the last
 build, with the value the generator substituted when it repaired rather than
 refused.
 
-Two Scene toggles serve the semantic layer. **Greybox shading** replaces both
-surface materials with a neutral matte, so massing is judged on silhouette and
+Two Scene toggles serve the semantic layer. **Greybox shading** replaces every
+surface slot with a neutral matte, so massing is judged on silhouette and
 proportion rather than on how the stone reads. **Patch debug** draws the graph
 itself — one frame per patch coloured by role, an outward normal tick, and an
 outline per declared region — built from patch frames rather than from the mesh,
@@ -358,14 +363,16 @@ tab also reports the combined fire-bowl vertex and triangle counts across all
 pillars, the instanced flame workload and draw count, and the number of
 entry-paired glow lights.
 
-The stone surface is loaded from `public/materials/stone.json` through
-`material-designer-runtime` and baked at 512px. The generated mesh uses hard
-box-projected UVs so tops, bevels, and vertical sides sample the baked maps
-without triplanar blending.
+Each structure exposes only the semantic material slots it uses. The Materials
+tab assigns a Material Designer document independently to each slot; documents
+are loaded lazily, cached by id, and baked at 512px. Changing an assignment
+updates mesh materials without regenerating geometry or reframing the camera.
+The generated mesh uses hard box-projected UVs so tops, bevels, and vertical
+sides sample the baked maps without triplanar blending.
 
 Fire bowls use a separate hammered-metal graph from
-`public/materials/hammered-iron.json`. If either graph cannot load, that surface
-falls back independently to a standard stone or dark forged-iron material.
+`public/materials/hammered-iron.json`. If any graph cannot load, only that
+surface falls back to the standard stone or dark forged-iron material.
 
 Lighting combines a cool hemisphere fill with a cool directional sun. The sun
 casts three faded WebGPU CSM cascades that track the active camera, while the

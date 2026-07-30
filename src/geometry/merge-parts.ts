@@ -25,16 +25,18 @@ type PreparedPart = {
   readonly baseUvs: Float32Array;
   readonly vertexAoBase: Float32Array;
   readonly bakedShadowBase: Float32Array;
+  readonly surfaceMaterials: Uint8Array;
 };
 
 /**
  * Merges local-space parts into one indexed geometry.
  *
- * Parts are emitted in material-slot order so each slot lands in a single
- * contiguous index range and becomes exactly one draw group — unlike
- * `mergeGeometries`, which emits one group per input. Positions and normals are
- * transformed by each part's matrix on the way into the destination buffers, so
- * no part geometry is ever cloned or mutated and cached parts stay reusable.
+ * Vertices retain the existing stable part-slot order while triangles are
+ * coalesced by their semantic `surfaceMaterial` owner. Each used slot therefore
+ * becomes exactly one draw group — unlike `mergeGeometries`, which emits one
+ * group per input. Positions and normals are transformed by each part's matrix
+ * on the way into the destination buffers, so no part geometry is ever cloned
+ * or mutated and cached parts stay reusable.
  *
  * The live `uv` and `vertexAo` attributes are seeded from `userData` rather than
  * from the part's own live attributes, so a part that was already scaled or
@@ -68,11 +70,12 @@ export function mergeParts(
   const baseUvs = new Float32Array(vertexTotal * 2);
   const vertexAoBase = new Float32Array(vertexTotal);
   const bakedShadowBase = new Float32Array(vertexTotal);
+  const surfaceMaterials = new Uint8Array(vertexTotal);
   const indices = new Uint32Array(indexTotal);
   const slotIndexCounts = new Map<MaterialSlot, number>();
+  const slotIndices = MATERIAL_SLOTS.map(() => [] as number[]);
 
   let vertexOffset = 0;
-  let indexOffset = 0;
 
   for (const prepared of ordered) {
     const { part, position, normal, index, vertexCount } = prepared;
@@ -85,23 +88,42 @@ export function mergeParts(
     vertexAo.set(prepared.vertexAoBase, vertexOffset);
     vertexAoBase.set(prepared.vertexAoBase, vertexOffset);
     bakedShadowBase.set(prepared.bakedShadowBase, vertexOffset);
+    surfaceMaterials.set(prepared.surfaceMaterials, vertexOffset);
 
-    for (let cursor = 0; cursor < index.count; cursor += 1) {
-      const value = index.getX(cursor);
+    for (let cursor = 0; cursor < index.count; cursor += 3) {
+      const a = readPartIndex(part, index, cursor, position.count);
+      const b = readPartIndex(part, index, cursor + 1, position.count);
+      const c = readPartIndex(part, index, cursor + 2, position.count);
+      const materialA = prepared.surfaceMaterials[a];
+      const materialB = prepared.surfaceMaterials[b];
+      const materialC = prepared.surfaceMaterials[c];
 
-      if (!Number.isInteger(value) || value < 0 || value >= position.count) {
+      if (
+        materialA === undefined
+        || materialB === undefined
+        || materialC === undefined
+      ) {
         throw new Error(
-          `Part "${part.id}" index ${cursor} references invalid vertex ${value}.`,
+          `Part "${part.id}" triangle ${cursor / 3} has no surface material.`,
+        );
+      }
+      if (materialA !== materialB || materialA !== materialC) {
+        throw new Error(
+          `Part "${part.id}" triangle ${cursor / 3} spans multiple surface materials.`,
+        );
+      }
+      if (materialA >= MATERIAL_SLOTS.length) {
+        throw new RangeError(
+          `Part "${part.id}" triangle ${cursor / 3} uses unknown surface material ${materialA}.`,
         );
       }
 
-      indices[indexOffset + cursor] = value + vertexOffset;
+      slotIndices[materialA]!.push(
+        a + vertexOffset,
+        b + vertexOffset,
+        c + vertexOffset,
+      );
     }
-
-    slotIndexCounts.set(
-      part.slot,
-      (slotIndexCounts.get(part.slot) ?? 0) + index.count,
-    );
 
     const sectionStats = sections[part.section] ?? emptyPartStats();
     sections[part.section] = sectionStats;
@@ -111,7 +133,14 @@ export function mergeParts(
     sectionStats.triangleCount += index.count / 3;
 
     vertexOffset += vertexCount;
-    indexOffset += index.count;
+  }
+
+  let indexOffset = 0;
+  for (let slot = 0; slot < MATERIAL_SLOTS.length; slot += 1) {
+    const source = slotIndices[slot]!;
+    indices.set(source, indexOffset);
+    slotIndexCounts.set(MATERIAL_SLOTS[slot]!, source.length);
+    indexOffset += source.length;
   }
 
   for (const stats of Object.values(sections)) {
@@ -126,6 +155,10 @@ export function mergeParts(
   geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
   geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
   geometry.setAttribute("vertexAo", new THREE.BufferAttribute(vertexAo, 1));
+  geometry.setAttribute(
+    "surfaceMaterial",
+    new THREE.Uint8BufferAttribute(surfaceMaterials, 1),
+  );
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
   geometry.userData.baseUvs = baseUvs;
@@ -139,8 +172,9 @@ export function mergeParts(
 }
 
 /**
- * Stable-partitions parts by material slot so each slot is one contiguous index
- * range, dropping empty parts and validating the part contract on the way.
+ * Stable-partitions parts by their fallback material slot, dropping empty parts
+ * and validating the part contract on the way. Triangle grouping is resolved
+ * later from each vertex's semantic material attribute.
  */
 function orderBySlot(parts: readonly GeometryPart[]): PreparedPart[] {
   const ordered: PreparedPart[] = [];
@@ -204,7 +238,63 @@ function preparePart(part: GeometryPart): PreparedPart | null {
     baseUvs: readBaseArray(part, "baseUvs", vertexCount * 2),
     vertexAoBase: readBaseArray(part, "vertexAoBase", vertexCount),
     bakedShadowBase: readBaseArray(part, "bakedShadowBase", vertexCount),
+    surfaceMaterials: readSurfaceMaterials(part, vertexCount),
   };
+}
+
+function readSurfaceMaterials(
+  part: GeometryPart,
+  vertexCount: number,
+): Uint8Array {
+  const attribute = part.geometry.getAttribute("surfaceMaterial");
+
+  if (!attribute) {
+    return new Uint8Array(vertexCount).fill(
+      MATERIAL_SLOTS.indexOf(part.slot),
+    );
+  }
+  if (attribute.itemSize !== 1 || attribute.count !== vertexCount) {
+    throw new Error(
+      `Part "${part.id}" surfaceMaterial has ${attribute.count} entries of size ${attribute.itemSize}; expected ${vertexCount} entries of size 1.`,
+    );
+  }
+
+  const materials = new Uint8Array(vertexCount);
+
+  for (let vertex = 0; vertex < vertexCount; vertex += 1) {
+    const material = attribute.getX(vertex);
+
+    if (
+      !Number.isInteger(material)
+      || material < 0
+      || material >= MATERIAL_SLOTS.length
+    ) {
+      throw new RangeError(
+        `Part "${part.id}" vertex ${vertex} uses unknown surface material ${material}.`,
+      );
+    }
+
+    materials[vertex] = material;
+  }
+
+  return materials;
+}
+
+function readPartIndex(
+  part: GeometryPart,
+  index: THREE.BufferAttribute,
+  cursor: number,
+  vertexCount: number,
+): number {
+  const value = index.getX(cursor);
+
+  if (!Number.isInteger(value) || value < 0 || value >= vertexCount) {
+    throw new Error(
+      `Part "${part.id}" index ${cursor} references invalid vertex ${value}.`,
+    );
+  }
+
+  return value;
 }
 
 function readBaseArray(

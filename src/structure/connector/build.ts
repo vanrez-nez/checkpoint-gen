@@ -89,7 +89,9 @@ export function buildStair(
       layParapetSlices(builder, record, steps, step, bottomY, steppedParapet, back);
 
       if (steppedParapet.cornice) {
-        laySteppedCorniceSlice(builder, record, steps, step, steppedParapet);
+        builder.withMaterial("trim", () => {
+          laySteppedCorniceSlice(builder, record, steps, step, steppedParapet);
+        });
       }
     }
   }
@@ -819,23 +821,25 @@ function laySlopedParapets(
 
     const corniceX0 = x0 - cornice.projection;
     const corniceX1 = x1 + cornice.projection;
-    builder.addBlock(
-      rakedBandBlock(
-        corniceX0,
-        corniceX1,
-        record,
-        bodyTopOffset,
-        parapet.height,
-      ),
-      {
-        // The horizontal terminals own the front and back closures.
-        sides: [false, true, false, true],
-        top: true,
-        // The projected portions read as a soffit. The supported middle has no
-        // competing wall top because the cornice took that band over.
-        bottom: true,
-      },
-    );
+    builder.withMaterial("trim", () => {
+      builder.addBlock(
+        rakedBandBlock(
+          corniceX0,
+          corniceX1,
+          record,
+          bodyTopOffset,
+          parapet.height,
+        ),
+        {
+          // The horizontal terminals own the front and back closures.
+          sides: [false, true, false, true],
+          top: true,
+          // The projected portions read as a soffit. The supported middle has no
+          // competing wall top because the cornice took that band over.
+          bottom: true,
+        },
+      );
+    });
   }
 
   if (cornice) {
@@ -890,23 +894,25 @@ function laySupportedCorniceEndings(
         bottom: false,
       },
     );
-    builder.addBlock(
-      horizontalBlock(
-        record,
-        corniceX0,
-        corniceX1,
-        flightRect.maxZ,
-        flightRect.maxZ + terminalLength,
-        levels.lowerBodyTop,
-        levels.lowerCapY,
-      ),
-      {
-        // Its back is pressed against the parapet cornice.
-        sides: [true, true, false, true],
-        top: true,
-        bottom: true,
-      },
-    );
+    builder.withMaterial("trim", () => {
+      builder.addBlock(
+        horizontalBlock(
+          record,
+          corniceX0,
+          corniceX1,
+          flightRect.maxZ,
+          flightRect.maxZ + terminalLength,
+          levels.lowerBodyTop,
+          levels.lowerCapY,
+        ),
+        {
+          // Its back is pressed against the parapet cornice.
+          sides: [true, true, false, true],
+          top: true,
+          bottom: true,
+        },
+      );
+    });
     builder.addBlock(
       horizontalBlock(
         record,
@@ -925,23 +931,25 @@ function laySupportedCorniceEndings(
         bottom: false,
       },
     );
-    builder.addBlock(
-      horizontalBlock(
-        record,
-        corniceX0,
-        corniceX1,
-        flightRect.minZ - terminalLength,
-        flightRect.minZ,
-        levels.upperBodyTop,
-        levels.upperCapY,
-      ),
-      {
-        // Its front is pressed against the parapet cornice.
-        sides: [false, true, true, true],
-        top: true,
-        bottom: true,
-      },
-    );
+    builder.withMaterial("trim", () => {
+      builder.addBlock(
+        horizontalBlock(
+          record,
+          corniceX0,
+          corniceX1,
+          flightRect.minZ - terminalLength,
+          flightRect.minZ,
+          levels.upperBodyTop,
+          levels.upperCapY,
+        ),
+        {
+          // Its front is pressed against the parapet cornice.
+          sides: [false, true, true, true],
+          top: true,
+          bottom: true,
+        },
+      );
+    });
   }
 }
 

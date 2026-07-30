@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import * as THREE from "three";
 import { finalizeGeometry } from "../src/geometry/finalize";
 import { mergeParts } from "../src/geometry/merge-parts";
+import { materialSlotIndex } from "../src/geometry/part";
 import { SolidBuilder } from "../src/geometry/solid-builder";
 import {
   StoneGeometryBuilder,
@@ -4248,7 +4249,14 @@ for (const axis of ["x", "y", "z"] as const) {
   );
 }
 assertMassNormals(merged.geometry, "stepped pyramid", pyramid);
-assert.equal(merged.geometry.groups.length, 1);
+assert.deepEqual(
+  merged.geometry.groups.map((group) => group.materialIndex),
+  [materialSlotIndex("stone"), materialSlotIndex("stairs")],
+);
+assert.equal(
+  merged.geometry.groups.reduce((sum, group) => sum + group.count, 0),
+  merged.geometry.getIndex()?.count,
+);
 assert.equal(merged.sections[MASS_SECTION]?.partCount, 1);
 
 // --- structure definition --------------------------------------------------

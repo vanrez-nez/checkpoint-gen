@@ -1,0 +1,593 @@
+{
+  "version": 4,
+  "nodes": [
+    {
+      "id": "pr",
+      "type": "shader-material",
+      "params": {
+        "materialType": "physical",
+        "roughness": 0.9
+      },
+      "position": {
+        "x": 2715,
+        "y": 816
+      },
+      "enabled": true
+    },
+    {
+      "id": "out",
+      "type": "material-output",
+      "params": {
+        "outputResolution": "2048"
+      },
+      "position": {
+        "x": 3163,
+        "y": 839
+      },
+      "enabled": true
+    },
+    {
+      "id": "tileable-noise-g9mxha",
+      "type": "tileable-noise",
+      "params": {
+        "noiseType": "perlin-fbm",
+        "preset": "none",
+        "scale": 1,
+        "aspect": 1,
+        "octaves": 3,
+        "gain": 0.5,
+        "lacunarity": 2,
+        "antialias": 1,
+        "gaborFreq": 2,
+        "gaborAniso": 1,
+        "gaborOrient": 0.785398,
+        "tileSize": "256"
+      },
+      "position": {
+        "x": 27,
+        "y": 12
+      },
+      "enabled": true,
+      "label": "Noise A"
+    },
+    {
+      "id": "tileable-noise-3ctnsn",
+      "type": "tileable-noise",
+      "params": {
+        "noiseType": "worley",
+        "preset": "none",
+        "scale": 52,
+        "aspect": 1,
+        "octaves": 6,
+        "gain": 0.9999999999999999,
+        "lacunarity": 2,
+        "antialias": 0,
+        "gaborFreq": 2,
+        "gaborAniso": 1,
+        "gaborOrient": 0.785398,
+        "tileSize": "512"
+      },
+      "position": {
+        "x": 27,
+        "y": 379
+      },
+      "enabled": true,
+      "label": "Noise B"
+    },
+    {
+      "id": "tileable-noise-kh7vwy",
+      "type": "tileable-noise",
+      "params": {
+        "noiseType": "voronoi-smooth",
+        "preset": "erosion",
+        "scale": 3,
+        "aspect": 1,
+        "octaves": 6,
+        "gain": 0.55,
+        "lacunarity": 2,
+        "antialias": 0.44999999999999996,
+        "gaborFreq": 2,
+        "gaborAniso": 1,
+        "gaborOrient": 0.785398,
+        "tileSize": "off"
+      },
+      "position": {
+        "x": 27,
+        "y": 746
+      },
+      "enabled": true,
+      "label": "breakup noise"
+    },
+    {
+      "id": "height-blend-ncmfwj",
+      "type": "height-blend",
+      "params": {
+        "transition": 0.49999999999999994,
+        "width": 1.0408340855860843e-17,
+        "breakup": 0.09999999999999999
+      },
+      "position": {
+        "x": 475,
+        "y": 322
+      },
+      "enabled": true,
+      "label": "Mask: A/B split"
+    },
+    {
+      "id": "color-ramp-m8x18k",
+      "type": "color-ramp",
+      "params": {
+        "colorA": "#181818",
+        "colorB": "#000000",
+        "low": 0,
+        "high": 0.65
+      },
+      "position": {
+        "x": 923,
+        "y": 389
+      },
+      "enabled": true,
+      "label": "(red)"
+    },
+    {
+      "id": "color-ramp-9i4kjm",
+      "type": "color-ramp",
+      "params": {
+        "colorA": "#292929",
+        "colorB": "#000000",
+        "low": 0.09999999999999998,
+        "high": 0.5
+      },
+      "position": {
+        "x": 923,
+        "y": 879
+      },
+      "enabled": true,
+      "label": "(blue)"
+    },
+    {
+      "id": "blend-kqxzkw",
+      "type": "blend",
+      "params": {
+        "mode": "mix",
+        "opacity": 0.88
+      },
+      "position": {
+        "x": 1371,
+        "y": 386
+      },
+      "enabled": true,
+      "label": "A/B blend"
+    },
+    {
+      "id": "tileable-noise-3j3mqj",
+      "type": "tileable-noise",
+      "params": {
+        "noiseType": "worley",
+        "preset": "none",
+        "scale": 2,
+        "aspect": 1,
+        "octaves": 5,
+        "gain": 1,
+        "lacunarity": 6,
+        "antialias": 0.03999999999999998,
+        "gaborFreq": 2,
+        "gaborAniso": 1,
+        "gaborOrient": 0.785398,
+        "tileSize": "512"
+      },
+      "position": {
+        "x": 475,
+        "y": 589
+      },
+      "enabled": true,
+      "label": "content noise A"
+    },
+    {
+      "id": "tileable-noise-zarj2f",
+      "type": "tileable-noise",
+      "params": {
+        "noiseType": "worley",
+        "preset": "none",
+        "scale": 1,
+        "aspect": 1,
+        "octaves": 8,
+        "gain": 1,
+        "lacunarity": 8,
+        "antialias": 0.01999999999999998,
+        "gaborFreq": 2,
+        "gaborAniso": 1,
+        "gaborOrient": 0.785398,
+        "tileSize": "512"
+      },
+      "position": {
+        "x": 475,
+        "y": 908
+      },
+      "enabled": true,
+      "label": "content noise B"
+    },
+    {
+      "id": "scatter-lsvrn8",
+      "type": "scatter",
+      "params": {
+        "density": 48,
+        "amount": 0.55,
+        "radius": 0.16999999999999998,
+        "sizeRandom": 0.9999999999999999,
+        "posRandom": 0.85,
+        "rotRandom": 1
+      },
+      "position": {
+        "x": 27,
+        "y": 1428
+      },
+      "enabled": true,
+      "label": "dirt scatter"
+    },
+    {
+      "id": "shape-28d9j5",
+      "type": "shape",
+      "params": {
+        "shape": "blob",
+        "sides": 6,
+        "irregularity": 0.7,
+        "dome": 0.2,
+        "edge": 0.002,
+        "tilt": 0.39,
+        "formRandom": 0.7,
+        "erode": 0,
+        "erodeTaps": "off"
+      },
+      "position": {
+        "x": 475,
+        "y": 1227
+      },
+      "enabled": true,
+      "label": "dirt clod"
+    },
+    {
+      "id": "levels-j3kdd1",
+      "type": "levels",
+      "params": {
+        "min": 0.28,
+        "max": 0.88,
+        "invert": false
+      },
+      "position": {
+        "x": 475,
+        "y": 1638
+      },
+      "enabled": true,
+      "label": "clod elevation"
+    },
+    {
+      "id": "math-4mm3j6",
+      "type": "math",
+      "params": {
+        "op": "multiply",
+        "factor": 0.46,
+        "c": 0.38
+      },
+      "position": {
+        "x": 923,
+        "y": 1226
+      },
+      "enabled": true,
+      "label": "clod × elevation"
+    },
+    {
+      "id": "math-y9j4yg",
+      "type": "math",
+      "params": {
+        "op": "multiply",
+        "factor": 0.09,
+        "c": 0.5
+      },
+      "position": {
+        "x": 1371,
+        "y": 1097
+      },
+      "enabled": true,
+      "label": "clod amplitude"
+    },
+    {
+      "id": "blend-rad26x",
+      "type": "blend",
+      "params": {
+        "mode": "mix",
+        "opacity": 1
+      },
+      "position": {
+        "x": 923,
+        "y": 636
+      },
+      "enabled": true,
+      "label": "A/B height blend"
+    },
+    {
+      "id": "levels-gmg09m",
+      "type": "levels",
+      "params": {
+        "min": 0.11,
+        "max": 0.2,
+        "invert": false
+      },
+      "position": {
+        "x": 1371,
+        "y": 629
+      },
+      "enabled": true,
+      "label": "soil amplitude"
+    },
+    {
+      "id": "math-gpkxry",
+      "type": "math",
+      "params": {
+        "op": "add",
+        "factor": 0.5,
+        "c": 0.5
+      },
+      "position": {
+        "x": 1819,
+        "y": 1062
+      },
+      "enabled": true,
+      "label": "master height"
+    },
+    {
+      "id": "normal-from-height-ecn31y",
+      "type": "normal-from-height",
+      "params": {
+        "strength": 0.4
+      },
+      "position": {
+        "x": 2267,
+        "y": 1003
+      },
+      "enabled": true
+    },
+    {
+      "id": "constant-color-snzykx",
+      "type": "constant-color",
+      "params": {
+        "color": "#2c3033"
+      },
+      "position": {
+        "x": 1371,
+        "y": 852
+      },
+      "enabled": true,
+      "label": "dirt grain color"
+    },
+    {
+      "id": "blend-q3wmxk",
+      "type": "blend",
+      "params": {
+        "mode": "mix",
+        "opacity": 0.28
+      },
+      "position": {
+        "x": 1819,
+        "y": 819
+      },
+      "enabled": true,
+      "label": "stamp grain color"
+    }
+  ],
+  "edges": [
+    {
+      "fromNode": "pr",
+      "fromOutput": "bsdf",
+      "toNode": "out",
+      "toInput": "surface"
+    },
+    {
+      "fromNode": "tileable-noise-g9mxha",
+      "fromOutput": "field",
+      "toNode": "height-blend-ncmfwj",
+      "toInput": "heightA"
+    },
+    {
+      "fromNode": "tileable-noise-3ctnsn",
+      "fromOutput": "field",
+      "toNode": "height-blend-ncmfwj",
+      "toInput": "heightB"
+    },
+    {
+      "fromNode": "height-blend-ncmfwj",
+      "fromOutput": "fac",
+      "toNode": "blend-kqxzkw",
+      "toInput": "mask"
+    },
+    {
+      "fromNode": "color-ramp-m8x18k",
+      "fromOutput": "color",
+      "toNode": "blend-kqxzkw",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "color-ramp-9i4kjm",
+      "fromOutput": "color",
+      "toNode": "blend-kqxzkw",
+      "toInput": "b"
+    },
+    {
+      "fromNode": "tileable-noise-3j3mqj",
+      "fromOutput": "field",
+      "toNode": "color-ramp-m8x18k",
+      "toInput": "field"
+    },
+    {
+      "fromNode": "tileable-noise-zarj2f",
+      "fromOutput": "field",
+      "toNode": "color-ramp-9i4kjm",
+      "toInput": "field"
+    },
+    {
+      "fromNode": "scatter-lsvrn8",
+      "fromOutput": "coord",
+      "toNode": "shape-28d9j5",
+      "toInput": "coord"
+    },
+    {
+      "fromNode": "scatter-lsvrn8",
+      "fromOutput": "value",
+      "toNode": "shape-28d9j5",
+      "toInput": "seed"
+    },
+    {
+      "fromNode": "scatter-lsvrn8",
+      "fromOutput": "value",
+      "toNode": "levels-j3kdd1",
+      "toInput": "field"
+    },
+    {
+      "fromNode": "shape-28d9j5",
+      "fromOutput": "height",
+      "toNode": "math-4mm3j6",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "levels-j3kdd1",
+      "fromOutput": "field",
+      "toNode": "math-4mm3j6",
+      "toInput": "b"
+    },
+    {
+      "fromNode": "math-4mm3j6",
+      "fromOutput": "field",
+      "toNode": "math-y9j4yg",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "tileable-noise-3j3mqj",
+      "fromOutput": "field",
+      "toNode": "blend-rad26x",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "tileable-noise-zarj2f",
+      "fromOutput": "field",
+      "toNode": "blend-rad26x",
+      "toInput": "b"
+    },
+    {
+      "fromNode": "height-blend-ncmfwj",
+      "fromOutput": "fac",
+      "toNode": "blend-rad26x",
+      "toInput": "mask"
+    },
+    {
+      "fromNode": "blend-rad26x",
+      "fromOutput": "color",
+      "toNode": "levels-gmg09m",
+      "toInput": "field"
+    },
+    {
+      "fromNode": "math-y9j4yg",
+      "fromOutput": "field",
+      "toNode": "math-gpkxry",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "levels-gmg09m",
+      "fromOutput": "field",
+      "toNode": "math-gpkxry",
+      "toInput": "b"
+    },
+    {
+      "fromNode": "math-gpkxry",
+      "fromOutput": "field",
+      "toNode": "pr",
+      "toInput": "height"
+    },
+    {
+      "fromNode": "math-gpkxry",
+      "fromOutput": "field",
+      "toNode": "normal-from-height-ecn31y",
+      "toInput": "height"
+    },
+    {
+      "fromNode": "normal-from-height-ecn31y",
+      "fromOutput": "normal",
+      "toNode": "pr",
+      "toInput": "normal"
+    },
+    {
+      "fromNode": "blend-kqxzkw",
+      "fromOutput": "color",
+      "toNode": "blend-q3wmxk",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "constant-color-snzykx",
+      "fromOutput": "color",
+      "toNode": "blend-q3wmxk",
+      "toInput": "b"
+    },
+    {
+      "fromNode": "math-4mm3j6",
+      "fromOutput": "field",
+      "toNode": "blend-q3wmxk",
+      "toInput": "mask"
+    },
+    {
+      "fromNode": "blend-q3wmxk",
+      "fromOutput": "color",
+      "toNode": "pr",
+      "toInput": "baseColor"
+    }
+  ],
+  "metadata": {
+    "title": "Dark Volcanic Stone"
+  },
+  "ui": {
+    "editor": {
+      "activeGroupPath": [],
+      "soloNode": null,
+      "view": {
+        "layoutArrangement": "right",
+        "transform": {
+          "x": 165.3303525787253,
+          "y": 202.30193067569405,
+          "k": 0.3754262136256479
+        }
+      }
+    },
+    "settings": {
+      "materialState": {
+        "debugNormals": false
+      },
+      "projectionState": {
+        "tiling": 1,
+        "triplanar": false,
+        "worldPerTile": 1.2,
+        "sharpness": 8,
+        "parallax": 0
+      },
+      "sceneState": {
+        "toneMapping": 4,
+        "exposure": 1,
+        "dirIntensity": 3,
+        "dirColor": "#ffffff",
+        "dirPosition": {
+          "x": 3,
+          "y": 4,
+          "z": 5
+        },
+        "ambIntensity": 0.35,
+        "ambColor": "#ffffff",
+        "envIntensity": 0.1,
+        "shadowSoftness": 4,
+        "shadowDarkness": 1
+      },
+      "rendererConfig": {
+        "antialias": false,
+        "samples": 8,
+        "pixelRatio": 2,
+        "transparentBg": false
+      }
+    }
+  }
+}

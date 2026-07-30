@@ -259,6 +259,10 @@ function collectFields(config: StructureConfig): HashField[] {
       case "offering":
         addFields(fields, "offering", config.offering, OFFERING_CONTROLS);
         break;
+      // Surface assignment changes rendering only. The geometry code is an
+      // exact reconstruction of generated geometry, not scene presentation.
+      case "materialPalette":
+        break;
     }
   }
 
@@ -317,6 +321,8 @@ function overwriteProp(
       return;
     case "offering":
       overwriteObject(target.offering, source.offering);
+      return;
+    case "materialPalette":
       return;
   }
 }

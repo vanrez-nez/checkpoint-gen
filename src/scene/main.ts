@@ -28,17 +28,27 @@ import type { StructureGraph } from "../structure/kernel/graph";
 import type { Diagnostic } from "../structure/kernel/validate";
 import type { StructureConfig } from "../config/structure-config";
 import {
+  cloneMaterialPalette,
+  materialDocumentUrl,
+  validateMaterialPalette,
+  type MaterialDocumentId,
+  type StructureMaterialPalette,
+} from "../config/material-palette";
+import {
   DEFAULT_VIEW_CONFIG,
   validateIlluminationConfig,
   type IlluminationConfig,
 } from "../config/sections";
 import {
+  MATERIAL_SLOTS,
   emptySectionStats,
   emptyPartStats,
   type CompositionAnchors,
   type PartSection,
   type PartStats,
+  type StructureSurfaceSlot,
 } from "../geometry/part";
+import { getStructure } from "../structure/registry";
 import { VertexConeFireBatch } from "../props/fire/vertex-cone";
 import { validateFireConfig, type FireConfig } from "../props/fire/config";
 import {
@@ -128,13 +138,29 @@ export class MainScene {
   private generationMs = 0;
   private currentOfferingStats: OfferingStats = emptyOfferingStats();
   private offeringConfig: OfferingConfig;
-  private stoneSurfaceMaterial: THREE.Material;
+  private activeMaterialPalette: StructureMaterialPalette;
+  private activeSurfaceSlots: ReadonlySet<StructureSurfaceSlot>;
+  private materialRenderer: WebGPURenderer | null = null;
+  private readonly structureMaterialRuntimes = new Map<
+    MaterialDocumentId,
+    MaterialGraphRuntime
+  >();
+  private readonly structureSurfaceMaterials = new Map<
+    MaterialDocumentId,
+    THREE.Material
+  >();
+  private readonly structureMaterialLoads = new Map<
+    MaterialDocumentId,
+    Promise<MaterialGraphRuntime>
+  >();
+  private readonly stopListeningForStructureMaterialRebuild = new Map<
+    MaterialDocumentId,
+    () => void
+  >();
   private ironSurfaceMaterial: THREE.Material;
   private offeringSurfaceMaterial: THREE.Material;
-  private stoneMaterialRuntime: MaterialGraphRuntime | null = null;
   private ironMaterialRuntime: MaterialGraphRuntime | null = null;
   private offeringMaterialRuntime: MaterialGraphRuntime | null = null;
-  private stopListeningForStoneRebuild: (() => void) | null = null;
   private stopListeningForIronRebuild: (() => void) | null = null;
   private stopListeningForOfferingRebuild: (() => void) | null = null;
   private materialScale: number;
@@ -213,7 +239,19 @@ export class MainScene {
       viewDistance,
     );
     this.wireframeMaterial.lineColorNode = mix(color(0xf0f0f0), color(0x2e2e29), fade);
-    this.stoneSurfaceMaterial = this.fallbackStoneMaterial;
+    const definition = getStructure(config.typeId);
+    const palette = config.materialPalettes[definition.id];
+
+    if (!palette) {
+      throw new Error(
+        `Missing material palette for structure "${definition.id}".`,
+      );
+    }
+
+    this.activeMaterialPalette = cloneMaterialPalette(palette);
+    this.activeSurfaceSlots = new Set(
+      definition.surfaceMaterialSlots ?? ["stone"],
+    );
     this.ironSurfaceMaterial = this.fallbackIronMaterial;
     this.offeringSurfaceMaterial = this.fallbackOfferingMaterial;
 
@@ -224,12 +262,15 @@ export class MainScene {
     this.totalStats = composition.totals;
     this.generationMs = composition.generationMs;
     this.applyGeometryAttributes(composition.geometry);
-    // Always both materials, so material group 1 stays addressable even on a
-    // build with no iron parts.
-    this.structure = new THREE.Mesh(composition.geometry, [
-      this.fallbackStoneMaterial,
-      this.fallbackIronMaterial,
-    ]);
+    // Every semantic slot remains addressable even when the current structure
+    // does not emit it. This keeps group indices stable across structure types.
+    this.structure = new THREE.Mesh(
+      composition.geometry,
+      MATERIAL_SLOTS.map((slot) =>
+        slot === "iron"
+          ? this.fallbackIronMaterial
+          : this.fallbackStoneMaterial),
+    );
     this.structure.name = "Structure";
     this.structure.castShadow = true;
     this.structure.receiveShadow = true;
@@ -257,18 +298,54 @@ export class MainScene {
     this.setIllumination(config.illumination);
   }
 
-  async loadStoneMaterial(
+  async loadStructureMaterialPalette(
     renderer: WebGPURenderer,
-    documentUrl: string,
+    palette: StructureMaterialPalette,
+    slots: readonly StructureSurfaceSlot[],
   ): Promise<void> {
-    const runtime = await this.loadMaterialRuntime(renderer, documentUrl, "Stone");
-    this.stopListeningForStoneRebuild?.();
-    this.stoneMaterialRuntime?.dispose();
-    this.stoneMaterialRuntime = runtime;
-    this.useStoneRuntimeMaterial(runtime);
-    this.stopListeningForStoneRebuild = runtime.surface.onRebuilt(() => {
-      this.useStoneRuntimeMaterial(runtime);
+    this.materialRenderer = renderer;
+    await this.setStructureMaterialPalette(palette, slots);
+  }
+
+  /**
+   * Changes semantic surface assignments without rebuilding geometry.
+   *
+   * Material documents are cached by id and loaded only when an active slot
+   * selects them. A failed document falls back independently, so one bad layer
+   * cannot blank the entire structure.
+   */
+  async setStructureMaterialPalette(
+    palette: StructureMaterialPalette,
+    slots: readonly StructureSurfaceSlot[],
+  ): Promise<void> {
+    validateMaterialPalette(palette);
+    this.activeMaterialPalette = cloneMaterialPalette(palette);
+    this.activeSurfaceSlots = new Set(slots);
+    this.refreshStructureMaterials();
+
+    const renderer = this.materialRenderer;
+
+    if (!renderer) {
+      return;
+    }
+
+    const ids = new Set(
+      slots.map((slot) => this.activeMaterialPalette[slot]),
+    );
+    const results = await Promise.allSettled(
+      [...ids].map((id) => this.ensureStructureMaterialRuntime(renderer, id)),
+    );
+
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        const id = [...ids][index] ?? "unknown";
+        console.error(
+          `Structure material "${id}" failed to load; using the fallback material.`,
+          result.reason,
+        );
+      }
     });
+    this.refreshStructureMaterials();
   }
 
   async loadIronMaterial(
@@ -462,8 +539,14 @@ export class MainScene {
   }
 
   setMaterialScale(scale: number): void {
+    if (Object.is(this.materialScale, scale)) {
+      return;
+    }
+
     this.materialScale = scale;
-    this.stoneMaterialRuntime?.surface.setScale(scale);
+    for (const runtime of this.structureMaterialRuntimes.values()) {
+      runtime.surface.setScale(scale);
+    }
     this.ironMaterialRuntime?.surface.setScale(scale);
     this.applyMaterialScale(this.structure.geometry);
   }
@@ -579,14 +662,20 @@ export class MainScene {
   }
 
   dispose(): void {
-    this.stopListeningForStoneRebuild?.();
-    this.stopListeningForStoneRebuild = null;
+    for (const stopListening of this.stopListeningForStructureMaterialRebuild.values()) {
+      stopListening();
+    }
+    this.stopListeningForStructureMaterialRebuild.clear();
     this.stopListeningForIronRebuild?.();
     this.stopListeningForIronRebuild = null;
     this.stopListeningForOfferingRebuild?.();
     this.stopListeningForOfferingRebuild = null;
-    this.stoneMaterialRuntime?.dispose();
-    this.stoneMaterialRuntime = null;
+    for (const runtime of this.structureMaterialRuntimes.values()) {
+      runtime.dispose();
+    }
+    this.structureMaterialRuntimes.clear();
+    this.structureSurfaceMaterials.clear();
+    this.structureMaterialLoads.clear();
     this.ironMaterialRuntime?.dispose();
     this.ironMaterialRuntime = null;
     this.offeringMaterialRuntime?.dispose();
@@ -678,14 +767,6 @@ export class MainScene {
     attribute.needsUpdate = true;
   }
 
-  private useStoneRuntimeMaterial(runtime: MaterialGraphRuntime): void {
-    const material = runtime.getNodeMaterial();
-    material.vertexColors = true;
-    material.needsUpdate = true;
-    this.stoneSurfaceMaterial = material;
-    this.refreshStructureMaterials();
-  }
-
   private useIronRuntimeMaterial(runtime: MaterialGraphRuntime): void {
     const material = runtime.getNodeMaterial();
     material.vertexColors = true;
@@ -703,9 +784,22 @@ export class MainScene {
   }
 
   private refreshStructureMaterials(): void {
+    const materials = MATERIAL_SLOTS.map((slot): THREE.Material => {
+      if (slot === "iron") {
+        return this.ironSurfaceMaterial;
+      }
+      if (!this.activeSurfaceSlots.has(slot)) {
+        return this.fallbackStoneMaterial;
+      }
+
+      return this.structureSurfaceMaterials.get(
+        this.activeMaterialPalette[slot],
+      ) ?? this.fallbackStoneMaterial;
+    });
+
     this.structure.material = this.greyboxEnabled
-      ? [this.greyboxMaterial, this.greyboxMaterial]
-      : [this.stoneSurfaceMaterial, this.ironSurfaceMaterial];
+      ? MATERIAL_SLOTS.map(() => this.greyboxMaterial)
+      : materials;
   }
 
   private rebuildPatchOverlay(): void {
@@ -758,6 +852,54 @@ export class MainScene {
     }
 
     return runtime;
+  }
+
+  private ensureStructureMaterialRuntime(
+    renderer: WebGPURenderer,
+    id: MaterialDocumentId,
+  ): Promise<MaterialGraphRuntime> {
+    const cached = this.structureMaterialRuntimes.get(id);
+
+    if (cached) {
+      return Promise.resolve(cached);
+    }
+
+    const pending = this.structureMaterialLoads.get(id);
+
+    if (pending) {
+      return pending;
+    }
+
+    const load = this.loadMaterialRuntime(
+      renderer,
+      materialDocumentUrl(id),
+      id,
+    ).then((runtime) => {
+      this.structureMaterialRuntimes.set(id, runtime);
+      this.useStructureRuntimeMaterial(id, runtime);
+      this.stopListeningForStructureMaterialRebuild.set(
+        id,
+        runtime.surface.onRebuilt(() =>
+          this.useStructureRuntimeMaterial(id, runtime)),
+      );
+      return runtime;
+    }).finally(() => {
+      this.structureMaterialLoads.delete(id);
+    });
+
+    this.structureMaterialLoads.set(id, load);
+    return load;
+  }
+
+  private useStructureRuntimeMaterial(
+    id: MaterialDocumentId,
+    runtime: MaterialGraphRuntime,
+  ): void {
+    const material = runtime.getNodeMaterial();
+    material.vertexColors = true;
+    material.needsUpdate = true;
+    this.structureSurfaceMaterials.set(id, material);
+    this.refreshStructureMaterials();
   }
 
   private ensureWireframe(): Wireframe {

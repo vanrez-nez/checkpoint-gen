@@ -1,0 +1,584 @@
+{
+  "version": 4,
+  "nodes": [
+    {
+      "id": "pr",
+      "type": "shader-material",
+      "params": {
+        "materialType": "physical",
+        "roughness": 0.9
+      },
+      "position": {
+        "x": 2715,
+        "y": 608
+      },
+      "enabled": true
+    },
+    {
+      "id": "out",
+      "type": "material-output",
+      "params": {
+        "outputResolution": "2048"
+      },
+      "position": {
+        "x": 3163,
+        "y": 631
+      },
+      "enabled": true
+    },
+    {
+      "id": "tileable-noise-mpns6d",
+      "type": "tileable-noise",
+      "params": {
+        "noiseType": "value",
+        "preset": "none",
+        "scale": 49,
+        "aspect": 1,
+        "octaves": 4,
+        "gain": 1,
+        "lacunarity": 5,
+        "antialias": 1,
+        "gaborFreq": 2,
+        "gaborAniso": 1,
+        "gaborOrient": 0.785398,
+        "tileSize": "off"
+      },
+      "position": {
+        "x": 27,
+        "y": 1136
+      },
+      "enabled": true,
+      "label": "Mask noise 1"
+    },
+    {
+      "id": "tileable-noise-pdlspp",
+      "type": "tileable-noise",
+      "params": {
+        "noiseType": "perlin-fbm",
+        "preset": "none",
+        "scale": 62,
+        "aspect": 1,
+        "octaves": 4,
+        "gain": 0.5,
+        "lacunarity": 2,
+        "antialias": 1,
+        "gaborFreq": 2,
+        "gaborAniso": 1,
+        "gaborOrient": 0.785398,
+        "tileSize": "512"
+      },
+      "position": {
+        "x": 27,
+        "y": 769
+      },
+      "enabled": true,
+      "label": "Mask noise 2"
+    },
+    {
+      "id": "tileable-noise-porp79",
+      "type": "tileable-noise",
+      "params": {
+        "noiseType": "value",
+        "preset": "none",
+        "scale": 68,
+        "aspect": 1,
+        "octaves": 5,
+        "gain": 0.49,
+        "lacunarity": 7,
+        "antialias": 1,
+        "gaborFreq": 2,
+        "gaborAniso": 1,
+        "gaborOrient": 0.785398,
+        "tileSize": "512"
+      },
+      "position": {
+        "x": 27,
+        "y": 1479
+      },
+      "enabled": true,
+      "label": "Mask noise 3 · breakup"
+    },
+    {
+      "id": "height-blend-38jljs",
+      "type": "height-blend",
+      "params": {
+        "transition": 0.5,
+        "width": 0,
+        "breakup": 1
+      },
+      "position": {
+        "x": 475,
+        "y": 602
+      },
+      "enabled": true
+    },
+    {
+      "id": "height-blend-fcecis",
+      "type": "height-blend",
+      "params": {
+        "transition": 0.23000000000000004,
+        "width": 0.43,
+        "breakup": 0.78
+      },
+      "position": {
+        "x": 475,
+        "y": 1188
+      },
+      "enabled": true
+    },
+    {
+      "id": "tileable-noise-2bhkz9",
+      "type": "tileable-noise",
+      "params": {
+        "noiseType": "value",
+        "preset": "none",
+        "scale": 96,
+        "aspect": 1,
+        "octaves": 4,
+        "gain": 0.5,
+        "lacunarity": 2,
+        "antialias": 0.1,
+        "gaborFreq": 2,
+        "gaborAniso": 1,
+        "gaborOrient": 0.785398,
+        "tileSize": "off"
+      },
+      "position": {
+        "x": 27,
+        "y": 83
+      },
+      "enabled": true
+    },
+    {
+      "id": "tileable-noise-4bynpv",
+      "type": "tileable-noise",
+      "params": {
+        "noiseType": "value",
+        "preset": "none",
+        "scale": 75,
+        "aspect": 1,
+        "octaves": 3,
+        "gain": 0.91,
+        "lacunarity": 2,
+        "antialias": 0.1,
+        "gaborFreq": 2,
+        "gaborAniso": 1,
+        "gaborOrient": 0.785398,
+        "tileSize": "512"
+      },
+      "position": {
+        "x": 27,
+        "y": 426
+      },
+      "enabled": true
+    },
+    {
+      "id": "tileable-noise-9n2uxl",
+      "type": "tileable-noise",
+      "params": {
+        "noiseType": "worley",
+        "preset": "none",
+        "scale": 58,
+        "aspect": 1,
+        "octaves": 4,
+        "gain": 0.5,
+        "lacunarity": 2,
+        "antialias": 0.1,
+        "gaborFreq": 2,
+        "gaborAniso": 1,
+        "gaborOrient": 0.785398,
+        "tileSize": "off"
+      },
+      "position": {
+        "x": 475,
+        "y": 869
+      },
+      "enabled": true
+    },
+    {
+      "id": "color-ramp-xgxuh4",
+      "type": "color-ramp",
+      "params": {
+        "colorA": "#1d1b17",
+        "colorB": "#5b5548",
+        "low": 0.32,
+        "high": 0.78
+      },
+      "position": {
+        "x": 475,
+        "y": 12
+      },
+      "enabled": true
+    },
+    {
+      "id": "color-ramp-ottmxy",
+      "type": "color-ramp",
+      "params": {
+        "colorA": "#2a271f",
+        "colorB": "#6e6553",
+        "low": 0.34,
+        "high": 0.7000000000000001
+      },
+      "position": {
+        "x": 475,
+        "y": 355
+      },
+      "enabled": true
+    },
+    {
+      "id": "color-ramp-cs7obt",
+      "type": "color-ramp",
+      "params": {
+        "colorA": "#1f2118",
+        "colorB": "#43462f",
+        "low": 0.5800000000000001,
+        "high": 0.92
+      },
+      "position": {
+        "x": 923,
+        "y": 798
+      },
+      "enabled": true
+    },
+    {
+      "id": "blend-mmccvg",
+      "type": "blend",
+      "params": {
+        "mode": "mix",
+        "opacity": 1
+      },
+      "position": {
+        "x": 923,
+        "y": 535
+      },
+      "enabled": true
+    },
+    {
+      "id": "blend-fap969",
+      "type": "blend",
+      "params": {
+        "mode": "mix",
+        "opacity": 1
+      },
+      "position": {
+        "x": 1371,
+        "y": 765
+      },
+      "enabled": true
+    },
+    {
+      "id": "luminance-i2632m",
+      "type": "luminance",
+      "params": {},
+      "position": {
+        "x": 1819,
+        "y": 794
+      },
+      "enabled": true,
+      "label": "Height composite → float"
+    },
+    {
+      "id": "normal-from-height-j10f82",
+      "type": "normal-from-height",
+      "params": {
+        "strength": 0.029999999999999992
+      },
+      "position": {
+        "x": 2213.8767968630514,
+        "y": 787.8761533349663
+      },
+      "enabled": true
+    },
+    {
+      "id": "blend-g4qwr4",
+      "type": "blend",
+      "params": {
+        "mode": "mix",
+        "opacity": 0.52
+      },
+      "position": {
+        "x": 923,
+        "y": 1300
+      },
+      "enabled": true,
+      "label": "Height · layer 1|2"
+    },
+    {
+      "id": "blend-vrlpa3",
+      "type": "blend",
+      "params": {
+        "mode": "mix",
+        "opacity": 0.72
+      },
+      "position": {
+        "x": 1371,
+        "y": 1300
+      },
+      "enabled": true,
+      "label": "Height · +layer 3"
+    },
+    {
+      "id": "levels-c5zq3o",
+      "type": "levels",
+      "params": {
+        "min": 0.020000000000000014,
+        "max": 0.36,
+        "invert": false
+      },
+      "position": {
+        "x": 1819,
+        "y": 1250
+      },
+      "enabled": true,
+      "label": "AO from height"
+    },
+    {
+      "id": "levels-1k4iys",
+      "type": "levels",
+      "params": {
+        "min": 0.8499999999999999,
+        "max": 1,
+        "invert": false
+      },
+      "position": {
+        "x": 1819,
+        "y": 1450
+      },
+      "enabled": true,
+      "label": "Roughness from height"
+    }
+  ],
+  "edges": [
+    {
+      "fromNode": "pr",
+      "fromOutput": "bsdf",
+      "toNode": "out",
+      "toInput": "surface"
+    },
+    {
+      "fromNode": "tileable-noise-mpns6d",
+      "fromOutput": "field",
+      "toNode": "height-blend-38jljs",
+      "toInput": "heightA"
+    },
+    {
+      "fromNode": "tileable-noise-pdlspp",
+      "fromOutput": "field",
+      "toNode": "height-blend-38jljs",
+      "toInput": "heightB"
+    },
+    {
+      "fromNode": "tileable-noise-porp79",
+      "fromOutput": "field",
+      "toNode": "height-blend-38jljs",
+      "toInput": "breakup"
+    },
+    {
+      "fromNode": "tileable-noise-pdlspp",
+      "fromOutput": "field",
+      "toNode": "height-blend-fcecis",
+      "toInput": "heightA"
+    },
+    {
+      "fromNode": "tileable-noise-porp79",
+      "fromOutput": "field",
+      "toNode": "height-blend-fcecis",
+      "toInput": "heightB"
+    },
+    {
+      "fromNode": "tileable-noise-mpns6d",
+      "fromOutput": "field",
+      "toNode": "height-blend-fcecis",
+      "toInput": "breakup"
+    },
+    {
+      "fromNode": "tileable-noise-2bhkz9",
+      "fromOutput": "field",
+      "toNode": "color-ramp-xgxuh4",
+      "toInput": "field"
+    },
+    {
+      "fromNode": "tileable-noise-4bynpv",
+      "fromOutput": "field",
+      "toNode": "color-ramp-ottmxy",
+      "toInput": "field"
+    },
+    {
+      "fromNode": "tileable-noise-9n2uxl",
+      "fromOutput": "field",
+      "toNode": "color-ramp-cs7obt",
+      "toInput": "field"
+    },
+    {
+      "fromNode": "color-ramp-xgxuh4",
+      "fromOutput": "color",
+      "toNode": "blend-mmccvg",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "color-ramp-ottmxy",
+      "fromOutput": "color",
+      "toNode": "blend-mmccvg",
+      "toInput": "b"
+    },
+    {
+      "fromNode": "height-blend-38jljs",
+      "fromOutput": "fac",
+      "toNode": "blend-mmccvg",
+      "toInput": "mask"
+    },
+    {
+      "fromNode": "blend-mmccvg",
+      "fromOutput": "color",
+      "toNode": "blend-fap969",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "color-ramp-cs7obt",
+      "fromOutput": "color",
+      "toNode": "blend-fap969",
+      "toInput": "b"
+    },
+    {
+      "fromNode": "height-blend-fcecis",
+      "fromOutput": "fac",
+      "toNode": "blend-fap969",
+      "toInput": "mask"
+    },
+    {
+      "fromNode": "blend-fap969",
+      "fromOutput": "color",
+      "toNode": "pr",
+      "toInput": "baseColor"
+    },
+    {
+      "fromNode": "luminance-i2632m",
+      "fromOutput": "field",
+      "toNode": "normal-from-height-j10f82",
+      "toInput": "height"
+    },
+    {
+      "fromNode": "normal-from-height-j10f82",
+      "fromOutput": "normal",
+      "toNode": "pr",
+      "toInput": "normal"
+    },
+    {
+      "fromNode": "tileable-noise-2bhkz9",
+      "fromOutput": "field",
+      "toNode": "blend-g4qwr4",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "tileable-noise-4bynpv",
+      "fromOutput": "field",
+      "toNode": "blend-g4qwr4",
+      "toInput": "b"
+    },
+    {
+      "fromNode": "height-blend-38jljs",
+      "fromOutput": "fac",
+      "toNode": "blend-g4qwr4",
+      "toInput": "mask"
+    },
+    {
+      "fromNode": "blend-g4qwr4",
+      "fromOutput": "color",
+      "toNode": "blend-vrlpa3",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "tileable-noise-9n2uxl",
+      "fromOutput": "field",
+      "toNode": "blend-vrlpa3",
+      "toInput": "b"
+    },
+    {
+      "fromNode": "height-blend-fcecis",
+      "fromOutput": "fac",
+      "toNode": "blend-vrlpa3",
+      "toInput": "mask"
+    },
+    {
+      "fromNode": "blend-vrlpa3",
+      "fromOutput": "color",
+      "toNode": "luminance-i2632m",
+      "toInput": "color"
+    },
+    {
+      "fromNode": "luminance-i2632m",
+      "fromOutput": "field",
+      "toNode": "levels-c5zq3o",
+      "toInput": "field"
+    },
+    {
+      "fromNode": "luminance-i2632m",
+      "fromOutput": "field",
+      "toNode": "levels-1k4iys",
+      "toInput": "field"
+    },
+    {
+      "fromNode": "levels-c5zq3o",
+      "fromOutput": "field",
+      "toNode": "pr",
+      "toInput": "ambientOcclusion"
+    },
+    {
+      "fromNode": "levels-1k4iys",
+      "fromOutput": "field",
+      "toNode": "pr",
+      "toInput": "roughness"
+    }
+  ],
+  "metadata": {
+    "title": "Flamed Basalt"
+  },
+  "ui": {
+    "editor": {
+      "activeGroupPath": [],
+      "soloNode": null,
+      "view": {
+        "layoutArrangement": "right",
+        "transform": {
+          "x": -2144.562223237559,
+          "y": -274.55266587868437,
+          "k": 0.9280258270658104
+        }
+      }
+    },
+    "settings": {
+      "materialState": {
+        "debugNormals": false
+      },
+      "projectionState": {
+        "tiling": 1,
+        "triplanar": false,
+        "worldPerTile": 1.2,
+        "sharpness": 8,
+        "parallax": 0
+      },
+      "sceneState": {
+        "toneMapping": 4,
+        "exposure": 1,
+        "dirIntensity": 1.5999999999999999,
+        "dirColor": "#cfe0ff",
+        "dirPosition": {
+          "x": 2,
+          "y": 6,
+          "z": 3
+        },
+        "ambIntensity": 0.6,
+        "ambColor": "#2a3240",
+        "envIntensity": 0.35000000000000003,
+        "shadowSoftness": 12,
+        "shadowDarkness": 0.6
+      },
+      "rendererConfig": {
+        "antialias": false,
+        "samples": 8,
+        "pixelRatio": 2,
+        "transparentBg": false
+      }
+    }
+  }
+}

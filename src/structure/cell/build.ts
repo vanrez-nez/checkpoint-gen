@@ -66,6 +66,29 @@ export function faceIsCoveredByCellWall(
     .some((panel) => face.every((point) => pointInsideRect(point, panel.rect)));
 }
 
+/** True for an upward support face wholly owned by a room or threshold floor. */
+export function faceIsCellInteriorFloor(
+  face: readonly { readonly x: number; readonly y: number; readonly z: number }[],
+  cell: CellRecord,
+): boolean {
+  if (
+    face.length !== 4
+    || face.some((point) => Math.abs(point.y - cell.bottomY) > EPS)
+    || faceNormalY(face) < 0.99
+  ) {
+    return false;
+  }
+
+  const floors = [
+    ...cell.rooms.map((room) => room.footprint),
+    ...cell.openings.map((opening) => opening.threshold),
+    ...cell.connections.map((connection) => connection.threshold),
+  ];
+
+  return floors.some((floor) =>
+    face.every((point) => pointInsideRect(point, floor)));
+}
+
 /**
  * Exposed support surface when bare massing is used: outside the chamber,
  * inside the room, and through the portal threshold. The wall ring itself is
@@ -79,16 +102,18 @@ export function addBareCellFloorSurface(
 ): void {
   addHorizontalRing(builder, surface, cell.footprint, y);
 
-  for (const room of cell.rooms) {
-    addHorizontalRect(builder, room.footprint, y);
-  }
+  builder.withMaterial("interior", () => {
+    for (const room of cell.rooms) {
+      addHorizontalRect(builder, room.footprint, y);
+    }
 
-  for (const portal of cell.openings) {
-    addHorizontalRect(builder, portal.threshold, y);
-  }
-  for (const connection of cell.connections) {
-    addHorizontalRect(builder, connection.threshold, y);
-  }
+    for (const portal of cell.openings) {
+      addHorizontalRect(builder, portal.threshold, y);
+    }
+    for (const connection of cell.connections) {
+      addHorizontalRect(builder, connection.threshold, y);
+    }
+  });
 }
 
 function cellPanels(cell: CellRecord): CellPanel[] {

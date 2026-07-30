@@ -9,6 +9,7 @@ import {
 } from "./config/structure-hash";
 import { MainScene } from "./scene/main";
 import { createControlPane } from "./ui/create-pane";
+import { getStructure } from "./structure/registry";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -46,17 +47,20 @@ controls.enableDamping = true;
 
 const mainScene = new MainScene(config);
 
-try {
-  await mainScene.loadStoneMaterial(
-    renderer,
-    `${import.meta.env.BASE_URL}materials/stone.json`,
-  );
-} catch (error) {
-  console.error(
-    "Stone material failed to load; using the fallback material.",
-    error,
+const activeDefinition = getStructure(config.typeId);
+const activePalette = config.materialPalettes[activeDefinition.id];
+
+if (!activePalette) {
+  throw new Error(
+    `Missing material palette for structure "${activeDefinition.id}".`,
   );
 }
+
+await mainScene.loadStructureMaterialPalette(
+  renderer,
+  activePalette,
+  activeDefinition.surfaceMaterialSlots ?? ["stone"],
+);
 
 try {
   await mainScene.loadIronMaterial(

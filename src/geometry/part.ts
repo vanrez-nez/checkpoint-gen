@@ -5,9 +5,29 @@ import * as THREE from "three";
  * `materialIndex` of the merged geometry's draw group and the index into the
  * mesh's material array, so the order here is load-bearing.
  */
-export const MATERIAL_SLOTS = ["stone", "iron"] as const;
+export const STRUCTURE_SURFACE_SLOTS = [
+  "stone",
+  "trim",
+  "stairs",
+  "summit",
+  "interior",
+  "roof",
+] as const;
+
+export const MATERIAL_SLOTS = [...STRUCTURE_SURFACE_SLOTS, "iron"] as const;
 
 export type MaterialSlot = (typeof MATERIAL_SLOTS)[number];
+export type StructureSurfaceSlot = (typeof STRUCTURE_SURFACE_SLOTS)[number];
+
+export function materialSlotIndex(slot: MaterialSlot): number {
+  const index = MATERIAL_SLOTS.indexOf(slot);
+
+  if (index < 0) {
+    throw new RangeError(`Unknown material slot "${slot}".`);
+  }
+
+  return index;
+}
 
 /**
  * Rebuild granularity. A type emits parts tagged by section so the composer can

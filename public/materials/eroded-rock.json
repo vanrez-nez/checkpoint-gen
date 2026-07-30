@@ -1,0 +1,552 @@
+{
+  "version": 4,
+  "nodes": [
+    {
+      "id": "pr",
+      "type": "shader-material",
+      "params": {
+        "materialType": "physical",
+        "baseColor": "#000000",
+        "roughness": 0.88,
+        "metallic": 0,
+        "ior": 1.46,
+        "coat": 0,
+        "sheen": 0
+      },
+      "position": {
+        "x": 3163,
+        "y": 676
+      },
+      "enabled": true
+    },
+    {
+      "id": "out",
+      "type": "material-output",
+      "params": {
+        "outputResolution": "1024"
+      },
+      "position": {
+        "x": 3611,
+        "y": 699
+      },
+      "enabled": true
+    },
+    {
+      "id": "tileable-noise-q3cf70",
+      "type": "tileable-noise",
+      "params": {
+        "noiseType": "value",
+        "preset": "none",
+        "scale": 10,
+        "aspect": 1,
+        "octaves": 6,
+        "gain": 0.41000000000000003,
+        "lacunarity": 2,
+        "antialias": 0.8,
+        "gaborFreq": 2,
+        "gaborAniso": 1,
+        "gaborOrient": 0.785398,
+        "tileSize": "off"
+      },
+      "position": {
+        "x": 27,
+        "y": 757
+      },
+      "enabled": true,
+      "label": "Macro Rock Masses"
+    },
+    {
+      "id": "tileable-noise-n25myx",
+      "type": "tileable-noise",
+      "params": {
+        "noiseType": "perlin-fbm",
+        "preset": "none",
+        "scale": 8,
+        "aspect": 1,
+        "octaves": 4,
+        "gain": 0.48,
+        "lacunarity": 2,
+        "antialias": 1,
+        "gaborFreq": 2,
+        "gaborAniso": 1,
+        "gaborOrient": 0.785398,
+        "tileSize": "off"
+      },
+      "position": {
+        "x": 27,
+        "y": 390
+      },
+      "enabled": true,
+      "label": "Mid-Scale Mineral Breakup"
+    },
+    {
+      "id": "tileable-noise-j1r8ee",
+      "type": "tileable-noise",
+      "params": {
+        "noiseType": "perlin-fbm",
+        "preset": "stone",
+        "scale": 7,
+        "aspect": 1,
+        "octaves": 6,
+        "gain": 0.27,
+        "lacunarity": 3,
+        "antialias": 0.24999999999999994,
+        "gaborFreq": 2,
+        "gaborAniso": 1,
+        "gaborOrient": 0.785398,
+        "tileSize": "512"
+      },
+      "position": {
+        "x": 475,
+        "y": 947
+      },
+      "enabled": true,
+      "label": "Subtle Erosion Detail"
+    },
+    {
+      "id": "color-ramp-aquz9a",
+      "type": "color-ramp",
+      "params": {
+        "colorA": "#000000",
+        "colorB": "#020202",
+        "low": 0,
+        "high": 1
+      },
+      "position": {
+        "x": 475,
+        "y": 12
+      },
+      "enabled": true,
+      "label": "Cold Stone Base"
+    },
+    {
+      "id": "color-ramp-mh3tzz",
+      "type": "color-ramp",
+      "params": {
+        "colorA": "#000000",
+        "colorB": "#1c1e1f",
+        "low": 0,
+        "high": 1
+      },
+      "position": {
+        "x": 475,
+        "y": 259
+      },
+      "enabled": true,
+      "label": "Mineral Variation"
+    },
+    {
+      "id": "blend-7km53j",
+      "type": "blend",
+      "params": {
+        "mode": "mix",
+        "opacity": 0.64
+      },
+      "position": {
+        "x": 923,
+        "y": 323
+      },
+      "enabled": true,
+      "label": "Natural Rock Albedo"
+    },
+    {
+      "id": "math-4brnl5",
+      "type": "math",
+      "params": {
+        "op": "multiply",
+        "factor": 1,
+        "c": 0.5
+      },
+      "position": {
+        "x": 475,
+        "y": 457
+      },
+      "enabled": true,
+      "label": "Macro Height Weight"
+    },
+    {
+      "id": "math-v2almm",
+      "type": "math",
+      "params": {
+        "op": "multiply",
+        "factor": 0.15,
+        "c": 0.5
+      },
+      "position": {
+        "x": 475,
+        "y": 702
+      },
+      "enabled": true,
+      "label": "Mid Height Weight"
+    },
+    {
+      "id": "math-8ca58y",
+      "type": "math",
+      "params": {
+        "op": "multiply",
+        "factor": 0.21,
+        "c": 0.22999999999999998
+      },
+      "position": {
+        "x": 923,
+        "y": 912
+      },
+      "enabled": true,
+      "label": "Erosion Height Weight"
+    },
+    {
+      "id": "math-f8yv3h",
+      "type": "math",
+      "params": {
+        "op": "add",
+        "factor": 0.5,
+        "c": 0.5
+      },
+      "position": {
+        "x": 923,
+        "y": 633
+      },
+      "enabled": true,
+      "label": "Macro + Mid Height"
+    },
+    {
+      "id": "math-q5uero",
+      "type": "math",
+      "params": {
+        "op": "add",
+        "factor": 0.5,
+        "c": 0.5
+      },
+      "position": {
+        "x": 1371,
+        "y": 598
+      },
+      "enabled": true,
+      "label": "Complete Height Field"
+    },
+    {
+      "id": "clamp-im1hsb",
+      "type": "clamp",
+      "params": {
+        "mode": "minmax",
+        "min": -1.8,
+        "max": 10
+      },
+      "position": {
+        "x": 1819,
+        "y": 575
+      },
+      "enabled": true,
+      "label": "Height Safety Clamp"
+    },
+    {
+      "id": "normal-from-height-ij0twd",
+      "type": "normal-from-height",
+      "params": {
+        "strength": 0.15
+      },
+      "position": {
+        "x": 2715,
+        "y": 576
+      },
+      "enabled": true,
+      "label": "Subtle Rock Normal"
+    },
+    {
+      "id": "levels-auhy1m",
+      "type": "levels",
+      "params": {
+        "min": 0.36,
+        "max": 0.53,
+        "invert": false
+      },
+      "position": {
+        "x": 1371,
+        "y": 971
+      },
+      "enabled": true,
+      "label": "Subtle Cavity AO"
+    },
+    {
+      "id": "math-4x9x4f",
+      "type": "math",
+      "params": {
+        "op": "multiply",
+        "factor": 0.5800000000000001,
+        "c": 0.5
+      },
+      "position": {
+        "x": 1819,
+        "y": 842
+      },
+      "enabled": true,
+      "label": "Albedo Height Imprint Strength"
+    },
+    {
+      "id": "color-ramp-apywx8",
+      "type": "color-ramp",
+      "params": {
+        "colorA": "#060708",
+        "colorB": "#161718",
+        "low": 1.0408340855860843e-17,
+        "high": 0.9999999999999999
+      },
+      "position": {
+        "x": 2267,
+        "y": 444
+      },
+      "enabled": true,
+      "label": "Height Detail Pigment"
+    },
+    {
+      "id": "blend-6ztj3u",
+      "type": "blend",
+      "params": {
+        "mode": "screen",
+        "opacity": 0.38
+      },
+      "position": {
+        "x": 2715,
+        "y": 333
+      },
+      "enabled": true,
+      "label": "Albedo + Structural Detail"
+    },
+    {
+      "id": "color-ramp-m0z6ti",
+      "type": "color-ramp",
+      "params": {
+        "colorA": "#ffffff",
+        "colorB": "#aea9a9",
+        "low": 0.16,
+        "high": 0.9999999999999999
+      },
+      "position": {
+        "x": 2267,
+        "y": 1038
+      },
+      "enabled": true,
+      "label": "Structural Roughness Ramp"
+    },
+    {
+      "id": "luminance-uhyq7g",
+      "type": "luminance",
+      "params": {},
+      "position": {
+        "x": 2715,
+        "y": 1067
+      },
+      "enabled": true,
+      "label": "Roughness Field"
+    }
+  ],
+  "edges": [
+    {
+      "fromNode": "pr",
+      "fromOutput": "bsdf",
+      "toNode": "out",
+      "toInput": "surface"
+    },
+    {
+      "fromNode": "tileable-noise-q3cf70",
+      "fromOutput": "field",
+      "toNode": "color-ramp-aquz9a",
+      "toInput": "field"
+    },
+    {
+      "fromNode": "tileable-noise-n25myx",
+      "fromOutput": "field",
+      "toNode": "color-ramp-mh3tzz",
+      "toInput": "field"
+    },
+    {
+      "fromNode": "color-ramp-aquz9a",
+      "fromOutput": "color",
+      "toNode": "blend-7km53j",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "color-ramp-mh3tzz",
+      "fromOutput": "color",
+      "toNode": "blend-7km53j",
+      "toInput": "b"
+    },
+    {
+      "fromNode": "tileable-noise-n25myx",
+      "fromOutput": "field",
+      "toNode": "blend-7km53j",
+      "toInput": "mask"
+    },
+    {
+      "fromNode": "tileable-noise-q3cf70",
+      "fromOutput": "field",
+      "toNode": "math-4brnl5",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "tileable-noise-n25myx",
+      "fromOutput": "field",
+      "toNode": "math-v2almm",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "tileable-noise-j1r8ee",
+      "fromOutput": "field",
+      "toNode": "math-8ca58y",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "math-4brnl5",
+      "fromOutput": "field",
+      "toNode": "math-f8yv3h",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "math-v2almm",
+      "fromOutput": "field",
+      "toNode": "math-f8yv3h",
+      "toInput": "b"
+    },
+    {
+      "fromNode": "math-f8yv3h",
+      "fromOutput": "field",
+      "toNode": "math-q5uero",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "math-8ca58y",
+      "fromOutput": "field",
+      "toNode": "math-q5uero",
+      "toInput": "b"
+    },
+    {
+      "fromNode": "math-q5uero",
+      "fromOutput": "field",
+      "toNode": "clamp-im1hsb",
+      "toInput": "value"
+    },
+    {
+      "fromNode": "clamp-im1hsb",
+      "fromOutput": "field",
+      "toNode": "normal-from-height-ij0twd",
+      "toInput": "height"
+    },
+    {
+      "fromNode": "normal-from-height-ij0twd",
+      "fromOutput": "normal",
+      "toNode": "pr",
+      "toInput": "normal"
+    },
+    {
+      "fromNode": "tileable-noise-q3cf70",
+      "fromOutput": "field",
+      "toNode": "levels-auhy1m",
+      "toInput": "field"
+    },
+    {
+      "fromNode": "levels-auhy1m",
+      "fromOutput": "field",
+      "toNode": "pr",
+      "toInput": "ambientOcclusion"
+    },
+    {
+      "fromNode": "math-q5uero",
+      "fromOutput": "field",
+      "toNode": "math-4x9x4f",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "math-4x9x4f",
+      "fromOutput": "field",
+      "toNode": "color-ramp-apywx8",
+      "toInput": "field"
+    },
+    {
+      "fromNode": "blend-7km53j",
+      "fromOutput": "color",
+      "toNode": "blend-6ztj3u",
+      "toInput": "a"
+    },
+    {
+      "fromNode": "color-ramp-apywx8",
+      "fromOutput": "color",
+      "toNode": "blend-6ztj3u",
+      "toInput": "b"
+    },
+    {
+      "fromNode": "blend-6ztj3u",
+      "fromOutput": "color",
+      "toNode": "pr",
+      "toInput": "baseColor"
+    },
+    {
+      "fromNode": "math-4x9x4f",
+      "fromOutput": "field",
+      "toNode": "color-ramp-m0z6ti",
+      "toInput": "field"
+    },
+    {
+      "fromNode": "color-ramp-m0z6ti",
+      "fromOutput": "color",
+      "toNode": "luminance-uhyq7g",
+      "toInput": "color"
+    },
+    {
+      "fromNode": "luminance-uhyq7g",
+      "fromOutput": "field",
+      "toNode": "pr",
+      "toInput": "roughness"
+    }
+  ],
+  "metadata": {
+    "title": "Eroded Rock"
+  },
+  "ui": {
+    "editor": {
+      "activeGroupPath": [],
+      "soloNode": null,
+      "view": {
+        "layoutArrangement": "right",
+        "transform": {
+          "x": -5562.128784478329,
+          "y": -2181.424437034927,
+          "k": 2.5
+        }
+      }
+    },
+    "settings": {
+      "materialState": {
+        "debugNormals": false
+      },
+      "projectionState": {
+        "tiling": 1,
+        "triplanar": false,
+        "worldPerTile": 1.2,
+        "sharpness": 8,
+        "parallax": 0
+      },
+      "sceneState": {
+        "toneMapping": 4,
+        "exposure": 1,
+        "dirIntensity": 3,
+        "dirColor": "#ffffff",
+        "dirPosition": {
+          "x": 3,
+          "y": 4,
+          "z": 5
+        },
+        "ambIntensity": 0.35,
+        "ambColor": "#ffffff",
+        "envIntensity": 0.1,
+        "shadowSoftness": 4,
+        "shadowDarkness": 1
+      },
+      "rendererConfig": {
+        "antialias": false,
+        "samples": 8,
+        "pixelRatio": 2,
+        "transparentBg": false
+      }
+    }
+  }
+}

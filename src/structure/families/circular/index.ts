@@ -2,6 +2,7 @@ import {
   DEFAULT_BEVEL_CONFIG,
   DEFAULT_STONE_CONFIG,
 } from "../../../config/sections";
+import { DEFAULT_STRUCTURE_MATERIAL_PALETTE } from "../../../config/material-palette";
 import {
   IDENTITY_MATRIX,
   type CompositionAnchor,
@@ -27,7 +28,15 @@ import { buildCircularShell, circularCenterMetrics } from "./shell";
 export const circularStructure = defineStructure<CircularLayoutConfig>({
   id: "circular",
   label: "Circular",
-  props: ["stone", "bevel", "pillar", "fireBowl", "fire", "offering"],
+  props: [
+    "stone",
+    "bevel",
+    "pillar",
+    "fireBowl",
+    "fire",
+    "offering",
+    "materialPalette",
+  ],
   controlTabs: [
     {
       id: "structure",
@@ -38,11 +47,14 @@ export const circularStructure = defineStructure<CircularLayoutConfig>({
     { id: "pillars", label: "Pillars", props: ["pillar"] },
     { id: "fire", label: "Fire", props: ["fireBowl", "fire"] },
     { id: "offering", label: "Offering", props: ["offering"] },
+    { id: "materials", label: "Materials", props: ["materialPalette"] },
   ],
   sections: ["layout", "pillars", "fireBowls"],
   defaultLayout: DEFAULT_CIRCULAR_LAYOUT,
   defaultStone: DEFAULT_STONE_CONFIG,
   defaultBevel: DEFAULT_BEVEL_CONFIG,
+  defaultMaterialPalette: DEFAULT_STRUCTURE_MATERIAL_PALETTE,
+  surfaceMaterialSlots: ["stone"],
   layoutControls: CIRCULAR_LAYOUT_CONTROLS,
   cloneLayout: cloneCircularLayout,
   validateLayout: validateCircularLayout,

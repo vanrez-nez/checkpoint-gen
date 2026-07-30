@@ -52,12 +52,16 @@ import {
 } from "../src/config/sections";
 import {
   IDENTITY_MATRIX,
+  MATERIAL_SLOTS,
   createPlacementMatrix,
+  materialSlotIndex,
   type GeometryPart,
   type MaterialSlot,
   type PartSection,
 } from "../src/geometry/part";
 import { mergeParts } from "../src/geometry/merge-parts";
+import { finalizeGeometry } from "../src/geometry/finalize";
+import { SolidBuilder } from "../src/geometry/solid-builder";
 import {
   DEFAULT_FIRE_BOWL_CONFIG,
   FIRE_BOWL_CONTROLS,
@@ -175,6 +179,51 @@ assert.equal(
   encodeStructureHash(sceneOnlyHashConfig),
   sceneIndependentCode,
   "Scene and debug controls must not enter a structure geometry code.",
+);
+
+const materialOnlyHashConfig = createDefaultStructureConfig();
+materialOnlyHashConfig.typeId = "mass";
+const materialIndependentCode = encodeStructureHash(materialOnlyHashConfig);
+materialOnlyHashConfig.materialPalettes.mass!.stone = "stone";
+materialOnlyHashConfig.materialPalettes.mass!.roof = "flamed-basalt";
+assert.equal(
+  encodeStructureHash(materialOnlyHashConfig),
+  materialIndependentCode,
+  "Surface-material selection must not enter a structure geometry code.",
+);
+const invalidMaterialConfig = createDefaultStructureConfig();
+invalidMaterialConfig.materialPalettes.circular!.stone =
+  "not-a-material" as never;
+assert.throws(
+  () => validateActiveStructureConfig(invalidMaterialConfig),
+  /masonry must be one of/,
+);
+assertCompositionGeometryEqual(
+  new StructureComposer().build(massDefaultHashConfig).geometry,
+  new StructureComposer().build(materialOnlyHashConfig).geometry,
+  "Material palette changes must not regenerate different geometry",
+);
+const massSurfaceComposition = new StructureComposer().build(
+  massDefaultHashConfig,
+);
+assert.deepEqual(
+  massSurfaceComposition.geometry.groups.map((group) => group.materialIndex),
+  [
+    materialSlotIndex("stone"),
+    materialSlotIndex("trim"),
+    materialSlotIndex("stairs"),
+    materialSlotIndex("summit"),
+    materialSlotIndex("interior"),
+    materialSlotIndex("roof"),
+  ],
+  "The default Mass must expose every semantic architectural surface.",
+);
+assert.equal(
+  massSurfaceComposition.geometry.groups.reduce(
+    (sum, group) => sum + group.count,
+    0,
+  ),
+  massSurfaceComposition.geometry.getIndex()?.count,
 );
 
 const inactiveFamilyHashConfig = createDefaultStructureConfig();
@@ -593,6 +642,76 @@ for (const placement of allPlacements) {
 }
 
 // --- part merging ----------------------------------------------------------
+// Faces own semantic material ids at emission. Culling compacts that ownership
+// with every other vertex buffer rather than leaving stale indices behind.
+const materialBuilder = new SolidBuilder();
+const block = (offsetX: number) => ({
+  bottom: [
+    { x: offsetX, y: 0, z: 0 },
+    { x: offsetX + 1, y: 0, z: 0 },
+    { x: offsetX + 1, y: 0, z: 1 },
+    { x: offsetX, y: 0, z: 1 },
+  ],
+  top: [
+    { x: offsetX, y: 1, z: 0 },
+    { x: offsetX + 1, y: 1, z: 0 },
+    { x: offsetX + 1, y: 1, z: 1 },
+    { x: offsetX, y: 1, z: 1 },
+  ],
+});
+materialBuilder.addBlock(
+  block(0),
+  { sides: [true, true, true, true], top: true, bottom: true },
+);
+materialBuilder.withMaterial("trim", () => {
+  materialBuilder.addBlock(
+    block(2),
+    { sides: [true, true, true, true], top: true, bottom: true },
+  );
+});
+for (const start of materialBuilder.blockFaces) {
+  assert.equal(
+    new Set(materialBuilder.surfaceMaterials.slice(start, start + 4)).size,
+    1,
+    "Every emitted quad must have exactly one semantic material owner.",
+  );
+}
+assert.equal(
+  materialBuilder.assignFaceMaterial(
+    (face) => face.every((corner) => corner.x > 1.5),
+    "stairs",
+  ),
+  6,
+);
+assert.equal(
+  materialBuilder.cullFaces((face) => face.every((corner) => corner.x < 1.5)),
+  6,
+);
+assert.equal(
+  materialBuilder.surfaceMaterials.length,
+  materialBuilder.positions.length / 3,
+);
+assert.ok(
+  materialBuilder.surfaceMaterials.every(
+    (material) => material === materialSlotIndex("stairs"),
+  ),
+);
+const finalizedMaterialGeometry = finalizeGeometry(materialBuilder).geometry;
+assert.deepEqual(
+  Array.from(finalizedMaterialGeometry.getAttribute("surfaceMaterial").array),
+  materialBuilder.surfaceMaterials,
+);
+assert.throws(
+  () => finalizeGeometry({
+    positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+    indices: [0, 1, 2],
+    ambientOcclusion: [1, 1, 1],
+    bakedShadow: [1, 1, 1],
+    surfaceMaterials: [0, 0],
+  }),
+  /Surface-material buffer.*expected 3/,
+);
+
 // Synthetic parts first: distinct patterned base arrays make the concatenation
 // order observable, and passing iron before stone proves the merger reorders by
 // material slot rather than by argument order.
@@ -640,7 +759,10 @@ assert.equal(syntheticMerge.sections.pillars.partCount, 0);
 
 assert.equal(syntheticMerge.geometry.groups.length, 2);
 assert.equal(syntheticMerge.geometry.groups[0]?.materialIndex, 0);
-assert.equal(syntheticMerge.geometry.groups[1]?.materialIndex, 1);
+assert.equal(
+  syntheticMerge.geometry.groups[1]?.materialIndex,
+  materialSlotIndex("iron"),
+);
 assert.equal(syntheticMerge.geometry.groups[0]?.start, 0);
 assert.equal(
   syntheticMerge.geometry.groups[0]?.count,
@@ -719,6 +841,63 @@ assert.deepEqual(
 );
 assert.ok(
   Array.from(syntheticMerge.geometry.getAttribute("color").array).every((value) => value === 1),
+);
+
+// A single part can contain several semantic materials. Triangles are bucketed
+// into one indexed group per used slot while the vertex stream stays intact.
+const mixedGeometry = new THREE.BoxGeometry(1, 1, 1);
+const mixedPart = createSyntheticPart(
+  "synthetic/mixed",
+  "layout",
+  "stone",
+  mixedGeometry,
+  IDENTITY_MATRIX,
+  1,
+);
+const mixedMaterials = new Uint8Array(
+  mixedGeometry.getAttribute("position").count,
+);
+mixedMaterials.fill(materialSlotIndex("trim"), mixedMaterials.length / 2);
+mixedGeometry.setAttribute(
+  "surfaceMaterial",
+  new THREE.Uint8BufferAttribute(mixedMaterials, 1),
+);
+const mixedMerge = mergeParts([mixedPart], ["layout"]);
+assert.deepEqual(
+  mixedMerge.geometry.groups.map((group) => group.materialIndex),
+  [materialSlotIndex("stone"), materialSlotIndex("trim")],
+);
+assert.equal(
+  mixedMerge.geometry.groups.reduce((sum, group) => sum + group.count, 0),
+  mixedMerge.geometry.getIndex()?.count,
+);
+assert.deepEqual(
+  Array.from(mixedMerge.geometry.getAttribute("surfaceMaterial").array),
+  Array.from(mixedMaterials),
+);
+
+const invalidMixedGeometry = mixedGeometry.clone();
+const invalidMixedPart = createSyntheticPart(
+  "synthetic/invalid-mixed",
+  "layout",
+  "stone",
+  invalidMixedGeometry,
+  IDENTITY_MATRIX,
+  1,
+);
+const invalidMaterials = new Uint8Array(
+  invalidMixedGeometry.getAttribute("position").count,
+);
+const invalidIndex = invalidMixedGeometry.getIndex();
+assert.ok(invalidIndex);
+invalidMaterials[invalidIndex.getX(0)] = materialSlotIndex("trim");
+invalidMixedGeometry.setAttribute(
+  "surfaceMaterial",
+  new THREE.Uint8BufferAttribute(invalidMaterials, 1),
+);
+assert.throws(
+  () => mergeParts([invalidMixedPart], ["layout"]),
+  /triangle 0 spans multiple surface materials/,
 );
 
 // A single-slot composition still emits one full-coverage group, because a mesh
@@ -825,7 +1004,10 @@ assert.equal(
 // Exactly two coalesced groups, unlike mergeGeometries' one-per-input.
 assert.equal(composition.geometry.groups.length, 2);
 assert.equal(composition.geometry.groups[0]?.materialIndex, 0);
-assert.equal(composition.geometry.groups[1]?.materialIndex, 1);
+assert.equal(
+  composition.geometry.groups[1]?.materialIndex,
+  materialSlotIndex("iron"),
+);
 assert.equal(
   composition.geometry.groups.reduce((sum, group) => sum + group.count, 0),
   composition.geometry.getIndex()?.count,
@@ -834,7 +1016,8 @@ assert.equal(
 // The iron slot starts exactly at the pillar top — end-to-end proof that the
 // bowl's placement matrix reproduces the old geometry-mutating translate.
 assert.ok(Math.abs(
-  groupMinimumY(composition.geometry, 1) - pillarConfig.height,
+  groupMinimumY(composition.geometry, materialSlotIndex("iron"))
+    - pillarConfig.height,
 ) < 1e-6);
 
 // Anchors describe the props that stay outside the merged geometry.
@@ -1088,7 +1271,7 @@ for (const definition of STRUCTURES) {
 const massControlTabs = getStructure("mass").controlTabs;
 assert.deepEqual(
   massControlTabs.map((tab) => tab.label),
-  ["Structure", "Stairs", "Summit"],
+  ["Structure", "Stairs", "Summit", "Materials"],
 );
 assert.deepEqual(
   massControlTabs.find((tab) => tab.id === "stairs")?.layoutGroups,
@@ -1400,7 +1583,10 @@ assert.equal(scene.scene.getObjectByName("Fire bowl flames")?.type, "Mesh");
 
 const structureMesh = scene.scene.getObjectByName("Structure") as THREE.Mesh;
 assert.ok(Array.isArray(structureMesh.material));
-assert.equal((structureMesh.material as THREE.Material[]).length, 2);
+assert.equal(
+  (structureMesh.material as THREE.Material[]).length,
+  MATERIAL_SLOTS.length,
+);
 assert.equal(structureMesh.geometry.groups.length, 2);
 
 // Fire retuning must not rebuild geometry or recreate the flame batch.
@@ -1483,7 +1669,10 @@ for (const result of [
   result.geometry.dispose();
 }
 composer.dispose();
+massSurfaceComposition.geometry.dispose();
+finalizedMaterialGeometry.dispose();
 syntheticMerge.geometry.dispose();
+mixedMerge.geometry.dispose();
 stoneOnlyMerge.geometry.dispose();
 emptyMerge.geometry.dispose();
 emptyIndexGeometry.dispose();
@@ -1494,6 +1683,8 @@ fullRebuild.geometry.dispose();
 noBowlComposition.geometry.dispose();
 syntheticStoneGeometry.dispose();
 syntheticIronGeometry.dispose();
+mixedGeometry.dispose();
+invalidMixedGeometry.dispose();
 missingUserDataGeometry.dispose();
 offeringGeometry.dispose();
 offeringBaseGeometry.dispose();
@@ -1512,6 +1703,7 @@ function assertValidGeometry(geometry: THREE.BufferGeometry, label: string): voi
   const uv = geometry.getAttribute("uv");
   const vertexAo = geometry.getAttribute("vertexAo");
   const color = geometry.getAttribute("color");
+  const surfaceMaterial = geometry.getAttribute("surfaceMaterial");
   const index = geometry.index;
 
   assert.ok(position.count > 0, `${label} must contain vertices.`);
@@ -1519,6 +1711,13 @@ function assertValidGeometry(geometry: THREE.BufferGeometry, label: string): voi
   assert.equal(uv.count, position.count);
   assert.equal(vertexAo.count, position.count);
   assert.equal(color.count, position.count);
+  assert.equal(surfaceMaterial.count, position.count);
+  assert.ok(
+    Array.from(surfaceMaterial.array).every(
+      (value) =>
+        Number.isInteger(value) && value >= 0 && value < MATERIAL_SLOTS.length,
+    ),
+  );
   assert.ok(index && index.count > 0, `${label} must contain indices.`);
   assert.equal(index.count % 3, 0);
   assert.ok(Array.from(position.array).every(Number.isFinite));
@@ -1720,6 +1919,8 @@ function hashControlSections(config: StructureConfig): HashControlSection[] {
           target: config.offering as unknown as Record<string, unknown>,
           specs: OFFERING_CONTROLS as unknown as readonly ControlSpec<object>[],
         });
+        break;
+      case "materialPalette":
         break;
     }
   }

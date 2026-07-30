@@ -1,5 +1,9 @@
 import type { GeometryBuffers } from "./finalize";
 import {
+  materialSlotIndex,
+  type MaterialSlot,
+} from "./part";
+import {
   DEFAULT_FACE_SHADING,
   horizontalShading,
   sideShading,
@@ -76,6 +80,8 @@ export class SolidBuilder implements GeometryBuffers {
   readonly indices: number[] = [];
   readonly ambientOcclusion: number[] = [];
   readonly bakedShadow: number[] = [];
+  readonly surfaceMaterials: number[] = [];
+  private activeMaterial: MaterialSlot = "stone";
   /** Blocks laid, whichever of their faces turned out to be visible. */
   blockCount = 0;
   /**
@@ -90,6 +96,47 @@ export class SolidBuilder implements GeometryBuffers {
    */
   readonly blockFaces: number[] = [];
 
+  /** Emits every face in `callback` with one semantic material owner. */
+  withMaterial<T>(slot: MaterialSlot, callback: () => T): T {
+    const previous = this.activeMaterial;
+    this.activeMaterial = slot;
+
+    try {
+      return callback();
+    } finally {
+      this.activeMaterial = previous;
+    }
+  }
+
+  /**
+   * Reclassifies already-emitted complete faces without touching their topology.
+   *
+   * This is used when a support slab is built before the rooms that determine
+   * which parts of its crown are interior floors.
+   */
+  assignFaceMaterial(
+    predicate: FaceCullPredicate,
+    slot: MaterialSlot,
+  ): number {
+    const material = materialSlotIndex(slot);
+    let assigned = 0;
+
+    for (const start of this.blockFaces) {
+      const corners = this.faceCorners(start);
+
+      if (!predicate(corners)) {
+        continue;
+      }
+
+      for (let corner = 0; corner < 4; corner += 1) {
+        this.surfaceMaterials[start + corner] = material;
+      }
+      assigned += 1;
+    }
+
+    return assigned;
+  }
+
   /**
    * Removes complete quads selected by `predicate`, compacting every raw buffer.
    *
@@ -103,20 +150,13 @@ export class SolidBuilder implements GeometryBuffers {
     const positions: number[] = [];
     const ambientOcclusion: number[] = [];
     const bakedShadow: number[] = [];
+    const surfaceMaterials: number[] = [];
     const indices: number[] = [];
     const blockFaces: number[] = [];
     let removed = 0;
 
     for (const start of this.blockFaces) {
-      const corners = [0, 1, 2, 3].map((corner): Vertex3 => {
-        const vertex = start + corner;
-
-        return {
-          x: this.positions[vertex * 3] ?? 0,
-          y: this.positions[vertex * 3 + 1] ?? 0,
-          z: this.positions[vertex * 3 + 2] ?? 0,
-        };
-      });
+      const corners = this.faceCorners(start);
 
       if (predicate(corners)) {
         removed += 1;
@@ -135,6 +175,9 @@ export class SolidBuilder implements GeometryBuffers {
         );
         ambientOcclusion.push(this.ambientOcclusion[vertex] ?? 1);
         bakedShadow.push(this.bakedShadow[vertex] ?? 1);
+        surfaceMaterials.push(
+          this.surfaceMaterials[vertex] ?? materialSlotIndex("stone"),
+        );
       }
 
       indices.push(
@@ -146,6 +189,7 @@ export class SolidBuilder implements GeometryBuffers {
     replaceContents(this.positions, positions);
     replaceContents(this.ambientOcclusion, ambientOcclusion);
     replaceContents(this.bakedShadow, bakedShadow);
+    replaceContents(this.surfaceMaterials, surfaceMaterials);
     replaceContents(this.indices, indices);
     replaceContents(this.blockFaces, blockFaces);
 
@@ -285,6 +329,19 @@ export class SolidBuilder implements GeometryBuffers {
     this.positions.push(x, y, z);
     this.ambientOcclusion.push(ambientOcclusion);
     this.bakedShadow.push(bakedShadow);
+    this.surfaceMaterials.push(materialSlotIndex(this.activeMaterial));
+  }
+
+  private faceCorners(start: number): Vertex3[] {
+    return [0, 1, 2, 3].map((corner): Vertex3 => {
+      const vertex = start + corner;
+
+      return {
+        x: this.positions[vertex * 3] ?? 0,
+        y: this.positions[vertex * 3 + 1] ?? 0,
+        z: this.positions[vertex * 3 + 2] ?? 0,
+      };
+    });
   }
 }
 

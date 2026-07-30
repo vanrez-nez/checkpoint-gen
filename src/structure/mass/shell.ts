@@ -116,13 +116,16 @@ export function buildMassShell(
     }
 
     for (const segment of segments) {
-      layCourses(builder, segment, {
-        seed: masonrySeed(seed, band.id, segment.label),
-        crowned: segment !== crown,
-        // What stands on this band, so the courses know how much of their top is
-        // open to the sky. Null means nothing does and the whole crown is floor.
-        under: segment === crown ? (bands[index + 1]?.lower ?? null) : undefined,
-      });
+      builder.withMaterial(
+        segment.label === "cornice" ? "trim" : "stone",
+        () => layCourses(builder, segment, {
+          seed: masonrySeed(seed, band.id, segment.label),
+          crowned: segment !== crown,
+          // What stands on this band, so the courses know how much of their top is
+          // open to the sky. Null means nothing does and the whole crown is floor.
+          under: segment === crown ? (bands[index + 1]?.lower ?? null) : undefined,
+        }),
+      );
     }
   }
 }

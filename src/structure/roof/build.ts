@@ -49,31 +49,35 @@ export function buildRoof(
     );
   }
 
-  if (!roof.cornice) {
+  const { cornice } = roof;
+
+  if (!cornice) {
     return;
   }
 
-  // The supported centre and projected ring are separate so the molding's
-  // underside exists only where it actually oversails the slab.
-  addRectBlock(
-    builder,
-    roof.slabFootprint,
-    roof.cornice.bottomY,
-    roof.cornice.topY,
-    [false, false, false, false],
-    true,
-    false,
-  );
-  addRingBlocks(
-    builder,
-    roof.cornice.outline,
-    roof.slabFootprint,
-    roof.cornice.bottomY,
-    roof.cornice.topY,
-    true,
-    true,
-    true,
-  );
+  builder.withMaterial("trim", () => {
+    // The supported centre and projected ring are separate so the molding's
+    // underside exists only where it actually oversails the slab.
+    addRectBlock(
+      builder,
+      roof.slabFootprint,
+      cornice.bottomY,
+      cornice.topY,
+      [false, false, false, false],
+      true,
+      false,
+    );
+    addRingBlocks(
+      builder,
+      cornice.outline,
+      roof.slabFootprint,
+      cornice.bottomY,
+      cornice.topY,
+      true,
+      true,
+      true,
+    );
+  });
 }
 
 /** True for an upward wall-crown face wholly occupied by the roof bearing. */

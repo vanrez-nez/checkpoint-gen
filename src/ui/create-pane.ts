@@ -21,6 +21,7 @@ import {
   type StructureConfig,
 } from "../config/structure-config";
 import type { RebuildScope } from "../config/control-spec";
+import { MATERIAL_PALETTE_CONTROLS } from "../config/material-palette";
 import {
   ILLUMINATION_COLOR_KEYS,
   ILLUMINATION_CONTROLS,
@@ -114,7 +115,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
   }).on("change", () => {
     buildControlTabs();
     // Every section belongs to the previous type's layout, so rebuild all.
-    dispatch(["layout", "pillars", "bowls", "fire", "offering"]);
+    dispatch(["layout", "pillars", "bowls", "fire", "offering", "material"]);
   });
 
   buildControlTabs();
@@ -125,7 +126,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     stats,
     reloadStructureConfig(): void {
       buildControlTabs();
-      dispatch(["layout", "pillars", "bowls", "fire", "offering"]);
+      dispatch(["layout", "pillars", "bowls", "fire", "offering", "material"]);
     },
     dispose(): void {
       pane.dispose();
@@ -203,6 +204,15 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     }
     if (scopes.includes("material")) {
       scene.setMaterialScale(config.view.materialScale);
+      const definition = activeStructure();
+      const palette = config.materialPalettes[definition.id];
+
+      if (palette) {
+        void scene.setStructureMaterialPalette(
+          palette,
+          definition.surfaceMaterialSlots ?? ["stone"],
+        );
+      }
     }
     if (scopes.includes("view")) {
       scene.setWireframe(config.view.wireframe);
@@ -308,6 +318,25 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
       case "offering":
         bindOfferingControls(page, folders);
         return;
+      case "materialPalette": {
+        const palette = config.materialPalettes[definition.id];
+
+        if (!palette) {
+          throw new Error(
+            `Missing material palette for structure "${definition.id}".`,
+          );
+        }
+
+        const slots = new Set(definition.surfaceMaterialSlots ?? ["stone"]);
+        bindControls(
+          page,
+          palette,
+          MATERIAL_PALETTE_CONTROLS.filter((spec) => slots.has(spec.key)),
+          dispatch,
+          folders,
+        );
+        return;
+      }
     }
   }
 
