@@ -61,7 +61,7 @@ export const massStructure = defineStructure<MassLayoutConfig>({
   defaultLayout: DEFAULT_MASS_LAYOUT,
   defaultStone: DEFAULT_MASS_STONE_CONFIG,
   defaultMaterialPalette: DEFAULT_MASS_MATERIAL_PALETTE,
-  surfaceMaterialSlots: [
+  materialSurfaces: [
     "stone",
     "trim",
     "stairs",

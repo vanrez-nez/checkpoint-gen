@@ -32,6 +32,7 @@ import {
   materialDocumentUrl,
   validateMaterialPalette,
   type MaterialDocumentId,
+  type MaterialSurfaceId,
   type StructureMaterialPalette,
 } from "../config/material-palette";
 import {
@@ -46,7 +47,6 @@ import {
   type CompositionAnchors,
   type PartSection,
   type PartStats,
-  type StructureSurfaceSlot,
 } from "../geometry/part";
 import { getStructure } from "../structure/registry";
 import { VertexConeFireBatch } from "../props/fire/vertex-cone";
@@ -139,7 +139,7 @@ export class MainScene {
   private currentOfferingStats: OfferingStats = emptyOfferingStats();
   private offeringConfig: OfferingConfig;
   private activeMaterialPalette: StructureMaterialPalette;
-  private activeSurfaceSlots: ReadonlySet<StructureSurfaceSlot>;
+  private activeMaterialSurfaces: ReadonlySet<MaterialSurfaceId>;
   private materialRenderer: WebGPURenderer | null = null;
   private readonly structureMaterialRuntimes = new Map<
     MaterialDocumentId,
@@ -157,12 +157,7 @@ export class MainScene {
     MaterialDocumentId,
     () => void
   >();
-  private ironSurfaceMaterial: THREE.Material;
-  private offeringSurfaceMaterial: THREE.Material;
-  private ironMaterialRuntime: MaterialGraphRuntime | null = null;
-  private offeringMaterialRuntime: MaterialGraphRuntime | null = null;
-  private stopListeningForIronRebuild: (() => void) | null = null;
-  private stopListeningForOfferingRebuild: (() => void) | null = null;
+  /** Master multiplier over every surface's own texture scale. */
   private materialScale: number;
   private ambientOcclusionStrength: number;
   private crackShadowStrength: number;
@@ -249,11 +244,9 @@ export class MainScene {
     }
 
     this.activeMaterialPalette = cloneMaterialPalette(palette);
-    this.activeSurfaceSlots = new Set(
-      definition.surfaceMaterialSlots ?? ["stone"],
+    this.activeMaterialSurfaces = new Set(
+      definition.materialSurfaces ?? ["stone"],
     );
-    this.ironSurfaceMaterial = this.fallbackIronMaterial;
-    this.offeringSurfaceMaterial = this.fallbackOfferingMaterial;
 
     const composition = this.composer.build(config);
     this.anchors = composition.anchors;
@@ -266,10 +259,7 @@ export class MainScene {
     // does not emit it. This keeps group indices stable across structure types.
     this.structure = new THREE.Mesh(
       composition.geometry,
-      MATERIAL_SLOTS.map((slot) =>
-        slot === "iron"
-          ? this.fallbackIronMaterial
-          : this.fallbackStoneMaterial),
+      MATERIAL_SLOTS.map((slot) => this.fallbackSurfaceMaterial(slot)),
     );
     this.structure.name = "Structure";
     this.structure.castShadow = true;
@@ -301,27 +291,30 @@ export class MainScene {
   async loadStructureMaterialPalette(
     renderer: WebGPURenderer,
     palette: StructureMaterialPalette,
-    slots: readonly StructureSurfaceSlot[],
+    surfaces: readonly MaterialSurfaceId[],
   ): Promise<void> {
     this.materialRenderer = renderer;
-    await this.setStructureMaterialPalette(palette, slots);
+    await this.setStructureMaterialPalette(palette, surfaces);
   }
 
   /**
-   * Changes semantic surface assignments without rebuilding geometry.
+   * Changes surface dressing — material documents and texture scales — without
+   * rebuilding geometry. The offering statue is dressed from the same palette, so
+   * one call covers every surface the active structure has.
    *
-   * Material documents are cached by id and loaded only when an active slot
+   * Material documents are cached by id and loaded only when an active surface
    * selects them. A failed document falls back independently, so one bad layer
    * cannot blank the entire structure.
    */
   async setStructureMaterialPalette(
     palette: StructureMaterialPalette,
-    slots: readonly StructureSurfaceSlot[],
+    surfaces: readonly MaterialSurfaceId[],
   ): Promise<void> {
     validateMaterialPalette(palette);
     this.activeMaterialPalette = cloneMaterialPalette(palette);
-    this.activeSurfaceSlots = new Set(slots);
-    this.refreshStructureMaterials();
+    this.activeMaterialSurfaces = new Set(surfaces);
+    this.refreshSurfaceMaterials();
+    this.refreshTextureScales();
 
     const renderer = this.materialRenderer;
 
@@ -329,56 +322,25 @@ export class MainScene {
       return;
     }
 
-    const ids = new Set(
-      slots.map((slot) => this.activeMaterialPalette[slot]),
-    );
+    const ids = [
+      ...new Set(
+        surfaces.map((surface) => this.activeMaterialPalette[surface].document),
+      ),
+    ];
     const results = await Promise.allSettled(
-      [...ids].map((id) => this.ensureStructureMaterialRuntime(renderer, id)),
+      ids.map((id) => this.ensureStructureMaterialRuntime(renderer, id)),
     );
 
     results.forEach((result, index) => {
       if (result.status === "rejected") {
-        const id = [...ids][index] ?? "unknown";
         console.error(
-          `Structure material "${id}" failed to load; using the fallback material.`,
+          `Structure material "${ids[index] ?? "unknown"}" failed to load; `
+          + "using the fallback material.",
           result.reason,
         );
       }
     });
-    this.refreshStructureMaterials();
-  }
-
-  async loadIronMaterial(
-    renderer: WebGPURenderer,
-    documentUrl: string,
-  ): Promise<void> {
-    const runtime = await this.loadMaterialRuntime(renderer, documentUrl, "Iron");
-    this.stopListeningForIronRebuild?.();
-    this.ironMaterialRuntime?.dispose();
-    this.ironMaterialRuntime = runtime;
-    this.useIronRuntimeMaterial(runtime);
-    this.stopListeningForIronRebuild = runtime.surface.onRebuilt(() => {
-      this.useIronRuntimeMaterial(runtime);
-    });
-  }
-
-  async loadOfferingMaterial(
-    renderer: WebGPURenderer,
-    documentUrl: string,
-  ): Promise<void> {
-    const runtime = await this.loadMaterialRuntime(
-      renderer,
-      documentUrl,
-      "Offering",
-      this.offeringConfig.materialScale,
-    );
-    this.stopListeningForOfferingRebuild?.();
-    this.offeringMaterialRuntime?.dispose();
-    this.offeringMaterialRuntime = runtime;
-    this.useOfferingRuntimeMaterial(runtime);
-    this.stopListeningForOfferingRebuild = runtime.surface.onRebuilt(() => {
-      this.useOfferingRuntimeMaterial(runtime);
-    });
+    this.refreshSurfaceMaterials();
   }
 
   async loadOffering(modelUrl: string, decoderPath: string): Promise<void> {
@@ -415,17 +377,15 @@ export class MainScene {
       }
 
       if (!preparedGeometries.has(object.geometry)) {
+        const offeringScale = this.textureScaleFor("offering");
         prepareOfferingGeometry(object.geometry);
-        this.applyMaterialScale(
-          object.geometry,
-          this.offeringConfig.materialScale,
-        );
+        this.applyTextureScale(object.geometry, () => offeringScale);
         this.applyAmbientOcclusion(object.geometry);
         this.applyBakedShadow(object.geometry);
         preparedGeometries.add(object.geometry);
       }
 
-      object.material = this.offeringSurfaceMaterial;
+      object.material = this.surfaceMaterial("offering");
       object.castShadow = true;
       object.receiveShadow = true;
       this.offeringMeshes.push(object);
@@ -544,22 +504,12 @@ export class MainScene {
     }
 
     this.materialScale = scale;
-    for (const runtime of this.structureMaterialRuntimes.values()) {
-      runtime.surface.setScale(scale);
-    }
-    this.ironMaterialRuntime?.surface.setScale(scale);
-    this.applyMaterialScale(this.structure.geometry);
+    this.refreshTextureScales();
   }
 
   setOfferingConfig(config: OfferingConfig): void {
     validateOfferingConfig(config);
     this.offeringConfig = { ...config };
-    this.offeringMaterialRuntime?.surface.setScale(config.materialScale);
-
-    for (const mesh of this.offeringMeshes) {
-      this.applyMaterialScale(mesh.geometry, config.materialScale);
-    }
-
     this.updateOfferingTransform();
     this.refreshOfferingPresentation();
   }
@@ -597,7 +547,7 @@ export class MainScene {
    */
   setGreybox(enabled: boolean): void {
     this.greyboxEnabled = enabled;
-    this.refreshStructureMaterials();
+    this.refreshSurfaceMaterials();
   }
 
   setPatchDebugVisible(enabled: boolean): void {
@@ -666,20 +616,12 @@ export class MainScene {
       stopListening();
     }
     this.stopListeningForStructureMaterialRebuild.clear();
-    this.stopListeningForIronRebuild?.();
-    this.stopListeningForIronRebuild = null;
-    this.stopListeningForOfferingRebuild?.();
-    this.stopListeningForOfferingRebuild = null;
     for (const runtime of this.structureMaterialRuntimes.values()) {
       runtime.dispose();
     }
     this.structureMaterialRuntimes.clear();
     this.structureSurfaceMaterials.clear();
     this.structureMaterialLoads.clear();
-    this.ironMaterialRuntime?.dispose();
-    this.ironMaterialRuntime = null;
-    this.offeringMaterialRuntime?.dispose();
-    this.offeringMaterialRuntime = null;
     this.disposeOffering();
     this.disposeFireGlowLights();
     this.fireBatch.object.removeFromParent();
@@ -702,7 +644,7 @@ export class MainScene {
 
   /** Re-derives the live attributes the sliders drive off `userData`. */
   private applyGeometryAttributes(geometry: THREE.BufferGeometry): void {
-    this.applyMaterialScale(geometry);
+    this.applySurfaceTextureScales(geometry);
     this.applyAmbientOcclusion(geometry);
     this.applyBakedShadow(geometry);
   }
@@ -745,9 +687,27 @@ export class MainScene {
     attribute.needsUpdate = true;
   }
 
-  private applyMaterialScale(
+  /**
+   * Rewrites the merged geometry's UVs at each surface's own texture density.
+   *
+   * Texture scale is a UV concern rather than a material one: surfaces share
+   * material documents, and the runtime's own scale uniform only participates in
+   * triplanar sampling, which this project deliberately does not use. Every
+   * vertex already names its semantic surface, so the whole structure rescales in
+   * one pass over one buffer regardless of how many surfaces it dresses.
+   */
+  private applySurfaceTextureScales(geometry: THREE.BufferGeometry): void {
+    const slots = geometry.getAttribute("surfaceMaterial");
+    const scales = MATERIAL_SLOTS.map((slot) => this.textureScaleFor(slot));
+    this.applyTextureScale(
+      geometry,
+      (vertex) => scales[slots ? slots.getX(vertex) : 0] ?? this.materialScale,
+    );
+  }
+
+  private applyTextureScale(
     geometry: THREE.BufferGeometry,
-    scale = this.materialScale,
+    scaleAt: (vertex: number) => number,
   ): void {
     const baseUvs = geometry.userData.baseUvs as Float32Array | undefined;
     const attribute = geometry.getAttribute("uv");
@@ -757,6 +717,7 @@ export class MainScene {
     }
 
     for (let index = 0; index < attribute.count; index += 1) {
+      const scale = scaleAt(index);
       attribute.setXY(
         index,
         (baseUvs[index * 2] ?? 0) * scale,
@@ -767,39 +728,54 @@ export class MainScene {
     attribute.needsUpdate = true;
   }
 
-  private useIronRuntimeMaterial(runtime: MaterialGraphRuntime): void {
-    const material = runtime.getNodeMaterial();
-    material.vertexColors = true;
-    material.needsUpdate = true;
-    this.ironSurfaceMaterial = material;
-    this.refreshStructureMaterials();
+  /** Re-tiles every dressed surface after a scale or palette change. */
+  private refreshTextureScales(): void {
+    this.applySurfaceTextureScales(this.structure.geometry);
+
+    const offeringScale = this.textureScaleFor("offering");
+
+    for (const mesh of this.offeringMeshes) {
+      this.applyTextureScale(mesh.geometry, () => offeringScale);
+    }
   }
 
-  private useOfferingRuntimeMaterial(runtime: MaterialGraphRuntime): void {
-    const material = runtime.getNodeMaterial();
-    material.vertexColors = true;
-    material.needsUpdate = true;
-    this.offeringSurfaceMaterial = material;
-    this.refreshOfferingPresentation();
+  /**
+   * A surface's effective tiling: its own texture scale under the Scene tab's
+   * master material scale. A surface this structure does not dress contributes
+   * nothing of its own, so it tiles at the master scale alone.
+   */
+  private textureScaleFor(surface: MaterialSurfaceId): number {
+    return this.activeMaterialSurfaces.has(surface)
+      ? this.materialScale * this.activeMaterialPalette[surface].textureScale
+      : this.materialScale;
   }
 
-  private refreshStructureMaterials(): void {
-    const materials = MATERIAL_SLOTS.map((slot): THREE.Material => {
-      if (slot === "iron") {
-        return this.ironSurfaceMaterial;
-      }
-      if (!this.activeSurfaceSlots.has(slot)) {
-        return this.fallbackStoneMaterial;
-      }
+  private surfaceMaterial(surface: MaterialSurfaceId): THREE.Material {
+    const material = this.activeMaterialSurfaces.has(surface)
+      ? this.structureSurfaceMaterials.get(
+        this.activeMaterialPalette[surface].document,
+      )
+      : undefined;
 
-      return this.structureSurfaceMaterials.get(
-        this.activeMaterialPalette[slot],
-      ) ?? this.fallbackStoneMaterial;
-    });
+    return material ?? this.fallbackSurfaceMaterial(surface);
+  }
 
+  /** What a surface renders as until its document is loaded, or if it fails. */
+  private fallbackSurfaceMaterial(surface: MaterialSurfaceId): THREE.Material {
+    if (surface === "iron") {
+      return this.fallbackIronMaterial;
+    }
+
+    return surface === "offering"
+      ? this.fallbackOfferingMaterial
+      : this.fallbackStoneMaterial;
+  }
+
+  private refreshSurfaceMaterials(): void {
     this.structure.material = this.greyboxEnabled
       ? MATERIAL_SLOTS.map(() => this.greyboxMaterial)
-      : materials;
+      : MATERIAL_SLOTS.map((slot) => this.surfaceMaterial(slot));
+    this.refreshOfferingPresentation();
   }
 
   private rebuildPatchOverlay(): void {
@@ -818,7 +794,6 @@ export class MainScene {
     renderer: WebGPURenderer,
     documentUrl: string,
     label: string,
-    scale = this.materialScale,
   ): Promise<MaterialGraphRuntime> {
     const response = await fetch(documentUrl);
 
@@ -841,8 +816,10 @@ export class MainScene {
       source: documentUrl,
     }).setRenderer(renderer);
     runtime.surface.setBackend("offline");
+    // Texture density is carried by the geometry's UVs, not by the surface's own
+    // scale uniform, which only takes part in triplanar sampling. One document
+    // can therefore dress several surfaces at different densities.
     runtime.surface.setTriplanar(false);
-    runtime.surface.setScale(scale);
 
     await runtime.refresh();
 
@@ -899,7 +876,7 @@ export class MainScene {
     material.vertexColors = true;
     material.needsUpdate = true;
     this.structureSurfaceMaterials.set(id, material);
-    this.refreshStructureMaterials();
+    this.refreshSurfaceMaterials();
   }
 
   private ensureWireframe(): Wireframe {
@@ -996,7 +973,7 @@ export class MainScene {
       && this.anchors.offering !== null;
     const material = this.wireframeVisible
       ? this.offeringWireframeMaterial
-      : this.offeringSurfaceMaterial;
+      : this.surfaceMaterial("offering");
 
     for (const mesh of this.offeringMeshes) {
       mesh.material = material;

@@ -21,7 +21,10 @@ import {
   type StructureConfig,
 } from "../config/structure-config";
 import type { RebuildScope } from "../config/control-spec";
-import { MATERIAL_PALETTE_CONTROLS } from "../config/material-palette";
+import {
+  MATERIAL_SURFACE_CONTROLS,
+  MATERIAL_SURFACE_IDS,
+} from "../config/material-palette";
 import {
   ILLUMINATION_COLOR_KEYS,
   ILLUMINATION_CONTROLS,
@@ -210,7 +213,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
       if (palette) {
         void scene.setStructureMaterialPalette(
           palette,
-          definition.surfaceMaterialSlots ?? ["stone"],
+          definition.materialSurfaces ?? ["stone"],
         );
       }
     }
@@ -327,14 +330,25 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
           );
         }
 
-        const slots = new Set(definition.surfaceMaterialSlots ?? ["stone"]);
-        bindControls(
-          page,
-          palette,
-          MATERIAL_PALETTE_CONTROLS.filter((spec) => slots.has(spec.key)),
-          dispatch,
-          folders,
-        );
+        // One folder per dressed surface, holding that surface's material and
+        // texture scale together, in the order the surfaces are declared rather
+        // than the order this structure happens to list them.
+        const surfaces = new Set(definition.materialSurfaces ?? ["stone"]);
+
+        for (const surface of MATERIAL_SURFACE_IDS) {
+          if (!surfaces.has(surface)) {
+            continue;
+          }
+
+          bindControls(
+            page,
+            palette[surface],
+            MATERIAL_SURFACE_CONTROLS[surface],
+            dispatch,
+            folders,
+          );
+        }
+
         return;
       }
     }

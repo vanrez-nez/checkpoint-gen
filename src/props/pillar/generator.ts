@@ -51,6 +51,10 @@ const CAP_WIDTH_RATIO = 1.45;
  * The fire bowl used to be merged in here as a second material group; it is now
  * a sibling part, so this returns ungrouped stone geometry and the composer is
  * the only thing that assigns material groups.
+ *
+ * Every vertex belongs to the `pillar` surface, which is what lets the pillars
+ * carry their own material and texture scale independently of the shell they
+ * share a merged geometry with.
  */
 export function createPillarGeometry(
   config: PillarGeometryConfig,
@@ -64,7 +68,7 @@ export function createPillarGeometry(
     addMasonryLayer(builder, config, layer);
   }
 
-  return finalizeStoneGeometry(builder);
+  return finalizeStoneGeometry(builder, "pillar");
 }
 
 export function getPillarBaseWidth(

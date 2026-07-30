@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import * as THREE from "three";
 import { StructureComposer } from "../src/structure/composer";
 import {
@@ -40,6 +41,15 @@ import {
   isStructureHash,
 } from "../src/config/structure-hash";
 import { validateControls, type ControlSpec } from "../src/config/control-spec";
+import {
+  DEFAULT_MASS_MATERIAL_PALETTE,
+  DEFAULT_STRUCTURE_MATERIAL_PALETTE,
+  DEFAULT_TEXTURE_SCALE,
+  MATERIAL_DOCUMENT_IDS,
+  MATERIAL_SURFACE_CONTROLS,
+  MATERIAL_SURFACE_IDS,
+  cloneMaterialPalette,
+} from "../src/config/material-palette";
 import {
   ILLUMINATION_CONTROLS,
   VIEW_CONTROLS,
@@ -184,19 +194,26 @@ assert.equal(
 const materialOnlyHashConfig = createDefaultStructureConfig();
 materialOnlyHashConfig.typeId = "mass";
 const materialIndependentCode = encodeStructureHash(materialOnlyHashConfig);
-materialOnlyHashConfig.materialPalettes.mass!.stone = "stone";
-materialOnlyHashConfig.materialPalettes.mass!.roof = "flamed-basalt";
+materialOnlyHashConfig.materialPalettes.mass!.stone.document = "stone";
+materialOnlyHashConfig.materialPalettes.mass!.roof.document = "flamed-basalt";
+materialOnlyHashConfig.materialPalettes.mass!.stone.textureScale = 2.5;
 assert.equal(
   encodeStructureHash(materialOnlyHashConfig),
   materialIndependentCode,
-  "Surface-material selection must not enter a structure geometry code.",
+  "Surface dressing must not enter a structure geometry code.",
 );
 const invalidMaterialConfig = createDefaultStructureConfig();
-invalidMaterialConfig.materialPalettes.circular!.stone =
+invalidMaterialConfig.materialPalettes.circular!.stone.document =
   "not-a-material" as never;
 assert.throws(
   () => validateActiveStructureConfig(invalidMaterialConfig),
-  /masonry must be one of/,
+  /Main structure material must be one of/,
+);
+const invalidTextureScaleConfig = createDefaultStructureConfig();
+invalidTextureScaleConfig.materialPalettes.circular!.pillar.textureScale = 9;
+assert.throws(
+  () => validateActiveStructureConfig(invalidTextureScaleConfig),
+  /Pillars texture scale must be between 0.1 and 8/,
 );
 assertCompositionGeometryEqual(
   new StructureComposer().build(massDefaultHashConfig).geometry,
@@ -436,7 +453,6 @@ const adjustedOfferingTransform = calculateOfferingTransform(
     pedestalFit: 1.1,
     verticalOffset: 0.25,
     rotationDegrees: 90,
-    materialScale: 2,
   },
 );
 assert.ok(Math.abs(
@@ -454,8 +470,11 @@ assert.throws(
   /pedestal fit/,
 );
 assert.throws(
-  () => validateOfferingConfig({ ...DEFAULT_OFFERING_CONFIG, materialScale: 8.1 }),
-  /material scale/,
+  () => validateOfferingConfig({
+    ...DEFAULT_OFFERING_CONFIG,
+    rotationDegrees: 181,
+  }),
+  /rotation/,
 );
 
 const offsetOffering = new THREE.Group();
@@ -1001,12 +1020,16 @@ assert.equal(
     + (pillar.triangleCount + fireBowl.triangleCount) * allPlacements.length,
 );
 
-// Exactly two coalesced groups, unlike mergeGeometries' one-per-input.
-assert.equal(composition.geometry.groups.length, 2);
-assert.equal(composition.geometry.groups[0]?.materialIndex, 0);
-assert.equal(
-  composition.geometry.groups[1]?.materialIndex,
-  materialSlotIndex("iron"),
+// One coalesced group per dressed surface — shell, pillars, bowls — rather than
+// mergeGeometries' one group per input part.
+assert.deepEqual(
+  composition.geometry.groups.map((group) => group.materialIndex),
+  [
+    materialSlotIndex("stone"),
+    materialSlotIndex("pillar"),
+    materialSlotIndex("iron"),
+  ],
+  "The circular checkpoint must dress its shell, pillars and bowls apart.",
 );
 assert.equal(
   composition.geometry.groups.reduce((sum, group) => sum + group.count, 0),
@@ -1166,14 +1189,17 @@ for (let vertex = 0; vertex < shell.vertexCount; vertex += 1) {
   );
 }
 
-// Bowls off collapses to a single stone group and drops every fire anchor.
+// Bowls off drops the iron group along with every fire anchor; the surfaces that
+// did produce geometry keep their own groups.
 const noBowlConfig = createDefaultStructureConfig();
 noBowlConfig.fireBowl.enabled = false;
 const noBowlComposition = new StructureComposer().build(noBowlConfig);
-assert.equal(noBowlComposition.geometry.groups.length, 1);
-assert.equal(noBowlComposition.geometry.groups[0]?.materialIndex, 0);
+assert.deepEqual(
+  noBowlComposition.geometry.groups.map((group) => group.materialIndex),
+  [materialSlotIndex("stone"), materialSlotIndex("pillar")],
+);
 assert.equal(
-  noBowlComposition.geometry.groups[0]?.count,
+  noBowlComposition.geometry.groups.reduce((sum, group) => sum + group.count, 0),
   noBowlComposition.geometry.getIndex()?.count,
 );
 assert.equal(noBowlComposition.sections.fireBowls.vertexCount, 0);
@@ -1305,6 +1331,39 @@ assertSpecCoverage(OFFERING_CONTROLS, DEFAULT_OFFERING_CONFIG, "offering");
 assertSpecCoverage(VIEW_CONTROLS, DEFAULT_VIEW_CONFIG, "view");
 assertSpecCoverage(ILLUMINATION_CONTROLS, DEFAULT_ILLUMINATION_CONFIG, "illumination");
 
+// Every surface a structure could dress must be described and defaulted, in both
+// palettes, so declaring a new one on a family cannot expose an unbound control.
+for (const surfaceId of MATERIAL_SURFACE_IDS) {
+  assertSpecCoverage(
+    MATERIAL_SURFACE_CONTROLS[surfaceId],
+    DEFAULT_STRUCTURE_MATERIAL_PALETTE[surfaceId],
+    `structure ${surfaceId} surface`,
+  );
+  assertSpecCoverage(
+    MATERIAL_SURFACE_CONTROLS[surfaceId],
+    DEFAULT_MASS_MATERIAL_PALETTE[surfaceId],
+    `mass ${surfaceId} surface`,
+  );
+  assert.equal(
+    DEFAULT_STRUCTURE_MATERIAL_PALETTE[surfaceId].textureScale,
+    DEFAULT_TEXTURE_SCALE,
+    `${surfaceId} must default to the generated texture density.`,
+  );
+  assert.equal(
+    DEFAULT_MASS_MATERIAL_PALETTE[surfaceId].textureScale,
+    DEFAULT_TEXTURE_SCALE,
+    `mass ${surfaceId} must default to the generated texture density.`,
+  );
+}
+
+// Every selectable document must be a file the runtime can actually fetch.
+for (const documentId of MATERIAL_DOCUMENT_IDS) {
+  assert.ok(
+    existsSync(new URL(`../public/materials/${documentId}.json`, import.meta.url)),
+    `Material document "${documentId}" has no file in public/materials.`,
+  );
+}
+
 // --- validators ------------------------------------------------------------
 assert.doesNotThrow(() => validateActiveStructureConfig(
   createDefaultStructureConfig(),
@@ -1383,6 +1442,14 @@ assertEveryControlParamIsValidated(
   (current) => current.view,
   "view",
 );
+for (const surfaceId of MATERIAL_SURFACE_IDS) {
+  assertEveryControlParamIsValidated(
+    createDefaultStructureConfig,
+    MATERIAL_SURFACE_CONTROLS[surfaceId],
+    (current) => current.materialPalettes.circular![surfaceId],
+    `${surfaceId} surface`,
+  );
+}
 assertEveryControlParamIsValidated(
   createDefaultStructureConfig,
   ILLUMINATION_CONTROLS,
@@ -1587,7 +1654,28 @@ assert.equal(
   (structureMesh.material as THREE.Material[]).length,
   MATERIAL_SLOTS.length,
 );
-assert.equal(structureMesh.geometry.groups.length, 2);
+assert.equal(structureMesh.geometry.groups.length, 3);
+
+// Texture scale is per surface: raising the pillars' scale re-tiles the pillar
+// vertices in place and leaves every other surface at its own density.
+const circularSurfaces = getStructure("circular").materialSurfaces ?? ["stone"];
+const scaledPalette = cloneMaterialPalette(sceneConfig.materialPalettes.circular);
+scaledPalette.pillar.textureScale = 4;
+void scene.setStructureMaterialPalette(scaledPalette, circularSurfaces);
+assertSurfaceTextureScale(structureMesh.geometry, "pillar", 4);
+assertSurfaceTextureScale(structureMesh.geometry, "stone", 1);
+assertSurfaceTextureScale(structureMesh.geometry, "iron", 1);
+
+// The Scene tab's material scale is a master multiplier over those densities.
+scene.setMaterialScale(2);
+assertSurfaceTextureScale(structureMesh.geometry, "pillar", 8);
+assertSurfaceTextureScale(structureMesh.geometry, "stone", 2);
+scene.setMaterialScale(DEFAULT_VIEW_CONFIG.materialScale);
+void scene.setStructureMaterialPalette(
+  cloneMaterialPalette(sceneConfig.materialPalettes.circular),
+  circularSurfaces,
+);
+assertSurfaceTextureScale(structureMesh.geometry, "pillar", 1);
 
 // Fire retuning must not rebuild geometry or recreate the flame batch.
 const firstGlowLight = scene.scene.children.find((child) => child.type === "PointLight");
@@ -2031,6 +2119,48 @@ function assertEveryControlParamIsValidated<T extends object>(
       `${label}.${spec.key} must be validated`,
     );
   }
+}
+
+/**
+ * Asserts one surface's vertices carry exactly the generated UVs at `expected`
+ * density, which is what proves texture scale is applied per surface rather than
+ * across the whole merged geometry.
+ */
+function assertSurfaceTextureScale(
+  geometry: THREE.BufferGeometry,
+  slot: MaterialSlot,
+  expected: number,
+): void {
+  const baseUvs = geometry.userData.baseUvs as Float32Array;
+  const uv = geometry.getAttribute("uv");
+  const slots = geometry.getAttribute("surfaceMaterial");
+  const target = materialSlotIndex(slot);
+  let compared = 0;
+
+  for (let index = 0; index < uv.count; index += 1) {
+    if (slots.getX(index) !== target) {
+      continue;
+    }
+
+    for (const [axis, value] of [[0, uv.getX(index)], [1, uv.getY(index)]] as const) {
+      const base = baseUvs[index * 2 + axis] ?? 0;
+
+      // A UV that is zero cannot show a scale, so it proves nothing either way.
+      if (Math.abs(base) < 1e-6) {
+        continue;
+      }
+
+      const wanted = base * expected;
+      assert.ok(
+        Math.abs(value - wanted) <= Math.abs(wanted) * 1e-5 + 1e-6,
+        `${slot} uv[${index}].${axis === 0 ? "x" : "y"}=${value} is not `
+        + `${base} at scale ${expected}.`,
+      );
+      compared += 1;
+    }
+  }
+
+  assert.ok(compared > 0, `No ${slot} vertex carried a scalable UV.`);
 }
 
 function assertSpecCoverage<T extends object>(

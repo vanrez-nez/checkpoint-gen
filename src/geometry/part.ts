@@ -5,19 +5,18 @@ import * as THREE from "three";
  * `materialIndex` of the merged geometry's draw group and the index into the
  * mesh's material array, so the order here is load-bearing.
  */
-export const STRUCTURE_SURFACE_SLOTS = [
+export const MATERIAL_SLOTS = [
   "stone",
   "trim",
   "stairs",
   "summit",
   "interior",
   "roof",
+  "pillar",
+  "iron",
 ] as const;
 
-export const MATERIAL_SLOTS = [...STRUCTURE_SURFACE_SLOTS, "iron"] as const;
-
 export type MaterialSlot = (typeof MATERIAL_SLOTS)[number];
-export type StructureSurfaceSlot = (typeof STRUCTURE_SURFACE_SLOTS)[number];
 
 export function materialSlotIndex(slot: MaterialSlot): number {
   const index = MATERIAL_SLOTS.indexOf(slot);

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { MATERIAL_SLOTS } from "./part";
+import { MATERIAL_SLOTS, materialSlotIndex, type MaterialSlot } from "./part";
 
 /**
  * A point on the ground plane. Every builder here works from horizontal
@@ -41,8 +41,15 @@ export interface FinalizedGeometry {
  * The `userData` arrays are the originals; the matching attributes are copies,
  * so a consumer can rescale `uv` or reweight `vertexAo` in place and still
  * recover the generated values on the next pass.
+ *
+ * `fallbackSlot` names the semantic surface a builder that assigns no per-vertex
+ * materials belongs to as a whole — a pillar is masonry, but it is the *pillar*
+ * surface, so it takes its own material and texture scale rather than the shell's.
  */
-export function finalizeGeometry(buffers: GeometryBuffers): FinalizedGeometry {
+export function finalizeGeometry(
+  buffers: GeometryBuffers,
+  fallbackSlot: MaterialSlot = "stone",
+): FinalizedGeometry {
   const vertexCount = buffers.positions.length / 3;
 
   if (!Number.isInteger(vertexCount)) {
@@ -71,7 +78,8 @@ export function finalizeGeometry(buffers: GeometryBuffers): FinalizedGeometry {
   const ambientOcclusion = new Float32Array(buffers.ambientOcclusion);
   const bakedShadow = new Float32Array(buffers.bakedShadow);
   const surfaceMaterials = Uint8Array.from(
-    buffers.surfaceMaterials ?? new Array(vertexCount).fill(0),
+    buffers.surfaceMaterials
+      ?? new Array(vertexCount).fill(materialSlotIndex(fallbackSlot)),
     (value) => {
       if (
         !Number.isInteger(value)

@@ -63,7 +63,7 @@ export function buildPillarParts(input: {
       parts.push({
         id: `pillar/${placement.label}`,
         section: "pillars",
-        slot: "stone",
+        slot: "pillar",
         geometry: geometry.geometry,
         matrix,
         stoneCount: geometry.stoneCount,

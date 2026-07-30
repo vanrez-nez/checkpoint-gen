@@ -1,4 +1,5 @@
 import { finalizeGeometry, type FinalizedGeometry, type Point2 } from "./finalize";
+import type { MaterialSlot } from "./part";
 import { createRandom, hashSeed, randomRange } from "./random";
 import {
   DEFAULT_FACE_SHADING,
@@ -372,8 +373,14 @@ export class StoneGeometryBuilder {
   }
 }
 
-export function finalizeStoneGeometry(builder: StoneGeometryBuilder): StoneGeometryResult {
-  return { ...finalizeGeometry(builder), stoneCount: builder.stoneCount };
+export function finalizeStoneGeometry(
+  builder: StoneGeometryBuilder,
+  fallbackSlot: MaterialSlot = "stone",
+): StoneGeometryResult {
+  return {
+    ...finalizeGeometry(builder, fallbackSlot),
+    stoneCount: builder.stoneCount,
+  };
 }
 
 function signedArea(points: readonly Point2[]): number {

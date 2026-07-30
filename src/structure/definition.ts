@@ -1,11 +1,13 @@
 import type { ControlSpec, RebuildScope } from "../config/control-spec";
-import type { StructureMaterialPalette } from "../config/material-palette";
+import type {
+  MaterialSurfaceId,
+  StructureMaterialPalette,
+} from "../config/material-palette";
 import type { BevelConfig, StoneConfig } from "../config/sections";
 import type {
   CompositionAnchors,
   GeometryPart,
   PartSection,
-  StructureSurfaceSlot,
 } from "../geometry/part";
 import type { FireBowlConfig } from "../props/fire-bowl/config";
 import type { PillarConfig } from "../props/pillar/config";
@@ -92,9 +94,9 @@ export interface StructureDefinition<TLayout extends object = object> {
   /** Per-family surface defaults; control shapes remain shared. */
   readonly defaultStone?: Readonly<StoneConfig>;
   readonly defaultBevel?: Readonly<BevelConfig>;
-  /** Material defaults and semantic slots this family actually exposes. */
+  /** Material defaults, and the surfaces this family actually dresses. */
   readonly defaultMaterialPalette?: Readonly<StructureMaterialPalette>;
-  readonly surfaceMaterialSlots?: readonly StructureSurfaceSlot[];
+  readonly materialSurfaces?: readonly MaterialSurfaceId[];
   readonly layoutControls: readonly ControlSpec<TLayout>[];
   cloneLayout(source?: Readonly<TLayout>): TLayout;
   validateLayout(layout: TLayout): void;

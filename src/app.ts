@@ -59,32 +59,8 @@ if (!activePalette) {
 await mainScene.loadStructureMaterialPalette(
   renderer,
   activePalette,
-  activeDefinition.surfaceMaterialSlots ?? ["stone"],
+  activeDefinition.materialSurfaces ?? ["stone"],
 );
-
-try {
-  await mainScene.loadIronMaterial(
-    renderer,
-    `${import.meta.env.BASE_URL}materials/hammered-iron.json`,
-  );
-} catch (error) {
-  console.error(
-    "Iron material failed to load; using the fallback material.",
-    error,
-  );
-}
-
-try {
-  await mainScene.loadOfferingMaterial(
-    renderer,
-    `${import.meta.env.BASE_URL}materials/stone.json`,
-  );
-} catch (error) {
-  console.error(
-    "Offering material failed to load; using the fallback material.",
-    error,
-  );
-}
 
 try {
   await mainScene.loadOffering(

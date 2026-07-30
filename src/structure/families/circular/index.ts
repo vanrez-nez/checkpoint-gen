@@ -54,7 +54,11 @@ export const circularStructure = defineStructure<CircularLayoutConfig>({
   defaultStone: DEFAULT_STONE_CONFIG,
   defaultBevel: DEFAULT_BEVEL_CONFIG,
   defaultMaterialPalette: DEFAULT_STRUCTURE_MATERIAL_PALETTE,
-  surfaceMaterialSlots: ["stone"],
+  // The plate, its pillars, their fire bowls and the statue are four surfaces a
+  // composition this small still wants dressed apart: forged iron on the bowls
+  // is not the shell's masonry, and the statue takes the same stone at a
+  // completely different tiling density.
+  materialSurfaces: ["stone", "pillar", "iron", "offering"],
   layoutControls: CIRCULAR_LAYOUT_CONTROLS,
   cloneLayout: cloneCircularLayout,
   validateLayout: validateCircularLayout,

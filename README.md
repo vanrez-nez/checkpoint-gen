@@ -39,13 +39,20 @@ The `g1` schema keeps its original defaults as an immutable decoding baseline,
 so later UI-default tuning does not reinterpret an existing shared code.
 
 Scene state is deliberately outside this boundary. Camera/view state, global
-lighting, semantic material-palette selections, the Scene tab's material tuning,
-diagnostics and tools neither change the code nor get overwritten when one is
-restored. Inactive structure families are excluded too. Pasting a code into the
-address bar switches to that structure and regenerates it in place, while
+lighting, every material-palette selection and texture scale, the Scene tab's
+material tuning, diagnostics and tools neither change the code nor get overwritten
+when one is restored. Inactive structure families are excluded too. Pasting a code
+into the address bar switches to that structure and regenerates it in place, while
 control edits update the current history entry rather than adding one entry per
 slider movement. Codec field order comes from the registered control tables; a
 control-schema change must bump the prefix version.
+
+Dropping the *last* field is the one exception, and it is what moving the
+offering's texture scale into the palette did — dressing was never generated
+geometry, so it did not belong in the code. No surviving field's index moves, so
+`g1` keeps its meaning: an existing code is read exactly as before, and one that
+actually carried that value is rejected with a warning rather than silently
+misread.
 
 ## The structure kernel
 
@@ -247,7 +254,7 @@ exactly the same extents, and that facing costs no more geometry than it saves.
 `StructureComposer` merges every part into **one indexed geometry** with one
 coalesced draw group per used semantic material slot, rendered as a single mesh.
 The stable slots are masonry, trim, stairs, summit walls, interior floors, roof,
-and iron. Every emitted face owns one `surfaceMaterial` vertex value; culling
+pillars, and iron. Every emitted face owns one `surfaceMaterial` vertex value; culling
 and merging preserve it, then the merger buckets whole triangles into the
 corresponding indexed group. The same attribute is ready for a future
 texture-array shader without changing generator topology. Parts are authored in
@@ -291,8 +298,9 @@ clipped; the vertical and bottom edges stay hard.
 The pillar controls expose total height, shaft width, base-step count, vertical
 shaft courses, and cross-section subdivisions. Their stone gap, size variation,
 displacement, seed, and bevel controls are independent of the checkpoint shell,
-though both live in the same merged geometry and share the active stone
-material, lighting, view helpers, and camera framing.
+and so is their dressing: pillars own the `pillars` slot, so they take their own
+material and texture scale while still living in the same merged geometry and
+sharing lighting, view helpers, and camera framing.
 
 ## Controls
 
@@ -327,11 +335,11 @@ hidden-to-shown transition.
 Controls are context dependent. Each structure definition partitions its layout
 folder groups and declared props among `controlTabs`; the pane replaces the tab
 bar from that schema when the type changes. The circular structure therefore
-owns Structure, Pillars, Fire, and Offering pages, while Mass owns Structure,
-Stairs, and Summit. Scene is global and appended to either tab bar. The
-definition validator requires every layout group and prop to appear on exactly
-one page, preventing an unrelated tab or an unbound control group from leaking
-into a new structure.
+owns Structure, Pillars, Fire, Offering, and Materials pages, while Mass owns
+Structure, Stairs, Summit, and Materials. Scene is global and appended to either
+tab bar. The definition validator requires every layout group and prop to appear
+on exactly one page, preventing an unrelated tab or an unbound control group from
+leaking into a new structure.
 
 Within the active pages, controls still toggle `hidden` from their enabling
 fields: bevel dimensions follow `bevel.enabled`, the whole Flame and Glow groups
@@ -363,16 +371,31 @@ tab also reports the combined fire-bowl vertex and triangle counts across all
 pillars, the instanced flame workload and draw count, and the number of
 entry-paired glow lights.
 
-Each structure exposes only the semantic material slots it uses. The Materials
-tab assigns a Material Designer document independently to each slot; documents
-are loaded lazily, cached by id, and baked at 512px. Changing an assignment
-updates mesh materials without regenerating geometry or reframing the camera.
-The generated mesh uses hard box-projected UVs so tops, bevels, and vertical
-sides sample the baked maps without triplanar blending.
+Each structure exposes only the **material surfaces** it actually has, and the
+Materials tab gives each one its own folder holding a Material Designer document
+and a texture scale. The circular checkpoint dresses its plate, its pillars, its
+fire bowls, and the offering statue apart; Mass dresses masonry, trim, stairs,
+summit walls, interior floors, and roof. Documents are loaded lazily, cached by
+id, and baked at 512px, so surfaces that select the same document share one
+material and one bake — the default checkpoint loads two graphs for its four
+surfaces. Changing an assignment updates mesh materials without regenerating
+geometry or reframing the camera.
 
-Fire bowls use a separate hammered-metal graph from
+The offering statue is a surface like any other even though it is a loaded model
+rather than a generated part, so its material and tiling live in the palette next
+to everything else, and its placement controls stay on the Offering tab. Fire
+bowls default to the hammered-metal graph in
 `public/materials/hammered-iron.json`. If any graph cannot load, only that
-surface falls back to the standard stone or dark forged-iron material.
+surface falls back to the standard stone, dark forged-iron, or statue material.
+
+Texture scale is a UV concern rather than a material one, which is what allows one
+document to dress several surfaces at different densities: the generated mesh uses
+hard box-projected UVs, and each surface's scale is applied to the vertices that
+name it, keyed off the same `surfaceMaterial` attribute the draw groups come from.
+Nothing is resampled and no material is duplicated. Every surface defaults to 1 —
+the density the builders authored — under the Scene tab's material scale, which
+remains a master multiplier over all of them. Triplanar blending stays off, so
+tops, bevels, and vertical sides sample the baked maps directly.
 
 Lighting combines a cool hemisphere fill with a cool directional sun. The sun
 casts three faded WebGPU CSM cascades that track the active camera, while the
