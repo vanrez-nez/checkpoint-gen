@@ -41,6 +41,10 @@ import type { HorizontalOrientation } from "../../kernel/frame";
  * are what those shapes mean when the quantity being distributed is height.
  */
 export type HeightCurveMode = CurveShape | "custom";
+export type SummitBuildingPlan =
+  | "single_chamber"
+  | "twin_chamber"
+  | "three_bay";
 
 /**
  * The mass structure's tunable state.
@@ -101,6 +105,10 @@ export interface MassLayoutConfig {
   summitBuildingWallThickness: number;
   summitBuildingPortalWidth: number;
   summitBuildingPortalHeight: number;
+  /** Internal room layout resolved inside the one authoritative envelope. */
+  summitBuildingPlan: SummitBuildingPlan;
+  summitInteriorOpeningWidth: number;
+  summitInteriorOpeningHeight: number;
   /** Independent flat roof carried by the summit building walls. */
   summitRoofEnabled: boolean;
   summitRoofThickness: number;
@@ -179,6 +187,9 @@ export const MASS_LAYOUT_G1_BASELINE: Readonly<MassLayoutConfig> = {
   summitBuildingWallThickness: 0.5,
   summitBuildingPortalWidth: 2,
   summitBuildingPortalHeight: 2.6,
+  summitBuildingPlan: "single_chamber",
+  summitInteriorOpeningWidth: 1.5,
+  summitInteriorOpeningHeight: 2.2,
   summitRoofEnabled: true,
   summitRoofThickness: 0.5,
   summitRoofProjection: 0.25,
@@ -272,6 +283,14 @@ const STAIR_SIDE_TREATMENT_OPTIONS: Readonly<Record<string, StairSideTreatment>>
   None: "none",
   "Stepped parapet": "stepped_parapet",
   "Flat parapet": "sloped_parapet",
+};
+
+const SUMMIT_BUILDING_PLAN_OPTIONS: Readonly<
+  Record<string, SummitBuildingPlan>
+> = {
+  "Single chamber": "single_chamber",
+  "Twin chamber": "twin_chamber",
+  "Three-bay gatehouse": "three_bay",
 };
 
 /** True when at least one facade carries a stair. */
@@ -831,6 +850,44 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     integer: true,
     scopes: ["layout"],
   }),
+  // Appended rather than inserted beside the other summit fields: g1 geometry
+  // codes address controls by index, so additions must not renumber the schema
+  // that existing shared links were encoded against.
+  control.list({
+    key: "summitBuildingPlan",
+    label: "plan",
+    name: "Summit building plan",
+    group: "Summit building",
+    options: SUMMIT_BUILDING_PLAN_OPTIONS,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.summitBuildingEnabled,
+  }),
+  control.number({
+    key: "summitInteriorOpeningWidth",
+    label: "interior opening width",
+    name: "Summit interior opening width",
+    group: "Summit building",
+    min: 0.5,
+    max: 6,
+    step: 0.1,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.summitBuildingEnabled
+      && layout.summitBuildingPlan !== "single_chamber",
+  }),
+  control.number({
+    key: "summitInteriorOpeningHeight",
+    label: "interior opening height",
+    name: "Summit interior opening height",
+    group: "Summit building",
+    min: 0.5,
+    max: 8,
+    step: 0.1,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.summitBuildingEnabled
+      && layout.summitBuildingPlan !== "single_chamber",
+  }),
 ];
 
 export function cloneMassLayout(
@@ -963,11 +1020,13 @@ function toCellSpecs(layout: MassLayoutConfig): SummitCellSpec[] {
 
   return [{
     id: "summit_chamber",
-    kind: "single_chamber",
+    kind: layout.summitBuildingPlan,
     height: layout.summitBuildingHeight,
     wallThickness: layout.summitBuildingWallThickness,
     portalWidth: layout.summitBuildingPortalWidth,
     portalHeight: layout.summitBuildingPortalHeight,
+    interiorOpeningWidth: layout.summitInteriorOpeningWidth,
+    interiorOpeningHeight: layout.summitInteriorOpeningHeight,
   }];
 }
 

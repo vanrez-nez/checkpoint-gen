@@ -135,25 +135,33 @@ height, marks the footprint below as occupied, and moves the placement patch and
 anchor to the pad top. The summit surface beneath the pad is omitted rather than
 left as hidden supporting geometry.
 
-An optional **summit building** consumes the complete placement footprint as a
-single chamber. Wall height, wall thickness, and the shared portal dimensions
-are real dimensions. Every enabled stair facade cuts one centred portal through
-the matching building wall; with no stairs the chamber remains closed. The graph
-records the room, its support and floor, exterior and interior wall
-patches, roof-bearing wall crowns, and the portal connection. The portal is
-constructed as two piers and a three-part header with explicit jamb and soffit
-patches—not as a boolean or a facade drawn over a solid wall. The existing
-summit surface becomes the room floor, and its wall footprint is not emitted as
-hidden supporting geometry in the bare tessellation.
+An optional **summit building** consumes the complete placement footprint as one
+exterior envelope. Its plan is configurable as a single chamber, a front/rear
+twin chamber, or a three-bay gatehouse. Multi-room plans own each shared
+partition once and cut configurable-width, configurable-height connections
+through both semantic wall faces and the generated wall blocks. Wall height,
+wall thickness, and the exterior portal dimensions remain real dimensions.
+Every enabled stair facade cuts one centred exterior portal through the matching
+building wall; those portals resolve directly to the room or rooms they reach,
+and with no stairs the building remains closed to the exterior.
+
+The graph records each room and floor independently, the shared partitions,
+room connections, exterior and interior wall patches, roof-bearing wall crowns,
+and portal destinations. Openings are constructed from piers and headers with
+explicit jamb and soffit patches—not as booleans or rectangles drawn over solid
+walls. The existing summit surface becomes the room floors and thresholds, and
+wall footprints are not emitted as hidden supporting geometry in the bare
+tessellation.
 
 An optional **flat summit roof** is a separate assembly carried by those
 roof-bearing wall crowns. Its slab thickness and projection are real dimensions,
 and an optional top cornice uses the same projection-and-height convention as
 the other moldings: either zero dimension leaves it absent. The graph records
-the covered cell, bearing wall patches, ceiling, slab edges, projected soffits,
-top surface, and cornice surfaces. Tessellation removes the wall-crown contact
-faces before laying the roof, so the ceiling and overhangs remain visible
-without a coincident interface or a hidden support slab.
+the covered cell and every room in its roof group, exterior and partition
+bearing patches, ceiling, slab edges, projected soffits, top surface, and
+cornice surfaces. Tessellation removes the wall-crown contact faces before
+laying the roof, so the ceiling and overhangs remain visible without a
+coincident interface or a hidden support slab.
 
 Every stair supports open sides, stepped parapets, and **flat parapets**. Both
 parapet styles accept the same configurable cornice projection and height. On a

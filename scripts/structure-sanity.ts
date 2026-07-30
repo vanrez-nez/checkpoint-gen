@@ -55,6 +55,7 @@ import {
   serializeGraph,
   STRUCTURE_SCHEMA_VERSION,
   type CellOpeningRecord,
+  type CellConnectionRecord,
   type CellRecord,
   type ElevationBandRecord,
   type StructureGraph,
@@ -148,6 +149,9 @@ assert.deepEqual(
     summitBuildingWallThickness: DEFAULT_MASS_LAYOUT.summitBuildingWallThickness,
     summitBuildingPortalWidth: DEFAULT_MASS_LAYOUT.summitBuildingPortalWidth,
     summitBuildingPortalHeight: DEFAULT_MASS_LAYOUT.summitBuildingPortalHeight,
+    summitBuildingPlan: DEFAULT_MASS_LAYOUT.summitBuildingPlan,
+    summitInteriorOpeningWidth: DEFAULT_MASS_LAYOUT.summitInteriorOpeningWidth,
+    summitInteriorOpeningHeight: DEFAULT_MASS_LAYOUT.summitInteriorOpeningHeight,
     summitRoofEnabled: DEFAULT_MASS_LAYOUT.summitRoofEnabled,
     summitRoofThickness: DEFAULT_MASS_LAYOUT.summitRoofThickness,
     summitRoofProjection: DEFAULT_MASS_LAYOUT.summitRoofProjection,
@@ -198,6 +202,9 @@ assert.deepEqual(
     summitBuildingWallThickness: 0.5,
     summitBuildingPortalWidth: 2,
     summitBuildingPortalHeight: 2.6,
+    summitBuildingPlan: "single_chamber",
+    summitInteriorOpeningWidth: 1.5,
+    summitInteriorOpeningHeight: 2.2,
     summitRoofEnabled: true,
     summitRoofThickness: 0.5,
     summitRoofProjection: 0.25,
@@ -292,6 +299,40 @@ function portalIsBlocked(
       && withinOpening
       && center.y > opening.bottomY + 1e-6
       && center.y < opening.topY - 1e-6;
+  });
+}
+
+function connectionIsBlocked(
+  builder: SolidBuilder,
+  connection: CellConnectionRecord,
+): boolean {
+  const alongX = rectWidth(connection.threshold) > rectDepth(connection.threshold);
+  const planes = alongX
+    ? [connection.threshold.minZ, connection.threshold.maxZ]
+    : [connection.threshold.minX, connection.threshold.maxX];
+
+  return readBlockFaces(builder).some((face) => {
+    const normal = faceNormal(face);
+    const center = face.reduce(
+      (sum, point) => sum.addScaledVector(point, 1 / face.length),
+      new THREE.Vector3(),
+    );
+    const onPartitionFace = planes.some((plane) =>
+      Math.abs((alongX ? center.z : center.x) - plane) < 1e-6);
+    const withinOpening = alongX
+      ? center.x > connection.threshold.minX + 1e-6
+        && center.x < connection.threshold.maxX - 1e-6
+      : center.z > connection.threshold.minZ + 1e-6
+        && center.z < connection.threshold.maxZ - 1e-6;
+    const facesRoom = alongX
+      ? Math.abs(normal.z) > 0.99
+      : Math.abs(normal.x) > 0.99;
+
+    return facesRoom
+      && onPartitionFace
+      && withinOpening
+      && center.y > connection.bottomY + 1e-6
+      && center.y < connection.topY - 1e-6;
   });
 }
 
@@ -1971,6 +2012,91 @@ for (const opening of allPortalCell.openings) {
   }
 }
 
+// Multi-room summit plans keep one exterior envelope and one roof group. Their
+// partitions are owned once, with explicit room connections cut through both
+// semantic faces and through the generated wall blocks.
+const plannedCellGraphs = [
+  {
+    layout: "twin_chamber" as const,
+    roomCount: 2,
+    wallCount: 1,
+    connectionCount: 3,
+  },
+  {
+    layout: "three_bay" as const,
+    roomCount: 3,
+    wallCount: 2,
+    connectionCount: 2,
+  },
+].map((expectation) => ({
+  ...expectation,
+  graph: generateStructure(toStructureSpec({
+    ...allPortalLayout,
+    footprintWidth: 40,
+    footprintDepth: 30,
+    summitBuildingPlan: expectation.layout,
+  })),
+  isolatedGraph: generateStructure(toStructureSpec({
+    ...allPortalLayout,
+    ...STAIRS_DISABLED,
+    footprintWidth: 40,
+    footprintDepth: 30,
+    summitBuildingPlan: expectation.layout,
+  })),
+}));
+
+for (const planned of plannedCellGraphs) {
+  assert.deepEqual(
+    planned.graph.diagnostics.filter((entry) => entry.severity === "error"),
+    [],
+    `${planned.layout}: valid room plan was rejected.`,
+  );
+  assertGraphInvariants(planned.graph, planned.layout);
+  assertGraphInvariants(
+    planned.isolatedGraph,
+    `${planned.layout} without exterior portals`,
+  );
+  const cell = planned.graph.cells[0]!;
+  assert.equal(cell.layout, planned.layout);
+  assert.equal(cell.rooms.length, planned.roomCount);
+  assert.equal(cell.interiorWalls.length, planned.wallCount);
+  assert.equal(cell.connections.length, planned.connectionCount);
+  assert.equal(
+    new Set(cell.rooms.map((room) => room.floorPatchId)).size,
+    planned.roomCount,
+    `${planned.layout}: rooms do not own distinct floor patches.`,
+  );
+  assert.deepEqual(
+    planned.graph.roofs[0]?.coversRoomIds,
+    cell.rooms.map((room) => room.id),
+    `${planned.layout}: the roof group does not cover every resolved room.`,
+  );
+
+  for (const wall of cell.interiorWalls) {
+    const wallConnections = cell.connections.filter(
+      (connection) => wall.connectionIds.includes(connection.id),
+    );
+    for (const patchId of [wall.negativePatchId, wall.positivePatchId]) {
+      const patch = planned.graph.patches.find(
+        (candidate) => candidate.id === patchId,
+      )!;
+      assert.equal(
+        patch.features.filter((feature) => feature.operation === "cut").length,
+        wallConnections.length,
+        `${planned.layout}: partition face does not carry all doorway cuts.`,
+      );
+    }
+  }
+
+  assert.equal(
+    planned.graph.patches.filter(
+      (patch) => patch.role === PATCH_ROLES.cellOpeningReveal,
+    ).length,
+    (cell.openings.length + cell.connections.length) * 3,
+    `${planned.layout}: a portal or room connection is missing its reveals.`,
+  );
+}
+
 const raisedCellGraph = generateStructure(toStructureSpec({
   ...summitCellLayout,
   summitTreatment: "raised_pad",
@@ -2058,6 +2184,51 @@ for (const masonry of [null, squareCellRule] as const) {
     );
   }
 
+  for (const planned of plannedCellGraphs) {
+    const cell = planned.graph.cells[0]!;
+    const plannedBuilder = new SolidBuilder();
+    buildCell(plannedBuilder, cell, masonry, 83);
+    const plannedGeometry = finalizeGeometry(plannedBuilder).geometry;
+    assert.equal(
+      findCoincidentFaces(plannedGeometry).pairs,
+      0,
+      `${planned.layout} ${masonry ? "masonry" : "bare"} geometry emitted coincident faces.`,
+    );
+    assert.equal(
+      findBuriedFaces(plannedGeometry).faces,
+      0,
+      `${planned.layout} ${masonry ? "masonry" : "bare"} geometry emitted buried faces.`,
+    );
+    assert.equal(
+      findBackfaces(plannedGeometry).backfaces,
+      0,
+      `${planned.layout} ${masonry ? "masonry" : "bare"} geometry left visible backfaces.`,
+    );
+    for (const connection of cell.connections) {
+      assert.equal(
+        connectionIsBlocked(plannedBuilder, connection),
+        false,
+        `${planned.layout}: ${masonry ? "masonry" : "bare"} geometry filled an interior connection.`,
+      );
+    }
+
+    const plannedAssembly = tessellateStructure(planned.isolatedGraph, {
+      masonry,
+      seed: 83,
+      stairTilesPerStep: allPortalLayout.stairTilesPerStep,
+    }).parts[0]!.geometry;
+    assert.equal(
+      findCoincidentFaces(plannedAssembly).pairs,
+      0,
+      `${planned.layout} ${masonry ? "masonry" : "bare"} assembly emitted coincident faces.`,
+    );
+    assert.equal(
+      findBackfaces(plannedAssembly).backfaces,
+      0,
+      `${planned.layout} ${masonry ? "masonry" : "bare"} assembly left visible backfaces.`,
+    );
+  }
+
   const roofBuilder = new SolidBuilder();
   buildCell(roofBuilder, summitCell, masonry, 79);
   roofBuilder.cullFaces((face) => faceIsCoveredByRoof(face, summitRoof));
@@ -2130,6 +2301,60 @@ assert.equal(
 assert.deepEqual(cellWithOversizedPortal.masses, []);
 assert.deepEqual(cellWithOversizedPortal.patches, []);
 assert.deepEqual(cellWithOversizedPortal.cells, []);
+
+const cellWithOversizedInteriorOpening = generateStructure(toStructureSpec({
+  ...summitCellLayout,
+  ...STAIRS_DISABLED,
+  summitBuildingPlan: "twin_chamber",
+  summitInteriorOpeningWidth: 100,
+}));
+assert.equal(
+  cellWithOversizedInteriorOpening.diagnostics.find(
+    (diagnostic) => diagnostic.severity === "error",
+  )?.code,
+  "cell.interior_openings_do_not_fit",
+);
+assert.deepEqual(cellWithOversizedInteriorOpening.cells, []);
+
+const cellWithTallInteriorOpening = generateStructure(toStructureSpec({
+  ...summitCellLayout,
+  summitBuildingPlan: "three_bay",
+  summitInteriorOpeningHeight: summitCellLayout.summitBuildingHeight,
+}));
+assert.equal(
+  cellWithTallInteriorOpening.diagnostics.find(
+    (diagnostic) => diagnostic.severity === "error",
+  )?.code,
+  "cell.invalid_interior_opening",
+);
+assert.deepEqual(cellWithTallInteriorOpening.cells, []);
+
+const twinWithNarrowSidePortal = generateStructure(toStructureSpec({
+  ...allPortalLayout,
+  summitBuildingPlan: "twin_chamber",
+  summitBuildingWallThickness: 1,
+  summitBuildingPortalWidth: 0.5,
+}));
+assert.equal(
+  twinWithNarrowSidePortal.diagnostics.find(
+    (diagnostic) => diagnostic.severity === "error",
+  )?.code,
+  "cell.side_portal_too_narrow_for_plan",
+);
+assert.deepEqual(twinWithNarrowSidePortal.cells, []);
+
+const threeBayWithWideFrontPortal = generateStructure(toStructureSpec({
+  ...summitCellLayout,
+  summitBuildingPlan: "three_bay",
+  summitBuildingPortalWidth: 3,
+}));
+assert.equal(
+  threeBayWithWideFrontPortal.diagnostics.find(
+    (diagnostic) => diagnostic.severity === "error",
+  )?.code,
+  "cell.portal_misses_central_hall",
+);
+assert.deepEqual(threeBayWithWideFrontPortal.cells, []);
 
 const validRoofSpec = toStructureSpec(summitCellLayout).roofs[0]!;
 const cellWithInvalidRoof = generateStructure({
@@ -4255,7 +4480,10 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
   for (const cell of graph.cells) {
     assert.ok(isValidId(cell.id), `${label}: cell id "${cell.id}" is invalid.`);
     assert.equal(cell.kind, "cell");
-    assert.equal(cell.layout, "single_chamber");
+    assert.ok(
+      ["single_chamber", "twin_chamber", "three_bay"].includes(cell.layout),
+      `${label}: cell has unknown room layout ${cell.layout}.`,
+    );
     assert.equal(cell.occupancy, "room");
     assert.ok(cell.topY > cell.bottomY);
     assert.ok(Math.abs(cell.topY - cell.bottomY - cell.height) < 1e-9);
@@ -4279,6 +4507,26 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
       `${label}: cell names missing placement anchor ${cell.placementAnchorId}.`,
     );
     assert.equal(byId.get(cell.floorPatchId)?.role, PATCH_ROLES.cellFloor);
+
+    assert.ok(cell.rooms.length > 0, `${label}: cell has no resolved rooms.`);
+    assert.equal(
+      new Set(cell.rooms.map((room) => room.id)).size,
+      cell.rooms.length,
+      `${label}: cell has duplicate room ids.`,
+    );
+    for (const room of cell.rooms) {
+      assert.ok(isValidId(room.id), `${label}: room id "${room.id}" is invalid.`);
+      assert.ok(
+        room.footprint.maxX > room.footprint.minX
+        && room.footprint.maxZ > room.footprint.minZ,
+        `${label}: room ${room.id} has no floor area.`,
+      );
+      assert.equal(
+        byId.get(room.floorPatchId)?.role,
+        PATCH_ROLES.cellFloor,
+        `${label}: room ${room.id} names a missing floor patch.`,
+      );
+    }
 
     assert.equal(cell.walls.length, 4);
     assert.equal(new Set(cell.walls.map((wall) => wall.orientation)).size, 4);
@@ -4307,8 +4555,83 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
       );
       assert.equal(byId.get(opening.exteriorPatchId)?.tags.includes("traversable"), true);
       assert.equal(byId.get(opening.interiorPatchId)?.role, PATCH_ROLES.cellFloor);
+      assert.ok(
+        opening.destinationRoomIds.length > 0,
+        `${label}: ${opening.direction} portal reaches no room.`,
+      );
+      for (const roomId of opening.destinationRoomIds) {
+        assert.ok(
+          cell.rooms.some((room) => room.id === roomId),
+          `${label}: ${opening.direction} portal reaches missing room ${roomId}.`,
+        );
+      }
+      assert.ok(
+        cell.rooms.some(
+          (room) =>
+            room.id === opening.destinationRoomIds[0]
+            && room.floorPatchId === opening.interiorPatchId,
+        ),
+        `${label}: ${opening.direction} portal floor disagrees with its destination room.`,
+      );
       for (const patchId of opening.revealPatchIds) {
         assert.equal(byId.get(patchId)?.role, PATCH_ROLES.cellOpeningReveal);
+      }
+    }
+
+    const roomIds = new Set(cell.rooms.map((room) => room.id));
+    const connectionIds = new Set(cell.connections.map(
+      (connection) => connection.id,
+    ));
+    assert.equal(
+      connectionIds.size,
+      cell.connections.length,
+      `${label}: cell has duplicate connection ids.`,
+    );
+    for (const connection of cell.connections) {
+      assert.ok(
+        roomIds.has(connection.sourceRoomId)
+        && roomIds.has(connection.destinationRoomId)
+        && connection.sourceRoomId !== connection.destinationRoomId,
+        `${label}: connection ${connection.id} does not join two rooms.`,
+      );
+      assert.ok(connection.width > 0 && connection.height > 0);
+      assert.ok(connection.topY < cell.topY);
+      assert.ok(
+        connection.threshold.maxX > connection.threshold.minX
+        && connection.threshold.maxZ > connection.threshold.minZ,
+        `${label}: connection ${connection.id} has no threshold area.`,
+      );
+      for (const patchId of connection.revealPatchIds) {
+        assert.equal(byId.get(patchId)?.role, PATCH_ROLES.cellOpeningReveal);
+      }
+    }
+
+    for (const wall of cell.interiorWalls) {
+      assert.ok(isValidId(wall.id), `${label}: partition id "${wall.id}" is invalid.`);
+      assert.ok(
+        roomIds.has(wall.negativeRoomId) && roomIds.has(wall.positiveRoomId),
+        `${label}: partition ${wall.id} names a missing room.`,
+      );
+      assert.ok(
+        wall.rect.maxX > wall.rect.minX && wall.rect.maxZ > wall.rect.minZ,
+        `${label}: partition ${wall.id} has no area in plan.`,
+      );
+      for (const patchId of [wall.negativePatchId, wall.positivePatchId]) {
+        const patch = byId.get(patchId);
+        assert.equal(patch?.role, PATCH_ROLES.cellWallInterior);
+        assert.equal(patch?.edges.vMax.treatment, "roof_bearing");
+        assert.ok(patch?.tags.includes("interior_partition"));
+        assert.equal(
+          patch?.features.filter((feature) => feature.operation === "cut").length,
+          wall.connectionIds.length,
+          `${label}: partition ${wall.id} has inconsistent doorway cuts.`,
+        );
+      }
+      for (const connectionId of wall.connectionIds) {
+        assert.ok(
+          connectionIds.has(connectionId),
+          `${label}: partition ${wall.id} names missing connection ${connectionId}.`,
+        );
       }
     }
 
@@ -4348,6 +4671,11 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
     assert.equal(roof.bottomY, coveredCell?.topY);
     assert.deepEqual(roof.bearingFootprint, coveredCell?.footprint);
     assert.deepEqual(roof.ceilingFootprint, coveredCell?.interior);
+    assert.deepEqual(
+      roof.coversRoomIds,
+      coveredCell?.rooms.map((room) => room.id),
+      `${label}: roof group does not cover its cell rooms.`,
+    );
 
     for (const patchId of roof.bearingPatchIds) {
       const bearing = byId.get(patchId);

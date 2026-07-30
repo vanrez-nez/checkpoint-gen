@@ -230,9 +230,14 @@ export function resolveSummitRoof(
     links.push([topPatchId, edgePatchId]);
   }
 
-  const bearingPatchIds = cell.walls.flatMap(
-    (wall) => [wall.outerPatchId, wall.innerPatchId],
-  );
+  const bearingPatchIds = [
+    ...cell.walls.flatMap(
+      (wall) => [wall.outerPatchId, wall.innerPatchId],
+    ),
+    ...cell.interiorWalls.flatMap(
+      (wall) => [wall.negativePatchId, wall.positivePatchId],
+    ),
+  ];
   for (const bearingPatchId of bearingPatchIds) {
     links.push([bearingPatchId, ceilingPatchId]);
   }
@@ -242,6 +247,7 @@ export function resolveSummitRoof(
     kind: "roof",
     roofType: "flat_slab",
     coversCellIds: [cell.id],
+    coversRoomIds: cell.rooms.map((room) => room.id),
     bearingPatchIds,
     bearingFootprint: { ...cell.footprint },
     ceilingFootprint: { ...cell.interior },

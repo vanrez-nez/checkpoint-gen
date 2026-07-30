@@ -12,7 +12,7 @@ import type { Diagnostic } from "./validate";
  * systems fills known positions rather than reshaping the graph. Connectors and
  * cells and roofs are the first containers now populated.
  */
-export const STRUCTURE_SCHEMA_VERSION = "1.4";
+export const STRUCTURE_SCHEMA_VERSION = "1.5";
 
 /**
  * Placeholder element type for a subsystem that has not been implemented yet.
@@ -183,14 +183,51 @@ export interface CellOpeningRecord {
   readonly threshold: Rect;
   readonly exteriorPatchId: string;
   readonly interiorPatchId: string;
+  /** Rooms reached directly from the threshold. */
+  readonly destinationRoomIds: readonly string[];
   readonly revealPatchIds: readonly string[];
 }
 
-/** One resolved enclosed or partially enclosed spatial unit. */
+/** One usable room inside a cell assembly. */
+export interface CellRoomRecord {
+  readonly id: string;
+  readonly role: "chamber" | "front_chamber" | "rear_chamber" | "side_chamber" | "central_hall";
+  readonly footprint: Rect;
+  readonly floorPatchId: string;
+}
+
+/** A traversable cut through one interior partition. */
+export interface CellConnectionRecord {
+  readonly id: string;
+  readonly kind: "door";
+  readonly sourceRoomId: string;
+  readonly destinationRoomId: string;
+  readonly width: number;
+  readonly height: number;
+  readonly bottomY: number;
+  readonly topY: number;
+  readonly threshold: Rect;
+  readonly revealPatchIds: readonly string[];
+}
+
+/** One physical partition, owned once regardless of the rooms on either side. */
+export interface CellInteriorWallRecord {
+  readonly id: string;
+  /** Direction in which the partition runs in plan. */
+  readonly axis: "x" | "z";
+  readonly rect: Rect;
+  readonly negativeRoomId: string;
+  readonly positiveRoomId: string;
+  readonly negativePatchId: string;
+  readonly positivePatchId: string;
+  readonly connectionIds: readonly string[];
+}
+
+/** One resolved enclosed or partially enclosed cell assembly. */
 export interface CellRecord {
   readonly id: string;
   readonly kind: "cell";
-  readonly layout: "single_chamber";
+  readonly layout: "single_chamber" | "twin_chamber" | "three_bay";
   readonly occupancy: "room";
   readonly footprint: Rect;
   readonly interior: Rect;
@@ -203,6 +240,9 @@ export interface CellRecord {
   readonly floorPatchId: string;
   readonly walls: readonly CellWallRecord[];
   readonly openings: readonly CellOpeningRecord[];
+  readonly rooms: readonly CellRoomRecord[];
+  readonly interiorWalls: readonly CellInteriorWallRecord[];
+  readonly connections: readonly CellConnectionRecord[];
   readonly patchIds: readonly string[];
 }
 
@@ -222,6 +262,8 @@ export interface RoofRecord {
   readonly kind: "roof";
   readonly roofType: "flat_slab";
   readonly coversCellIds: readonly string[];
+  /** Room range treated as one supported roof group. */
+  readonly coversRoomIds: readonly string[];
   /** Cell wall patches whose crown edges carry this roof. */
   readonly bearingPatchIds: readonly string[];
   /** Wall footprint beneath the slab. */

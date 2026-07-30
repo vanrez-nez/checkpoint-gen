@@ -78,10 +78,16 @@ export function addBareCellFloorSurface(
   y: number,
 ): void {
   addHorizontalRing(builder, surface, cell.footprint, y);
-  addHorizontalRect(builder, cell.interior, y);
+
+  for (const room of cell.rooms) {
+    addHorizontalRect(builder, room.footprint, y);
+  }
 
   for (const portal of cell.openings) {
     addHorizontalRect(builder, portal.threshold, y);
+  }
+  for (const connection of cell.connections) {
+    addHorizontalRect(builder, connection.threshold, y);
   }
 }
 
@@ -122,10 +128,164 @@ function cellPanels(cell: CellRecord): CellPanel[] {
     ));
   }
 
+  for (const wall of cell.interiorWalls) {
+    panels.push(...interiorWallPanels(cell, wall));
+  }
+
   return panels.filter(
     (candidate) =>
       rectIsValid(candidate.rect) && candidate.topY > candidate.bottomY,
   );
+}
+
+function interiorWallPanels(
+  cell: CellRecord,
+  wall: CellRecord["interiorWalls"][number],
+): CellPanel[] {
+  const axis = wall.axis;
+  const openings = wall.connectionIds
+    .map((connectionId) =>
+      cell.connections.find((connection) => connection.id === connectionId))
+    .filter((connection) => connection !== undefined)
+    .sort((a, b) =>
+      openingStart(a.threshold, axis) - openingStart(b.threshold, axis));
+  const surfaces: SideFlags = axis === "x"
+    ? [false, true, false, true]
+    : [true, false, true, false];
+  const start = axis === "x" ? wall.rect.minX : wall.rect.minZ;
+  const end = axis === "x" ? wall.rect.maxX : wall.rect.maxZ;
+  const startSide = axis === "x" ? 0 : 3;
+  const endSide = axis === "x" ? 2 : 1;
+  const panels: CellPanel[] = [];
+  let cursor = start;
+
+  for (let index = 0; index < openings.length; index += 1) {
+    const opening = openings[index]!;
+    const openingFrom = openingStart(opening.threshold, axis);
+    const openingTo = openingEnd(opening.threshold, axis);
+    const pierSides = cursor > start + EPS
+      ? withSide(surfaces, startSide)
+      : surfaces;
+
+    panels.push(panel(
+      `${wall.id}_pier_${String(index + 1).padStart(2, "0")}`,
+      spanRect(wall.rect, axis, cursor, openingFrom),
+      cell.bottomY,
+      cell.topY,
+      withSide(pierSides, endSide),
+      axis,
+    ));
+    panels.push(...interiorHeaderPanels(
+      cell,
+      wall,
+      opening,
+      index,
+      surfaces,
+      startSide,
+      endSide,
+      start,
+      end,
+    ));
+    cursor = openingTo;
+  }
+
+  const finalSides = cursor > start + EPS
+    ? withSide(surfaces, startSide)
+    : surfaces;
+  panels.push(panel(
+    `${wall.id}_pier_end`,
+    spanRect(wall.rect, axis, cursor, end),
+    cell.bottomY,
+    cell.topY,
+    finalSides,
+    axis,
+  ));
+
+  return panels;
+}
+
+function interiorHeaderPanels(
+  cell: CellRecord,
+  wall: CellRecord["interiorWalls"][number],
+  opening: CellRecord["connections"][number],
+  index: number,
+  surfaces: SideFlags,
+  startSide: number,
+  endSide: number,
+  wallStart: number,
+  wallEnd: number,
+): CellPanel[] {
+  const axis = wall.axis;
+  const openingFrom = openingStart(opening.threshold, axis);
+  const openingTo = openingEnd(opening.threshold, axis);
+  const headerRect = spanRect(wall.rect, axis, openingFrom, openingTo);
+  const endpoint = Math.abs(openingFrom - wallStart) <= EPS
+    ? {
+      side: startSide,
+      direction: axis === "x" ? "sideNegativeU" : "rear",
+    } as const
+    : Math.abs(openingTo - wallEnd) <= EPS
+      ? {
+        side: endSide,
+        direction: axis === "x" ? "sidePositiveU" : "front",
+      } as const
+      : null;
+  const exteriorPortal = endpoint
+    ? cell.openings.find((candidate) => candidate.direction === endpoint.direction)
+    : null;
+  const exposedTopY = Math.min(
+    exteriorPortal?.topY ?? opening.topY,
+    cell.topY,
+  );
+  const id = `${wall.id}_header_${String(index + 1).padStart(2, "0")}`;
+
+  if (endpoint && exposedTopY > opening.topY + EPS) {
+    return [
+      panel(
+        `${id}_exposed`,
+        headerRect,
+        opening.topY,
+        exposedTopY,
+        withSide(surfaces, endpoint.side),
+        axis,
+        false,
+        true,
+      ),
+      panel(
+        id,
+        headerRect,
+        exposedTopY,
+        cell.topY,
+        surfaces,
+        axis,
+      ),
+    ];
+  }
+
+  return [panel(
+    id,
+    headerRect,
+    opening.topY,
+    cell.topY,
+    surfaces,
+    axis,
+    true,
+    true,
+  )];
+}
+
+function openingStart(
+  threshold: Rect,
+  axis: CellPanel["axis"],
+): number {
+  return axis === "x" ? threshold.minX : threshold.minZ;
+}
+
+function openingEnd(
+  threshold: Rect,
+  axis: CellPanel["axis"],
+): number {
+  return axis === "x" ? threshold.maxX : threshold.maxZ;
 }
 
 function wallPanels(
@@ -348,6 +508,9 @@ function courseBoundaries(
   }
   for (const opening of cell.openings) {
     boundaries.push(opening.topY);
+  }
+  for (const connection of cell.connections) {
+    boundaries.push(connection.topY);
   }
 
   return [...new Set(boundaries.map((value) => value.toFixed(9)))]

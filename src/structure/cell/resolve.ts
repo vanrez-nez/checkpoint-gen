@@ -12,8 +12,11 @@ import {
   type Rect,
 } from "../kernel/frame";
 import {
+  type CellConnectionRecord,
+  type CellInteriorWallRecord,
   type CellOpeningRecord,
   type CellRecord,
+  type CellRoomRecord,
   type CellWallRecord,
   type SummitPlacementRecord,
 } from "../kernel/graph";
@@ -29,11 +32,13 @@ import { DiagnosticCollector } from "../kernel/validate";
 
 export interface SummitCellSpec {
   readonly id: string;
-  readonly kind: "single_chamber";
+  readonly kind: "single_chamber" | "twin_chamber" | "three_bay";
   readonly height: number;
   readonly wallThickness: number;
   readonly portalWidth: number;
   readonly portalHeight: number;
+  readonly interiorOpeningWidth: number;
+  readonly interiorOpeningHeight: number;
 }
 
 export interface ResolvedCell {
@@ -43,10 +48,9 @@ export interface ResolvedCell {
 }
 
 /**
- * Resolves the first cell assembly: one centred room whose portals follow the
- * configured stair facades. All dimensions are fixed here so patch emission
- * and tessellation read the same rectangles rather than independently
- * reapplying ratios or inventing openings.
+ * Resolves one summit cell assembly. The plan may divide its authoritative
+ * exterior envelope into rooms, but every partition and connection is owned
+ * once here so patch emission and tessellation consume the same rectangles.
  */
 export function resolveSummitCell(
   structureId: string,
@@ -117,15 +121,44 @@ export function resolveSummitCell(
     );
     return null;
   }
+  if (
+    spec.kind !== "single_chamber"
+    && (
+      spec.interiorOpeningWidth <= 0
+      || spec.interiorOpeningHeight <= 0
+      || spec.interiorOpeningHeight >= spec.height
+    )
+  ) {
+    diagnostics.error(
+      "cell.invalid_interior_opening",
+      id,
+      "Interior opening dimensions must be positive and lower than the building height.",
+    );
+    return null;
+  }
 
   const bottomY = placement.y;
   const topY = bottomY + spec.height;
-  const floorPatchId = structurePath(id, "floor");
+  const roomPlan = resolveRoomPlan(
+    id,
+    spec,
+    interior,
+    bottomY,
+    portalFacades,
+    diagnostics,
+  );
+
+  if (!roomPlan) {
+    return null;
+  }
+
   const wallRecords: CellWallRecord[] = [];
   const patches: Patch[] = [];
   const links: (readonly [string, string])[] = [];
 
-  patches.push(floorPatch(floorPatchId, interior, bottomY));
+  for (const room of roomPlan.rooms) {
+    patches.push(floorPatch(room.floorPatchId, room.footprint, bottomY));
+  }
 
   for (const orientation of [
     "front",
@@ -178,10 +211,11 @@ export function resolveSummitCell(
       }),
     );
     wallRecords.push({ orientation, outerPatchId, innerPatchId });
-    links.push(
-      [placement.patchId, outerPatchId],
-      [floorPatchId, innerPatchId],
-    );
+    links.push([placement.patchId, outerPatchId]);
+
+    for (const room of roomsAtExteriorWall(roomPlan.rooms, orientation, interior)) {
+      links.push([room.floorPatchId, innerPatchId]);
+    }
   }
 
   linkWallLoop(wallRecords, "outerPatchId", links);
@@ -203,6 +237,11 @@ export function resolveSummitCell(
       end: structurePath(portalId, "jamb_end"),
       head: structurePath(portalId, "soffit"),
     };
+    const destinations = destinationRooms(
+      roomPlan.rooms,
+      spec.kind,
+      direction,
+    );
 
     patches.push(
       portalJambPatch(
@@ -248,10 +287,104 @@ export function resolveSummitCell(
       topY: bottomY + spec.portalHeight,
       threshold,
       exteriorPatchId: placement.patchId,
-      interiorPatchId: floorPatchId,
+      interiorPatchId: destinations[0]?.floorPatchId
+        ?? roomPlan.rooms[0]!.floorPatchId,
+      destinationRoomIds: destinations.map((room) => room.id),
       revealPatchIds: Object.values(revealIds),
     });
   }
+
+  for (const wall of roomPlan.interiorWalls) {
+    const connections = roomPlan.connections.filter(
+      (connection) => wall.connectionIds.includes(connection.id),
+    );
+    const negativeOrientation: HorizontalOrientation = wall.axis === "x"
+      ? "rear"
+      : "sideNegativeU";
+    const positiveOrientation: HorizontalOrientation = wall.axis === "x"
+      ? "front"
+      : "sidePositiveU";
+
+    patches.push(
+      interiorWallPatch(
+        wall.negativePatchId,
+        wall.rect,
+        negativeOrientation,
+        bottomY,
+        topY,
+        connections,
+      ),
+      interiorWallPatch(
+        wall.positivePatchId,
+        wall.rect,
+        positiveOrientation,
+        bottomY,
+        topY,
+        connections,
+      ),
+    );
+
+    const negativeRoom = roomPlan.rooms.find(
+      (room) => room.id === wall.negativeRoomId,
+    )!;
+    const positiveRoom = roomPlan.rooms.find(
+      (room) => room.id === wall.positiveRoomId,
+    )!;
+    links.push(
+      [wall.negativePatchId, negativeRoom.floorPatchId],
+      [wall.positivePatchId, positiveRoom.floorPatchId],
+    );
+
+    for (const connection of connections) {
+      const direction = wall.axis === "x"
+        ? "front"
+        : "sidePositiveU";
+      const revealIds = {
+        start: structurePath(connection.id, "jamb_start"),
+        end: structurePath(connection.id, "jamb_end"),
+        head: structurePath(connection.id, "soffit"),
+      };
+
+      patches.push(
+        portalJambPatch(
+          revealIds.start,
+          connection.threshold,
+          direction,
+          "start",
+          bottomY,
+          connection.height,
+        ),
+        portalJambPatch(
+          revealIds.end,
+          connection.threshold,
+          direction,
+          "end",
+          bottomY,
+          connection.height,
+        ),
+        portalSoffitPatch(
+          revealIds.head,
+          connection.threshold,
+          connection.topY,
+        ),
+      );
+
+      for (const revealId of Object.values(revealIds)) {
+        links.push(
+          [wall.negativePatchId, revealId],
+          [wall.positivePatchId, revealId],
+        );
+      }
+      links.push(
+        [revealIds.start, revealIds.head],
+        [revealIds.end, revealIds.head],
+      );
+    }
+  }
+
+  const floorPatchId = roomPlan.rooms.find(
+    (room) => room.id === roomPlan.primaryRoomId,
+  )?.floorPatchId ?? roomPlan.rooms[0]!.floorPatchId;
 
   const record: CellRecord = {
     id,
@@ -269,10 +402,419 @@ export function resolveSummitCell(
     floorPatchId,
     walls: wallRecords,
     openings,
+    rooms: roomPlan.rooms,
+    interiorWalls: roomPlan.interiorWalls,
+    connections: roomPlan.connections,
     patchIds: patches.map((patch) => patch.id),
   };
 
   return { record, patches, links };
+}
+
+interface ResolvedRoomPlan {
+  readonly rooms: readonly CellRoomRecord[];
+  readonly interiorWalls: readonly CellInteriorWallRecord[];
+  readonly connections: readonly CellConnectionRecord[];
+  readonly primaryRoomId: string;
+}
+
+function resolveRoomPlan(
+  cellId: string,
+  spec: SummitCellSpec,
+  interior: Rect,
+  bottomY: number,
+  portalFacades: ReadonlySet<HorizontalOrientation>,
+  diagnostics: DiagnosticCollector,
+): ResolvedRoomPlan | null {
+  if (spec.kind === "single_chamber") {
+    const room = cellRoom(
+      structurePath(cellId, "room"),
+      "chamber",
+      interior,
+      structurePath(cellId, "floor"),
+    );
+
+    return {
+      rooms: [room],
+      interiorWalls: [],
+      connections: [],
+      primaryRoomId: room.id,
+    };
+  }
+
+  if (spec.kind === "twin_chamber") {
+    if (
+      (
+        portalFacades.has("sideNegativeU")
+        || portalFacades.has("sidePositiveU")
+      )
+      && spec.portalWidth < spec.wallThickness - 1e-9
+    ) {
+      diagnostics.error(
+        "cell.side_portal_too_narrow_for_plan",
+        cellId,
+        "A twin-chamber side portal must be at least as wide as the partition it meets.",
+      );
+      return null;
+    }
+
+    const centerZ = (interior.minZ + interior.maxZ) * 0.5;
+    const halfWall = spec.wallThickness * 0.5;
+    const wallRect: Rect = {
+      minX: interior.minX,
+      maxX: interior.maxX,
+      minZ: centerZ - halfWall,
+      maxZ: centerZ + halfWall,
+    };
+    const rear = cellRoom(
+      structurePath(cellId, "room_rear"),
+      "rear_chamber",
+      { ...interior, maxZ: wallRect.minZ },
+    );
+    const front = cellRoom(
+      structurePath(cellId, "room_front"),
+      "front_chamber",
+      { ...interior, minZ: wallRect.maxZ },
+    );
+
+    if (!rectIsValid(rear.footprint) || !rectIsValid(front.footprint)) {
+      diagnostics.error(
+        "cell.plan_does_not_fit",
+        cellId,
+        "The twin-chamber plan leaves no usable room around its interior wall.",
+      );
+      return null;
+    }
+
+    const wallId = structurePath(cellId, "partition_rear_front");
+    const intervals: { readonly id: string; readonly start: number; readonly end: number }[] = [];
+    const centerX = (interior.minX + interior.maxX) * 0.5;
+    const halfOpening = spec.interiorOpeningWidth * 0.5;
+    intervals.push({
+      id: "center",
+      start: centerX - halfOpening,
+      end: centerX + halfOpening,
+    });
+
+    if (portalFacades.has("sideNegativeU")) {
+      intervals.push({
+        id: "left_entry",
+        start: interior.minX,
+        end: interior.minX + spec.interiorOpeningWidth,
+      });
+    }
+    if (portalFacades.has("sidePositiveU")) {
+      intervals.push({
+        id: "right_entry",
+        start: interior.maxX - spec.interiorOpeningWidth,
+        end: interior.maxX,
+      });
+    }
+
+    if (!openingIntervalsFit(
+      intervals,
+      interior.minX,
+      interior.maxX,
+      spec.wallThickness * 0.5,
+    )) {
+      diagnostics.error(
+        "cell.interior_openings_do_not_fit",
+        cellId,
+        "The twin-chamber interior openings overlap or leave no supporting pier.",
+      );
+      return null;
+    }
+
+    const connections = intervals.map((interval) => {
+      const connectionId = structurePath(wallId, `door_${interval.id}`);
+      return cellConnection(
+        connectionId,
+        rear.id,
+        front.id,
+        {
+          minX: interval.start,
+          maxX: interval.end,
+          minZ: wallRect.minZ,
+          maxZ: wallRect.maxZ,
+        },
+        interval.end - interval.start,
+        spec.interiorOpeningHeight,
+        bottomY,
+      );
+    });
+    const wall = interiorWall(
+      wallId,
+      "x",
+      wallRect,
+      rear.id,
+      front.id,
+      connections,
+    );
+
+    return {
+      rooms: [rear, front],
+      interiorWalls: [wall],
+      connections,
+      primaryRoomId: front.id,
+    };
+  }
+
+  const usableWidth = rectWidth(interior) - spec.wallThickness * 2;
+  const roomWidth = usableWidth / 3;
+
+  if (roomWidth <= spec.wallThickness * 0.5) {
+    diagnostics.error(
+      "cell.plan_does_not_fit",
+      cellId,
+      "The three-bay plan leaves no usable rooms between its interior walls.",
+    );
+    return null;
+  }
+
+  const leftWallRect: Rect = {
+    minX: interior.minX + roomWidth,
+    maxX: interior.minX + roomWidth + spec.wallThickness,
+    minZ: interior.minZ,
+    maxZ: interior.maxZ,
+  };
+  const rightWallRect: Rect = {
+    minX: leftWallRect.maxX + roomWidth,
+    maxX: leftWallRect.maxX + roomWidth + spec.wallThickness,
+    minZ: interior.minZ,
+    maxZ: interior.maxZ,
+  };
+  const left = cellRoom(
+    structurePath(cellId, "room_left"),
+    "side_chamber",
+    { ...interior, maxX: leftWallRect.minX },
+  );
+  const center = cellRoom(
+    structurePath(cellId, "room_center"),
+    "central_hall",
+    {
+      ...interior,
+      minX: leftWallRect.maxX,
+      maxX: rightWallRect.minX,
+    },
+  );
+  const right = cellRoom(
+    structurePath(cellId, "room_right"),
+    "side_chamber",
+    { ...interior, minX: rightWallRect.maxX },
+  );
+  const halfOpening = spec.interiorOpeningWidth * 0.5;
+  const centerZ = (interior.minZ + interior.maxZ) * 0.5;
+
+  if (
+    ![left, center, right].every((room) => rectIsValid(room.footprint))
+    || spec.interiorOpeningWidth >= rectDepth(interior)
+  ) {
+    diagnostics.error(
+      "cell.interior_openings_do_not_fit",
+      cellId,
+      "The three-bay rooms or their interior openings do not fit the chamber.",
+    );
+    return null;
+  }
+  if (
+    (
+      portalFacades.has("front")
+      || portalFacades.has("rear")
+    )
+    && spec.portalWidth > rectWidth(center.footprint) + 1e-9
+  ) {
+    diagnostics.error(
+      "cell.portal_misses_central_hall",
+      cellId,
+      "A three-bay front or rear portal must fit within the central hall.",
+    );
+    return null;
+  }
+
+  const leftWallId = structurePath(cellId, "partition_left_center");
+  const rightWallId = structurePath(cellId, "partition_center_right");
+  const leftConnection = cellConnection(
+    structurePath(leftWallId, "door_center"),
+    left.id,
+    center.id,
+    {
+      minX: leftWallRect.minX,
+      maxX: leftWallRect.maxX,
+      minZ: centerZ - halfOpening,
+      maxZ: centerZ + halfOpening,
+    },
+    spec.interiorOpeningWidth,
+    spec.interiorOpeningHeight,
+    bottomY,
+  );
+  const rightConnection = cellConnection(
+    structurePath(rightWallId, "door_center"),
+    center.id,
+    right.id,
+    {
+      minX: rightWallRect.minX,
+      maxX: rightWallRect.maxX,
+      minZ: centerZ - halfOpening,
+      maxZ: centerZ + halfOpening,
+    },
+    spec.interiorOpeningWidth,
+    spec.interiorOpeningHeight,
+    bottomY,
+  );
+
+  return {
+    rooms: [left, center, right],
+    interiorWalls: [
+      interiorWall(
+        leftWallId,
+        "z",
+        leftWallRect,
+        left.id,
+        center.id,
+        [leftConnection],
+      ),
+      interiorWall(
+        rightWallId,
+        "z",
+        rightWallRect,
+        center.id,
+        right.id,
+        [rightConnection],
+      ),
+    ],
+    connections: [leftConnection, rightConnection],
+    primaryRoomId: center.id,
+  };
+}
+
+function cellRoom(
+  id: string,
+  role: CellRoomRecord["role"],
+  footprint: Rect,
+  floorPatchId = structurePath(id, "floor"),
+): CellRoomRecord {
+  return { id, role, footprint, floorPatchId };
+}
+
+function cellConnection(
+  id: string,
+  sourceRoomId: string,
+  destinationRoomId: string,
+  threshold: Rect,
+  width: number,
+  height: number,
+  bottomY: number,
+): CellConnectionRecord {
+  return {
+    id,
+    kind: "door",
+    sourceRoomId,
+    destinationRoomId,
+    width,
+    height,
+    bottomY,
+    topY: bottomY + height,
+    threshold,
+    revealPatchIds: [
+      structurePath(id, "jamb_start"),
+      structurePath(id, "jamb_end"),
+      structurePath(id, "soffit"),
+    ],
+  };
+}
+
+function interiorWall(
+  id: string,
+  axis: CellInteriorWallRecord["axis"],
+  rect: Rect,
+  negativeRoomId: string,
+  positiveRoomId: string,
+  connections: readonly CellConnectionRecord[],
+): CellInteriorWallRecord {
+  return {
+    id,
+    axis,
+    rect,
+    negativeRoomId,
+    positiveRoomId,
+    negativePatchId: structurePath(id, "face_negative"),
+    positivePatchId: structurePath(id, "face_positive"),
+    connectionIds: connections.map((connection) => connection.id),
+  };
+}
+
+function openingIntervalsFit(
+  intervals: readonly { readonly start: number; readonly end: number }[],
+  minimum: number,
+  maximum: number,
+  minimumPier: number,
+): boolean {
+  const ordered = [...intervals].sort((a, b) => a.start - b.start);
+
+  return ordered.every(
+    (interval) => interval.start >= minimum - 1e-9
+      && interval.end <= maximum + 1e-9
+      && interval.end > interval.start,
+  ) && ordered.every(
+    (interval, index) =>
+      index === 0
+      || interval.start - ordered[index - 1]!.end >= minimumPier - 1e-9,
+  );
+}
+
+function roomsAtExteriorWall(
+  rooms: readonly CellRoomRecord[],
+  orientation: HorizontalOrientation,
+  interior: Rect,
+): CellRoomRecord[] {
+  return rooms.filter((room) => {
+    switch (orientation) {
+      case "front":
+        return Math.abs(room.footprint.maxZ - interior.maxZ) < 1e-9;
+      case "rear":
+        return Math.abs(room.footprint.minZ - interior.minZ) < 1e-9;
+      case "sidePositiveU":
+        return Math.abs(room.footprint.maxX - interior.maxX) < 1e-9;
+      case "sideNegativeU":
+        return Math.abs(room.footprint.minX - interior.minX) < 1e-9;
+    }
+  });
+}
+
+function destinationRooms(
+  rooms: readonly CellRoomRecord[],
+  layout: SummitCellSpec["kind"],
+  direction: HorizontalOrientation,
+): CellRoomRecord[] {
+  if (layout === "single_chamber") {
+    return [...rooms];
+  }
+  if (layout === "twin_chamber") {
+    if (direction === "front") {
+      return rooms.filter((room) => room.role === "front_chamber");
+    }
+    if (direction === "rear") {
+      return rooms.filter((room) => room.role === "rear_chamber");
+    }
+    return [...rooms];
+  }
+
+  if (direction === "sideNegativeU") {
+    return rooms.filter(
+      (room) =>
+        room.role === "side_chamber"
+        && room.footprint.minX === Math.min(...rooms.map((item) => item.footprint.minX)),
+    );
+  }
+  if (direction === "sidePositiveU") {
+    return rooms.filter(
+      (room) =>
+        room.role === "side_chamber"
+        && room.footprint.maxX === Math.max(...rooms.map((item) => item.footprint.maxX)),
+    );
+  }
+
+  return rooms.filter((room) => room.role === "central_hall");
 }
 
 function wallSegment(orientation: HorizontalOrientation): string {
@@ -413,6 +955,87 @@ function wallPatch(input: {
       input.orientation,
       "roof_bearing",
     ],
+  };
+}
+
+function interiorWallPatch(
+  id: string,
+  rect: Rect,
+  orientation: HorizontalOrientation,
+  bottomY: number,
+  topY: number,
+  connections: readonly CellConnectionRecord[],
+): Patch {
+  const edge = rectEdge(rect, orientation);
+  const frame = createFacadeFrame(edge, bottomY, topY, edge.start);
+  const regions = connections.map((connection, index) =>
+    connectionRegion(
+      id,
+      frame,
+      connection,
+      topY - bottomY,
+      index,
+    ));
+  const features: PatchFeature[] = regions.map((region, index) => ({
+    id: structurePath(id, `cut_door_${String(index + 1).padStart(2, "0")}`),
+    operation: "cut",
+    regionId: region.id,
+    order: index,
+  }));
+
+  return {
+    id,
+    role: PATCH_ROLES.cellWallInterior,
+    frame,
+    dimensions: {
+      u: frame.uLength,
+      v: frame.vLength,
+      thickness: 0,
+    },
+    evaluator: "planar",
+    edges: wallEdges(id, orientation),
+    adjacency: [],
+    regions,
+    features,
+    anchors: [],
+    tags: [
+      "interior",
+      "cell_wall",
+      "interior_partition",
+      orientation,
+      "roof_bearing",
+    ],
+  };
+}
+
+function connectionRegion(
+  patchId: string,
+  frame: LocalFrame,
+  connection: CellConnectionRecord,
+  wallHeight: number,
+  index: number,
+): PatchRegion {
+  const points = [
+    { x: connection.threshold.minX, z: connection.threshold.minZ },
+    { x: connection.threshold.minX, z: connection.threshold.maxZ },
+    { x: connection.threshold.maxX, z: connection.threshold.minZ },
+    { x: connection.threshold.maxX, z: connection.threshold.maxZ },
+  ];
+  const projected = points.map((point) =>
+    (
+      (point.x - frame.origin.x) * frame.uAxis.x
+      + (point.z - frame.origin.z) * frame.uAxis.z
+    ) / frame.uLength);
+
+  return {
+    id: structurePath(
+      patchId,
+      `connection_${String(index + 1).padStart(2, "0")}`,
+    ),
+    uRange: [Math.min(...projected), Math.max(...projected)],
+    vRange: [0, connection.height / wallHeight],
+    priority: 100,
+    tags: ["opening", "door", "circulation", "interior_connection"],
   };
 }
 
