@@ -123,21 +123,23 @@ export const DEFAULT_CIRCULAR_MATERIAL_PALETTE: Readonly<
   offering: surface("lichen-stone", 2),
 };
 
+/**
+ * Mass's tuned dressing. Its surfaces tile well below the generated density
+ * because a mass is an order of magnitude larger than the circular plate: the
+ * same grain that reads as masonry at arm's length reads as noise across a
+ * 24-unit elevation, and the coarser the surface's role, the further down it goes.
+ */
 export const DEFAULT_MASS_MATERIAL_PALETTE: Readonly<
   StructureMaterialPalette
 > = {
-  stone: surface("dark-volcanic-stone"),
-  trim: surface("flamed-basalt"),
-  stairs: surface("cobblestone-setts"),
-  // Split out of the stairs, and opening on what the stairs already were, so
-  // gaining the control is not itself a change of appearance.
-  parapet: surface("cobblestone-setts"),
+  ...DEFAULT_STRUCTURE_MATERIAL_PALETTE,
+  stone: surface("eroded-rock", 0.6),
+  trim: surface("flamed-basalt", 0.35),
+  stairs: surface("lichen-stone", 0.25),
+  parapet: surface("cobblestone-setts", 0.25),
   summit: surface("eroded-rock"),
   interior: surface("volcanic-stone"),
   roof: surface("lichen-stone"),
-  pillar: surface("dark-volcanic-stone"),
-  iron: surface("hammered-iron"),
-  offering: surface("stone"),
 };
 
 const control = controlsFor<MaterialSurfaceConfig>();
