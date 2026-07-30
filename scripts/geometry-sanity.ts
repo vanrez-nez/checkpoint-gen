@@ -42,6 +42,7 @@ import {
 } from "../src/config/structure-hash";
 import { validateControls, type ControlSpec } from "../src/config/control-spec";
 import {
+  DEFAULT_CIRCULAR_MATERIAL_PALETTE,
   DEFAULT_MASS_MATERIAL_PALETTE,
   DEFAULT_STRUCTURE_MATERIAL_PALETTE,
   DEFAULT_TEXTURE_SCALE,
@@ -1334,27 +1335,28 @@ assertSpecCoverage(ILLUMINATION_CONTROLS, DEFAULT_ILLUMINATION_CONFIG, "illumina
 // Every surface a structure could dress must be described and defaulted, in both
 // palettes, so declaring a new one on a family cannot expose an unbound control.
 for (const surfaceId of MATERIAL_SURFACE_IDS) {
-  assertSpecCoverage(
-    MATERIAL_SURFACE_CONTROLS[surfaceId],
-    DEFAULT_STRUCTURE_MATERIAL_PALETTE[surfaceId],
-    `structure ${surfaceId} surface`,
-  );
-  assertSpecCoverage(
-    MATERIAL_SURFACE_CONTROLS[surfaceId],
-    DEFAULT_MASS_MATERIAL_PALETTE[surfaceId],
-    `mass ${surfaceId} surface`,
-  );
+  for (const [label, palette] of [
+    ["structure", DEFAULT_STRUCTURE_MATERIAL_PALETTE],
+    ["circular", DEFAULT_CIRCULAR_MATERIAL_PALETTE],
+    ["mass", DEFAULT_MASS_MATERIAL_PALETTE],
+  ] as const) {
+    assertSpecCoverage(
+      MATERIAL_SURFACE_CONTROLS[surfaceId],
+      palette[surfaceId],
+      `${label} ${surfaceId} surface`,
+    );
+  }
+
+  // The baseline palette is what an untuned family is dressed from, so it must
+  // stay at the density the builders authored. A family that wants otherwise
+  // says so in its own palette, as circular does for the statue.
   assert.equal(
     DEFAULT_STRUCTURE_MATERIAL_PALETTE[surfaceId].textureScale,
     DEFAULT_TEXTURE_SCALE,
     `${surfaceId} must default to the generated texture density.`,
   );
-  assert.equal(
-    DEFAULT_MASS_MATERIAL_PALETTE[surfaceId].textureScale,
-    DEFAULT_TEXTURE_SCALE,
-    `mass ${surfaceId} must default to the generated texture density.`,
-  );
 }
+assert.equal(DEFAULT_CIRCULAR_MATERIAL_PALETTE.offering.textureScale, 2);
 
 // Every selectable document must be a file the runtime can actually fetch.
 for (const documentId of MATERIAL_DOCUMENT_IDS) {

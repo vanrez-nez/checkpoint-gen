@@ -377,9 +377,8 @@ and a texture scale. The circular checkpoint dresses its plate, its pillars, its
 fire bowls, and the offering statue apart; Mass dresses masonry, trim, stairs,
 summit walls, interior floors, and roof. Documents are loaded lazily, cached by
 id, and baked at 512px, so surfaces that select the same document share one
-material and one bake — the default checkpoint loads two graphs for its four
-surfaces. Changing an assignment updates mesh materials without regenerating
-geometry or reframing the camera.
+material and one bake rather than paying for it twice. Changing an assignment
+updates mesh materials without regenerating geometry or reframing the camera.
 
 The offering statue is a surface like any other even though it is a loaded model
 rather than a generated part, so its material and tiling live in the palette next

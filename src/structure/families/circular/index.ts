@@ -2,7 +2,7 @@ import {
   DEFAULT_BEVEL_CONFIG,
   DEFAULT_STONE_CONFIG,
 } from "../../../config/sections";
-import { DEFAULT_STRUCTURE_MATERIAL_PALETTE } from "../../../config/material-palette";
+import { DEFAULT_CIRCULAR_MATERIAL_PALETTE } from "../../../config/material-palette";
 import {
   IDENTITY_MATRIX,
   type CompositionAnchor,
@@ -53,7 +53,7 @@ export const circularStructure = defineStructure<CircularLayoutConfig>({
   defaultLayout: DEFAULT_CIRCULAR_LAYOUT,
   defaultStone: DEFAULT_STONE_CONFIG,
   defaultBevel: DEFAULT_BEVEL_CONFIG,
-  defaultMaterialPalette: DEFAULT_STRUCTURE_MATERIAL_PALETTE,
+  defaultMaterialPalette: DEFAULT_CIRCULAR_MATERIAL_PALETTE,
   // The plate, its pillars, their fire bowls and the statue are four surfaces a
   // composition this small still wants dressed apart: forged iron on the bowls
   // is not the shell's masonry, and the statue takes the same stone at a

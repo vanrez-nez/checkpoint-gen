@@ -85,6 +85,11 @@ const MIN_TEXTURE_SCALE = 0.1;
 const MAX_TEXTURE_SCALE = 8;
 const TEXTURE_SCALE_STEP = 0.05;
 
+/**
+ * The neutral baseline: plain stone everywhere at the generated density. A family
+ * that declares no palette of its own is dressed from this, so it stays
+ * deliberately untuned — each family's own look lives in its own constant.
+ */
 export const DEFAULT_STRUCTURE_MATERIAL_PALETTE: Readonly<
   StructureMaterialPalette
 > = {
@@ -97,6 +102,21 @@ export const DEFAULT_STRUCTURE_MATERIAL_PALETTE: Readonly<
   pillar: surface("stone"),
   iron: surface("hammered-iron"),
   offering: surface("stone"),
+};
+
+/**
+ * The circular checkpoint's tuned dressing. The statue tiles at twice the
+ * generated density because it is a fraction of the plate's size, so the same
+ * grain that reads right underfoot reads far too coarse on it.
+ */
+export const DEFAULT_CIRCULAR_MATERIAL_PALETTE: Readonly<
+  StructureMaterialPalette
+> = {
+  ...DEFAULT_STRUCTURE_MATERIAL_PALETTE,
+  stone: surface("flamed-basalt"),
+  pillar: surface("dark-volcanic-stone"),
+  iron: surface("hammered-iron"),
+  offering: surface("lichen-stone", 2),
 };
 
 export const DEFAULT_MASS_MATERIAL_PALETTE: Readonly<
