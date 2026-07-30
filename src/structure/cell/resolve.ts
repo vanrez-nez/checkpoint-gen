@@ -30,8 +30,6 @@ import { DiagnosticCollector } from "../kernel/validate";
 export interface SummitCellSpec {
   readonly id: string;
   readonly kind: "single_chamber";
-  readonly widthRatio: number;
-  readonly depthRatio: number;
   readonly height: number;
   readonly wallThickness: number;
   readonly portalWidth: number;
@@ -61,15 +59,13 @@ export function resolveSummitCell(
     diagnostics.error(
       "cell.no_summit_placement",
       id,
-      "The summit margins and stair forecourts leave no placement area for the chamber.",
+      "The summit has no resolved placement footprint for the chamber.",
     );
     return null;
   }
 
   if (
-    spec.widthRatio <= 0 || spec.widthRatio > 1
-    || spec.depthRatio <= 0 || spec.depthRatio > 1
-    || spec.height <= 0
+    spec.height <= 0
     || spec.wallThickness <= 0
     || spec.portalWidth <= 0
     || spec.portalHeight <= 0
@@ -77,22 +73,17 @@ export function resolveSummitCell(
     diagnostics.error(
       "cell.invalid_dimensions",
       id,
-      "The chamber ratios, wall dimensions, and portal dimensions must be positive.",
+      "The chamber wall dimensions and portal dimensions must be positive.",
     );
     return null;
   }
 
-  const width = rectWidth(placement.rect) * spec.widthRatio;
-  const depth = rectDepth(placement.rect) * spec.depthRatio;
-  const centerX = (placement.rect.minX + placement.rect.maxX) * 0.5;
-  const centerZ = (placement.rect.minZ + placement.rect.maxZ) * 0.5;
-  const footprint: Rect = {
-    minX: centerX - width * 0.5,
-    maxX: centerX + width * 0.5,
-    minZ: centerZ - depth * 0.5,
-    maxZ: centerZ + depth * 0.5,
-  };
+  // The mass generator has already resolved the one authoritative summit
+  // footprint. The cell consumes it exactly instead of applying a second pair
+  // of ratios and silently shrinking the building again.
+  const footprint: Rect = { ...placement.rect };
   const interior = insetRect(footprint, uniformSetbacks(spec.wallThickness));
+  const centerX = (footprint.minX + footprint.maxX) * 0.5;
 
   if (!rectIsValid(footprint) || !rectIsValid(interior)) {
     diagnostics.error(

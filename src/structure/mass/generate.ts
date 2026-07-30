@@ -91,10 +91,9 @@ export interface MassSpec {
   readonly baseProjection: number;
   readonly baseHeight: number;
   readonly summitTreatment: SummitTreatment;
-  /** No-build margin inset from the summit edge. */
-  readonly summitMargin: number;
-  /** Depth of the front strip on the summit reserved for stair arrival. */
-  readonly forecourtDepth: number;
+  /** One authoritative placement footprint, relative to the full summit. */
+  readonly summitBuildingWidthRatio: number;
+  readonly summitBuildingDepthRatio: number;
   /** Rise of a `raised_pad` above the summit floor. */
   readonly summitPadHeight: number;
 }
@@ -128,9 +127,9 @@ interface SummitForecourt {
  * re-applying margins and disagreeing about where a child may stand.
  */
 interface SummitPlan {
-  readonly buildable: Rect | null;
+  readonly buildable: Rect;
   readonly forecourts: readonly SummitForecourt[];
-  readonly buildingPad: Rect | null;
+  readonly buildingPad: Rect;
 }
 
 /**
@@ -270,9 +269,15 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
 
   const summitPlan = resolveSummitPlan(
     spec.mass,
+    massId,
     elevation.summitRect,
     stairs.map((stair) => stair.record.direction),
+    diagnostics,
   );
+
+  if (!summitPlan) {
+    return graph.build(diagnostics.all);
+  }
   const summitPad = resolveSummitPad(
     spec.mass,
     massId,
@@ -601,7 +606,7 @@ function emitSummit(
 ): string {
   const id = structurePath(band.id, "summit_floor");
   const buildingPadRegionId = structurePath(id, "building_pad");
-  const anchors = mass.summitTreatment === "open_floor" && plan.buildingPad
+  const anchors = mass.summitTreatment === "open_floor"
     ? [superstructureAnchor(id, buildingPadRegionId)]
     : [];
 
@@ -630,8 +635,8 @@ function emitSummit(
 
 /**
  * The placement regions the summit exposes to whatever gets built on it: the
- * buildable area inside the no-build margin, one strip for each requested
- * stair arrival, and the pad left between those strips.
+ * whole buildable summit, a forecourt in the clearance between each requested
+ * stair arrival and the configured footprint, and that authoritative footprint.
  */
 function summitRegions(
   patchId: string,
@@ -640,10 +645,6 @@ function summitRegions(
   plan: SummitPlan,
   cell: ResolvedCell | null,
 ): PatchRegion[] {
-  if (!plan.buildable) {
-    return [];
-  }
-
   const regions: PatchRegion[] = [{
     id: structurePath(patchId, "buildable"),
     ...normalizedBounds(summitRect, plan.buildable),
@@ -666,17 +667,15 @@ function summitRegions(
     });
   }
 
-  if (plan.buildingPad) {
-    const raised = treatment === "raised_pad";
-    regions.push({
-      id: structurePath(patchId, raised ? "raised_pad_footprint" : "building_pad"),
-      ...normalizedBounds(summitRect, plan.buildingPad),
-      priority: raised ? 100 : 50,
-      tags: raised
-        ? ["occupied", "no_build", "summit_pad"]
-        : ["buildable", "superstructure"],
-    });
-  }
+  const raised = treatment === "raised_pad";
+  regions.push({
+    id: structurePath(patchId, raised ? "raised_pad_footprint" : "building_pad"),
+    ...normalizedBounds(summitRect, plan.buildingPad),
+    priority: raised ? 100 : 50,
+    tags: raised
+      ? ["occupied", "no_build", "summit_pad"]
+      : ["buildable", "superstructure"],
+  });
 
   if (cell) {
     regions.push(cellFootprintRegion(patchId, summitRect, cell));
@@ -687,17 +686,40 @@ function summitRegions(
 
 function resolveSummitPlan(
   mass: MassSpec,
+  massId: string,
   summitRect: Rect,
   stairDirections: readonly HorizontalOrientation[],
-): SummitPlan {
-  const buildable = insetRect(summitRect, uniformSetbacks(mass.summitMargin));
+  diagnostics: DiagnosticCollector,
+): SummitPlan | null {
+  const widthRatio = mass.summitBuildingWidthRatio;
+  const depthRatio = mass.summitBuildingDepthRatio;
 
-  if (!rectIsValid(buildable)) {
-    return { buildable: null, forecourts: [], buildingPad: null };
+  if (
+    !Number.isFinite(widthRatio)
+    || !Number.isFinite(depthRatio)
+    || widthRatio <= 0
+    || widthRatio > 1
+    || depthRatio <= 0
+    || depthRatio > 1
+  ) {
+    diagnostics.error(
+      "summit.placement_invalid_dimensions",
+      massId,
+      "Summit placement width and depth ratios must be greater than zero and at most one.",
+    );
+    return null;
   }
 
-  const forecourtX = Math.min(mass.forecourtDepth, rectWidth(buildable));
-  const forecourtZ = Math.min(mass.forecourtDepth, rectDepth(buildable));
+  const width = rectWidth(summitRect) * widthRatio;
+  const depth = rectDepth(summitRect) * depthRatio;
+  const centerX = (summitRect.minX + summitRect.maxX) * 0.5;
+  const centerZ = (summitRect.minZ + summitRect.maxZ) * 0.5;
+  const buildingPad: Rect = {
+    minX: centerX - width * 0.5,
+    maxX: centerX + width * 0.5,
+    minZ: centerZ - depth * 0.5,
+    maxZ: centerZ + depth * 0.5,
+  };
   const directions = new Set(stairDirections);
   const forecourts: SummitForecourt[] = [];
 
@@ -708,56 +730,66 @@ function resolveSummitPlan(
 
     switch (direction) {
       case "front":
-        forecourts.push({
+        addForecourt(forecourts, {
           direction,
           rect: {
-            ...buildable,
-            minZ: buildable.maxZ - forecourtZ,
+            minX: buildingPad.minX,
+            maxX: buildingPad.maxX,
+            minZ: buildingPad.maxZ,
+            maxZ: summitRect.maxZ,
           },
         });
         break;
       case "rear":
-        forecourts.push({
+        addForecourt(forecourts, {
           direction,
           rect: {
-            ...buildable,
-            maxZ: buildable.minZ + forecourtZ,
+            minX: buildingPad.minX,
+            maxX: buildingPad.maxX,
+            minZ: summitRect.minZ,
+            maxZ: buildingPad.minZ,
           },
         });
         break;
       case "sidePositiveU":
-        forecourts.push({
+        addForecourt(forecourts, {
           direction,
           rect: {
-            ...buildable,
-            minX: buildable.maxX - forecourtX,
+            minX: buildingPad.maxX,
+            maxX: summitRect.maxX,
+            minZ: buildingPad.minZ,
+            maxZ: buildingPad.maxZ,
           },
         });
         break;
       case "sideNegativeU":
-        forecourts.push({
+        addForecourt(forecourts, {
           direction,
           rect: {
-            ...buildable,
-            maxX: buildable.minX + forecourtX,
+            minX: summitRect.minX,
+            maxX: buildingPad.minX,
+            minZ: buildingPad.minZ,
+            maxZ: buildingPad.maxZ,
           },
         });
         break;
     }
   }
 
-  const buildingPad = insetRect(buildable, {
-    front: directions.has("front") ? forecourtZ : 0,
-    rear: directions.has("rear") ? forecourtZ : 0,
-    sidePositiveU: directions.has("sidePositiveU") ? forecourtX : 0,
-    sideNegativeU: directions.has("sideNegativeU") ? forecourtX : 0,
-  });
-
   return {
-    buildable,
+    buildable: summitRect,
     forecourts,
-    buildingPad: rectIsValid(buildingPad) ? buildingPad : null,
+    buildingPad,
   };
+}
+
+function addForecourt(
+  forecourts: SummitForecourt[],
+  forecourt: SummitForecourt,
+): void {
+  if (rectIsValid(forecourt.rect)) {
+    forecourts.push(forecourt);
+  }
 }
 
 function resolveSummitPad(
@@ -776,15 +808,6 @@ function resolveSummitPad(
       "summit.pad_invalid_height",
       massId,
       "A raised summit pad needs a positive height.",
-    );
-    return null;
-  }
-
-  if (!plan.buildingPad) {
-    diagnostics.error(
-      "summit.pad_does_not_fit",
-      massId,
-      "The summit margins and stair forecourts leave no room for a raised pad.",
     );
     return null;
   }
@@ -907,10 +930,6 @@ function summitPlacement(
   plan: SummitPlan,
   pad: SummitPadRecord | null,
 ) {
-  if (!plan.buildingPad) {
-    return null;
-  }
-
   const patchId = pad?.topPatchId ?? summitFloorPatchId;
 
   return {

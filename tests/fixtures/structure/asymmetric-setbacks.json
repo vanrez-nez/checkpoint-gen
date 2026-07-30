@@ -164,25 +164,25 @@
           "maxZ": 2.730271
         },
         "buildable": {
-          "minX": -5.4,
-          "maxX": 5.4,
-          "minZ": -5.969729,
-          "maxZ": 1.530271
+          "minX": -6.6,
+          "maxX": 6.6,
+          "minZ": -7.169729,
+          "maxZ": 2.730271
         },
         "buildingPad": {
-          "minX": -5.4,
-          "maxX": 5.4,
-          "minZ": -5.969729,
-          "maxZ": -3.469729
+          "minX": -5.28,
+          "maxX": 5.28,
+          "minZ": -5.932229,
+          "maxZ": 1.492771
         },
         "treatment": "open_floor",
         "patchId": "structure/mass_main/band_04/summit_floor",
         "placement": {
           "rect": {
-            "minX": -5.4,
-            "maxX": 5.4,
-            "minZ": -5.969729,
-            "maxZ": -3.469729
+            "minX": -5.28,
+            "maxX": 5.28,
+            "minZ": -5.932229,
+            "maxZ": 1.492771
           },
           "patchId": "structure/mass_main/band_04/summit_floor",
           "y": 6.35,
@@ -2180,12 +2180,12 @@
         {
           "id": "structure/mass_main/band_04/summit_floor/buildable",
           "uRange": [
-            0.090909,
-            0.909091
+            0,
+            1
           ],
           "vRange": [
-            0.121212,
-            0.878788
+            0,
+            1
           ],
           "priority": 10,
           "tags": [
@@ -2195,12 +2195,12 @@
         {
           "id": "structure/mass_main/band_04/summit_floor/forecourt",
           "uRange": [
-            0.090909,
-            0.909091
+            0.1,
+            0.9
           ],
           "vRange": [
-            0.373737,
-            0.878788
+            0.875,
+            1
           ],
           "priority": 100,
           "tags": [
@@ -2212,12 +2212,12 @@
         {
           "id": "structure/mass_main/band_04/summit_floor/building_pad",
           "uRange": [
-            0.090909,
-            0.909091
+            0.1,
+            0.9
           ],
           "vRange": [
-            0.121212,
-            0.373737
+            0.125,
+            0.875
           ],
           "priority": 50,
           "tags": [

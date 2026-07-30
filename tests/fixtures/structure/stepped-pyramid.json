@@ -236,25 +236,25 @@
           "maxZ": 3.64
         },
         "buildable": {
-          "minX": -3.56,
-          "maxX": 3.56,
-          "minZ": -2.44,
-          "maxZ": 2.44
+          "minX": -4.76,
+          "maxX": 4.76,
+          "minZ": -3.64,
+          "maxZ": 3.64
         },
         "buildingPad": {
-          "minX": -3.56,
-          "maxX": 3.56,
-          "minZ": -2.44,
-          "maxZ": -0.56
+          "minX": -3.808,
+          "maxX": 3.808,
+          "minZ": -2.73,
+          "maxZ": 2.73
         },
         "treatment": "open_floor",
         "patchId": "structure/mass_main/band_07/summit_floor",
         "placement": {
           "rect": {
-            "minX": -3.56,
-            "maxX": 3.56,
-            "minZ": -2.44,
-            "maxZ": -0.56
+            "minX": -3.808,
+            "maxX": 3.808,
+            "minZ": -2.73,
+            "maxZ": 2.73
           },
           "patchId": "structure/mass_main/band_07/summit_floor",
           "y": 16.35,
@@ -3419,12 +3419,12 @@
         {
           "id": "structure/mass_main/band_07/summit_floor/buildable",
           "uRange": [
-            0.12605,
-            0.87395
+            0,
+            1
           ],
           "vRange": [
-            0.164835,
-            0.835165
+            0,
+            1
           ],
           "priority": 10,
           "tags": [
@@ -3434,12 +3434,12 @@
         {
           "id": "structure/mass_main/band_07/summit_floor/forecourt",
           "uRange": [
-            0.12605,
-            0.87395
+            0.1,
+            0.9
           ],
           "vRange": [
-            0.423077,
-            0.835165
+            0.875,
+            1
           ],
           "priority": 100,
           "tags": [
@@ -3451,12 +3451,12 @@
         {
           "id": "structure/mass_main/band_07/summit_floor/building_pad",
           "uRange": [
-            0.12605,
-            0.87395
+            0.1,
+            0.9
           ],
           "vRange": [
-            0.164835,
-            0.423077
+            0.125,
+            0.875
           ],
           "priority": 50,
           "tags": [

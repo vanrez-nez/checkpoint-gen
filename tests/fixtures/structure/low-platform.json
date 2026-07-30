@@ -92,25 +92,25 @@
           "maxZ": 7.2
         },
         "buildable": {
-          "minX": -8.4,
-          "maxX": 8.4,
-          "minZ": -6,
-          "maxZ": 6
+          "minX": -9.6,
+          "maxX": 9.6,
+          "minZ": -7.2,
+          "maxZ": 7.2
         },
         "buildingPad": {
-          "minX": -8.4,
-          "maxX": 8.4,
-          "minZ": -6,
-          "maxZ": 3
+          "minX": -7.68,
+          "maxX": 7.68,
+          "minZ": -5.4,
+          "maxZ": 5.4
         },
         "treatment": "open_floor",
         "patchId": "structure/mass_main/band_02/summit_floor",
         "placement": {
           "rect": {
-            "minX": -8.4,
-            "maxX": 8.4,
-            "minZ": -6,
-            "maxZ": 3
+            "minX": -7.68,
+            "maxX": 7.68,
+            "minZ": -5.4,
+            "maxZ": 5.4
           },
           "patchId": "structure/mass_main/band_02/summit_floor",
           "y": 2.4,
@@ -948,12 +948,12 @@
         {
           "id": "structure/mass_main/band_02/summit_floor/buildable",
           "uRange": [
-            0.0625,
-            0.9375
+            0,
+            1
           ],
           "vRange": [
-            0.083333,
-            0.916667
+            0,
+            1
           ],
           "priority": 10,
           "tags": [
@@ -963,12 +963,12 @@
         {
           "id": "structure/mass_main/band_02/summit_floor/forecourt",
           "uRange": [
-            0.0625,
-            0.9375
+            0.1,
+            0.9
           ],
           "vRange": [
-            0.708333,
-            0.916667
+            0.875,
+            1
           ],
           "priority": 100,
           "tags": [
@@ -980,12 +980,12 @@
         {
           "id": "structure/mass_main/band_02/summit_floor/building_pad",
           "uRange": [
-            0.0625,
-            0.9375
+            0.1,
+            0.9
           ],
           "vRange": [
-            0.083333,
-            0.708333
+            0.125,
+            0.875
           ],
           "priority": 50,
           "tags": [

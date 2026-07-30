@@ -89,12 +89,11 @@ export interface MassLayoutConfig {
   baseProjection: number;
   baseHeight: number;
   summitTreatment: SummitTreatment;
-  summitMargin: number;
-  forecourtDepth: number;
   /** Rise of the optional summit building pad. */
   summitPadHeight: number;
   /** Whether the summit carries the first enclosed cell assembly. */
   summitBuildingEnabled: boolean;
+  /** Authoritative summit placement footprint, relative to the full summit. */
   summitBuildingWidthRatio: number;
   summitBuildingDepthRatio: number;
   summitBuildingHeight: number;
@@ -158,8 +157,6 @@ export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
   baseProjection: 0.5,
   baseHeight: 0.35,
   summitTreatment: "open_floor",
-  summitMargin: 1.2,
-  forecourtDepth: 3,
   summitPadHeight: 0.35,
   summitBuildingEnabled: false,
   summitBuildingWidthRatio: 0.8,
@@ -490,26 +487,6 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     scopes: ["layout"],
   }),
   control.number({
-    key: "summitMargin",
-    label: "no-build margin",
-    name: "Summit margin",
-    group: "Summit",
-    min: 0,
-    max: 8,
-    step: 0.1,
-    scopes: ["layout"],
-  }),
-  control.number({
-    key: "forecourtDepth",
-    label: "forecourt depth",
-    name: "Forecourt depth",
-    group: "Summit",
-    min: 0,
-    max: 20,
-    step: 0.25,
-    scopes: ["layout"],
-  }),
-  control.number({
     key: "summitPadHeight",
     label: "pad height",
     name: "Summit pad height",
@@ -529,25 +506,27 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
   }),
   control.number({
     key: "summitBuildingWidthRatio",
-    label: "width ratio",
-    name: "Summit building width",
+    label: "footprint width ratio",
+    name: "Summit placement width ratio",
     group: "Summit building",
     min: 0.2,
     max: 1,
     step: 0.01,
     scopes: ["layout"],
-    visibleWhen: (layout) => layout.summitBuildingEnabled,
+    visibleWhen: (layout) =>
+      layout.summitBuildingEnabled || layout.summitTreatment === "raised_pad",
   }),
   control.number({
     key: "summitBuildingDepthRatio",
-    label: "depth ratio",
-    name: "Summit building depth",
+    label: "footprint depth ratio",
+    name: "Summit placement depth ratio",
     group: "Summit building",
     min: 0.2,
     max: 1,
     step: 0.01,
     scopes: ["layout"],
-    visibleWhen: (layout) => layout.summitBuildingEnabled,
+    visibleWhen: (layout) =>
+      layout.summitBuildingEnabled || layout.summitTreatment === "raised_pad",
   }),
   control.number({
     key: "summitBuildingHeight",
@@ -874,8 +853,8 @@ export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
       baseProjection: layout.baseProjection,
       baseHeight: layout.baseHeight,
       summitTreatment: layout.summitTreatment,
-      summitMargin: layout.summitMargin,
-      forecourtDepth: layout.forecourtDepth,
+      summitBuildingWidthRatio: layout.summitBuildingWidthRatio,
+      summitBuildingDepthRatio: layout.summitBuildingDepthRatio,
       summitPadHeight: layout.summitPadHeight,
     },
     stairs: toStairSpecs(layout),
@@ -891,8 +870,6 @@ function toCellSpecs(layout: MassLayoutConfig): SummitCellSpec[] {
   return [{
     id: "summit_chamber",
     kind: "single_chamber",
-    widthRatio: layout.summitBuildingWidthRatio,
-    depthRatio: layout.summitBuildingDepthRatio,
     height: layout.summitBuildingHeight,
     wallThickness: layout.summitBuildingWallThickness,
     portalWidth: layout.summitBuildingPortalWidth,

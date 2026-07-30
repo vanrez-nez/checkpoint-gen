@@ -100,23 +100,24 @@ at most half the band it crowns; anything taller is shortened and reported.
 
 Front, rear, left, and right stairs are enabled independently, with at most one
 centred flight on each facade. Enabled stairs share their width, riser, tread,
-tiling, parapet, and cornice settings. Each one reserves its own facade strip
-and a forecourt on its side of the summit; selecting none leaves the full
-buildable summit available.
+tiling, parapet, and cornice settings. Each one reserves its own facade strip and
+exposes the clearance between its arrival and the configured summit footprint
+as a forecourt.
 
-The summit allocation is authoritative in the graph: it records the no-build
-inset, removes every enabled stair forecourt, and exposes the remaining
-`building_pad` as a world-space rectangle plus a centred `superstructure`
-anchor. An **open floor** places that anchor directly on the summit. A
+The summit allocation is authoritative in the graph: the building width and
+depth ratios resolve one centred `building_pad` directly against the full
+summit. The same world-space rectangle drives the forecourts, raised pad, child
+placement anchor, and building footprint, so no second margin or ratio can
+shrink it again. An **open floor** places that anchor directly on the summit. A
 configurable **raised pad** instead extrudes that same rectangle by its pad
 height, marks the footprint below as occupied, and moves the placement patch and
 anchor to the pad top. The summit surface beneath the pad is omitted rather than
 left as hidden supporting geometry.
 
-An optional **summit building** consumes that placement anchor as a centred
-single chamber. Width and depth are ratios of the remaining building pad; wall
-height, wall thickness, and the centred front portal are real dimensions. The
-graph records the room, its support and floor, exterior and interior wall
+An optional **summit building** consumes the complete placement footprint as a
+single chamber. Wall height, wall thickness, and the centred front portal are
+real dimensions. The graph records the room, its support and floor, exterior and
+interior wall
 patches, roof-bearing wall crowns, and the portal connection. The portal is
 constructed as two piers and a three-part header with explicit jamb and soffit
 patches—not as a boolean or a facade drawn over a solid wall. The existing

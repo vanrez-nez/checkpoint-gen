@@ -133,8 +133,6 @@ assert.deepEqual(
     stairParapetCorniceProjection: DEFAULT_MASS_LAYOUT.stairParapetCorniceProjection,
     stairParapetCorniceHeight: DEFAULT_MASS_LAYOUT.stairParapetCorniceHeight,
     summitTreatment: DEFAULT_MASS_LAYOUT.summitTreatment,
-    summitMargin: DEFAULT_MASS_LAYOUT.summitMargin,
-    forecourtDepth: DEFAULT_MASS_LAYOUT.forecourtDepth,
     summitPadHeight: DEFAULT_MASS_LAYOUT.summitPadHeight,
     summitBuildingEnabled: DEFAULT_MASS_LAYOUT.summitBuildingEnabled,
     summitBuildingWidthRatio: DEFAULT_MASS_LAYOUT.summitBuildingWidthRatio,
@@ -177,8 +175,6 @@ assert.deepEqual(
     stairParapetCorniceProjection: 0.2,
     stairParapetCorniceHeight: 0.25,
     summitTreatment: "open_floor",
-    summitMargin: 1.2,
-    forecourtDepth: 3,
     summitPadHeight: 0.35,
     summitBuildingEnabled: false,
     summitBuildingWidthRatio: 0.8,
@@ -671,7 +667,6 @@ const FIXTURES: readonly { readonly name: string; readonly layout: MassLayoutCon
       frontSetbackScale: 1.8,
       rearSetbackScale: 0.2,
       sideSetbackScale: 1,
-      forecourtDepth: 5,
     },
   },
   {
@@ -1270,10 +1265,11 @@ for (const patch of stairDefault.patches) {
 
 // Switched off, the stair leaves nothing behind: no connector, no patches, no
 // reservations. The massing itself must be identical.
-const stairless = generateStructure(toStructureSpec({
+const stairlessLayout: MassLayoutConfig = {
   ...cloneFrontStairLayout(),
   ...STAIRS_DISABLED,
-}));
+};
+const stairless = generateStructure(toStructureSpec(stairlessLayout));
 assert.deepEqual(stairless.connectors, []);
 assert.ok(
   stairless.patches.every((patch) => !patch.role.startsWith("stair")),
@@ -1307,17 +1303,24 @@ const stairlessBuildable = stairlessSummitPatch.regions.find(
 const stairlessBuildingPad = stairlessSummitPatch.regions.find(
   (region) => region.tags.includes("superstructure"),
 )!;
-assert.deepEqual(
-  {
-    uRange: stairlessBuildingPad.uRange,
-    vRange: stairlessBuildingPad.vRange,
-  },
-  {
-    uRange: stairlessBuildable.uRange,
-    vRange: stairlessBuildable.vRange,
-  },
-  "With no stairs, the whole buildable summit must remain the building pad.",
+const expectedStairlessRanges = [
+  (1 - stairlessLayout.summitBuildingWidthRatio) * 0.5,
+  (1 + stairlessLayout.summitBuildingWidthRatio) * 0.5,
+  (1 - stairlessLayout.summitBuildingDepthRatio) * 0.5,
+  (1 + stairlessLayout.summitBuildingDepthRatio) * 0.5,
+];
+const actualStairlessRanges = [
+  ...stairlessBuildingPad.uRange,
+  ...stairlessBuildingPad.vRange,
+];
+assert.ok(
+  actualStairlessRanges.every(
+    (value, index) => Math.abs(value - expectedStairlessRanges[index]!) < 1e-9,
+  ),
+  "The configured summit footprint must not depend on whether stairs are enabled.",
 );
+assert.deepEqual(stairlessBuildable.uRange, [0, 1]);
+assert.deepEqual(stairlessBuildable.vRange, [0, 1]);
 const stairlessMass = stairless.masses[0]!;
 const stairlessPadRect = {
   minX: stairlessMass.summit.rect.minX
@@ -1498,7 +1501,7 @@ assert.ok(
   && allSidesBuildingPad.uRange[1] < allSidesBuildable.uRange[1]
   && allSidesBuildingPad.vRange[0] > allSidesBuildable.vRange[0]
   && allSidesBuildingPad.vRange[1] < allSidesBuildable.vRange[1],
-  "Four summit forecourts must inset the building pad on every side.",
+  "The configured summit footprint must leave clearance on every side.",
 );
 const allSidesPadRect = {
   minX: allSidesMass.summit.rect.minX
@@ -1597,8 +1600,8 @@ assert.equal(
   "Four stepped corniced stairs left visible backfaces.",
 );
 
-// A raised summit pad is one clean extrusion over the forecourt-reduced
-// building area. It owns its top and side patches, while the original summit
+// A raised summit pad is one clean extrusion over the authoritative placement
+// footprint. It owns its top and side patches, while the original summit
 // floor owns only the exposed ring around its footprint.
 const raisedPadLayout: MassLayoutConfig = {
   ...cloneFrontStairLayout(),
@@ -1606,6 +1609,8 @@ const raisedPadLayout: MassLayoutConfig = {
   footprintDepth: 24,
   summitRatio: 0.72,
   summitTreatment: "raised_pad",
+  summitBuildingWidthRatio: 0.7,
+  summitBuildingDepthRatio: 0.65,
   summitPadHeight: 0.65,
 };
 const raisedPadGraph = generateStructure(toStructureSpec(raisedPadLayout));
@@ -1621,6 +1626,18 @@ assert.equal(raisedPad.band.bottomY, raisedPadMass.summit.y);
 assert.equal(raisedPad.band.topY, raisedPadMass.summit.y + 0.65);
 assert.deepEqual(raisedPad.band.lower, raisedPadMass.summit.buildingPad);
 assert.deepEqual(raisedPad.band.upper, raisedPadMass.summit.buildingPad);
+assert.ok(
+  Math.abs(
+    rectWidth(raisedPad.band.lower)
+      - rectWidth(raisedPadMass.summit.rect) * raisedPadLayout.summitBuildingWidthRatio,
+  ) < 1e-9,
+);
+assert.ok(
+  Math.abs(
+    rectDepth(raisedPad.band.lower)
+      - rectDepth(raisedPadMass.summit.rect) * raisedPadLayout.summitBuildingDepthRatio,
+  ) < 1e-9,
+);
 assert.equal(raisedPadMass.summit.placement?.patchId, raisedPad.topPatchId);
 assert.equal(raisedPadMass.summit.placement?.y, raisedPad.band.topY);
 
@@ -1720,19 +1737,15 @@ for (const masonry of [null, squareRaisedPadRule] as const) {
     if (!atSummit || normals.getY(start) < 0.99) {
       continue;
     }
-    const centerX = [0, 1, 2, 3].reduce(
-      (total, corner) => total + positions.getX(start + corner),
-      0,
-    ) / 4;
-    const centerZ = [0, 1, 2, 3].reduce(
-      (total, corner) => total + positions.getZ(start + corner),
-      0,
-    ) / 4;
+    const xs = [0, 1, 2, 3].map((corner) => positions.getX(start + corner));
+    const zs = [0, 1, 2, 3].map((corner) => positions.getZ(start + corner));
+    const fullyCovered =
+      Math.min(...xs) >= footprint.minX - 1e-6
+      && Math.max(...xs) <= footprint.maxX + 1e-6
+      && Math.min(...zs) >= footprint.minZ - 1e-6
+      && Math.max(...zs) <= footprint.maxZ + 1e-6;
     assert.ok(
-      centerX <= footprint.minX + 1e-6
-      || centerX >= footprint.maxX - 1e-6
-      || centerZ <= footprint.minZ + 1e-6
-      || centerZ >= footprint.maxZ - 1e-6,
+      !fullyCovered,
       `Raised-pad ${masonry ? "masonry" : "bare"} geometry kept a summit face beneath the pad.`,
     );
   }
@@ -1766,14 +1779,11 @@ const summitCellMass = summitCellGraph.masses[0]!;
 const summitCellPlacement = summitCellMass.summit.placement!;
 assert.equal(summitCell.supportPatchId, summitCellPlacement.patchId);
 assert.equal(summitCell.placementAnchorId, summitCellPlacement.anchorId);
-assert.ok(Math.abs(
-  rectWidth(summitCell.footprint)
-    - rectWidth(summitCellPlacement.rect) * summitCellLayout.summitBuildingWidthRatio,
-) < 1e-9);
-assert.ok(Math.abs(
-  rectDepth(summitCell.footprint)
-    - rectDepth(summitCellPlacement.rect) * summitCellLayout.summitBuildingDepthRatio,
-) < 1e-9);
+assert.deepEqual(
+  summitCell.footprint,
+  summitCellPlacement.rect,
+  "The summit cell must consume the authoritative placement footprint exactly.",
+);
 assert.ok(Math.abs(
   (summitCell.footprint.minX + summitCell.footprint.maxX) * 0.5
     - (summitCellPlacement.rect.minX + summitCellPlacement.rect.maxX) * 0.5,
@@ -1830,6 +1840,11 @@ assert.equal(
 assert.equal(
   raisedCellGraph.cells[0]?.supportPatchId,
   raisedCellGraph.masses[0]?.summit.pad?.topPatchId,
+);
+assert.deepEqual(
+  raisedCellGraph.cells[0]?.footprint,
+  raisedCellGraph.masses[0]?.summit.buildingPad,
+  "The raised pad and summit cell must share the same resolved footprint.",
 );
 
 const isolatedCellLayout: MassLayoutConfig = {
@@ -1933,13 +1948,13 @@ const padWithoutRoom = generateStructure(toStructureSpec({
   ...cloneFrontStairLayout(),
   ...STAIRS_DISABLED,
   summitTreatment: "raised_pad",
-  summitMargin: 100,
+  summitBuildingWidthRatio: 0,
 }));
 assert.equal(
   padWithoutRoom.diagnostics.find(
     (diagnostic) => diagnostic.severity === "error",
   )?.code,
-  "summit.pad_does_not_fit",
+  "summit.placement_invalid_dimensions",
 );
 assert.deepEqual(padWithoutRoom.masses, []);
 assert.deepEqual(padWithoutRoom.patches, []);

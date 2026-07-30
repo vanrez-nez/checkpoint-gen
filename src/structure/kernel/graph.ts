@@ -93,9 +93,9 @@ export interface SummitPadRecord {
 export interface SummitRecord {
   readonly y: number;
   readonly rect: Rect;
-  /** `rect` minus the no-build margin: where superstructures may be placed. */
+  /** The summit surface available before resolving its placement footprint. */
   readonly buildable: Rect | null;
-  /** Buildable area after stair forecourts have been removed. */
+  /** Authoritative footprint shared by a raised pad and summit building. */
   readonly buildingPad: Rect | null;
   readonly treatment: string;
   readonly patchId: string;
