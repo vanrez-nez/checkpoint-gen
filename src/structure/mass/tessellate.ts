@@ -22,6 +22,7 @@ import {
   buildCell,
   faceIsCoveredByCellWall,
 } from "../cell/build";
+import { buildRoof, faceIsCoveredByRoof } from "../roof/build";
 
 /**
  * Turns a resolved structure graph into render geometry.
@@ -101,6 +102,14 @@ export function tessellateStructure(
 
   for (const cell of graph.cells) {
     buildCell(builder, cell, masonry, seed);
+  }
+
+  // The roof owns the room ceiling and projected soffits. Remove only the
+  // upward wall-crown faces beneath its bearing footprint, then emit the roof
+  // so neither assembly leaves a coincident contact plane.
+  for (const roof of graph.roofs) {
+    builder.cullFaces((face) => faceIsCoveredByRoof(face, roof));
+    buildRoof(builder, roof);
   }
 
   // Connectors are read from the same graph and drawn with the same one
@@ -497,6 +506,31 @@ export function graphExtents(graph: StructureGraph): {
     ] as const;
 
     for (const [rect, y] of outlines) {
+      min = min === null
+        ? { x: rect.minX, y, z: rect.minZ }
+        : {
+          x: Math.min(min.x, rect.minX),
+          y: Math.min(min.y, y),
+          z: Math.min(min.z, rect.minZ),
+        };
+      max = max === null
+        ? { x: rect.maxX, y, z: rect.maxZ }
+        : {
+          x: Math.max(max.x, rect.maxX),
+          y: Math.max(max.y, y),
+          z: Math.max(max.z, rect.maxZ),
+        };
+    }
+  }
+
+  for (const roof of graph.roofs) {
+    const outline = roof.cornice?.outline ?? roof.slabFootprint;
+    const corners = [
+      [roof.slabFootprint, roof.bottomY],
+      [outline, roof.topY],
+    ] as const;
+
+    for (const [rect, y] of corners) {
       min = min === null
         ? { x: rect.minX, y, z: rect.minZ }
         : {

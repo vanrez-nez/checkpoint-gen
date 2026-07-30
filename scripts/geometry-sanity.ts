@@ -953,7 +953,7 @@ assert.deepEqual(
 );
 assert.deepEqual(
   massControlTabs.find((tab) => tab.id === "summit")?.layoutGroups,
-  ["Summit", "Summit building"],
+  ["Summit", "Summit building", "Roof"],
 );
 assert.ok(
   massControlTabs.every(

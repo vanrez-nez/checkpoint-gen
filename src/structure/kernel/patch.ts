@@ -39,6 +39,14 @@ export const PATCH_ROLES = {
   cellWallInterior: "cell_wall_interior",
   /** Portal jamb or soffit spanning the wall thickness. */
   cellOpeningReveal: "cell_opening_reveal",
+  /** Walkable or exposed upper surface of an independent roof assembly. */
+  roof: "roof",
+  /** Interior ceiling or exterior overhang beneath a roof. */
+  roofSoffit: "roof_soffit",
+  /** Exposed vertical edge of a roof slab. */
+  roofEdge: "roof_edge",
+  /** Projected molding at the top of a roof assembly. */
+  roofCornice: "cornice",
   /**
    * One whole flight as a single stepped surface, not a patch per tread. The
    * spec's `stair_tread`/`stair_riser` roles are the granularity the feature

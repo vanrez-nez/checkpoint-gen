@@ -68,6 +68,7 @@ import {
 } from "../src/structure/kernel/frame";
 import { buildStair } from "../src/structure/connector/build";
 import { buildCell } from "../src/structure/cell/build";
+import { buildRoof, faceIsCoveredByRoof } from "../src/structure/roof/build";
 import {
   stairLocalVertex,
   stairSteps,
@@ -143,6 +144,11 @@ assert.deepEqual(
     summitBuildingWallThickness: DEFAULT_MASS_LAYOUT.summitBuildingWallThickness,
     summitBuildingPortalWidth: DEFAULT_MASS_LAYOUT.summitBuildingPortalWidth,
     summitBuildingPortalHeight: DEFAULT_MASS_LAYOUT.summitBuildingPortalHeight,
+    summitRoofEnabled: DEFAULT_MASS_LAYOUT.summitRoofEnabled,
+    summitRoofThickness: DEFAULT_MASS_LAYOUT.summitRoofThickness,
+    summitRoofProjection: DEFAULT_MASS_LAYOUT.summitRoofProjection,
+    summitRoofCorniceProjection: DEFAULT_MASS_LAYOUT.summitRoofCorniceProjection,
+    summitRoofCorniceHeight: DEFAULT_MASS_LAYOUT.summitRoofCorniceHeight,
   },
   {
     seed: 741,
@@ -185,6 +191,11 @@ assert.deepEqual(
     summitBuildingWallThickness: 0.5,
     summitBuildingPortalWidth: 2,
     summitBuildingPortalHeight: 2.6,
+    summitRoofEnabled: true,
+    summitRoofThickness: 0.5,
+    summitRoofProjection: 0.25,
+    summitRoofCorniceProjection: 0.2,
+    summitRoofCorniceHeight: 0.25,
   },
   "The Mass controls must open with the approved defaults.",
 );
@@ -1871,6 +1882,50 @@ assert.equal(
   ).length,
   3,
 );
+assert.equal(summitCellGraph.roofs.length, 1);
+const summitRoof = summitCellGraph.roofs[0]!;
+assert.deepEqual(summitRoof.coversCellIds, [summitCell.id]);
+assert.equal(summitRoof.bottomY, summitCell.topY);
+assert.equal(
+  summitRoof.slabTopY,
+  summitCell.topY + summitCellLayout.summitRoofThickness,
+);
+assert.equal(
+  summitRoof.topY,
+  summitRoof.slabTopY + summitCellLayout.summitRoofCorniceHeight,
+);
+assert.equal(summitRoof.projection, summitCellLayout.summitRoofProjection);
+assert.equal(
+  summitCellGraph.patches.find((patch) => patch.id === summitRoof.topPatchId)?.role,
+  PATCH_ROLES.roof,
+);
+assert.equal(
+  summitCellGraph.patches.find(
+    (patch) => patch.id === summitRoof.ceilingPatchId,
+  )?.role,
+  PATCH_ROLES.roofSoffit,
+);
+assert.ok(summitRoof.cornice);
+assert.equal(
+  summitRoof.cornice.projection,
+  summitCellLayout.summitRoofCorniceProjection,
+);
+
+const unroofedCellGraph = generateStructure(toStructureSpec({
+  ...summitCellLayout,
+  summitRoofEnabled: false,
+}));
+assertGraphInvariants(unroofedCellGraph, "unroofed summit chamber");
+assert.deepEqual(unroofedCellGraph.roofs, []);
+
+const plainRoofGraph = generateStructure(toStructureSpec({
+  ...summitCellLayout,
+  summitRoofCorniceProjection: 0,
+  summitRoofCorniceHeight: 0,
+}));
+assertGraphInvariants(plainRoofGraph, "plain summit roof");
+assert.equal(plainRoofGraph.roofs[0]?.cornice, null);
+assert.equal(plainRoofGraph.roofs[0]?.topY, plainRoofGraph.roofs[0]?.slabTopY);
 
 const allPortalLayout: MassLayoutConfig = {
   ...summitCellLayout,
@@ -1993,6 +2048,40 @@ for (const masonry of [null, squareCellRule] as const) {
     );
   }
 
+  const roofBuilder = new SolidBuilder();
+  buildCell(roofBuilder, summitCell, masonry, 79);
+  roofBuilder.cullFaces((face) => faceIsCoveredByRoof(face, summitRoof));
+  buildRoof(roofBuilder, summitRoof);
+  const roofGeometry = finalizeGeometry(roofBuilder).geometry;
+  assert.equal(
+    findCoincidentFaces(roofGeometry).pairs,
+    0,
+    `Roofed cell ${masonry ? "masonry" : "bare"} geometry emitted coincident faces.`,
+  );
+  assert.equal(
+    findBuriedFaces(roofGeometry).faces,
+    0,
+    `Roofed cell ${masonry ? "masonry" : "bare"} geometry emitted buried faces.`,
+  );
+  assert.equal(
+    findBackfaces(roofGeometry).backfaces,
+    0,
+    `Roofed cell ${masonry ? "masonry" : "bare"} geometry left visible backfaces.`,
+  );
+  assert.equal(
+    readBlockFaces(roofBuilder).some((face) =>
+      faceNormal(face).y > 0.99
+      && face.every((point) => Math.abs(point.y - summitRoof.bottomY) < 1e-6)
+      && face.every((point) =>
+        point.x >= summitRoof.bearingFootprint.minX - 1e-6
+        && point.x <= summitRoof.bearingFootprint.maxX + 1e-6
+        && point.z >= summitRoof.bearingFootprint.minZ - 1e-6
+        && point.z <= summitRoof.bearingFootprint.maxZ + 1e-6),
+    ),
+    false,
+    `Roofed cell ${masonry ? "masonry" : "bare"} kept a wall-crown contact face.`,
+  );
+
   const assemblyGeometry = tessellateStructure(isolatedCellGraph, {
     masonry,
     seed: 71,
@@ -2031,6 +2120,32 @@ assert.equal(
 assert.deepEqual(cellWithOversizedPortal.masses, []);
 assert.deepEqual(cellWithOversizedPortal.patches, []);
 assert.deepEqual(cellWithOversizedPortal.cells, []);
+
+const validRoofSpec = toStructureSpec(summitCellLayout).roofs[0]!;
+const cellWithInvalidRoof = generateStructure({
+  ...toStructureSpec(summitCellLayout),
+  roofs: [{ ...validRoofSpec, thickness: 0 }],
+});
+assert.equal(
+  cellWithInvalidRoof.diagnostics.find(
+    (diagnostic) => diagnostic.severity === "error",
+  )?.code,
+  "roof.invalid_dimensions",
+);
+assert.deepEqual(cellWithInvalidRoof.masses, []);
+assert.deepEqual(cellWithInvalidRoof.roofs, []);
+
+const roofWithoutCell = generateStructure({
+  ...toStructureSpec(summitCellLayout),
+  cells: [],
+});
+assert.equal(
+  roofWithoutCell.diagnostics.find(
+    (diagnostic) => diagnostic.severity === "error",
+  )?.code,
+  "roof.no_cell",
+);
+assert.deepEqual(roofWithoutCell.roofs, []);
 
 const padWithoutRoom = generateStructure(toStructureSpec({
   ...cloneFrontStairLayout(),
@@ -4066,10 +4181,9 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
   }
 
   // Reserved containers stay empty until the phases that fill them arrive;
-  // connectors and cells are filled and validated below.
+  // connectors, cells and roofs are filled and validated below.
   for (const reserved of [
     graph.frames,
-    graph.roofs,
     graph.attachments,
     graph.damage,
   ]) {
@@ -4190,6 +4304,71 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
 
     for (const patchId of cell.patchIds) {
       assert.ok(byId.has(patchId), `${label}: cell names missing patch ${patchId}.`);
+    }
+  }
+
+  for (const roof of graph.roofs) {
+    assert.ok(isValidId(roof.id), `${label}: roof id "${roof.id}" is invalid.`);
+    assert.equal(roof.kind, "roof");
+    assert.equal(roof.roofType, "flat_slab");
+    assert.ok(roof.thickness > 0);
+    assert.ok(roof.projection >= 0);
+    assert.ok(Math.abs(roof.slabTopY - roof.bottomY - roof.thickness) < 1e-9);
+    assert.ok(roof.topY >= roof.slabTopY);
+    assert.ok(
+      roof.slabFootprint.minX <= roof.bearingFootprint.minX
+      && roof.slabFootprint.maxX >= roof.bearingFootprint.maxX
+      && roof.slabFootprint.minZ <= roof.bearingFootprint.minZ
+      && roof.slabFootprint.maxZ >= roof.bearingFootprint.maxZ,
+      `${label}: roof slab does not cover its bearing footprint.`,
+    );
+    assert.ok(
+      roof.ceilingFootprint.minX > roof.bearingFootprint.minX
+      && roof.ceilingFootprint.maxX < roof.bearingFootprint.maxX
+      && roof.ceilingFootprint.minZ > roof.bearingFootprint.minZ
+      && roof.ceilingFootprint.maxZ < roof.bearingFootprint.maxZ,
+      `${label}: roof ceiling does not fit inside its bearing footprint.`,
+    );
+
+    assert.equal(roof.coversCellIds.length, 1);
+    const coveredCell = graph.cells.find(
+      (cell) => cell.id === roof.coversCellIds[0],
+    );
+    assert.ok(coveredCell, `${label}: roof covers a missing cell.`);
+    assert.equal(roof.bottomY, coveredCell?.topY);
+    assert.deepEqual(roof.bearingFootprint, coveredCell?.footprint);
+    assert.deepEqual(roof.ceilingFootprint, coveredCell?.interior);
+
+    for (const patchId of roof.bearingPatchIds) {
+      const bearing = byId.get(patchId);
+      assert.ok(bearing, `${label}: roof names missing bearing patch ${patchId}.`);
+      assert.equal(bearing?.edges.vMax.treatment, "roof_bearing");
+    }
+    assert.equal(byId.get(roof.topPatchId)?.role, PATCH_ROLES.roof);
+    assert.equal(byId.get(roof.ceilingPatchId)?.role, PATCH_ROLES.roofSoffit);
+    for (const patchId of roof.edgePatchIds) {
+      assert.ok(byId.has(patchId), `${label}: roof names missing edge patch ${patchId}.`);
+    }
+    for (const patchId of roof.soffitPatchIds) {
+      assert.ok(byId.has(patchId), `${label}: roof names missing soffit patch ${patchId}.`);
+    }
+    for (const patchId of roof.patchIds) {
+      assert.ok(byId.has(patchId), `${label}: roof names missing patch ${patchId}.`);
+    }
+
+    if (roof.cornice) {
+      assert.ok(roof.cornice.projection > 0 && roof.cornice.height > 0);
+      assert.equal(roof.cornice.bottomY, roof.slabTopY);
+      assert.equal(roof.cornice.topY, roof.topY);
+      assert.ok(
+        roof.cornice.outline.minX < roof.slabFootprint.minX
+        && roof.cornice.outline.maxX > roof.slabFootprint.maxX
+        && roof.cornice.outline.minZ < roof.slabFootprint.minZ
+        && roof.cornice.outline.maxZ > roof.slabFootprint.maxZ,
+        `${label}: roof cornice does not project beyond the slab.`,
+      );
+    } else {
+      assert.equal(roof.topY, roof.slabTopY);
     }
   }
 

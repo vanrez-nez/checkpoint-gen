@@ -32,6 +32,7 @@ import {
 } from "../../mass/elevation";
 import type { StairSideTreatment, StairSpec } from "../../connector/stair";
 import type { SummitCellSpec } from "../../cell/resolve";
+import type { SummitRoofSpec } from "../../roof/resolve";
 import type { HorizontalOrientation } from "../../kernel/frame";
 
 /**
@@ -100,6 +101,12 @@ export interface MassLayoutConfig {
   summitBuildingWallThickness: number;
   summitBuildingPortalWidth: number;
   summitBuildingPortalHeight: number;
+  /** Independent flat roof carried by the summit building walls. */
+  summitRoofEnabled: boolean;
+  summitRoofThickness: number;
+  summitRoofProjection: number;
+  summitRoofCorniceProjection: number;
+  summitRoofCorniceHeight: number;
   /** Independently enabled centred approach stairs. */
   stairFrontEnabled: boolean;
   stairRearEnabled: boolean;
@@ -165,6 +172,11 @@ export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
   summitBuildingWallThickness: 0.5,
   summitBuildingPortalWidth: 2,
   summitBuildingPortalHeight: 2.6,
+  summitRoofEnabled: true,
+  summitRoofThickness: 0.5,
+  summitRoofProjection: 0.25,
+  summitRoofCorniceProjection: 0.2,
+  summitRoofCorniceHeight: 0.25,
   stairFrontEnabled: true,
   stairRearEnabled: true,
   stairLeftEnabled: true,
@@ -575,6 +587,62 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
       layout.summitBuildingEnabled && hasEnabledStair(layout),
   }),
   control.boolean({
+    key: "summitRoofEnabled",
+    label: "enabled",
+    name: "Summit roof",
+    group: "Roof",
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.summitBuildingEnabled,
+  }),
+  control.number({
+    key: "summitRoofThickness",
+    label: "thickness",
+    name: "Summit roof slab thickness",
+    group: "Roof",
+    min: 0.1,
+    max: 2,
+    step: 0.05,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.summitBuildingEnabled && layout.summitRoofEnabled,
+  }),
+  control.number({
+    key: "summitRoofProjection",
+    label: "projection",
+    name: "Summit roof slab projection",
+    group: "Roof",
+    min: 0,
+    max: 1,
+    step: 0.025,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.summitBuildingEnabled && layout.summitRoofEnabled,
+  }),
+  control.number({
+    key: "summitRoofCorniceProjection",
+    label: "cornice projection",
+    name: "Summit roof cornice projection",
+    group: "Roof",
+    min: 0,
+    max: 0.3,
+    step: 0.005,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.summitBuildingEnabled && layout.summitRoofEnabled,
+  }),
+  control.number({
+    key: "summitRoofCorniceHeight",
+    label: "cornice height",
+    name: "Summit roof cornice height",
+    group: "Roof",
+    min: 0,
+    max: 0.3,
+    step: 0.005,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.summitBuildingEnabled && layout.summitRoofEnabled,
+  }),
+  control.boolean({
     key: "stairFrontEnabled",
     label: "front",
     name: "Front stair",
@@ -863,6 +931,7 @@ export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
     },
     stairs,
     cells: toCellSpecs(layout),
+    roofs: toRoofSpecs(layout),
   };
 }
 
@@ -878,6 +947,21 @@ function toCellSpecs(layout: MassLayoutConfig): SummitCellSpec[] {
     wallThickness: layout.summitBuildingWallThickness,
     portalWidth: layout.summitBuildingPortalWidth,
     portalHeight: layout.summitBuildingPortalHeight,
+  }];
+}
+
+function toRoofSpecs(layout: MassLayoutConfig): SummitRoofSpec[] {
+  if (!layout.summitBuildingEnabled || !layout.summitRoofEnabled) {
+    return [];
+  }
+
+  return [{
+    id: "summit_roof",
+    kind: "flat_slab",
+    thickness: layout.summitRoofThickness,
+    projection: layout.summitRoofProjection,
+    corniceProjection: layout.summitRoofCorniceProjection,
+    corniceHeight: layout.summitRoofCorniceHeight,
   }];
 }
 

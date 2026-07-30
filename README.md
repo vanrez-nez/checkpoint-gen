@@ -125,6 +125,15 @@ patches—not as a boolean or a facade drawn over a solid wall. The existing
 summit surface becomes the room floor, and its wall footprint is not emitted as
 hidden supporting geometry in the bare tessellation.
 
+An optional **flat summit roof** is a separate assembly carried by those
+roof-bearing wall crowns. Its slab thickness and projection are real dimensions,
+and an optional top cornice uses the same projection-and-height convention as
+the other moldings: either zero dimension leaves it absent. The graph records
+the covered cell, bearing wall patches, ceiling, slab edges, projected soffits,
+top surface, and cornice surfaces. Tessellation removes the wall-crown contact
+faces before laying the roof, so the ceiling and overhangs remain visible
+without a coincident interface or a hidden support slab.
+
 Every stair supports open sides, stepped parapets, and **flat parapets**. Both
 parapet styles accept the same configurable cornice projection and height. On a
 stepped parapet the cornice repeats as one horizontal cap per tread; on a flat
@@ -272,7 +281,7 @@ view, illumination, and color fields. Mass validation also resolves the
 cross-field structural rules, because a width or height may be inside its own
 slider range while its combination with batter, summit size, or stairs produces
 no buildable mass. An invalid edit leaves the last valid geometry in place and
-reports the error in the Structure tab's Validation row.
+reports the error in the global status row below FPS.
 
 Not every control is a Tweakpane *binding*: the curve editor is a blade that owns
 its own value, so `bindControls` adds it and writes back by hand. It also plots

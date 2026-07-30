@@ -47,6 +47,10 @@ import {
   type SummitCellSpec,
 } from "../cell/resolve";
 import {
+  resolveSummitRoof,
+  type SummitRoofSpec,
+} from "../roof/resolve";
+import {
   IMPLEMENTED_BASE_TREATMENTS,
   IMPLEMENTED_SUMMIT_TREATMENTS,
   resolveElevation,
@@ -107,6 +111,8 @@ export interface StructureSpec {
   readonly stairs: readonly StairSpec[];
   /** Enclosed summit assemblies. This phase supports one single chamber. */
   readonly cells: readonly SummitCellSpec[];
+  /** Roof assemblies resolved from the cells they cover. */
+  readonly roofs: readonly SummitRoofSpec[];
 }
 
 const FACADE_SEGMENT: Readonly<Record<HorizontalOrientation, string>> = {
@@ -298,6 +304,14 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     );
     return graph.build(diagnostics.all);
   }
+  if (spec.roofs.length > 1) {
+    diagnostics.error(
+      "roof.multiple_unimplemented",
+      massId,
+      "This phase supports one summit roof; multiple roof assemblies are not implemented yet.",
+    );
+    return graph.build(diagnostics.all);
+  }
 
   const summitFloorPatchId = structurePath(
     massId,
@@ -321,6 +335,18 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     : null;
 
   if (spec.cells[0] && !cell) {
+    return graph.build(diagnostics.all);
+  }
+  const roof = spec.roofs[0]
+    ? resolveSummitRoof(
+      spec.id,
+      spec.roofs[0],
+      cell?.record ?? null,
+      diagnostics,
+    )
+    : null;
+
+  if (spec.roofs[0] && !roof) {
     return graph.build(diagnostics.all);
   }
 
@@ -409,6 +435,15 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
       graph.link(a, b);
     }
     graph.addCell(cell.record);
+  }
+  if (roof) {
+    for (const patch of roof.patches) {
+      graph.addPatch(patch);
+    }
+    for (const [a, b] of roof.links) {
+      graph.link(a, b);
+    }
+    graph.addRoof(roof.record);
   }
 
   // The stair's own surfaces, once both ends it connects exist to be linked to.
