@@ -28,15 +28,24 @@ shared prop table, it declares `sectionsByScope`.
 
 ### Geometry codes
 
-The URL fragment is a versioned, bit-packed code for the selected structure:
-`#g1...`. It contains the structure type plus every value from that structure's
-layout and declared prop controls, including values currently hidden behind a
-disabled feature. Defaults and values derived from an earlier control are
-implicit, and only changes are written, so a schema-baseline structure is four
-characters and a typical single edit remains around six; a heavily customized
-structure grows only by the bits needed for those edits.
-The `g1` schema keeps its original defaults as an immutable decoding baseline,
-so later UI-default tuning does not reinterpret an existing shared code.
+The URL fragment is a versioned code for the selected structure: `#g2...`. It
+contains the structure type plus every value from that structure's layout and
+declared prop controls, including values currently hidden behind a disabled
+feature. The codec is `proc-seed`'s `defineCodec` — a dense mixed-radix
+encoding shared with this project's sibling repo, so both speak the same
+seeding and encoding law. Every field is always explicit, packed into one
+arbitrary-precision integer and rendered as base62, so there is nothing
+implicit to interpret and no frozen "defaults" object a decoder needs to agree
+with the encoder about. A structure-type digit always comes first — exactly
+one base62 character, since the registry stays well under 62 entries — and
+selects which structure's own field list decodes the rest of the payload.
+
+Being dense costs length: a default circular checkpoint currently encodes to
+about 49 characters and a default mass to about 60, rather than the four a
+sparse code needed for the same case. The tradeoff is a schema with no field-
+count ceiling — `defineCodec` packs into an arbitrary-precision integer, not a
+fixed bit width — so a family's control table can keep growing without ever
+forcing a version bump on its own.
 
 Scene state is deliberately outside this boundary. Camera/view state, global
 lighting, every material-palette selection and texture scale, the Scene tab's
@@ -44,15 +53,15 @@ material tuning, diagnostics and tools neither change the code nor get overwritt
 when one is restored. Inactive structure families are excluded too. Pasting a code
 into the address bar switches to that structure and regenerates it in place, while
 control edits update the current history entry rather than adding one entry per
-slider movement. Codec field order comes from the registered control tables; a
-control-schema change must bump the prefix version.
+slider movement.
 
-Dropping the *last* field is the one exception, and it is what moving the
-offering's texture scale into the palette did — dressing was never generated
-geometry, so it did not belong in the code. No surviving field's index moves, so
-`g1` keeps its meaning: an existing code is read exactly as before, and one that
-actually carried that value is rejected with a warning rather than silently
-misread.
+Codec field order comes from the registered control tables, and `defineCodec`'s
+own evolution rule governs from here: a new field must be *prepended*, never
+appended, and an existing field's range must never change, or every code
+already out there re-interprets. A schema change serious enough to break that
+rule bumps the prefix instead, exactly as the `g1` → `g2` move did — a `g1`
+code is rejected outright, with a console warning and a fall back to defaults,
+never silently misread as some other configuration.
 
 ## The structure kernel
 

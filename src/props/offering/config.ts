@@ -18,7 +18,10 @@ export interface OfferingConfig {
 
 export const DEFAULT_OFFERING_CONFIG: Readonly<OfferingConfig> = {
   enabled: true,
-  pedestalFit: 1.105,
+  // Rounded onto the control's own 0.01 step grid; 1.105 sat exactly halfway
+  // between two ticks and was only ever silently accepted because a value
+  // equal to its own default was never actually encoded.
+  pedestalFit: 1.11,
   verticalOffset: 0,
   rotationDegrees: 0,
 };

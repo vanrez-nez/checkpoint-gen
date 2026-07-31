@@ -149,11 +149,11 @@ export const DEFAULT_MASS_STONE_CONFIG: Readonly<StoneConfig> = {
 };
 
 /**
- * Immutable baseline used by the `g1` geometry-code schema.
+ * A frozen, stable starting layout, kept for test reproducibility.
  *
- * Geometry codes omit values equal to their schema defaults. Keeping this
- * snapshot separate from the live UI defaults means retuning what Mass opens
- * with does not reinterpret existing shared codes.
+ * It is no longer read by the geometry codec: the `g2` scheme is dense, every
+ * field is always explicit in the code, and there is nothing left for an
+ * omitted value to be interpreted against.
  */
 export const MASS_LAYOUT_G1_BASELINE: Readonly<MassLayoutConfig> = {
   footprintWidth: 24,
@@ -213,7 +213,7 @@ export const MASS_LAYOUT_G1_BASELINE: Readonly<MassLayoutConfig> = {
   seed: 1,
 };
 
-/** Mass opens with the configuration captured by `g1xRQ4T4fGZF7WGs-D`. */
+/** What Mass opens with, tuned away from {@link MASS_LAYOUT_G1_BASELINE}. */
 export const DEFAULT_MASS_LAYOUT: Readonly<MassLayoutConfig> = {
   ...MASS_LAYOUT_G1_BASELINE,
   heightCurveBezier: [...MASS_LAYOUT_G1_BASELINE.heightCurveBezier],

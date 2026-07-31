@@ -713,7 +713,6 @@ function stoneOn(
       z: soft.z - run.along.z * alongDrift,
     };
   };
-  const random = createRandom(seed);
   const cellScale = Math.min(Math.max(to - from, 0), Math.max(depth, 0));
   const normalJitter = displacementDistance(
     cellScale,
@@ -754,8 +753,14 @@ function stoneOn(
       return point;
     }
 
+    // Keyed by the shared course joint, exactly like alongOffset below: two
+    // neighbouring stones read the same joint station and so draw the same
+    // normal-axis offset for the corner they share. Drawing it from the
+    // stone's own stream instead let two neighbours step toward and away from
+    // the wall by different amounts, opening a real crack at their joint that
+    // a shallow enough sightline could see straight through.
     const normalOffset = randomRange(
-      random,
+      jointRandom("joint_normal", corner),
       -normalJitter,
       outwardNormalJitter,
     );

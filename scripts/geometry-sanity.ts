@@ -165,14 +165,21 @@ assert.notStrictEqual(
 assert.deepEqual(config.bevels.circular, DEFAULT_BEVEL_CONFIG);
 
 // --- structure geometry codes ---------------------------------------------
+// The g2 codec is dense: every field is always explicit, so a default code is
+// no longer four characters the way a sparse g1 code was — it costs the full
+// width its field count needs. The bound below is a generous ceiling on that
+// width, not a promise of brevity.
 const circularDefaultCode = encodeStructureHash(config);
-assert.ok(circularDefaultCode.length <= 10);
+assert.ok(circularDefaultCode.length <= 55);
 assert.ok(isStructureHash(circularDefaultCode));
 
 const massDefaultHashConfig = createDefaultStructureConfig();
 massDefaultHashConfig.typeId = "mass";
 const massDefaultCode = encodeStructureHash(massDefaultHashConfig);
-assert.equal(massDefaultCode, "g1xRQ4T4fGZF7WGs-D");
+assert.equal(
+  massDefaultCode,
+  "g21AptwREYKFsLxLTGbfjt7YULunHNKN8YuaeMTnmoiBG23grrwBUebXB0vs",
+);
 assert.notEqual(massDefaultCode, circularDefaultCode);
 
 const oneEditHashConfig = createDefaultStructureConfig();
@@ -257,10 +264,17 @@ assert.equal(
 );
 
 assert.throws(() => applyStructureHash(createDefaultStructureConfig(), "nope"));
-assert.throws(() => applyStructureHash(createDefaultStructureConfig(), "g1"));
+assert.throws(() => applyStructureHash(createDefaultStructureConfig(), "g2"));
 assert.throws(
   () => applyStructureHash(createDefaultStructureConfig(), `${circularDefaultCode}A`),
-  /non-canonical|trailing/,
+  /invalid|corrupted/,
+);
+// A pre-migration g1 code must be rejected outright rather than misread —
+// the prefix bump is what makes that an explicit failure instead of a code
+// whose parameters decode fine but whose masonry renders differently.
+assert.throws(
+  () => applyStructureHash(createDefaultStructureConfig(), "g1xRQ4T4fGZF7WGs-D"),
+  /must start with "g2"/,
 );
 const offStepHashConfig = createDefaultStructureConfig();
 (offStepHashConfig.layouts.circular as { radius: number }).radius = 3.14159;
@@ -2070,9 +2084,34 @@ function assertEffectiveHashValuesEqual(
     assert.ok(actualSection);
 
     for (const spec of section.specs) {
+      const actualValue = actualSection.target[spec.key];
+      const expectedValue = section.target[spec.key];
+
+      // Every other control kind is written pre-aligned to its own step (the
+      // codec throws rather than silently rounding), so round-trips exactly.
+      // A bezier control has no such grid of its own — the codec's is a
+      // quantization it never had before — so its round-trip is only accurate
+      // to that grid's own step, not bit-exact.
+      if (spec.kind === "bezier") {
+        const actualBezier = actualValue as readonly number[];
+        const expectedBezier = expectedValue as readonly number[];
+        assert.equal(actualBezier.length, expectedBezier.length);
+
+        for (let index = 0; index < expectedBezier.length; index += 1) {
+          assert.ok(
+            Math.abs((actualBezier[index] ?? 0) - (expectedBezier[index] ?? 0))
+              <= 1 / 1024 + 1e-9,
+            `${expected.typeId}.${section.label}.${spec.key}[${index}] did not round `
+            + `trip within the bezier codec's step.`,
+          );
+        }
+
+        continue;
+      }
+
       assert.deepEqual(
-        actualSection.target[spec.key],
-        section.target[spec.key],
+        actualValue,
+        expectedValue,
         `${expected.typeId}.${section.label}.${spec.key} did not round trip`,
       );
     }

@@ -1,3 +1,4 @@
+import { defineCodec, type Codec, type CodecField } from "proc-seed";
 import type {
   BezierValue,
   ControlSpec,
@@ -29,22 +30,43 @@ import type {
   PropId,
   StructureDefinition,
 } from "../structure/definition";
-import {
-  MASS_LAYOUT_G1_BASELINE,
-  cloneMassLayout,
-} from "../structure/families/mass/config";
 
 /**
  * Geometry-code schema version. Field order comes from the registered control
  * tables; adding, removing or reordering a field requires a version bump.
+ *
+ * `g2` is a dense mixed-radix encoding built on `proc-seed`'s `defineCodec` —
+ * the shared codec this project's sibling repo also uses. Every field is
+ * always present, in the fixed order the active structure's control tables
+ * declare, so there is no sparse/default-omission behaviour to preserve and
+ * no frozen "decoding baseline" object to interpret an entry's absence
+ * against. Codes are correspondingly longer than the old `g1` scheme's, in
+ * exchange for a field-count ceiling that no longer exists — `defineCodec`
+ * packs into an arbitrary-precision integer, not a fixed bit width.
  */
-const PREFIX = "g1";
-const ALPHABET =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-const STRUCTURE_BITS = 4;
-const FIELD_BITS = 6;
-const END_FIELD = 2 ** FIELD_BITS - 1;
-const MAX_FIELDS = END_FIELD;
+const PREFIX = "g2";
+
+/**
+ * The structure-type selector is encoded on its own, ahead of the active
+ * structure's own field payload, because different structures have entirely
+ * different field lists — one dense codec cannot describe both at once. It is
+ * always exactly one base62 character: `defineCodec` never emits a leading
+ * digit for a value that fits in one, and `assertStructureCapacity` keeps the
+ * registry within the 62 values one digit can hold.
+ */
+const TYPE_DIGITS = 1;
+const TYPE_RADIX = 62;
+
+/** One cubic-bezier control's four components, in wire order. */
+const BEZIER_COMPONENTS = ["x1", "y1", "x2", "y2"] as const;
+/** `x1`/`x2` are validated to this range elsewhere; `y1`/`y2` are not
+ * constrained at all today, so this codec grid gives them generous headroom
+ * rather than reusing the x range. A value outside it is clamped on encode,
+ * rather than rejected — the one field pair in the whole schema where that is
+ * true, since every other field's range is already enforced before a code is
+ * ever built. */
+const BEZIER_X_RANGE = { min: 0, max: 1, step: 1 / 1024 } as const;
+const BEZIER_Y_RANGE = { min: -1, max: 2, step: 1 / 1024 } as const;
 
 interface HashField {
   readonly label: string;
@@ -60,55 +82,30 @@ interface DecodedGeometry {
 /**
  * Encodes the selected structure and every control on its own tabs. Scene,
  * camera, debug and tool state are outside this boundary.
- *
- * Values equal to the registered defaults are omitted. Each remaining entry is
- * a six-bit field id followed by the minimum bits its control range requires,
- * so the common default/small-edit case remains a short URL fragment.
  */
 export function encodeStructureHash(config: StructureConfig): string {
   validateActiveStructureGeometryConfig(config);
 
   const definitions = listStructures();
+  assertStructureCapacity(definitions.length);
   const structureIndex = definitions.findIndex(
     (definition) => definition.id === config.typeId,
   );
 
-  if (structureIndex < 0 || structureIndex >= 2 ** STRUCTURE_BITS) {
-    throw new RangeError(
-      `Structure "${config.typeId}" cannot be represented by geometry code ${PREFIX}.`,
-    );
+  if (structureIndex < 0) {
+    throw new RangeError(`Structure "${config.typeId}" is not registered.`);
   }
 
-  const defaults = createGeometryCodeDefaults();
-  defaults.typeId = config.typeId;
   const fields = collectFields(config);
-  const defaultFields = collectFields(defaults);
-  assertCompatibleFields(fields, defaultFields);
+  const form: Record<string, number> = {};
 
-  const writer = new BitWriter();
-  writer.write(structureIndex, STRUCTURE_BITS);
-
-  for (let index = 0; index < fields.length; index += 1) {
-    const field = fields[index];
-    const defaultField = defaultFields[index];
-
-    if (!field || !defaultField) {
-      continue;
-    }
-
-    const value = field.target[field.spec.key];
-    const defaultValue = defaultField.target[defaultField.spec.key];
-
-    if (!valuesEqual(value, defaultValue)) {
-      writer.write(index, FIELD_BITS);
-      writeFieldValue(writer, field, value);
-      defaultField.target[defaultField.spec.key] = cloneValue(value);
-      defaultField.spec.onChange?.(defaultField.target);
-    }
+  for (const field of fields) {
+    writeFieldValue(field, form);
   }
 
-  writer.write(END_FIELD, FIELD_BITS);
-  return PREFIX + writer.toBase64Url();
+  return PREFIX
+    + typeCodec(definitions.length).encode({ type: structureIndex })
+    + fieldsCodec(fields).encode(form);
 }
 
 /**
@@ -158,63 +155,181 @@ function decodeStructureHash(fragment: string): DecodedGeometry {
 
   const payload = code.slice(PREFIX.length);
 
-  if (payload.length === 0) {
+  if (payload.length <= TYPE_DIGITS) {
     throw new Error("Geometry code payload is empty.");
   }
 
-  const reader = BitReader.fromBase64Url(payload);
   const definitions = listStructures();
-  const structureIndex = reader.read(STRUCTURE_BITS);
-  const definition = definitions[structureIndex];
+  assertStructureCapacity(definitions.length);
+  const typeForm = typeCodec(definitions.length).decode(
+    payload.slice(0, TYPE_DIGITS),
+  );
+
+  if (!typeForm) {
+    throw new Error("Geometry code has an invalid structure selector.");
+  }
+
+  const definition = definitions[typeForm.type];
 
   if (!definition) {
     throw new RangeError(
-      `Geometry code selects unknown structure index ${structureIndex}.`,
+      `Geometry code selects unknown structure index ${typeForm.type}.`,
     );
   }
 
-  const decoded = createGeometryCodeDefaults();
+  const decoded = createDefaultStructureConfig();
   decoded.typeId = definition.id;
   const fields = collectFields(decoded);
-  let previousIndex = -1;
+  const form = fieldsCodec(fields).decode(payload.slice(TYPE_DIGITS));
 
-  while (true) {
-    const index = reader.read(FIELD_BITS);
+  if (!form) {
+    throw new Error("Geometry code payload is invalid or corrupted.");
+  }
 
-    if (index === END_FIELD) {
-      break;
-    }
-    if (index <= previousIndex) {
-      throw new Error("Geometry code fields must be unique and ordered.");
-    }
-
-    const field = fields[index];
-
-    if (!field) {
-      throw new RangeError(
-        `Geometry code references unknown field ${index} for "${definition.id}".`,
-      );
-    }
-    field.target[field.spec.key] = readFieldValue(reader, field);
+  for (const field of fields) {
+    readFieldValue(field, form);
     field.spec.onChange?.(field.target);
-    previousIndex = index;
   }
 
   validateActiveStructureGeometryConfig(decoded);
-  const canonical = encodeStructureHash(decoded);
 
-  if (canonical !== code) {
-    throw new Error("Geometry code is non-canonical or has trailing data.");
-  }
-
-  return { config: decoded, code: canonical };
+  return { config: decoded, code: encodeStructureHash(decoded) };
 }
 
-/** The immutable defaults against which `g1` sparse entries are interpreted. */
-function createGeometryCodeDefaults(): StructureConfig {
-  const defaults = createDefaultStructureConfig();
-  defaults.layouts.mass = cloneMassLayout(MASS_LAYOUT_G1_BASELINE);
-  return defaults;
+function assertStructureCapacity(count: number): void {
+  if (count > TYPE_RADIX) {
+    throw new RangeError(
+      `${count} registered structures exceed the ${TYPE_RADIX} the ${PREFIX} `
+      + "selector supports. Widen TYPE_DIGITS.",
+    );
+  }
+}
+
+function typeCodec(structureCount: number): Codec<{ type: number }> {
+  return defineCodec<{ type: number }>([
+    { key: "type", min: 0, max: Math.max(structureCount - 1, 0), step: 1 },
+  ]);
+}
+
+/** Built fresh per call from the active structure's own field list, exactly
+ * like `collectFields` itself — there is nothing here worth caching. */
+function fieldsCodec(fields: readonly HashField[]): Codec<Record<string, number>> {
+  return defineCodec<Record<string, number>>(fields.flatMap(codecFieldsFor));
+}
+
+function codecFieldsFor(field: HashField): readonly CodecField[] {
+  const { spec, label } = field;
+
+  switch (spec.kind) {
+    case "boolean":
+      return [{ key: label, min: 0, max: 1, step: 1 }];
+    case "list":
+      return [{
+        key: label,
+        min: 0,
+        max: Object.values(spec.options).length - 1,
+        step: 1,
+      }];
+    case "number":
+      return [{ key: label, min: spec.min, max: spec.max, step: spec.step }];
+    case "bezier":
+      return BEZIER_COMPONENTS.map((component, index) => ({
+        key: `${label}.${component}`,
+        ...(index % 2 === 0 ? BEZIER_X_RANGE : BEZIER_Y_RANGE),
+      }));
+  }
+}
+
+/** Reads one field's live value into the codec's flat numeric form. */
+function writeFieldValue(field: HashField, form: Record<string, number>): void {
+  const { spec, label } = field;
+  const value = field.target[spec.key];
+
+  switch (spec.kind) {
+    case "boolean":
+      form[label] = value === true ? 1 : 0;
+      return;
+    case "list": {
+      const options = Object.values(spec.options);
+      const index = options.indexOf(value as string);
+
+      if (index < 0) {
+        throw new RangeError(`${field.label} has an unsupported value.`);
+      }
+
+      form[label] = index;
+      return;
+    }
+    case "number": {
+      const number = value as number;
+      assertAligned(field, number);
+      form[label] = number;
+      return;
+    }
+    case "bezier": {
+      const bezier = value as BezierValue;
+
+      BEZIER_COMPONENTS.forEach((component, index) => {
+        form[`${label}.${component}`] = bezier[index] ?? 0;
+      });
+    }
+  }
+}
+
+/** Writes one field's decoded numeric form back into its live target. */
+function readFieldValue(field: HashField, form: Record<string, number>): void {
+  const { spec, label } = field;
+
+  switch (spec.kind) {
+    case "boolean":
+      field.target[spec.key] = form[label] === 1;
+      return;
+    case "list": {
+      const options = Object.values(spec.options);
+      const value = options[form[label] ?? -1];
+
+      if (value === undefined) {
+        throw new RangeError(`${field.label} contains an invalid option.`);
+      }
+
+      field.target[spec.key] = value;
+      return;
+    }
+    case "number":
+      field.target[spec.key] = form[label];
+      return;
+    case "bezier": {
+      const [x1, y1, x2, y2] = BEZIER_COMPONENTS.map(
+        (component) => form[`${label}.${component}`] ?? 0,
+      );
+      field.target[spec.key] = [x1!, y1!, x2!, y2!] satisfies BezierValue;
+    }
+  }
+}
+
+/**
+ * `defineCodec`'s own quantisation silently rounds and clamps an off-grid
+ * number to its nearest step instead of rejecting it. Every other field's
+ * range is already enforced before a code is built, but step alignment for a
+ * plain number control is not — `validateControls` only checks it for
+ * integer steps — so this guard is the one thing worth keeping from the old
+ * codec's stricter behaviour: a value that does not sit on its control's grid
+ * is a caller bug, not something to silently reinterpret.
+ */
+function assertAligned(field: HashField, value: number): void {
+  if (field.spec.kind !== "number") {
+    return;
+  }
+
+  const { min, step } = field.spec;
+  const ticks = Math.round((value - min) / step);
+  const quantized = min + ticks * step;
+
+  if (Math.abs(value - quantized) > step * 1e-6) {
+    throw new RangeError(
+      `${field.label}=${value} does not align to its ${step} control step.`,
+    );
+  }
 }
 
 function collectFields(config: StructureConfig): HashField[] {
@@ -264,13 +379,6 @@ function collectFields(config: StructureConfig): HashField[] {
       case "materialPalette":
         break;
     }
-  }
-
-  if (fields.length > MAX_FIELDS) {
-    throw new RangeError(
-      `"${definition.id}" has ${fields.length} geometry fields; ${PREFIX} supports `
-      + `at most ${MAX_FIELDS}. Bump the geometry-code schema.`,
-    );
   }
 
   return fields;
@@ -363,227 +471,4 @@ function requireRecord<T extends object>(
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function valuesEqual(left: unknown, right: unknown): boolean {
-  if (Array.isArray(left) && Array.isArray(right)) {
-    return left.length === right.length
-      && left.every((value, index) => Object.is(value, right[index]));
-  }
-
-  return Object.is(left, right);
-}
-
-function cloneValue(value: unknown): unknown {
-  return Array.isArray(value) ? [...value] : value;
-}
-
-function assertCompatibleFields(
-  fields: readonly HashField[],
-  defaults: readonly HashField[],
-): void {
-  if (
-    fields.length !== defaults.length
-    || fields.some((field, index) => field.label !== defaults[index]?.label)
-  ) {
-    throw new Error("Geometry code field schema does not match its defaults.");
-  }
-}
-
-function writeFieldValue(
-  writer: BitWriter,
-  field: HashField,
-  value: unknown,
-): void {
-  const { spec } = field;
-
-  switch (spec.kind) {
-    case "boolean":
-      writer.write(value === true ? 1 : 0, 1);
-      return;
-    case "list": {
-      const options = Object.values(spec.options);
-      const index = options.indexOf(value as string);
-
-      if (index < 0) {
-        throw new RangeError(`${field.label} has an unsupported value.`);
-      }
-
-      writer.write(index, bitsFor(options.length));
-      return;
-    }
-    case "number": {
-      const number = value as number;
-      const ticks = Math.round((number - spec.min) / spec.step);
-      const count = tickCount(spec);
-      const quantized = roundForStep(
-        spec.min + ticks * spec.step,
-        spec.step,
-      );
-
-      if (ticks < 0 || ticks >= count) {
-        throw new RangeError(`${field.label} is outside its encodable range.`);
-      }
-      if (Math.abs(number - quantized) > spec.step * 1e-6) {
-        throw new RangeError(
-          `${field.label}=${number} does not align to its ${spec.step} control step.`,
-        );
-      }
-
-      writer.write(ticks, bitsFor(count));
-      return;
-    }
-    case "bezier": {
-      const bezier = value as BezierValue;
-
-      for (const component of bezier) {
-        writer.writeFloat64(component);
-      }
-    }
-  }
-}
-
-function readFieldValue(reader: BitReader, field: HashField): unknown {
-  const { spec } = field;
-
-  switch (spec.kind) {
-    case "boolean":
-      return reader.read(1) === 1;
-    case "list": {
-      const options = Object.values(spec.options);
-      const index = reader.read(bitsFor(options.length));
-      const value = options[index];
-
-      if (value === undefined) {
-        throw new RangeError(`${field.label} contains an invalid option.`);
-      }
-
-      return value;
-    }
-    case "number": {
-      const count = tickCount(spec);
-      const ticks = reader.read(bitsFor(count));
-
-      if (ticks >= count) {
-        throw new RangeError(`${field.label} contains an invalid number.`);
-      }
-
-      return roundForStep(spec.min + ticks * spec.step, spec.step);
-    }
-    case "bezier":
-      return [
-        reader.readFloat64(),
-        reader.readFloat64(),
-        reader.readFloat64(),
-        reader.readFloat64(),
-      ] satisfies BezierValue;
-  }
-}
-
-function tickCount(
-  spec: Extract<ControlSpec<object>, { kind: "number" }>,
-): number {
-  return Math.round((spec.max - spec.min) / spec.step) + 1;
-}
-
-function bitsFor(valueCount: number): number {
-  return Math.max(1, Math.ceil(Math.log2(valueCount)));
-}
-
-function roundForStep(value: number, step: number): number {
-  const decimal = step.toString().split(".")[1]?.length ?? 0;
-  return Number(value.toFixed(decimal));
-}
-
-class BitWriter {
-  private readonly bits: number[] = [];
-
-  write(value: number, width: number): void {
-    if (!Number.isSafeInteger(value) || value < 0 || value >= 2 ** width) {
-      throw new RangeError(`Cannot write ${value} in ${width} bits.`);
-    }
-
-    for (let bit = 0; bit < width; bit += 1) {
-      this.bits.push((value >>> bit) & 1);
-    }
-  }
-
-  writeFloat64(value: number): void {
-    if (!Number.isFinite(value)) {
-      throw new RangeError("Geometry code cannot encode a non-finite curve value.");
-    }
-
-    const data = new DataView(new ArrayBuffer(8));
-    data.setFloat64(0, value, true);
-    this.write(data.getUint32(0, true), 32);
-    this.write(data.getUint32(4, true), 32);
-  }
-
-  toBase64Url(): string {
-    let encoded = "";
-
-    for (let offset = 0; offset < this.bits.length; offset += 6) {
-      let value = 0;
-
-      for (let bit = 0; bit < 6; bit += 1) {
-        value |= (this.bits[offset + bit] ?? 0) << bit;
-      }
-
-      encoded += ALPHABET[value];
-    }
-
-    return encoded;
-  }
-}
-
-class BitReader {
-  private offset = 0;
-
-  private constructor(private readonly bits: readonly number[]) {}
-
-  static fromBase64Url(payload: string): BitReader {
-    const bits: number[] = [];
-
-    for (const character of payload) {
-      const value = ALPHABET.indexOf(character);
-
-      if (value < 0) {
-        throw new Error(`Geometry code contains invalid character "${character}".`);
-      }
-
-      for (let bit = 0; bit < 6; bit += 1) {
-        bits.push((value >>> bit) & 1);
-      }
-    }
-
-    return new BitReader(bits);
-  }
-
-  read(width: number): number {
-    if (this.offset + width > this.bits.length) {
-      throw new Error("Geometry code ended before its payload was complete.");
-    }
-
-    let value = 0;
-
-    for (let bit = 0; bit < width; bit += 1) {
-      value += (this.bits[this.offset + bit] ?? 0) * 2 ** bit;
-    }
-
-    this.offset += width;
-    return value;
-  }
-
-  readFloat64(): number {
-    const data = new DataView(new ArrayBuffer(8));
-    data.setUint32(0, this.read(32), true);
-    data.setUint32(4, this.read(32), true);
-    const value = data.getFloat64(0, true);
-
-    if (!Number.isFinite(value)) {
-      throw new RangeError("Geometry code contains a non-finite curve value.");
-    }
-
-    return value;
-  }
 }

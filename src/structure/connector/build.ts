@@ -470,14 +470,21 @@ function layFlightSlice(
 /**
  * The wall below one stepped-parapet cap: the stair slice carried up to the
  * underside of its optional cornice, cut at what covers each stretch.
- * From the ground up: pressed against the flight and the previous parapet
- * slice (outer silhouette only), then the balustrade's inner wall above the
- * tread, then the crown strip above the previous cap — the only part that
- * fronts and caps. When the parapet is shallower than a riser the middle
- * stretch flips: it is the exposed front strip of the silhouette instead of an
- * inner wall, and skipping it outright would hole the parapet on every step.
- * The stretch above the summit floor is the terminal, and its back faces the
- * summit.
+ * From the ground up: the body below the tread, then the balustrade's inner
+ * wall above the tread, then the crown strip above the previous cap — the
+ * only part that fronts and caps. When the parapet is shallower than a riser
+ * the middle stretch flips: it is the exposed front strip of the silhouette
+ * instead of an inner wall, and skipping it outright would hole the parapet
+ * on every step. The stretch above the summit floor is the terminal, and its
+ * back faces the summit.
+ *
+ * The body below the tread draws its own inner face rather than leaving it to
+ * the flight. The flight only ever fronts a step's own crown — nothing in it
+ * closes the flanks below the tread or above the crown — so treating that
+ * span as "pressed against the flight, outer silhouette only" left a real gap
+ * a shallow enough sightline could pass straight through, out through the
+ * hollow between this wall and its own outer face, and into whatever the
+ * flight's sealed body backs onto.
  */
 function layParapetSlices(
   builder: SolidBuilder,
@@ -596,7 +603,7 @@ function layParapetSlices(
       step,
       bottomY,
       lower,
-      faces({ outer: true }),
+      faces({ outer: true, inner: true }),
       backFor(bottomY),
     );
     layBodySpan(

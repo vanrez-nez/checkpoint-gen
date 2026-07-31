@@ -1,3 +1,5 @@
+import { hashString, mulberry32 } from "proc-seed";
+
 /**
  * Deterministic randomness for every generator.
  *
@@ -7,35 +9,28 @@
  * varied. Labels make the derivation hierarchical: two subsystems reading from
  * the same root seed stay independent as long as their labels differ, which is
  * what lets one subsystem be regenerated without disturbing its siblings.
+ *
+ * The stream itself and the label-folding law both come from `proc-seed`, the
+ * primitives shared with this project's sibling repo, so both speak the same
+ * seeding law.
  */
 
 /**
  * Folds a label into a seed. The same `(seed, label)` pair always yields the
  * same stream, and neighbouring labels ("row-3" / "row-4") diverge immediately.
+ *
+ * `proc-seed` has no two-argument (seed, label) primitive of its own — only
+ * `hashString`, which hashes a single string — so the pair is folded into one
+ * string first. `:` never appears in a label used anywhere in this project, so
+ * there is no risk of two distinct `(seed, label)` pairs colliding on the same
+ * string.
  */
 export function hashSeed(seed: number, label: string): number {
-  let hash = seed | 0;
-
-  for (let index = 0; index < label.length; index += 1) {
-    hash = Math.imul(hash ^ label.charCodeAt(index), 0x45d9f3b);
-    hash ^= hash >>> 16;
-  }
-
-  return hash >>> 0;
+  return hashString(`${seed}:${label}`);
 }
 
 /** A uniform [0, 1) stream. */
-export function createRandom(seed: number): () => number {
-  let state = seed >>> 0;
-
-  return () => {
-    state += 0x6d2b79f5;
-    let value = state;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-}
+export const createRandom: (seed: number) => () => number = mulberry32;
 
 export function randomRange(random: () => number, min: number, max: number): number {
   return min + (max - min) * random();
