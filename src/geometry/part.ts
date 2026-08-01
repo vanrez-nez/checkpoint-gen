@@ -15,6 +15,12 @@ export const MATERIAL_SLOTS = [
   "roof",
   "pillar",
   "iron",
+  "portalReveal",
+  "windowReveal",
+  "niche",
+  "panel",
+  "pilaster",
+  "frieze",
 ] as const;
 
 export type MaterialSlot = (typeof MATERIAL_SLOTS)[number];

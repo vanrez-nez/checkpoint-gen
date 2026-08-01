@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import * as THREE from "three";
 import { finalizeGeometry } from "../src/geometry/finalize";
 import { mergeParts } from "../src/geometry/merge-parts";
-import { materialSlotIndex } from "../src/geometry/part";
+import { materialSlotIndex, type MaterialSlot } from "../src/geometry/part";
 import { SolidBuilder } from "../src/geometry/solid-builder";
 import {
   StoneGeometryBuilder,
@@ -270,6 +270,21 @@ function readBlockFaces(builder: SolidBuilder): THREE.Vector3[][] {
       builder.positions[(start + corner) * 3 + 1] ?? 0,
       builder.positions[(start + corner) * 3 + 2] ?? 0,
     )));
+}
+
+function readMaterialFaces(
+  builder: SolidBuilder,
+  slot: MaterialSlot,
+): THREE.Vector3[][] {
+  const material = materialSlotIndex(slot);
+  return builder.blockFaces.flatMap((start) =>
+    builder.surfaceMaterials[start] === material
+      ? [[0, 1, 2, 3].map((corner) => new THREE.Vector3(
+        builder.positions[(start + corner) * 3] ?? 0,
+        builder.positions[(start + corner) * 3 + 1] ?? 0,
+        builder.positions[(start + corner) * 3 + 2] ?? 0,
+      ))]
+      : []);
 }
 
 /** The outward normal of a face read back from the buffer. */
@@ -854,6 +869,14 @@ const invalidFeatureCases = [
       { ...featureRegions[0]!, allowedOperations: ["extrude"] },
     ], [{ ...featureA, operation: "extrude", depth: 0 }]),
     code: "feature.depth_required",
+  },
+  {
+    label: "empty material role",
+    patch: testFeaturePatch(
+      [featureRegions[0]!],
+      [{ ...featureA, materialRole: "" }],
+    ),
+    code: "feature.material_role_invalid",
   },
   {
     label: "missing exclusion",
@@ -2135,6 +2158,7 @@ for (const wall of [cellFrontExterior, cellFrontInterior]) {
     id: `${wall.id}/cut_front`,
     operation: "cut",
     depth: 0,
+    materialRole: "portalReveal",
     regionId: portal.id,
     order: 0,
     dependsOn: [],
@@ -2635,6 +2659,25 @@ for (const operation of ["cut", "inset", "extrude"] as const) {
     `Hierarchical facade emitted no ${operation} feature.`,
   );
 }
+const facadeDetailMaterials = [
+  "portalReveal",
+  "windowReveal",
+  "niche",
+  "panel",
+  "pilaster",
+  "frieze",
+] as const;
+const hierarchicalMaterialRoles = new Set(
+  hierarchicalFacadeGraph.patches.flatMap((patch) =>
+    patch.features.map((feature) => feature.materialRole)),
+);
+for (const role of facadeDetailMaterials) {
+  assert.equal(
+    hierarchicalMaterialRoles.has(role),
+    true,
+    `Hierarchical facade emitted no ${role} material owner.`,
+  );
+}
 assert.equal(
   hierarchicalFacadeGraph.patches.some((patch) =>
     patch.features.some((feature) => feature.id.endsWith("/cut_portal"))),
@@ -2652,14 +2695,51 @@ assert.equal(
 );
 for (const masonry of [null, squareCellRule] as const) {
   const builder = new SolidBuilder();
-  buildCell(
+  builder.withMaterial("summit", () => buildCell(
     builder,
     hierarchicalCell,
     patchIndex(hierarchicalFacadeGraph),
     masonry,
     97,
-  );
+  ));
   const geometry = finalizeGeometry(builder).geometry;
+  const usedMaterials = new Set(builder.surfaceMaterials);
+  for (const slot of ["summit", ...facadeDetailMaterials] as const) {
+    assert.equal(
+      usedMaterials.has(materialSlotIndex(slot)),
+      true,
+      `Hierarchical facade ${masonry ? "masonry" : "bare"} emitted no ${slot} faces.`,
+    );
+  }
+  const portalRevealFaces = readMaterialFaces(builder, "portalReveal");
+  assert.ok(
+    portalRevealFaces.every((face) => Math.abs(faceNormal(face).z) < 1e-6),
+    `Hierarchical facade ${masonry ? "masonry" : "bare"} assigned a front wall plane to portal reveals.`,
+  );
+  const windowRevealFaces = readMaterialFaces(builder, "windowReveal");
+  assert.ok(
+    windowRevealFaces.every((face) => Math.abs(faceNormal(face).x) < 1e-6),
+    `Hierarchical facade ${masonry ? "masonry" : "bare"} assigned a side wall plane to window reveals.`,
+  );
+  const facadeDepth = (point: THREE.Vector3) => Math.max(
+    point.x - hierarchicalCell.footprint.maxX,
+    hierarchicalCell.footprint.minX - point.x,
+    point.z - hierarchicalCell.footprint.maxZ,
+    hierarchicalCell.footprint.minZ - point.z,
+    0,
+  );
+  assert.ok(
+    readMaterialFaces(builder, "frieze").every((face) =>
+      face.every((point) =>
+        facadeDepth(point) <= hierarchicalFacadeLayout.facadeFriezeProjection + 1e-6)),
+    `Hierarchical facade ${masonry ? "masonry" : "bare"} let the shallower frieze own a pilaster side.`,
+  );
+  assert.ok(
+    readMaterialFaces(builder, "pilaster").some((face) =>
+      face.some((point) =>
+        facadeDepth(point) >= hierarchicalFacadeLayout.facadePilasterProjection - 1e-6)),
+    `Hierarchical facade ${masonry ? "masonry" : "bare"} lost its pilaster projection material.`,
+  );
   assert.equal(
     findCoincidentFaces(geometry).pairs,
     0,
@@ -2680,6 +2760,57 @@ for (const masonry of [null, squareCellRule] as const) {
     `Hierarchical facade ${masonry ? "masonry" : "bare"} filled its portal.`,
   );
 }
+
+const hierarchicalMerged = mergeParts(
+  tessellateStructure(hierarchicalFacadeGraph, {
+    masonry: null,
+    seed: 97,
+    stairTilesPerStep: 5,
+  }).parts,
+  [MASS_SECTION],
+);
+const hierarchicalGroupSlots = new Set(
+  hierarchicalMerged.geometry.groups.map((group) => group.materialIndex),
+);
+for (const slot of facadeDetailMaterials) {
+  assert.equal(
+    hierarchicalGroupSlots.has(materialSlotIndex(slot)),
+    true,
+    `Merged hierarchical facade emitted no indexed ${slot} group.`,
+  );
+}
+assert.equal(
+  hierarchicalMerged.geometry.groups.reduce((sum, group) => sum + group.count, 0),
+  hierarchicalMerged.geometry.getIndex()?.count,
+  "Hierarchical material groups do not cover every index exactly once.",
+);
+
+const unknownMaterialPatch = hierarchicalFacadeGraph.patches.find((patch) =>
+  patch.features.some((feature) => feature.materialRole === "panel"));
+assert.ok(unknownMaterialPatch);
+const unknownMaterialPatches = patchIndex({
+  ...hierarchicalFacadeGraph,
+  patches: hierarchicalFacadeGraph.patches.map((patch) =>
+    patch.id === unknownMaterialPatch.id
+      ? {
+        ...patch,
+        features: patch.features.map((feature) =>
+          feature.materialRole === "panel"
+            ? { ...feature, materialRole: "unregistered_facade_material" }
+            : feature),
+      }
+      : patch),
+});
+assert.throws(
+  () => buildCell(
+    new SolidBuilder(),
+    hierarchicalCell,
+    unknownMaterialPatches,
+    null,
+    97,
+  ),
+  /names unknown material role "unregistered_facade_material"/,
+);
 
 const cellDerivedFacadeGraph = generateStructure(toStructureSpec({
   ...summitCellLayout,
@@ -4799,6 +4930,7 @@ function testCutFeature(
     id,
     operation: "cut",
     depth: 0,
+    materialRole: null,
     regionId,
     order: 0,
     dependsOn: [],

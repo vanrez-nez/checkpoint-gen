@@ -346,6 +346,17 @@ function validateFeature(
   regions: ReadonlyMap<string, PatchRegion>,
   diagnostics: Diagnostic[],
 ): void {
+  if (
+    feature.materialRole !== null
+    && (typeof feature.materialRole !== "string" || feature.materialRole.trim() === "")
+  ) {
+    diagnostics.push(error(
+      "feature.material_role_invalid",
+      feature.id,
+      "Feature material role must be a non-empty semantic name or null.",
+    ));
+  }
+
   if (!PATCH_OPERATIONS.includes(feature.operation)) {
     diagnostics.push(error(
       "feature.operation_unknown",

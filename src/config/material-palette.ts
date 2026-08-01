@@ -79,6 +79,12 @@ export const MATERIAL_SURFACE_LABELS: Readonly<
   roof: "Roof",
   pillar: "Pillars",
   iron: "Fire bowls",
+  portalReveal: "Portal reveals",
+  windowReveal: "Window reveals",
+  niche: "Niches",
+  panel: "Recessed panels",
+  pilaster: "Pilasters",
+  frieze: "Friezes",
   offering: "Offering",
 };
 
@@ -105,6 +111,12 @@ export const DEFAULT_STRUCTURE_MATERIAL_PALETTE: Readonly<
   roof: surface("stone"),
   pillar: surface("stone"),
   iron: surface("hammered-iron"),
+  portalReveal: surface("stone"),
+  windowReveal: surface("stone"),
+  niche: surface("stone"),
+  panel: surface("stone"),
+  pilaster: surface("stone"),
+  frieze: surface("stone"),
   offering: surface("stone"),
 };
 
@@ -140,6 +152,12 @@ export const DEFAULT_MASS_MATERIAL_PALETTE: Readonly<
   summit: surface("eroded-rock"),
   interior: surface("volcanic-stone"),
   roof: surface("lichen-stone"),
+  portalReveal: surface("eroded-rock"),
+  windowReveal: surface("eroded-rock"),
+  niche: surface("eroded-rock"),
+  panel: surface("eroded-rock"),
+  pilaster: surface("eroded-rock"),
+  frieze: surface("eroded-rock"),
 };
 
 const control = controlsFor<MaterialSurfaceConfig>();

@@ -19,7 +19,7 @@ import {
  * systems fills known positions rather than reshaping the graph. Connectors,
  * cells, facades and roofs are the first containers now populated.
  */
-export const STRUCTURE_SCHEMA_VERSION = "1.7";
+export const STRUCTURE_SCHEMA_VERSION = "1.8";
 
 /**
  * Placeholder element type for a subsystem that has not been implemented yet.

@@ -362,7 +362,7 @@ runs_after: [portal_cut]
 conflict_policy: clip | skip | replace | error
 ```
 
-**Current implementation status (StructureGraph schema 1.7):** rectangular
+**Current implementation status (StructureGraph schema 1.8):** rectangular
 regions on planar patches can execute `cut`, `inset`, and `extrude`.
 Dependencies and `runs_before` / `runs_after` references are resolved within one
 patch, and overlapping features apply the declared `clip`, `skip`, `replace`, or
@@ -370,6 +370,9 @@ patch, and overlapping features apply the declared `clip`, `skip`, `replace`, or
 full wall depth; insets and extrusions change the real public wall boundary, so
 their returns do not overlap a surviving base face. Cell portals, facade windows,
 niches, panels, pilasters, friezes, and interior doors use this pipeline. The
+facade-authored operations also name their semantic material owner. Tessellation
+preserves that owner on opening reveals, inset backs and returns, and projected
+fronts and sides while leaving adjacent wall faces unchanged. The
 remaining operation vocabulary is typed and validated but returns a named
 unimplemented error until its geometry reader is added.
 
@@ -1351,7 +1354,7 @@ Reserve zones before populating features:
 
 When two features conflict, resolve by declared priority rather than arbitrary generation order.
 
-**Current implementation status (StructureGraph schema 1.7):** planar Cell
+**Current implementation status (StructureGraph schema 1.8):** planar Cell
 facades resolve into graph-owned `FacadeRecord` entries with stable horizontal
 bays, vertical bands, hierarchy, symmetry, target wall pairs, and executable
 feature ids. Bay allocation supports fixed and weighted widths plus Cell-derived
@@ -1359,7 +1362,9 @@ partition widths; band allocation supports fixed heights plus weighted remainder
 The `plain` grammar preserves the established summit portal result while moving
 portal surface authorship out of Cell. The `hierarchical` grammar proves reuse
 with a primary portal, elevated window, niches and recessed panels, pilasters,
-and a continuous frieze. Rectangular planar Cell walls are the current geometry
+and a continuous frieze. Those six detail families resolve to independent
+indexed material groups through the same feature operations in both bare and
+masonry construction. Rectangular planar Cell walls are the current geometry
 boundary; arches, curved apertures, and battered Mass-facade readers remain
 future work.
 
@@ -2357,6 +2362,13 @@ structure:
 2. Generate block-correlated variation.
 3. Add drainage-driven streaks and exposure-driven weathering.
 4. Apply fine displacement and edge wear.
+
+**Current implementation status:** generated geometry retains a stable
+per-vertex semantic material index and coalesces triangles into one draw group
+per used slot. Facade portal reveals, window reveals, niches, recessed panels,
+pilasters, and friezes are independently assignable; their defaults match the
+summit-wall material so indexed ownership does not change the approved look
+until a material assignment is edited.
 
 ### Phase 14 — Outputs and validation
 

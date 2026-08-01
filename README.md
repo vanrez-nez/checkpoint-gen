@@ -85,9 +85,10 @@ unimplemented member is a named `error`, never a silent fallback, so a profile
 written today cannot quietly come to mean something else later.
 
 The executable **Surface feature pipeline** is cut-first and depth-aware. A
-region states which typed operations it permits and which same-patch regions it excludes; a
-feature carries dependencies, relative ordering and an explicit `clip`, `skip`,
-`replace` or `error` conflict policy. Compilation is a pure graph reader: it
+region states which typed operations it permits and which same-patch regions it
+excludes; a feature carries dependencies, relative ordering and an explicit `clip`, `skip`,
+`replace` or `error` conflict policy. A feature may also name the semantic
+material owned by the surfaces its operation exposes. Compilation is a pure graph reader: it
 topologically orders the features, resolves overlaps into deterministic
 rectangular fragments and reports named diagnostics without changing the patch.
 
@@ -98,6 +99,12 @@ continues it forward. This partitions the real wall volume rather than layering
 decoration over an unchanged face, so jambs, sills, soffits, recess returns, and
 projecting sides each have one owner. The other operation names remain typed but
 deliberately produce an unimplemented error.
+
+Facade operations use that ownership to emit independent indexed material
+groups without splitting the building into detail meshes. Portal and window
+reveals, niches, recessed panels, pilasters, and friezes each have one stable
+slot; surrounding wall planes remain summit-wall material. Bare and masonry
+readers preserve the same face assignments.
 
 `src/structure/facade/` resolves every summit-building exterior wall into stable
 horizontal bays and vertical bands. Fixed dimensions are allocated before
@@ -412,9 +419,11 @@ Each structure exposes only the **material surfaces** it actually has, and the
 Materials tab gives each one its own folder holding a Material Designer document
 and a texture scale. The circular checkpoint dresses its plate, its pillars, its
 fire bowls, and the offering statue apart; Mass dresses masonry, trim, stairs,
-stair walls, summit walls, interior floors, and roof. Documents are loaded lazily, cached by
-id, and baked at 512px, so surfaces that select the same document share one
-material and one bake rather than paying for it twice. Changing an assignment
+stair walls, summit walls, interior floors, and roof, plus independently indexed
+portal reveals, window reveals, niches, recessed panels, pilasters, and friezes.
+Documents are loaded lazily, cached by id, and baked at 512px, so surfaces that
+select the same document share one material and one bake rather than paying for
+it twice. Changing an assignment
 updates mesh materials without regenerating geometry or reframing the camera.
 
 The offering statue is a surface like any other even though it is a loaded model

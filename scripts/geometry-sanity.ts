@@ -241,6 +241,7 @@ assert.deepEqual(
     materialSlotIndex("summit"),
     materialSlotIndex("interior"),
     materialSlotIndex("roof"),
+    materialSlotIndex("portalReveal"),
   ],
   "The default Mass must expose every semantic architectural surface.",
 );
@@ -735,6 +736,38 @@ const finalizedMaterialGeometry = finalizeGeometry(materialBuilder).geometry;
 assert.deepEqual(
   Array.from(finalizedMaterialGeometry.getAttribute("surfaceMaterial").array),
   materialBuilder.surfaceMaterials,
+);
+
+// One block may expose several semantic surfaces. Per-face overrides follow
+// authored face order even when SolidBuilder normalizes the block winding.
+const faceMaterialBuilder = new SolidBuilder();
+faceMaterialBuilder.withMaterial("summit", () => {
+  faceMaterialBuilder.addBlock(
+    block(4),
+    {
+      sides: [true, true, true, true],
+      top: true,
+      bottom: true,
+      materials: {
+        sides: ["portalReveal", "windowReveal", "niche", "panel"],
+        top: "pilaster",
+        bottom: "frieze",
+      },
+    },
+  );
+});
+assert.deepEqual(
+  [...new Set(faceMaterialBuilder.blockFaces.map(
+    (start) => faceMaterialBuilder.surfaceMaterials[start],
+  ))].sort((a, b) => (a ?? 0) - (b ?? 0)),
+  [
+    "portalReveal",
+    "windowReveal",
+    "niche",
+    "panel",
+    "pilaster",
+    "frieze",
+  ].map((slot) => materialSlotIndex(slot as MaterialSlot)).sort((a, b) => a - b),
 );
 assert.throws(
   () => finalizeGeometry({

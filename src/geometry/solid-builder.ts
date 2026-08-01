@@ -55,6 +55,17 @@ export interface BlockFaces {
    * an overhanging arris without becoming coplanar with that support.
    */
   readonly bottomInset?: number;
+  /**
+   * Optional semantic material overrides for individual emitted faces. Side
+   * order matches `sides`; omitted entries inherit the builder's active slot.
+   */
+  readonly materials?: BlockFaceMaterials;
+}
+
+export interface BlockFaceMaterials {
+  readonly sides?: readonly (MaterialSlot | undefined)[];
+  readonly top?: MaterialSlot;
+  readonly bottom?: MaterialSlot;
 }
 
 /** Returns true when a complete emitted quad can be discarded. */
@@ -223,8 +234,8 @@ export class SolidBuilder implements GeometryBuffers {
     const flip = signedArea(block.bottom) > 0;
     const bottom = flip ? [...block.bottom].reverse() : block.bottom;
     const top = flip ? [...block.top].reverse() : block.top;
-    const sideAt = (edge: number) =>
-      faces.sides[flip ? (2 - edge + 4) % 4 : edge] === true;
+    const authoredEdge = (edge: number) => flip ? (2 - edge + 4) % 4 : edge;
+    const sideAt = (edge: number) => faces.sides[authoredEdge(edge)] === true;
 
     for (let edge = 0; edge < 4; edge += 1) {
       if (!sideAt(edge)) {
@@ -248,11 +259,12 @@ export class SolidBuilder implements GeometryBuffers {
         [bottomCurrent, bottomNext, topNext, topCurrent],
         [low.ao, low.ao, high.ao, high.ao],
         [low.shadow, low.shadow, high.shadow, high.shadow],
+        faces.materials?.sides?.[authoredEdge(edge)],
       );
     }
 
     if (faces.top === true) {
-      this.addHorizontalFace(top, "up", shading);
+      this.addHorizontalFace(top, "up", shading, faces.materials?.top);
     }
 
     if (faces.bottom === true) {
@@ -263,6 +275,7 @@ export class SolidBuilder implements GeometryBuffers {
           : bottom,
         inset > 0 ? "up" : "down",
         shading,
+        faces.materials?.bottom,
       );
     }
 
@@ -274,6 +287,7 @@ export class SolidBuilder implements GeometryBuffers {
     ring: readonly Vertex3[],
     facing: "up" | "down",
     shading: FaceShading,
+    material?: MaterialSlot,
   ): void {
     const [a, b, c, d] = ring;
 
@@ -287,6 +301,7 @@ export class SolidBuilder implements GeometryBuffers {
       facing === "up" ? [a, b, c, d] : [d, c, b, a],
       [ao, ao, ao, ao],
       [shadow, shadow, shadow, shadow],
+      material,
     );
   }
 
@@ -295,6 +310,7 @@ export class SolidBuilder implements GeometryBuffers {
     corners: readonly Vertex3[],
     ao: readonly number[],
     shadow: readonly number[],
+    material?: MaterialSlot,
   ): void {
     const start = this.vertexCount();
 
@@ -305,7 +321,14 @@ export class SolidBuilder implements GeometryBuffers {
         return;
       }
 
-      this.push(corner.x, corner.y, corner.z, ao[index] ?? 1, shadow[index] ?? 1);
+      this.push(
+        corner.x,
+        corner.y,
+        corner.z,
+        ao[index] ?? 1,
+        shadow[index] ?? 1,
+        material,
+      );
     }
 
     this.blockFaces.push(start);
@@ -325,11 +348,12 @@ export class SolidBuilder implements GeometryBuffers {
     z: number,
     ambientOcclusion: number,
     bakedShadow: number,
+    material?: MaterialSlot,
   ): void {
     this.positions.push(x, y, z);
     this.ambientOcclusion.push(ambientOcclusion);
     this.bakedShadow.push(bakedShadow);
-    this.surfaceMaterials.push(materialSlotIndex(this.activeMaterial));
+    this.surfaceMaterials.push(materialSlotIndex(material ?? this.activeMaterial));
   }
 
   private faceCorners(start: number): Vertex3[] {

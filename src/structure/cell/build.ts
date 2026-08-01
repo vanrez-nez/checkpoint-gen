@@ -1,4 +1,8 @@
-import type { SolidBuilder } from "../../geometry/solid-builder";
+import { MATERIAL_SLOTS, type MaterialSlot } from "../../geometry/part";
+import type {
+  BlockFaceMaterials,
+  SolidBuilder,
+} from "../../geometry/solid-builder";
 import {
   evaluateFrame,
   rectCorners,
@@ -31,6 +35,8 @@ interface CellPanel {
   readonly top: boolean;
   readonly bottom: boolean;
   readonly axis: "x" | "z";
+  /** Per-face semantic material ownership; omitted faces inherit the Cell slot. */
+  readonly materials?: BlockFaceMaterials;
 }
 
 export function buildCell(
@@ -236,6 +242,13 @@ interface WallCut {
 interface WallSurfaceFeature extends WallCut {
   readonly operation: "cut" | "inset" | "extrude";
   readonly depth: number;
+  readonly material: MaterialSlot | undefined;
+}
+
+interface ProfileSurfaceCell {
+  readonly depth: number | null;
+  readonly material: MaterialSlot | undefined;
+  readonly operation: WallSurfaceFeature["operation"] | null;
 }
 
 interface ProfileWallInput {
@@ -287,14 +300,18 @@ function profileWallPanels(input: ProfileWallInput): CellPanel[] {
       .filter((feature) => feature.operation !== "cut")
       .map((feature) => feature.operation === "inset" ? -feature.depth : feature.depth),
   ]);
-  const surface = Array.from(
+  const surface: ProfileSurfaceCell[][] = Array.from(
     { length: along.length - 1 },
     (_, u) => Array.from({ length: vertical.length - 1 }, (_, v) => {
       const centre = {
         along: (along[u]! + along[u + 1]!) * 0.5,
         y: (vertical[v]! + vertical[v + 1]!) * 0.5,
       };
-      let depth: number | null = 0;
+      let cell: ProfileSurfaceCell = {
+        depth: 0,
+        material: undefined,
+        operation: null,
+      };
       for (const feature of features) {
         if (
           centre.along > feature.from + EPS
@@ -302,19 +319,23 @@ function profileWallPanels(input: ProfileWallInput): CellPanel[] {
           && centre.y > feature.bottomY + EPS
           && centre.y < feature.topY - EPS
         ) {
-          depth = feature.operation === "cut"
-            ? null
-            : feature.operation === "inset" ? -feature.depth : feature.depth;
+          cell = {
+            depth: feature.operation === "cut"
+              ? null
+              : feature.operation === "inset" ? -feature.depth : feature.depth,
+            material: feature.material,
+            operation: feature.operation,
+          };
         }
       }
-      return depth;
+      return cell;
     }),
   );
   const occupied = Array.from(
     { length: along.length - 1 },
     (_, u) => Array.from({ length: vertical.length - 1 }, (_, v) =>
       Array.from({ length: depths.length - 1 }, (_, d) => {
-        const faceDepth = surface[u]?.[v];
+        const faceDepth = surface[u]?.[v]?.depth;
         const centreDepth = (depths[d]! + depths[d + 1]!) * 0.5;
         return faceDepth !== null
           && centreDepth >= -input.wallThickness - EPS
@@ -351,6 +372,13 @@ function profileWallPanels(input: ProfileWallInput): CellPanel[] {
         if (u === along.length - 2) {
           sides[input.axis === "x" ? 2 : 1] = false;
         }
+        const materials = profileMaterials(
+          input.direction,
+          surface,
+          u,
+          v,
+          neighbours,
+        );
         panels.push(panel(
           `${input.id}_u${String(u).padStart(2, "0")}_v${String(v).padStart(2, "0")}_d${String(d).padStart(2, "0")}`,
           profileRect(
@@ -368,6 +396,7 @@ function profileWallPanels(input: ProfileWallInput): CellPanel[] {
           input.axis,
           !neighbours.vMax,
           v > 0 && !neighbours.vMin,
+          materials,
         ));
       }
     }
@@ -437,6 +466,81 @@ function profileSides(
       break;
   }
   return sides;
+}
+
+/**
+ * Resolves which feature owns each exposed boundary of one wall-volume cell.
+ *
+ * An extrusion owns its occupied projection faces. A cut or inset owns the
+ * boundary of the empty space it removed, so an adjacent solid cell yields its
+ * face to that feature for jambs and recess returns. The room-facing depth
+ * boundary always keeps the Cell's base material.
+ */
+function profileMaterials(
+  direction: CellRecord["walls"][number]["orientation"],
+  surface: readonly (readonly ProfileSurfaceCell[])[],
+  u: number,
+  v: number,
+  neighbours: ProfileNeighbours,
+): BlockFaceMaterials {
+  const current = surface[u]?.[v] ?? {
+    depth: 0,
+    material: undefined,
+    operation: null,
+  };
+  const boundaryMaterial = (adjacent: ProfileSurfaceCell | undefined) => {
+    // Removed space owns its returns. A shallower extrusion does not: the
+    // deeper occupied projection owns the side exposed above its neighbour.
+    if (adjacent?.operation === "cut" || adjacent?.operation === "inset") {
+      return adjacent.material ?? current.material;
+    }
+    return current.material ?? adjacent?.material;
+  };
+  const uMin = !neighbours.uMin
+    ? boundaryMaterial(surface[u - 1]?.[v])
+    : undefined;
+  const uMax = !neighbours.uMax
+    ? boundaryMaterial(surface[u + 1]?.[v])
+    : undefined;
+  const dMax = !neighbours.dMax ? current.material : undefined;
+  const sides: (MaterialSlot | undefined)[] = [
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+  ];
+
+  if (direction === "front" || direction === "rear") {
+    sides[0] = uMin;
+    sides[2] = uMax;
+  } else {
+    sides[3] = uMin;
+    sides[1] = uMax;
+  }
+  switch (direction) {
+    case "front":
+      sides[1] = dMax;
+      break;
+    case "rear":
+      sides[3] = dMax;
+      break;
+    case "sidePositiveU":
+      sides[2] = dMax;
+      break;
+    case "sideNegativeU":
+      sides[0] = dMax;
+      break;
+  }
+
+  return {
+    sides,
+    top: !neighbours.vMax
+      ? boundaryMaterial(surface[u]?.[v + 1])
+      : undefined,
+    bottom: !neighbours.vMin
+      ? boundaryMaterial(surface[u]?.[v - 1])
+      : undefined,
+  };
 }
 
 interface CutWallInput {
@@ -587,12 +691,31 @@ function worldSurfaceFeatures(
         id: `${compiled.feature.id}/fragment_${String(index + 1).padStart(2, "0")}`,
         operation: compiled.feature.operation as "cut" | "inset" | "extrude",
         depth: compiled.feature.depth,
+        material: materialSlotForFeature(
+          compiled.feature.id,
+          compiled.feature.materialRole,
+        ),
         from: Math.min(...along),
         to: Math.max(...along),
         bottomY: Math.min(...vertical),
         topY: Math.max(...vertical),
       };
     }));
+}
+
+function materialSlotForFeature(
+  featureId: string,
+  materialRole: string | null,
+): MaterialSlot | undefined {
+  if (materialRole === null) {
+    return undefined;
+  }
+  if (!MATERIAL_SLOTS.includes(materialRole as MaterialSlot)) {
+    throw new RangeError(
+      `Feature "${featureId}" names unknown material role "${materialRole}".`,
+    );
+  }
+  return materialRole as MaterialSlot;
 }
 
 function interiorBoundaryCuts(
@@ -703,8 +826,9 @@ function panel(
   axis: "x" | "z",
   top = true,
   bottom = false,
+  materials?: BlockFaceMaterials,
 ): CellPanel {
-  return { id, rect, bottomY, topY, sides, axis, top, bottom };
+  return { id, rect, bottomY, topY, sides, axis, top, bottom, materials };
 }
 
 function addPanelBlock(builder: SolidBuilder, panel: CellPanel): void {
@@ -725,6 +849,7 @@ function addPanelBlock(builder: SolidBuilder, panel: CellPanel): void {
       sides: panel.sides,
       top: panel.top,
       bottom: panel.bottom,
+      materials: panel.materials,
     },
   );
 }

@@ -114,6 +114,7 @@ export function resolveCellFacades(
         request.bottomY,
         request.topY,
         200,
+        "portalReveal",
       );
       exteriorPatch = result.exterior;
       interiorPatch = result.interior;
@@ -248,6 +249,7 @@ function addHierarchicalFeatures(input: HierarchyInput): HierarchyResult {
       bottomY,
       topY,
       180,
+      "windowReveal",
     );
     exterior = result.exterior;
     interior = result.interior;
@@ -273,6 +275,7 @@ function addHierarchicalFeatures(input: HierarchyInput): HierarchyResult {
       input.spec.recessDepth,
       90,
       ["facade", "recessed_panel", "primary"],
+      "panel",
     );
     exterior = result.patch;
     featureIds.push(result.featureId);
@@ -298,6 +301,7 @@ function addHierarchicalFeatures(input: HierarchyInput): HierarchyResult {
         bottomY,
         topY,
         180,
+        "windowReveal",
       );
       exterior = opening.exterior;
       interior = opening.interior;
@@ -324,6 +328,7 @@ function addHierarchicalFeatures(input: HierarchyInput): HierarchyResult {
       input.spec.recessDepth,
       80,
       ["facade", kind, "secondary"],
+      kind === "niche" ? "niche" : "panel",
     );
     exterior = result.patch;
     featureIds.push(result.featureId);
@@ -349,6 +354,7 @@ function addHierarchicalFeatures(input: HierarchyInput): HierarchyResult {
       input.spec.pilasterProjection,
       120,
       ["facade", "pilaster", "bay_boundary"],
+      "pilaster",
     );
     exterior = result.patch;
     featureIds.push(result.featureId);
@@ -366,6 +372,7 @@ function addHierarchicalFeatures(input: HierarchyInput): HierarchyResult {
       input.spec.friezeProjection,
       110,
       ["facade", "frieze", "continuous"],
+      "frieze",
     );
     exterior = result.patch;
     featureIds.push(result.featureId);
@@ -458,11 +465,20 @@ function addThroughOpening(
   bottomY: number,
   topY: number,
   priority: number,
+  materialRole: "portalReveal" | "windowReveal",
 ): { readonly exterior: Patch; readonly interior: Patch; readonly featureIds: readonly string[] } {
   const outerRegion = openingRegion(exterior, openingId, kind, volume, bottomY, topY, priority);
   const innerRegion = openingRegion(interior, openingId, kind, volume, bottomY, topY, priority);
-  const outerFeature = cutFeature(structurePath(exterior.id, `cut_${lastSegment(openingId)}`), outerRegion.id);
-  const innerFeature = cutFeature(structurePath(interior.id, `cut_${lastSegment(openingId)}`), innerRegion.id);
+  const outerFeature = cutFeature(
+    structurePath(exterior.id, `cut_${lastSegment(openingId)}`),
+    outerRegion.id,
+    materialRole,
+  );
+  const innerFeature = cutFeature(
+    structurePath(interior.id, `cut_${lastSegment(openingId)}`),
+    innerRegion.id,
+    materialRole,
+  );
 
   return {
     exterior: appendFeature(exterior, outerRegion, outerFeature),
@@ -480,6 +496,7 @@ function addDepthFeature(
   depth: number,
   priority: number,
   tags: readonly string[],
+  materialRole: "niche" | "panel" | "pilaster" | "frieze",
 ): { readonly patch: Patch; readonly featureId: string } {
   const region: PatchRegion = {
     id: structurePath(patch.id, `region_${lastSegment(id)}`),
@@ -494,6 +511,7 @@ function addDepthFeature(
     id,
     operation,
     depth,
+    materialRole,
     regionId: region.id,
     order: patch.features.length,
     dependsOn: [],
@@ -512,11 +530,16 @@ function appendFeature(patch: Patch, region: PatchRegion, feature: PatchFeature)
   };
 }
 
-function cutFeature(id: string, regionId: string): PatchFeature {
+function cutFeature(
+  id: string,
+  regionId: string,
+  materialRole: "portalReveal" | "windowReveal",
+): PatchFeature {
   return {
     id,
     operation: "cut",
     depth: 0,
+    materialRole,
     regionId,
     order: 0,
     dependsOn: [],

@@ -150,6 +150,12 @@ export interface PatchFeature {
   readonly operation: PatchOperation;
   /** Positive real depth for inset/extrude; zero for operations without depth. */
   readonly depth: number;
+  /**
+   * Semantic material owned by the surfaces this operation exposes. Null keeps
+   * the target patch's base material. Geometry readers must reject a named role
+   * they cannot map rather than silently falling back.
+   */
+  readonly materialRole: string | null;
   readonly regionId: string | null;
   readonly order: number;
   /** Hard prerequisites on the same patch. */

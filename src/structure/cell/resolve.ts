@@ -905,6 +905,7 @@ function interiorWallPatch(
     id: structurePath(id, `cut_door_${String(index + 1).padStart(2, "0")}`),
     operation: "cut",
     depth: 0,
+    materialRole: null,
     regionId: region.id,
     order: index,
     dependsOn: [],
