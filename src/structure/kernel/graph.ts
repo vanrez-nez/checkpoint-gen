@@ -3,6 +3,7 @@ import type { Patch, PatchRole } from "./patch";
 import { resolvedSeeds, type SeedSet, type SeedSubsystem } from "./seed";
 import type { Diagnostic } from "./validate";
 import type { FacadeRecord } from "../facade/types";
+import type { FrameRecord } from "../frame/types";
 import {
   compilePatchFeatures,
   compiledCutWorldBounds,
@@ -19,7 +20,7 @@ import {
  * systems fills known positions rather than reshaping the graph. Connectors,
  * cells, facades and roofs are the first containers now populated.
  */
-export const STRUCTURE_SCHEMA_VERSION = "1.8";
+export const STRUCTURE_SCHEMA_VERSION = "1.9";
 
 /**
  * Placeholder element type for a subsystem that has not been implemented yet.
@@ -264,7 +265,7 @@ export interface RoofCorniceRecord {
 }
 
 /** One roof assembly resolved independently from the cell it covers. */
-export interface RoofRecord {
+export interface CellRoofRecord {
   readonly id: string;
   readonly kind: "roof";
   readonly roofType: "flat_slab";
@@ -292,6 +293,31 @@ export interface RoofRecord {
   readonly patchIds: readonly string[];
 }
 
+/** A slab spanning a resolved Frame range, with an optional Cell as rear bearing. */
+export interface FrameRoofRecord {
+  readonly id: string;
+  readonly kind: "roof";
+  readonly roofType: "frame_range";
+  readonly coversFrameId: string;
+  readonly coversCellIds: readonly string[];
+  readonly coversRoomIds: readonly string[];
+  readonly bearingPatchIds: readonly string[];
+  readonly bearingFootprints: readonly Rect[];
+  readonly slabFootprint: Rect;
+  readonly bottomY: number;
+  readonly slabTopY: number;
+  readonly topY: number;
+  readonly thickness: number;
+  readonly projection: number;
+  readonly topPatchId: string;
+  readonly ceilingPatchId: string;
+  readonly edgePatchIds: readonly string[];
+  readonly soffitPatchIds: readonly string[];
+  readonly patchIds: readonly string[];
+}
+
+export type RoofRecord = CellRoofRecord | FrameRoofRecord;
+
 export interface MassRecord {
   readonly id: string;
   readonly footprint: Rect;
@@ -313,7 +339,7 @@ export interface StructureGraph {
   readonly connectors: readonly ConnectorRecord[];
   readonly cells: readonly CellRecord[];
   readonly facades: readonly FacadeRecord[];
-  readonly frames: readonly ReservedEntity[];
+  readonly frames: readonly FrameRecord[];
   readonly roofs: readonly RoofRecord[];
   readonly attachments: readonly ReservedEntity[];
   readonly damage: readonly ReservedEntity[];
@@ -335,6 +361,7 @@ export class StructureGraphBuilder {
   private readonly connectors: ConnectorRecord[] = [];
   private readonly cells: CellRecord[] = [];
   private readonly facades: FacadeRecord[] = [];
+  private readonly frames: FrameRecord[] = [];
   private readonly roofs: RoofRecord[] = [];
 
   constructor(
@@ -376,6 +403,10 @@ export class StructureGraphBuilder {
 
   addFacade(facade: FacadeRecord): void {
     this.facades.push(facade);
+  }
+
+  addFrame(frame: FrameRecord): void {
+    this.frames.push(frame);
   }
 
   addRoof(roof: RoofRecord): void {
@@ -424,7 +455,7 @@ export class StructureGraphBuilder {
       connectors: this.connectors,
       cells: this.cells,
       facades: this.facades,
-      frames: [],
+      frames: this.frames,
       roofs: this.roofs,
       attachments: [],
       damage: [],

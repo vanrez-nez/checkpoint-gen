@@ -117,7 +117,7 @@ export function buildMassShell(
 
     for (const segment of segments) {
       builder.withMaterial(
-        segment.label === "cornice" ? "trim" : "stone",
+        segment.label === "cornice" ? "cornice" : "stone",
         () => layCourses(builder, segment, {
           seed: masonrySeed(seed, band.id, segment.label),
           crowned: segment !== crown,

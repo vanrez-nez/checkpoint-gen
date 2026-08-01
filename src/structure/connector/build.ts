@@ -95,7 +95,7 @@ export function buildStair(
       });
 
       if (steppedParapet.cornice) {
-        builder.withMaterial("trim", () => {
+        builder.withMaterial("cornice", () => {
           laySteppedCorniceSlice(builder, record, steps, step, steppedParapet);
         });
       }
@@ -838,7 +838,7 @@ function laySlopedParapets(
 
     const corniceX0 = x0 - cornice.projection;
     const corniceX1 = x1 + cornice.projection;
-    builder.withMaterial("trim", () => {
+    builder.withMaterial("cornice", () => {
       builder.addBlock(
         rakedBandBlock(
           corniceX0,
@@ -911,7 +911,7 @@ function laySupportedCorniceEndings(
         bottom: false,
       },
     );
-    builder.withMaterial("trim", () => {
+    builder.withMaterial("cornice", () => {
       builder.addBlock(
         horizontalBlock(
           record,
@@ -948,7 +948,7 @@ function laySupportedCorniceEndings(
         bottom: false,
       },
     );
-    builder.withMaterial("trim", () => {
+    builder.withMaterial("cornice", () => {
       builder.addBlock(
         horizontalBlock(
           record,

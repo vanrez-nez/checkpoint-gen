@@ -14,6 +14,11 @@ export function buildRoof(
   builder: SolidBuilder,
   roof: RoofRecord,
 ): void {
+  if (roof.roofType === "frame_range") {
+    addFrameRangeRoof(builder, roof);
+    return;
+  }
+
   const topIsExposed = roof.cornice === null;
   const slabProjects = !sameRect(roof.slabFootprint, roof.bearingFootprint);
 
@@ -55,7 +60,7 @@ export function buildRoof(
     return;
   }
 
-  builder.withMaterial("trim", () => {
+  builder.withMaterial("cornice", () => {
     // The supported centre and projected ring are separate so the molding's
     // underside exists only where it actually oversails the slab.
     addRectBlock(
@@ -80,6 +85,55 @@ export function buildRoof(
   });
 }
 
+function addFrameRangeRoof(
+  builder: SolidBuilder,
+  roof: Extract<RoofRecord, { readonly roofType: "frame_range" }>,
+): void {
+  const xs = new Set([roof.slabFootprint.minX, roof.slabFootprint.maxX]);
+  const zs = new Set([roof.slabFootprint.minZ, roof.slabFootprint.maxZ]);
+  for (const bearing of roof.bearingFootprints) {
+    xs.add(Math.max(roof.slabFootprint.minX, bearing.minX));
+    xs.add(Math.min(roof.slabFootprint.maxX, bearing.maxX));
+    zs.add(Math.max(roof.slabFootprint.minZ, bearing.minZ));
+    zs.add(Math.min(roof.slabFootprint.maxZ, bearing.maxZ));
+  }
+  const xValues = [...xs].sort((a, b) => a - b);
+  const zValues = [...zs].sort((a, b) => a - b);
+  for (let x = 0; x < xValues.length - 1; x += 1) {
+    for (let z = 0; z < zValues.length - 1; z += 1) {
+      const rect: Rect = {
+        minX: xValues[x]!,
+        maxX: xValues[x + 1]!,
+        minZ: zValues[z]!,
+        maxZ: zValues[z + 1]!,
+      };
+      if (!rectIsValid(rect)) {
+        continue;
+      }
+      const centre = {
+        x: (rect.minX + rect.maxX) * 0.5,
+        z: (rect.minZ + rect.maxZ) * 0.5,
+      };
+      const carried = roof.bearingFootprints.some((bearing) =>
+        pointInsideRect(centre, bearing));
+      addRectBlock(
+        builder,
+        rect,
+        roof.bottomY,
+        roof.topY,
+        [
+          Math.abs(rect.minX - roof.slabFootprint.minX) <= EPS,
+          Math.abs(rect.maxZ - roof.slabFootprint.maxZ) <= EPS,
+          Math.abs(rect.maxX - roof.slabFootprint.maxX) <= EPS,
+          Math.abs(rect.minZ - roof.slabFootprint.minZ) <= EPS,
+        ],
+        true,
+        !carried,
+      );
+    }
+  }
+}
+
 /** True for an upward wall-crown face wholly occupied by the roof bearing. */
 export function faceIsCoveredByRoof(
   face: readonly { readonly x: number; readonly y: number; readonly z: number }[],
@@ -93,7 +147,11 @@ export function faceIsCoveredByRoof(
     return false;
   }
 
-  return face.every((point) => pointInsideRect(point, roof.bearingFootprint));
+  const bearingFootprints = roof.roofType === "flat_slab"
+    ? [roof.bearingFootprint]
+    : roof.bearingFootprints;
+  return bearingFootprints.some((rect) =>
+    face.every((point) => pointInsideRect(point, rect)));
 }
 
 function addRingBlocks(

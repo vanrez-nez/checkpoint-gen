@@ -87,6 +87,7 @@ import {
 } from "../src/structure/kernel/patch";
 import { compilePatchFeatures } from "../src/structure/surface/features";
 import { resolveFacadeBands, resolveFacadeBays } from "../src/structure/facade/layout";
+import { resolveFrameBayWidths } from "../src/structure/frame/resolve";
 import { DiagnosticCollector } from "../src/structure/kernel/validate";
 import { createPatchOverlay } from "../src/structure/kernel/debug-overlay";
 import { generateStructure, type StructureSpec } from "../src/structure/mass/generate";
@@ -173,6 +174,22 @@ assert.deepEqual(
     summitRoofProjection: DEFAULT_MASS_LAYOUT.summitRoofProjection,
     summitRoofCorniceProjection: DEFAULT_MASS_LAYOUT.summitRoofCorniceProjection,
     summitRoofCorniceHeight: DEFAULT_MASS_LAYOUT.summitRoofCorniceHeight,
+    frameEnabled: DEFAULT_MASS_LAYOUT.frameEnabled,
+    frameLayout: DEFAULT_MASS_LAYOUT.frameLayout,
+    frameFrontBays: DEFAULT_MASS_LAYOUT.frameFrontBayCount,
+    frameSideBays: DEFAULT_MASS_LAYOUT.frameSideBayCount,
+    frameHeight: DEFAULT_MASS_LAYOUT.frameHeight,
+    frameShaft: DEFAULT_MASS_LAYOUT.frameShaftWidth,
+    frameClearance: DEFAULT_MASS_LAYOUT.frameCellClearance,
+    stylobateHeight: DEFAULT_MASS_LAYOUT.frameStylobateHeight,
+    stylobateProjection: DEFAULT_MASS_LAYOUT.frameStylobateProjection,
+    lintelHeight: DEFAULT_MASS_LAYOUT.frameLintelHeight,
+    architraveHeight: DEFAULT_MASS_LAYOUT.frameArchitraveHeight,
+    frameFriezeHeight: DEFAULT_MASS_LAYOUT.frameFriezeHeight,
+    frameCorniceHeight: DEFAULT_MASS_LAYOUT.frameCorniceHeight,
+    frameRoofEnabled: DEFAULT_MASS_LAYOUT.frameRoofEnabled,
+    frameRoofThickness: DEFAULT_MASS_LAYOUT.frameRoofThickness,
+    frameRoofProjection: DEFAULT_MASS_LAYOUT.frameRoofProjection,
   },
   {
     seed: 741,
@@ -231,6 +248,22 @@ assert.deepEqual(
     summitRoofProjection: 0.25,
     summitRoofCorniceProjection: 0.2,
     summitRoofCorniceHeight: 0.25,
+    frameEnabled: false,
+    frameLayout: "single_row_portico",
+    frameFrontBays: 5,
+    frameSideBays: 3,
+    frameHeight: 4,
+    frameShaft: 0.5,
+    frameClearance: 0.55,
+    stylobateHeight: 0.2,
+    stylobateProjection: 0.1,
+    lintelHeight: 0.25,
+    architraveHeight: 0.18,
+    frameFriezeHeight: 0.22,
+    frameCorniceHeight: 0.15,
+    frameRoofEnabled: true,
+    frameRoofThickness: 0.35,
+    frameRoofProjection: 0.2,
   },
   "The Mass controls must open with the approved defaults.",
 );
@@ -948,6 +981,12 @@ assert.equal(resolveFacadeBays(
 ), null);
 assert.equal(invalidFacadeDiagnostics.all[0]?.code, "facade.bays_not_bilateral");
 
+// --- Frame grid resolver --------------------------------------------------
+assert.deepEqual(resolveFrameBayWidths(12, 5, 3), [2.25, 2.25, 3, 2.25, 2.25]);
+assert.deepEqual(resolveFrameBayWidths(10, 5), [2, 2, 2, 2, 2]);
+assert.equal(resolveFrameBayWidths(12, 4, 3), null);
+assert.equal(resolveFrameBayWidths(20, 5), null);
+
 // --- golden fixtures -------------------------------------------------------
 // Committed graphs, not committed meshes. A retuned proportion shows up as a
 // readable diff on the numbers that changed, which is the whole reason these are
@@ -1023,6 +1062,33 @@ const FIXTURES: readonly { readonly name: string; readonly layout: MassLayoutCon
       facadeStyle: "hierarchical",
     },
   },
+  {
+    name: "attached-portico",
+    layout: {
+      ...cloneFrontStairLayout(),
+      summitBuildingEnabled: true,
+      summitBuildingWidthRatio: 1,
+      summitBuildingDepthRatio: 0.9,
+      stairWidthRatio: 0.08,
+      stairSideTreatment: "none",
+      frameEnabled: true,
+      frameLayout: "single_row_portico",
+      frameRoofEnabled: true,
+    },
+  },
+  {
+    name: "standalone-perimeter-colonnade",
+    layout: {
+      ...cloneMassLayout(MASS_LAYOUT_G1_BASELINE),
+      ...STAIRS_DISABLED,
+      summitBuildingEnabled: false,
+      summitBuildingWidthRatio: 0.55,
+      summitBuildingDepthRatio: 0.7,
+      frameEnabled: true,
+      frameLayout: "perimeter_colonnade",
+      frameRoofEnabled: true,
+    },
+  },
 ];
 
 const graphs = new Map<string, StructureGraph>();
@@ -1044,6 +1110,124 @@ for (const fixture of FIXTURES) {
   assertGraphInvariants(graph, fixture.name);
   assertMatchesFixture(fixture.name, graph);
 }
+
+// --- Frame / colonnade vertical slice ------------------------------------
+const attachedPortico = graphs.get("attached-portico")!;
+const porticoFrame = attachedPortico.frames[0]!;
+assert.equal(porticoFrame.layout, "single_row_portico");
+assert.equal(porticoFrame.rows.length, 1);
+assert.equal(porticoFrame.supports.length, 6);
+assert.equal(porticoFrame.bays.length, 5);
+assert.equal(porticoFrame.bays.filter((bay) => bay.entrance).length, 1);
+assert.equal(porticoFrame.attachedCellIds.length, 1);
+assert.equal(porticoFrame.topY, attachedPortico.cells[0]?.topY);
+assert.equal(attachedPortico.roofs[0]?.roofType, "frame_range");
+assert.ok(
+  (attachedPortico.cells[0]?.footprint.maxZ ?? Infinity)
+  < porticoFrame.footprint.maxZ,
+  "The attached portico did not inset the Cell behind its front support row.",
+);
+const attachedStair = attachedPortico.connectors[0]!;
+const attachedEntrance = porticoFrame.bays.find((bay) => bay.entrance)!;
+assert.ok(
+  attachedEntrance.width
+  >= attachedStair.width
+    + 2 * ((attachedStair.parapet?.width ?? 0)
+      + (attachedStair.parapet?.cornice?.projection ?? 0))
+    + 0.3 - 1e-9,
+  "The centred portico entrance bay does not clear its complete stair assembly.",
+);
+
+const standalonePerimeter = graphs.get("standalone-perimeter-colonnade")!;
+const perimeterFrame = standalonePerimeter.frames[0]!;
+assert.equal(perimeterFrame.layout, "perimeter_colonnade");
+assert.equal(perimeterFrame.rows.length, 4);
+assert.equal(perimeterFrame.supports.length, 16);
+assert.equal(perimeterFrame.bays.length, 16);
+assert.equal(perimeterFrame.attachedCellIds.length, 0);
+assert.equal(standalonePerimeter.cells.length, 0);
+assert.equal(standalonePerimeter.roofs[0]?.roofType, "frame_range");
+const cornerReferences = perimeterFrame.rows.flatMap((row) => row.supportIds)
+  .filter((id, index, ids) => ids.indexOf(id) !== index);
+assert.equal(new Set(cornerReferences).size, 4, "Perimeter corners were not shared once.");
+
+const frameMaterialSlots = [
+  "pillar",
+  "stylobate",
+  "beam",
+  "architrave",
+  "frieze",
+  "cornice",
+  "frameRoof",
+] as const;
+const frameMasonry = toMasonry(
+  DEFAULT_MASS_LAYOUT,
+  { ...DEFAULT_MASS_STONE_CONFIG, displacement: 0 },
+)!;
+for (const [name, graph] of [
+  ["attached portico", attachedPortico],
+  ["standalone perimeter", standalonePerimeter],
+] as const) {
+  for (const masonry of [null, frameMasonry] as const) {
+    // Isolate the upper assembly for exact topology checks; the Mass shell and
+    // stair already have their own matched invariant suites above.
+    const upperAssembly: StructureGraph = {
+      ...graph,
+      masses: [],
+      connectors: [],
+    };
+    const tessellated = tessellateStructure(upperAssembly, {
+      masonry,
+      seed: 109,
+      stairTilesPerStep: 5,
+    });
+    const geometry = mergeParts(tessellated.parts, [MASS_SECTION]).geometry;
+    const slots = new Set(geometry.groups.map((group) => group.materialIndex));
+    for (const slot of frameMaterialSlots) {
+      assert.equal(
+        slots.has(materialSlotIndex(slot)),
+        true,
+        `${name} ${masonry ? "masonry" : "bare"} emitted no indexed ${slot} group.`,
+      );
+    }
+    const coincidence = findCoincidentFaces(geometry);
+    assert.equal(
+      coincidence.pairs,
+      0,
+      `${name} ${masonry ? "masonry" : "bare"} emitted coincident faces: ${coincidence.sample}; ${coincidence.planes.join(", ")}.`,
+    );
+    const buried = findBuriedFaces(geometry);
+    assert.equal(
+      buried.faces,
+      0,
+      `${name} ${masonry ? "masonry" : "bare"} emitted buried faces: ${buried.sample}.`,
+    );
+    const fullGeometry = mergeParts(tessellateStructure(graph, {
+      masonry,
+      seed: 109,
+      stairTilesPerStep: 5,
+    }).parts, [MASS_SECTION]).geometry;
+    const backfaces = findBackfaces(fullGeometry);
+    assert.ok(
+      backfaces.backfaces <= (name === "attached portico" ? 1 : 4),
+      `${name} ${masonry ? "masonry" : "bare"} left ${backfaces.backfaces} visible backfaces at ${backfaces.sample}.`,
+    );
+  }
+}
+
+const unsupportedPorticoLayout: MassLayoutConfig = {
+  ...cloneMassLayout(MASS_LAYOUT_G1_BASELINE),
+  ...STAIRS_DISABLED,
+  summitBuildingEnabled: false,
+  frameEnabled: true,
+  frameLayout: "single_row_portico",
+  frameRoofEnabled: true,
+};
+assert.equal(
+  generateStructure(toStructureSpec(unsupportedPorticoLayout)).diagnostics
+    .find((entry) => entry.severity === "error")?.code,
+  "frame.roof_missing_rear_bearing",
+);
 
 // --- determinism -----------------------------------------------------------
 // No Math.random, no clock: the same inputs must produce the same graph, every
@@ -5077,13 +5261,44 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
   }
 
   // Reserved containers stay empty until the phases that fill them arrive;
-  // connectors, cells and roofs are filled and validated below.
+  // connectors, cells, Frames and roofs are filled and validated below.
   for (const reserved of [
-    graph.frames,
     graph.attachments,
     graph.damage,
   ]) {
     assert.deepEqual(reserved, []);
+  }
+
+  assert.equal(
+    new Set(graph.frames.map((frame) => frame.id)).size,
+    graph.frames.length,
+    `${label}: duplicate Frame id.`,
+  );
+  for (const frame of graph.frames) {
+    assert.ok(isValidId(frame.id), `${label}: Frame id "${frame.id}" is invalid.`);
+    assert.ok(frame.rows.length > 0 && frame.supports.length > 1);
+    assert.ok(frame.bays.length > 0 && frame.members.length > 0);
+    const supportIds = new Set(frame.supports.map((support) => support.id));
+    const bayIds = new Set(frame.bays.map((bay) => bay.id));
+    const memberIds = new Set(frame.members.map((member) => member.id));
+    for (const row of frame.rows) {
+      assert.ok(row.supportIds.every((id) => supportIds.has(id)));
+      assert.ok(row.bayIds.every((id) => bayIds.has(id)));
+      assert.ok(row.stylobateIds.every((id) => memberIds.has(id)));
+      assert.ok(row.lintelIds.every((id) => memberIds.has(id)));
+      assert.ok(row.entablatureIds.every((id) => memberIds.has(id)));
+      if (row.entranceBayId) {
+        assert.ok(bayIds.has(row.entranceBayId));
+      }
+    }
+    for (const support of frame.supports) {
+      assert.deepEqual(
+        support.sections.map((section) => section.kind),
+        ["plinth", "base", "shaft", "capital", "bearing"],
+      );
+      assert.ok(support.patchIds.every((id) => byId.has(id)));
+    }
+    assert.ok(frame.patchIds.every((id) => byId.has(id)));
   }
 
   assert.equal(
@@ -5330,11 +5545,32 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
   for (const roof of graph.roofs) {
     assert.ok(isValidId(roof.id), `${label}: roof id "${roof.id}" is invalid.`);
     assert.equal(roof.kind, "roof");
-    assert.equal(roof.roofType, "flat_slab");
     assert.ok(roof.thickness > 0);
     assert.ok(roof.projection >= 0);
     assert.ok(Math.abs(roof.slabTopY - roof.bottomY - roof.thickness) < 1e-9);
     assert.ok(roof.topY >= roof.slabTopY);
+    assert.equal(byId.get(roof.topPatchId)?.role, PATCH_ROLES.roof);
+    assert.equal(byId.get(roof.ceilingPatchId)?.role, PATCH_ROLES.roofSoffit);
+    for (const patchId of roof.edgePatchIds) {
+      assert.ok(byId.has(patchId), `${label}: roof names missing edge patch ${patchId}.`);
+    }
+    for (const patchId of roof.soffitPatchIds) {
+      assert.ok(byId.has(patchId), `${label}: roof names missing soffit patch ${patchId}.`);
+    }
+    for (const patchId of roof.patchIds) {
+      assert.ok(byId.has(patchId), `${label}: roof names missing patch ${patchId}.`);
+    }
+
+    if (roof.roofType === "frame_range") {
+      assert.ok(
+        graph.frames.some((frame) => frame.id === roof.coversFrameId),
+        `${label}: Frame roof covers a missing Frame.`,
+      );
+      assert.ok(roof.bearingFootprints.length > 0);
+      assert.ok(roof.bearingPatchIds.every((patchId) => byId.has(patchId)));
+      continue;
+    }
+
     assert.ok(
       roof.slabFootprint.minX <= roof.bearingFootprint.minX
       && roof.slabFootprint.maxX >= roof.bearingFootprint.maxX
@@ -5369,17 +5605,7 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
       assert.ok(bearing, `${label}: roof names missing bearing patch ${patchId}.`);
       assert.equal(bearing?.edges.vMax.treatment, "roof_bearing");
     }
-    assert.equal(byId.get(roof.topPatchId)?.role, PATCH_ROLES.roof);
-    assert.equal(byId.get(roof.ceilingPatchId)?.role, PATCH_ROLES.roofSoffit);
-    for (const patchId of roof.edgePatchIds) {
-      assert.ok(byId.has(patchId), `${label}: roof names missing edge patch ${patchId}.`);
-    }
-    for (const patchId of roof.soffitPatchIds) {
-      assert.ok(byId.has(patchId), `${label}: roof names missing soffit patch ${patchId}.`);
-    }
-    for (const patchId of roof.patchIds) {
-      assert.ok(byId.has(patchId), `${label}: roof names missing patch ${patchId}.`);
-    }
+    assert.equal(roof.roofType, "flat_slab");
 
     if (roof.cornice) {
       assert.ok(roof.cornice.projection > 0 && roof.cornice.height > 0);

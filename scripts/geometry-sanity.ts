@@ -178,7 +178,7 @@ massDefaultHashConfig.typeId = "mass";
 const massDefaultCode = encodeStructureHash(massDefaultHashConfig);
 assert.equal(
   massDefaultCode,
-  "g21SChNo7gcbUAbWMdChDEjmKEj1kVsOEJ95LxMDRVqYhKEqSRNA23olb3alicoO",
+  "g213W4m1dcnBxxunZlbaGNSbc1iG6gmqSbLMj2lPyT5nbvDUemHqlqhw6GUWNLiQmEAbsLZVvjhzY",
 );
 assert.notEqual(massDefaultCode, circularDefaultCode);
 
@@ -235,13 +235,13 @@ assert.deepEqual(
   massSurfaceComposition.geometry.groups.map((group) => group.materialIndex),
   [
     materialSlotIndex("stone"),
-    materialSlotIndex("trim"),
     materialSlotIndex("stairs"),
     materialSlotIndex("parapet"),
     materialSlotIndex("summit"),
     materialSlotIndex("interior"),
     materialSlotIndex("roof"),
     materialSlotIndex("portalReveal"),
+    materialSlotIndex("cornice"),
   ],
   "The default Mass must expose every semantic architectural surface.",
 );
@@ -1346,7 +1346,7 @@ for (const definition of STRUCTURES) {
 const massControlTabs = getStructure("mass").controlTabs;
 assert.deepEqual(
   massControlTabs.map((tab) => tab.label),
-  ["Structure", "Stairs", "Summit", "Materials"],
+  ["Structure", "Stairs", "Summit", "Colonnade", "Materials"],
 );
 assert.deepEqual(
   massControlTabs.find((tab) => tab.id === "stairs")?.layoutGroups,
@@ -1986,6 +1986,12 @@ function createGeometryHashScenario(
     mass.summitBuildingEnabled = true;
     mass.summitRoofEnabled = true;
     mass.stairFrontEnabled = true;
+    // Keep the one-control Frame enable mutation structurally valid: its
+    // derived entrance bay must carry the complete stair-and-parapet assembly.
+    mass.stairWidthRatio = 0.05;
+    mass.stairParapetWidth = 0.25;
+    mass.stairSteppedParapetCorniceProjection = 0;
+    mass.stairParapetCorniceProjection = 0.1;
     mass.stairSideTreatment = stairVariant === "sloped"
       ? "sloped_parapet"
       : "stepped_parapet";

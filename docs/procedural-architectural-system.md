@@ -362,7 +362,7 @@ runs_after: [portal_cut]
 conflict_policy: clip | skip | replace | error
 ```
 
-**Current implementation status (StructureGraph schema 1.8):** rectangular
+**Current implementation status (StructureGraph schema 1.9):** rectangular
 regions on planar patches can execute `cut`, `inset`, and `extrude`.
 Dependencies and `runs_before` / `runs_after` references are resolved within one
 patch, and overlapping features apply the declared `clip`, `skip`, `replace`, or
@@ -1098,6 +1098,25 @@ A frame is valid when:
 - Corner conditions are resolved explicitly.
 - Removed supports trigger collapse, substitution, or a marked unstable state.
 
+**Current implementation status (StructureGraph schema 1.9):** Frame is now a
+populated graph subsystem rather than a reserved container. The first vertical
+slice resolves `single_row_portico` and `perimeter_colonnade` layouts over the
+shared summit placement, with square-pier profile stacks, deduplicated perimeter
+corner supports, real bay and span records, stair-derived centred entrance bays,
+segmented stylobates, per-bay lintels, and continuous architrave, frieze, and
+cornice bands. A Frame may stand alone or wrap an inset summit Cell; an attached
+entablature aligns to the Cell crown. Frame roof ranges replace the separate Cell
+roof when enabled. Standalone perimeter roofs enforce the current 8 m range
+limit, while standalone one-row portico roofs refuse generation because they
+lack a rear bearing. Both bare and masonry construction read the same resolved
+records through `SolidBuilder`.
+
+Supports, stylobates, lintels, architraves, friezes, cornices, and Frame roofs
+retain independent indexed material ownership. Current limits are intentional:
+bay infill, missing or collapsed members, arches, round or polygonal columns,
+fluting, ornament, double rows, U/L layouts, and hypostyle grids remain future
+Frame vocabulary rather than special-case geometry.
+
 ---
 
 ## 10. Pillars, Piers, and Columns
@@ -1354,7 +1373,7 @@ Reserve zones before populating features:
 
 When two features conflict, resolve by declared priority rather than arbitrary generation order.
 
-**Current implementation status (StructureGraph schema 1.8):** planar Cell
+**Current implementation status (StructureGraph schema 1.9):** planar Cell
 facades resolve into graph-owned `FacadeRecord` entries with stable horizontal
 bays, vertical bands, hierarchy, symmetry, target wall pairs, and executable
 feature ids. Bay allocation supports fixed and weighted widths plus Cell-derived
@@ -2366,9 +2385,11 @@ structure:
 **Current implementation status:** generated geometry retains a stable
 per-vertex semantic material index and coalesces triangles into one draw group
 per used slot. Facade portal reveals, window reveals, niches, recessed panels,
-pilasters, and friezes are independently assignable; their defaults match the
-summit-wall material so indexed ownership does not change the approved look
-until a material assignment is edited.
+pilasters, and friezes are independently assignable. Frame supports,
+stylobates, lintels, architraves, friezes, cornices, and roof ranges are likewise
+independent. Their defaults match the adjacent summit, trim, or roof materials,
+so indexed ownership does not change the approved look until an assignment is
+edited.
 
 ### Phase 14 — Outputs and validation
 
@@ -2819,9 +2840,10 @@ A practical first implementation can be staged.
 
 ### Version 4
 
-- Support grids, bays, beams, entablatures, and roof ranges.
-- Profile-stack columns and piers.
-- Bay infill.
+- Implemented: single-row and perimeter support grids, bays, lintels,
+  entablatures, roof ranges, and square-pier profile stacks.
+- Next: bay infill and additional grid layouts.
+- Later in this version: missing/collapsed members and non-square support types.
 
 ### Version 5
 

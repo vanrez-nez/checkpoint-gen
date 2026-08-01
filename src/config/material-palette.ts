@@ -85,6 +85,11 @@ export const MATERIAL_SURFACE_LABELS: Readonly<
   panel: "Recessed panels",
   pilaster: "Pilasters",
   frieze: "Friezes",
+  stylobate: "Colonnade stylobate",
+  beam: "Colonnade lintels",
+  architrave: "Colonnade architrave",
+  cornice: "Cornices",
+  frameRoof: "Colonnade roof",
   offering: "Offering",
 };
 
@@ -117,6 +122,11 @@ export const DEFAULT_STRUCTURE_MATERIAL_PALETTE: Readonly<
   panel: surface("stone"),
   pilaster: surface("stone"),
   frieze: surface("stone"),
+  stylobate: surface("stone"),
+  beam: surface("stone"),
+  architrave: surface("stone"),
+  cornice: surface("stone"),
+  frameRoof: surface("stone"),
   offering: surface("stone"),
 };
 
@@ -158,6 +168,12 @@ export const DEFAULT_MASS_MATERIAL_PALETTE: Readonly<
   panel: surface("eroded-rock"),
   pilaster: surface("eroded-rock"),
   frieze: surface("eroded-rock"),
+  pillar: surface("eroded-rock"),
+  stylobate: surface("eroded-rock"),
+  beam: surface("eroded-rock"),
+  architrave: surface("eroded-rock"),
+  cornice: surface("flamed-basalt", 0.35),
+  frameRoof: surface("lichen-stone"),
 };
 
 const control = controlsFor<MaterialSurfaceConfig>();

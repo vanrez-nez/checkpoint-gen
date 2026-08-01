@@ -49,6 +49,12 @@ import {
 import { resolveCellFacades } from "../facade/resolve";
 import type { FacadeSpec } from "../facade/types";
 import {
+  frameCellPlacement,
+  resolveFrame,
+  type ResolvedFrame,
+} from "../frame/resolve";
+import type { FrameSpec } from "../frame/types";
+import {
   resolveSummitRoof,
   type SummitRoofSpec,
 } from "../roof/resolve";
@@ -115,6 +121,8 @@ export interface StructureSpec {
   readonly cells: readonly SummitCellSpec[];
   /** Surface grammar applied to each enclosed cell's exterior walls. */
   readonly facade: FacadeSpec;
+  /** Open support-and-span assemblies resolved independently from Cells. */
+  readonly frames: readonly FrameSpec[];
   /** Roof assemblies resolved from the cells they cover. */
   readonly roofs: readonly SummitRoofSpec[];
 }
@@ -316,6 +324,14 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     );
     return graph.build(diagnostics.all);
   }
+  if (spec.frames.length > 1) {
+    diagnostics.error(
+      "frame.multiple_unimplemented",
+      massId,
+      "This phase supports one Frame assembly; multiple Frames are not implemented yet.",
+    );
+    return graph.build(diagnostics.all);
+  }
 
   const summitFloorPatchId = structurePath(
     massId,
@@ -328,11 +344,23 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     summitPlan,
     summitPad,
   );
+  const frameSpec = spec.frames[0] ?? null;
+  const cellPlacement = frameSpec && spec.cells[0]
+    ? frameCellPlacement(placement, frameSpec)
+    : placement;
+  if (frameSpec && spec.cells[0] && !cellPlacement) {
+    diagnostics.error(
+      "frame.cell_clearance_invalid",
+      structurePath(spec.id, frameSpec.id),
+      "The Frame support and circulation inset leaves no valid footprint for the attached Cell.",
+    );
+    return graph.build(diagnostics.all);
+  }
   const cell = spec.cells[0]
     ? resolveSummitCell(
       spec.id,
       spec.cells[0],
-      placement,
+      cellPlacement ?? placement,
       stairs.map((stair) => stair.record.direction),
       diagnostics,
     )
@@ -357,6 +385,28 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
       exteriorOpenings: cell.exteriorOpenings,
     }
     : null;
+  if (frameSpec?.roof.enabled && spec.roofs[0]) {
+    diagnostics.error(
+      "frame.roof_conflict",
+      structurePath(spec.id, frameSpec.id),
+      "An attached Frame roof replaces the separate summit Cell roof; both cannot be enabled.",
+    );
+    return graph.build(diagnostics.all);
+  }
+  const frame: ResolvedFrame | null = frameSpec
+    ? resolveFrame(
+      spec.id,
+      frameSpec,
+      placement,
+      facadedCell?.record ?? null,
+      stairs.map((stair) => stair.record),
+      diagnostics,
+    )
+    : null;
+
+  if (frameSpec && !frame) {
+    return graph.build(diagnostics.all);
+  }
   const roof = spec.roofs[0]
     ? resolveSummitRoof(
       spec.id,
@@ -467,6 +517,24 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
       graph.link(a, b);
     }
     graph.addRoof(roof.record);
+  }
+  if (frame) {
+    for (const patch of frame.patches) {
+      graph.addPatch(patch);
+    }
+    for (const [a, b] of frame.links) {
+      graph.link(a, b);
+    }
+    graph.addFrame(frame.record);
+    if (frame.roof) {
+      for (const patch of frame.roof.patches) {
+        graph.addPatch(patch);
+      }
+      for (const [a, b] of frame.roof.links) {
+        graph.link(a, b);
+      }
+      graph.addRoof(frame.roof.record);
+    }
   }
 
   // The stair's own surfaces, once both ends it connects exist to be linked to.

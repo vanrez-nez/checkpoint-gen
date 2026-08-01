@@ -92,6 +92,14 @@ export const PATCH_ROLES = {
   roofEdge: "roof_edge",
   /** Projected molding at the top of a roof assembly. */
   roofCornice: "cornice",
+  /** Walkable base course carrying a Frame support row. */
+  frameStylobate: "frame_stylobate",
+  /** Public face or bearing surface of a resolved support profile. */
+  frameSupport: "frame_support",
+  /** A beam spanning one resolved bay. */
+  frameLintel: "frame_lintel",
+  /** Continuous ordered work above Frame lintels. */
+  frameEntablature: "frame_entablature",
   /**
    * One whole flight as a single stepped surface, not a patch per tread. The
    * spec's `stair_tread`/`stair_riser` roles are the granularity the feature

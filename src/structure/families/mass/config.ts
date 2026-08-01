@@ -35,6 +35,7 @@ import type { SummitCellSpec } from "../../cell/resolve";
 import type { SummitRoofSpec } from "../../roof/resolve";
 import type { HorizontalOrientation } from "../../kernel/frame";
 import type { FacadeStyle } from "../../facade/types";
+import type { FrameLayout, FrameSpec } from "../../frame/types";
 
 /**
  * A named height distribution, or `custom` for one authored on the curve editor.
@@ -144,6 +145,23 @@ export interface MassLayoutConfig {
   /** Continuous raked cornice over a flat parapet. */
   stairParapetCorniceProjection: number;
   stairParapetCorniceHeight: number;
+  /** Independently enabled open support-and-span assembly. */
+  frameEnabled: boolean;
+  frameLayout: FrameLayout;
+  frameFrontBayCount: number;
+  frameSideBayCount: number;
+  frameHeight: number;
+  frameShaftWidth: number;
+  frameCellClearance: number;
+  frameStylobateHeight: number;
+  frameStylobateProjection: number;
+  frameLintelHeight: number;
+  frameArchitraveHeight: number;
+  frameFriezeHeight: number;
+  frameCorniceHeight: number;
+  frameRoofEnabled: boolean;
+  frameRoofThickness: number;
+  frameRoofProjection: number;
   seed: number;
 }
 
@@ -222,6 +240,22 @@ export const MASS_LAYOUT_G1_BASELINE: Readonly<MassLayoutConfig> = {
   stairSteppedParapetCorniceHeight: 0,
   stairParapetCorniceProjection: 0.2,
   stairParapetCorniceHeight: 0.25,
+  frameEnabled: false,
+  frameLayout: "single_row_portico",
+  frameFrontBayCount: 5,
+  frameSideBayCount: 3,
+  frameHeight: 4,
+  frameShaftWidth: 0.5,
+  frameCellClearance: 0.55,
+  frameStylobateHeight: 0.2,
+  frameStylobateProjection: 0.1,
+  frameLintelHeight: 0.25,
+  frameArchitraveHeight: 0.18,
+  frameFriezeHeight: 0.22,
+  frameCorniceHeight: 0.15,
+  frameRoofEnabled: true,
+  frameRoofThickness: 0.35,
+  frameRoofProjection: 0.2,
   seed: 1,
 };
 
@@ -308,6 +342,11 @@ const SUMMIT_BUILDING_PLAN_OPTIONS: Readonly<
   "Single chamber": "single_chamber",
   "Twin chamber": "twin_chamber",
   "Three-bay gatehouse": "three_bay",
+};
+
+export const FRAME_LAYOUT_OPTIONS: Readonly<Record<string, FrameLayout>> = {
+  "Single-row portico": "single_row_portico",
+  "Perimeter colonnade": "perimeter_colonnade",
 };
 
 /** True when at least one facade carries a stair. */
@@ -962,6 +1001,148 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     visibleWhen: (layout) =>
       layout.summitBuildingEnabled && layout.facadeStyle === "hierarchical",
   }),
+  control.boolean({
+    key: "frameEnabled",
+    label: "enabled",
+    name: "Colonnade Frame",
+    group: "Colonnade layout",
+    scopes: ["layout"],
+  }),
+  control.list({
+    key: "frameLayout",
+    label: "layout",
+    name: "Frame layout",
+    group: "Colonnade layout",
+    options: FRAME_LAYOUT_OPTIONS,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.frameEnabled,
+  }),
+  control.number({
+    key: "frameFrontBayCount",
+    label: "front bays",
+    name: "Front and rear bay count",
+    group: "Colonnade layout",
+    min: 1,
+    max: 9,
+    step: 1,
+    integer: true,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.frameEnabled,
+  }),
+  control.number({
+    key: "frameSideBayCount",
+    label: "side bays",
+    name: "Side bay count",
+    group: "Colonnade layout",
+    min: 1,
+    max: 9,
+    step: 1,
+    integer: true,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.frameEnabled && layout.frameLayout === "perimeter_colonnade",
+  }),
+  control.number({
+    key: "frameHeight",
+    label: "height",
+    name: "Standalone Frame height",
+    group: "Supports",
+    min: 1.5,
+    max: 12,
+    step: 0.1,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.frameEnabled && !layout.summitBuildingEnabled,
+  }),
+  control.number({
+    key: "frameShaftWidth",
+    label: "shaft",
+    name: "Square pier shaft width",
+    group: "Supports",
+    min: 0.25,
+    max: 1.5,
+    step: 0.025,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.frameEnabled,
+  }),
+  control.number({
+    key: "frameCellClearance",
+    label: "clearance",
+    name: "Cell circulation clearance",
+    group: "Supports",
+    min: 0.3,
+    max: 2,
+    step: 0.05,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.frameEnabled && layout.summitBuildingEnabled,
+  }),
+  control.number({
+    key: "frameStylobateHeight",
+    label: "height",
+    name: "Stylobate height",
+    group: "Stylobate",
+    min: 0,
+    max: 1,
+    step: 0.025,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.frameEnabled,
+  }),
+  control.number({
+    key: "frameStylobateProjection",
+    label: "projection",
+    name: "Stylobate projection",
+    group: "Stylobate",
+    min: 0,
+    max: 0.6,
+    step: 0.025,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.frameEnabled,
+  }),
+  ...([
+    ["frameLintelHeight", "lintel", "Lintel height"],
+    ["frameArchitraveHeight", "architrave", "Architrave height"],
+    ["frameFriezeHeight", "frieze", "Frieze height"],
+    ["frameCorniceHeight", "cornice", "Cornice height"],
+  ] as const).map(([key, label, name]) => control.number({
+    key,
+    label,
+    name,
+    group: "Entablature",
+    min: 0.05,
+    max: 1,
+    step: 0.01,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.frameEnabled,
+  })),
+  control.boolean({
+    key: "frameRoofEnabled",
+    label: "enabled",
+    name: "Frame roof range",
+    group: "Frame roof",
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.frameEnabled,
+  }),
+  control.number({
+    key: "frameRoofThickness",
+    label: "thickness",
+    name: "Frame roof thickness",
+    group: "Frame roof",
+    min: 0.1,
+    max: 1.5,
+    step: 0.025,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.frameEnabled && layout.frameRoofEnabled,
+  }),
+  control.number({
+    key: "frameRoofProjection",
+    label: "projection",
+    name: "Frame roof projection",
+    group: "Frame roof",
+    min: 0,
+    max: 1,
+    step: 0.025,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.frameEnabled && layout.frameRoofEnabled,
+  }),
 ];
 
 export function cloneMassLayout(
@@ -1090,6 +1271,7 @@ export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
       friezeHeight: layout.facadeFriezeHeight,
       friezeProjection: layout.facadeFriezeProjection,
     },
+    frames: toFrameSpecs(layout),
     roofs: toRoofSpecs(layout),
   };
 }
@@ -1112,7 +1294,11 @@ function toCellSpecs(layout: MassLayoutConfig): SummitCellSpec[] {
 }
 
 function toRoofSpecs(layout: MassLayoutConfig): SummitRoofSpec[] {
-  if (!layout.summitBuildingEnabled || !layout.summitRoofEnabled) {
+  if (
+    !layout.summitBuildingEnabled
+    || !layout.summitRoofEnabled
+    || (layout.frameEnabled && layout.frameRoofEnabled)
+  ) {
     return [];
   }
 
@@ -1123,6 +1309,33 @@ function toRoofSpecs(layout: MassLayoutConfig): SummitRoofSpec[] {
     projection: layout.summitRoofProjection,
     corniceProjection: layout.summitRoofCorniceProjection,
     corniceHeight: layout.summitRoofCorniceHeight,
+  }];
+}
+
+function toFrameSpecs(layout: MassLayoutConfig): FrameSpec[] {
+  if (!layout.frameEnabled) {
+    return [];
+  }
+
+  return [{
+    id: "summit_frame",
+    layout: layout.frameLayout,
+    frontBayCount: layout.frameFrontBayCount,
+    sideBayCount: layout.frameSideBayCount,
+    height: layout.frameHeight,
+    shaftWidth: layout.frameShaftWidth,
+    cellClearance: layout.frameCellClearance,
+    stylobateHeight: layout.frameStylobateHeight,
+    stylobateProjection: layout.frameStylobateProjection,
+    lintelHeight: layout.frameLintelHeight,
+    architraveHeight: layout.frameArchitraveHeight,
+    friezeHeight: layout.frameFriezeHeight,
+    corniceHeight: layout.frameCorniceHeight,
+    roof: {
+      enabled: layout.frameRoofEnabled,
+      thickness: layout.frameRoofThickness,
+      projection: layout.frameRoofProjection,
+    },
   }];
 }
 
