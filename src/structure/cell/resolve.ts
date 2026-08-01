@@ -846,6 +846,8 @@ function portalRegion(
     uRange: [centerU - halfU, centerU + halfU],
     vRange: [0, portalHeight / wallHeight],
     priority: 100,
+    allowedOperations: ["cut"],
+    exclusions: [],
     tags: ["opening", "portal", "circulation"],
   };
 }
@@ -929,6 +931,10 @@ function wallPatch(input: {
       operation: "cut",
       regionId: input.portal.id,
       order: 0,
+      dependsOn: [],
+      runsBefore: [],
+      runsAfter: [],
+      conflictPolicy: "error",
     }]
     : [];
 
@@ -981,6 +987,10 @@ function interiorWallPatch(
     operation: "cut",
     regionId: region.id,
     order: index,
+    dependsOn: [],
+    runsBefore: [],
+    runsAfter: [],
+    conflictPolicy: "error",
   }));
 
   return {
@@ -1035,6 +1045,8 @@ function connectionRegion(
     uRange: [Math.min(...projected), Math.max(...projected)],
     vRange: [0, connection.height / wallHeight],
     priority: 100,
+    allowedOperations: ["cut"],
+    exclusions: [],
     tags: ["opening", "door", "circulation", "interior_connection"],
   };
 }

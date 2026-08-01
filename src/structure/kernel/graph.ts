@@ -2,6 +2,12 @@ import type { HorizontalOrientation, Rect, Vec3 } from "./frame";
 import type { Patch, PatchRole } from "./patch";
 import { resolvedSeeds, type SeedSet, type SeedSubsystem } from "./seed";
 import type { Diagnostic } from "./validate";
+import {
+  compilePatchFeatures,
+  compiledCutWorldBounds,
+  type CompiledPatchFeatures,
+  type CutWorldBounds,
+} from "../surface/features";
 
 /**
  * The resolved semantic description of one structure.
@@ -12,7 +18,7 @@ import type { Diagnostic } from "./validate";
  * systems fills known positions rather than reshaping the graph. Connectors and
  * cells and roofs are the first containers now populated.
  */
-export const STRUCTURE_SCHEMA_VERSION = "1.5";
+export const STRUCTURE_SCHEMA_VERSION = "1.6";
 
 /**
  * Placeholder element type for a subsystem that has not been implemented yet.
@@ -387,6 +393,19 @@ export class StructureGraphBuilder {
       return { ...patch, adjacency: neighbours };
     });
 
+    const compiledFeatures = new Map<string, CompiledPatchFeatures>();
+    for (const patch of patches) {
+      compiledFeatures.set(patch.id, compilePatchFeatures(patch));
+    }
+    const featureDiagnostics = [...compiledFeatures.values()].flatMap(
+      (compiled) => compiled.diagnostics,
+    );
+    const pairedCutDiagnostics = validatePairedCellCuts(
+      this.cells,
+      new Map(patches.map((patch) => [patch.id, patch])),
+      compiledFeatures,
+    );
+
     return {
       schemaVersion: STRUCTURE_SCHEMA_VERSION,
       id: this.id,
@@ -401,7 +420,11 @@ export class StructureGraphBuilder {
       roofs: this.roofs,
       attachments: [],
       damage: [],
-      diagnostics,
+      diagnostics: [
+        ...diagnostics,
+        ...featureDiagnostics,
+        ...pairedCutDiagnostics,
+      ],
     };
   }
 }
@@ -445,4 +468,77 @@ function edgeSet(map: Map<string, Set<string>>, key: string): Set<string> {
   const created = new Set<string>();
   map.set(key, created);
   return created;
+}
+
+function validatePairedCellCuts(
+  cells: readonly CellRecord[],
+  patches: ReadonlyMap<string, Patch>,
+  compiled: ReadonlyMap<string, CompiledPatchFeatures>,
+): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+
+  for (const cell of cells) {
+    const pairs = [
+      ...cell.walls.map((wall) => ({
+        id: `${cell.id}/${wall.orientation}`,
+        first: wall.outerPatchId,
+        second: wall.innerPatchId,
+      })),
+      ...cell.interiorWalls.map((wall) => ({
+        id: wall.id,
+        first: wall.negativePatchId,
+        second: wall.positivePatchId,
+      })),
+    ];
+
+    for (const pair of pairs) {
+      const first = patches.get(pair.first);
+      const second = patches.get(pair.second);
+      const firstCompiled = compiled.get(pair.first);
+      const secondCompiled = compiled.get(pair.second);
+
+      if (!first || !second || !firstCompiled || !secondCompiled) {
+        continue;
+      }
+      if (
+        firstCompiled.diagnostics.some((entry) => entry.severity === "error")
+        || secondCompiled.diagnostics.some((entry) => entry.severity === "error")
+      ) {
+        continue;
+      }
+
+      const firstCuts = compiledCutWorldBounds(first, firstCompiled);
+      const secondCuts = compiledCutWorldBounds(second, secondCompiled);
+      if (!sameCutBounds(firstCuts, secondCuts, first.frame.normal)) {
+        diagnostics.push({
+          severity: "error",
+          code: "feature.paired_cut_mismatch",
+          entityId: pair.id,
+          message: `Paired wall patches "${pair.first}" and "${pair.second}" resolve different world-space cuts.`,
+        });
+      }
+    }
+  }
+
+  return diagnostics;
+}
+
+function sameCutBounds(
+  first: readonly CutWorldBounds[],
+  second: readonly CutWorldBounds[],
+  normal: Vec3,
+): boolean {
+  const dominant = [Math.abs(normal.x), Math.abs(normal.y), Math.abs(normal.z)]
+    .indexOf(Math.max(Math.abs(normal.x), Math.abs(normal.y), Math.abs(normal.z)));
+  const canonical = (bounds: readonly CutWorldBounds[]) => bounds
+    .map((entry) => [
+      dominant === 0 ? [] : [entry.minX, entry.maxX],
+      dominant === 1 ? [] : [entry.minY, entry.maxY],
+      dominant === 2 ? [] : [entry.minZ, entry.maxZ],
+    ].flat().map((value) => Math.round(value * 1e9) / 1e9).join(","))
+    .sort();
+
+  const a = canonical(first);
+  const b = canonical(second);
+  return a.length === b.length && a.every((value, index) => value === b[index]);
 }

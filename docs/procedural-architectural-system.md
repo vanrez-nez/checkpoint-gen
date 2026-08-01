@@ -362,6 +362,14 @@ runs_after: [portal_cut]
 conflict_policy: clip | skip | replace | error
 ```
 
+**Current implementation status (StructureGraph schema 1.6):** rectangular
+regions on planar patches can execute `cut`. Dependencies and `runs_before` /
+`runs_after` references are resolved within one patch, and overlapping features
+apply the declared `clip`, `skip`, `replace`, or `error` policy. Cell portals and
+interior doors use this pipeline for tessellation. The remaining operation
+vocabulary is typed and validated but returns a named unimplemented error until
+its geometry reader is added.
+
 ### 5.5 Edge features
 
 Edges are first-class because many architectural details follow boundaries:

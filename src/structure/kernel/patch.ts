@@ -19,6 +19,47 @@ import type { LocalFrame, Orientation } from "./frame";
  */
 export type PatchRole = string;
 
+/**
+ * The complete surface-operation vocabulary from the architecture spec.
+ *
+ * A typed name is not a promise that a tessellator can execute it yet. The
+ * feature compiler reports a named error for operations outside
+ * `IMPLEMENTED_PATCH_OPERATIONS`, preserving the project's existing rule that
+ * authored-but-unimplemented vocabulary never falls back silently.
+ */
+export const PATCH_OPERATIONS = [
+  "inset",
+  "extrude",
+  "cut",
+  "replace",
+  "subdivide",
+  "repeat",
+  "step",
+  "slope",
+  "frame",
+  "cap",
+  "border",
+  "displace",
+  "clip",
+  "remove",
+  "attach",
+] as const;
+
+export type PatchOperation = (typeof PATCH_OPERATIONS)[number];
+
+/** Operations with a concrete reader in the current Surface phase. */
+export const IMPLEMENTED_PATCH_OPERATIONS: readonly PatchOperation[] = ["cut"];
+
+export const FEATURE_CONFLICT_POLICIES = [
+  "clip",
+  "skip",
+  "replace",
+  "error",
+] as const;
+
+export type FeatureConflictPolicy =
+  (typeof FEATURE_CONFLICT_POLICIES)[number];
+
 export const PATCH_ROLES = {
   groundInterface: "ground_interface",
   basePlinth: "base_plinth",
@@ -88,6 +129,10 @@ export interface PatchRegion {
   readonly vRange: readonly [number, number];
   /** Higher wins when two regions want the same ground. */
   readonly priority: number;
+  /** Operations permitted to target this region. Empty means reservation only. */
+  readonly allowedOperations: readonly PatchOperation[];
+  /** Region ids on this patch that may not overlap this region. */
+  readonly exclusions: readonly string[];
   readonly tags: readonly string[];
 }
 
@@ -98,9 +143,16 @@ export interface PatchRegion {
  */
 export interface PatchFeature {
   readonly id: string;
-  readonly operation: string;
+  readonly operation: PatchOperation;
   readonly regionId: string | null;
   readonly order: number;
+  /** Hard prerequisites on the same patch. */
+  readonly dependsOn: readonly string[];
+  /** Additional same-patch ordering constraints. */
+  readonly runsBefore: readonly string[];
+  readonly runsAfter: readonly string[];
+  /** How this feature resolves overlap with an already accepted feature. */
+  readonly conflictPolicy: FeatureConflictPolicy;
 }
 
 /** A placement point a child entity can attach to. */

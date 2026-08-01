@@ -1,12 +1,19 @@
 import type { SolidBuilder } from "../../geometry/solid-builder";
-import { rectCorners, rectIsValid, type Rect } from "../kernel/frame";
+import {
+  evaluateFrame,
+  rectCorners,
+  rectIsValid,
+  type Rect,
+} from "../kernel/frame";
 import type { CellRecord } from "../kernel/graph";
+import type { Patch } from "../kernel/patch";
 import {
   divideCourses,
   divideRun,
   masonrySeed,
   type MasonryRule,
 } from "../kernel/masonry";
+import { compiledCutFragments } from "../surface/features";
 
 const EPS = 1e-9;
 type SideFlags = readonly [boolean, boolean, boolean, boolean];
@@ -26,10 +33,11 @@ interface CellPanel {
 export function buildCell(
   builder: SolidBuilder,
   cell: CellRecord,
+  patches: ReadonlyMap<string, Patch>,
   masonry: MasonryRule | null,
   seed: number,
 ): void {
-  const panels = cellPanels(cell);
+  const panels = cellPanels(cell, patches);
 
   if (!masonry) {
     for (const panel of panels) {
@@ -38,7 +46,7 @@ export function buildCell(
     return;
   }
 
-  const boundaries = courseBoundaries(cell, masonry, seed);
+  const boundaries = courseBoundaries(cell, masonry, seed, panels);
   for (const panel of panels) {
     layPanelStones(builder, panel, masonry, seed, boundaries);
   }
@@ -52,6 +60,7 @@ export function buildCell(
 export function faceIsCoveredByCellWall(
   face: readonly { readonly x: number; readonly y: number; readonly z: number }[],
   cell: CellRecord,
+  patches: ReadonlyMap<string, Patch>,
 ): boolean {
   if (
     face.length !== 4
@@ -61,7 +70,7 @@ export function faceIsCoveredByCellWall(
     return false;
   }
 
-  return cellPanels(cell)
+  return cellPanels(cell, patches)
     .filter((panel) => Math.abs(panel.bottomY - cell.bottomY) <= EPS)
     .some((panel) => face.every((point) => pointInsideRect(point, panel.rect)));
 }
@@ -116,7 +125,10 @@ export function addBareCellFloorSurface(
   });
 }
 
-function cellPanels(cell: CellRecord): CellPanel[] {
+function cellPanels(
+  cell: CellRecord,
+  patches: ReadonlyMap<string, Patch>,
+): CellPanel[] {
   const { footprint: outer, interior: inner, bottomY, topY } = cell;
   const panels: CellPanel[] = [
     // Corner blocks own the returns between adjacent wall spans. Their contact
@@ -146,15 +158,28 @@ function cellPanels(cell: CellRecord): CellPanel[] {
     "sidePositiveU",
     "sideNegativeU",
   ] as const) {
-    panels.push(...wallPanels(
-      cell,
-      direction,
-      cell.openings.find((opening) => opening.direction === direction) ?? null,
-    ));
+    const wall = cell.walls.find((candidate) => candidate.orientation === direction);
+    const patch = wall ? patches.get(wall.outerPatchId) : undefined;
+
+    if (!wall || !patch) {
+      throw new Error(`Cell "${cell.id}" is missing its ${direction} wall patch.`);
+    }
+
+    const axis = direction === "front" || direction === "rear" ? "x" : "z";
+    panels.push(...cutWallPanels({
+      id: wallPanelId(direction),
+      rect: wallCenterRect(outer, inner, direction),
+      axis,
+      bottomY,
+      topY,
+      surfaces: wallSurfaceSides(direction),
+      cuts: worldCuts(patch, axis),
+      boundaryExposed: () => false,
+    }));
   }
 
   for (const wall of cell.interiorWalls) {
-    panels.push(...interiorWallPanels(cell, wall));
+    panels.push(...interiorWallPanels(cell, wall, patches));
   }
 
   return panels.filter(
@@ -166,235 +191,208 @@ function cellPanels(cell: CellRecord): CellPanel[] {
 function interiorWallPanels(
   cell: CellRecord,
   wall: CellRecord["interiorWalls"][number],
+  patches: ReadonlyMap<string, Patch>,
 ): CellPanel[] {
   const axis = wall.axis;
-  const openings = wall.connectionIds
-    .map((connectionId) =>
-      cell.connections.find((connection) => connection.id === connectionId))
-    .filter((connection) => connection !== undefined)
-    .sort((a, b) =>
-      openingStart(a.threshold, axis) - openingStart(b.threshold, axis));
+  const patch = patches.get(wall.negativePatchId);
+
+  if (!patch) {
+    throw new Error(`Interior wall "${wall.id}" is missing patch "${wall.negativePatchId}".`);
+  }
+
   const surfaces: SideFlags = axis === "x"
     ? [false, true, false, true]
     : [true, false, true, false];
-  const start = axis === "x" ? wall.rect.minX : wall.rect.minZ;
-  const end = axis === "x" ? wall.rect.maxX : wall.rect.maxZ;
-  const startSide = axis === "x" ? 0 : 3;
-  const endSide = axis === "x" ? 2 : 1;
-  const panels: CellPanel[] = [];
-  let cursor = start;
-
-  for (let index = 0; index < openings.length; index += 1) {
-    const opening = openings[index]!;
-    const openingFrom = openingStart(opening.threshold, axis);
-    const openingTo = openingEnd(opening.threshold, axis);
-    const pierSides = cursor > start + EPS
-      ? withSide(surfaces, startSide)
-      : surfaces;
-
-    panels.push(panel(
-      `${wall.id}_pier_${String(index + 1).padStart(2, "0")}`,
-      spanRect(wall.rect, axis, cursor, openingFrom),
-      cell.bottomY,
-      cell.topY,
-      withSide(pierSides, endSide),
-      axis,
-    ));
-    panels.push(...interiorHeaderPanels(
-      cell,
-      wall,
-      opening,
-      index,
-      surfaces,
-      startSide,
-      endSide,
-      start,
-      end,
-    ));
-    cursor = openingTo;
-  }
-
-  const finalSides = cursor > start + EPS
-    ? withSide(surfaces, startSide)
-    : surfaces;
-  panels.push(panel(
-    `${wall.id}_pier_end`,
-    spanRect(wall.rect, axis, cursor, end),
-    cell.bottomY,
-    cell.topY,
-    finalSides,
+  const boundaryCuts = {
+    start: interiorBoundaryCuts(cell, patches, wall, "start"),
+    end: interiorBoundaryCuts(cell, patches, wall, "end"),
+  };
+  return cutWallPanels({
+    id: wall.id,
+    rect: wall.rect,
     axis,
-  ));
+    bottomY: cell.bottomY,
+    topY: cell.topY,
+    surfaces,
+    cuts: worldCuts(patch, axis),
+    boundaryBreaks: [...boundaryCuts.start, ...boundaryCuts.end]
+      .flatMap((cut) => [cut.bottomY, cut.topY]),
+    boundaryExposed: (end, fromY, toY) => boundaryCuts[end].some((cut) =>
+      fromY < cut.topY - EPS && toY > cut.bottomY + EPS),
+  });
+}
+
+interface WallCut {
+  readonly id: string;
+  readonly from: number;
+  readonly to: number;
+  readonly bottomY: number;
+  readonly topY: number;
+}
+
+interface CutWallInput {
+  readonly id: string;
+  readonly rect: Rect;
+  readonly axis: "x" | "z";
+  readonly bottomY: number;
+  readonly topY: number;
+  readonly surfaces: SideFlags;
+  readonly cuts: readonly WallCut[];
+  /** Vertical divisions inherited from adjoining openings at the wall ends. */
+  readonly boundaryBreaks?: readonly number[];
+  readonly boundaryExposed: (
+    end: "start" | "end",
+    bottomY: number,
+    topY: number,
+  ) => boolean;
+}
+
+/**
+ * Partitions one planar wall on every compiled cut boundary.
+ *
+ * Each occupied grid cell becomes one block. Faces between occupied cells stay
+ * hidden; a solid-to-cut boundary becomes a jamb, sill or soffit. This supports
+ * any number of rectangular openings, including openings above the floor,
+ * without teaching the cell builder what a portal or window means.
+ */
+function cutWallPanels(input: CutWallInput): CellPanel[] {
+  const start = input.axis === "x" ? input.rect.minX : input.rect.minZ;
+  const end = input.axis === "x" ? input.rect.maxX : input.rect.maxZ;
+  const cuts = input.cuts
+    .map((cut) => ({
+      ...cut,
+      from: clamp(cut.from, start, end),
+      to: clamp(cut.to, start, end),
+      bottomY: clamp(cut.bottomY, input.bottomY, input.topY),
+      topY: clamp(cut.topY, input.bottomY, input.topY),
+    }))
+    .filter((cut) => cut.to > cut.from + EPS && cut.topY > cut.bottomY + EPS);
+  const along = uniqueSorted([
+    start,
+    end,
+    ...cuts.flatMap((cut) => [cut.from, cut.to]),
+  ]);
+  const vertical = uniqueSorted([
+    input.bottomY,
+    input.topY,
+    ...cuts.flatMap((cut) => [cut.bottomY, cut.topY]),
+    ...(input.boundaryBreaks ?? []).map((value) =>
+      clamp(value, input.bottomY, input.topY)),
+  ]);
+  const occupied = Array.from(
+    { length: along.length - 1 },
+    (_, u) => Array.from({ length: vertical.length - 1 }, (_, v) => {
+      const centre = {
+        along: ((along[u] ?? 0) + (along[u + 1] ?? 0)) * 0.5,
+        y: ((vertical[v] ?? 0) + (vertical[v + 1] ?? 0)) * 0.5,
+      };
+      return !cuts.some((cut) =>
+        centre.along > cut.from + EPS
+        && centre.along < cut.to - EPS
+        && centre.y > cut.bottomY + EPS
+        && centre.y < cut.topY - EPS);
+    }),
+  );
+  const panels: CellPanel[] = [];
+  const startSide = input.axis === "x" ? 0 : 3;
+  const endSide = input.axis === "x" ? 2 : 1;
+
+  for (let u = 0; u < along.length - 1; u += 1) {
+    for (let v = 0; v < vertical.length - 1; v += 1) {
+      if (occupied[u]?.[v] !== true) {
+        continue;
+      }
+
+      const from = along[u]!;
+      const to = along[u + 1]!;
+      const bottomY = vertical[v]!;
+      const topY = vertical[v + 1]!;
+      const atStart = u === 0;
+      const atEnd = u === along.length - 2;
+      const startVisible = atStart
+        ? input.boundaryExposed("start", bottomY, topY)
+        : occupied[u - 1]?.[v] === false;
+      const endVisible = atEnd
+        ? input.boundaryExposed("end", bottomY, topY)
+        : occupied[u + 1]?.[v] === false;
+      const belowVisible = v > 0 && occupied[u]?.[v - 1] === false;
+      const aboveVisible = v === vertical.length - 2
+        || occupied[u]?.[v + 1] === false;
+      const sides: [boolean, boolean, boolean, boolean] = [...input.surfaces];
+      sides[startSide] = startVisible;
+      sides[endSide] = endVisible;
+
+      panels.push(panel(
+        `${input.id}_u${String(u).padStart(2, "0")}_v${String(v).padStart(2, "0")}`,
+        spanRect(input.rect, input.axis, from, to),
+        bottomY,
+        topY,
+        sides,
+        input.axis,
+        aboveVisible,
+        belowVisible,
+      ));
+    }
+  }
 
   return panels;
 }
 
-function interiorHeaderPanels(
-  cell: CellRecord,
-  wall: CellRecord["interiorWalls"][number],
-  opening: CellRecord["connections"][number],
-  index: number,
-  surfaces: SideFlags,
-  startSide: number,
-  endSide: number,
-  wallStart: number,
-  wallEnd: number,
-): CellPanel[] {
-  const axis = wall.axis;
-  const openingFrom = openingStart(opening.threshold, axis);
-  const openingTo = openingEnd(opening.threshold, axis);
-  const headerRect = spanRect(wall.rect, axis, openingFrom, openingTo);
-  const endpoint = Math.abs(openingFrom - wallStart) <= EPS
-    ? {
-      side: startSide,
-      direction: axis === "x" ? "sideNegativeU" : "rear",
-    } as const
-    : Math.abs(openingTo - wallEnd) <= EPS
-      ? {
-        side: endSide,
-        direction: axis === "x" ? "sidePositiveU" : "front",
-      } as const
-      : null;
-  const exteriorPortal = endpoint
-    ? cell.openings.find((candidate) => candidate.direction === endpoint.direction)
-    : null;
-  const exposedTopY = Math.min(
-    exteriorPortal?.topY ?? opening.topY,
-    cell.topY,
-  );
-  const id = `${wall.id}_header_${String(index + 1).padStart(2, "0")}`;
-
-  if (endpoint && exposedTopY > opening.topY + EPS) {
-    return [
-      panel(
-        `${id}_exposed`,
-        headerRect,
-        opening.topY,
-        exposedTopY,
-        withSide(surfaces, endpoint.side),
-        axis,
-        false,
-        true,
-      ),
-      panel(
-        id,
-        headerRect,
-        exposedTopY,
-        cell.topY,
-        surfaces,
-        axis,
-      ),
+function worldCuts(patch: Patch, axis: "x" | "z"): WallCut[] {
+  return compiledCutFragments(patch).map((fragment, index) => {
+    const corners = [
+      evaluateFrame(patch.frame, fragment.uMin, fragment.vMin),
+      evaluateFrame(patch.frame, fragment.uMax, fragment.vMin),
+      evaluateFrame(patch.frame, fragment.uMin, fragment.vMax),
+      evaluateFrame(patch.frame, fragment.uMax, fragment.vMax),
     ];
-  }
+    const along = corners.map((point) => axis === "x" ? point.x : point.z);
+    const vertical = corners.map((point) => point.y);
 
-  return [panel(
-    id,
-    headerRect,
-    opening.topY,
-    cell.topY,
-    surfaces,
-    axis,
-    true,
-    true,
-  )];
+    return {
+      id: `${patch.id}/cut_${String(index + 1).padStart(2, "0")}`,
+      from: Math.min(...along),
+      to: Math.max(...along),
+      bottomY: Math.min(...vertical),
+      topY: Math.max(...vertical),
+    };
+  });
 }
 
-function openingStart(
-  threshold: Rect,
-  axis: CellPanel["axis"],
-): number {
-  return axis === "x" ? threshold.minX : threshold.minZ;
-}
-
-function openingEnd(
-  threshold: Rect,
-  axis: CellPanel["axis"],
-): number {
-  return axis === "x" ? threshold.maxX : threshold.maxZ;
-}
-
-function wallPanels(
+function interiorBoundaryCuts(
   cell: CellRecord,
-  direction: CellRecord["walls"][number]["orientation"],
-  opening: CellRecord["openings"][number] | null,
-): CellPanel[] {
-  const { footprint: outer, interior: inner, bottomY, topY } = cell;
-  const axis = direction === "front" || direction === "rear" ? "x" : "z";
-  const rect = wallCenterRect(outer, inner, direction);
-  const id = wallPanelId(direction);
-  const surfaces = wallSurfaceSides(direction);
+  patches: ReadonlyMap<string, Patch>,
+  wall: CellRecord["interiorWalls"][number],
+  end: "start" | "end",
+): WallCut[] {
+  const direction = wall.axis === "x"
+    ? end === "start" ? "sideNegativeU" : "sidePositiveU"
+    : end === "start" ? "rear" : "front";
+  const exterior = cell.walls.find((candidate) => candidate.orientation === direction);
+  const patch = exterior ? patches.get(exterior.outerPatchId) : undefined;
 
-  if (!opening) {
-    return [panel(id, rect, bottomY, topY, surfaces, axis)];
+  if (!patch) {
+    return [];
   }
 
-  const start = axis === "x" ? rect.minX : rect.minZ;
-  const end = axis === "x" ? rect.maxX : rect.maxZ;
-  const portalStart = axis === "x"
-    ? opening.threshold.minX
-    : opening.threshold.minZ;
-  const portalEnd = axis === "x"
-    ? opening.threshold.maxX
-    : opening.threshold.maxZ;
-  const startRect = spanRect(rect, axis, start, portalStart);
-  const portalRect = spanRect(rect, axis, portalStart, portalEnd);
-  const endRect = spanRect(rect, axis, portalEnd, end);
-  const startSide = axis === "x" ? 0 : 3;
-  const endSide = axis === "x" ? 2 : 1;
-  const startPierSides = withSide(surfaces, endSide);
-  const endPierSides = withSide(surfaces, startSide);
-  const headerBottom = opening.topY;
+  const boundaryAxis = wall.axis === "x" ? "z" : "x";
+  const coordinate = boundaryAxis === "x"
+    ? (wall.rect.minX + wall.rect.maxX) * 0.5
+    : (wall.rect.minZ + wall.rect.maxZ) * 0.5;
 
-  return [
-    // The piers expose only their portal-facing jamb. Their tops are supported
-    // by the header and remain un-emitted.
-    panel(
-      `${id}_pier_start`,
-      startRect,
-      bottomY,
-      headerBottom,
-      startPierSides,
-      axis,
-      false,
-    ),
-    panel(
-      `${id}_pier_end`,
-      endRect,
-      bottomY,
-      headerBottom,
-      endPierSides,
-      axis,
-      false,
-    ),
-    // Three header blocks keep the soffit limited to the opening itself while
-    // retaining whole rectangular masonry blocks on either side.
-    panel(
-      `${id}_header_start`,
-      startRect,
-      headerBottom,
-      topY,
-      surfaces,
-      axis,
-    ),
-    panel(
-      `${id}_header_portal`,
-      portalRect,
-      headerBottom,
-      topY,
-      surfaces,
-      axis,
-      true,
-      true,
-    ),
-    panel(
-      `${id}_header_end`,
-      endRect,
-      headerBottom,
-      topY,
-      surfaces,
-      axis,
-    ),
-  ];
+  return worldCuts(patch, boundaryAxis).filter((cut) =>
+    coordinate > cut.from - EPS
+    && coordinate < cut.to + EPS);
+}
+
+function uniqueSorted(values: readonly number[]): number[] {
+  return [...new Set(values.map((value) => value.toFixed(9)))]
+    .map(Number)
+    .sort((a, b) => a - b);
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(Math.max(value, minimum), maximum);
 }
 
 function wallCenterRect(
@@ -475,12 +473,6 @@ function spanRect(
     : { ...rect, minZ: from, maxZ: to };
 }
 
-function withSide(sides: SideFlags, index: number): SideFlags {
-  const result: [boolean, boolean, boolean, boolean] = [...sides];
-  result[index] = true;
-  return result;
-}
-
 function panel(
   id: string,
   rect: Rect,
@@ -520,6 +512,7 @@ function courseBoundaries(
   cell: CellRecord,
   rule: MasonryRule,
   seed: number,
+  panels: readonly CellPanel[],
 ): number[] {
   const courses = divideCourses(
     cell.height,
@@ -531,11 +524,8 @@ function courseBoundaries(
   for (const course of courses) {
     boundaries.push(cell.bottomY + course.bottom + course.height);
   }
-  for (const opening of cell.openings) {
-    boundaries.push(opening.topY);
-  }
-  for (const connection of cell.connections) {
-    boundaries.push(connection.topY);
+  for (const panel of panels) {
+    boundaries.push(panel.bottomY, panel.topY);
   }
 
   return [...new Set(boundaries.map((value) => value.toFixed(9)))]

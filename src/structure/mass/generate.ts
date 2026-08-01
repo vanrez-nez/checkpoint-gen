@@ -604,6 +604,8 @@ function stairReserveRegion(
     ],
     vRange: [0, 1],
     priority: 100,
+    allowedOperations: [],
+    exclusions: [],
     tags: ["circulation", "stair", "no_build"],
   };
 }
@@ -629,6 +631,8 @@ function emitTerrace(
       id: structurePath(id, "covered"),
       ...normalizedBounds(band.upper, covered),
       priority: 100,
+      allowedOperations: [],
+      exclusions: [],
       tags: ["occupied", "no_build"],
     }],
   }));
@@ -690,6 +694,8 @@ function summitRegions(
     id: structurePath(patchId, "buildable"),
     ...normalizedBounds(summitRect, plan.buildable),
     priority: 10,
+    allowedOperations: [],
+    exclusions: [],
     tags: ["buildable"],
   }];
   const forecourtIds: Readonly<Record<HorizontalOrientation, string>> = {
@@ -704,6 +710,8 @@ function summitRegions(
       id: structurePath(patchId, forecourtIds[forecourt.direction]),
       ...normalizedBounds(summitRect, forecourt.rect),
       priority: 100,
+      allowedOperations: [],
+      exclusions: [],
       tags: ["circulation", "stair_arrival", "no_build"],
     });
   }
@@ -713,6 +721,8 @@ function summitRegions(
     id: structurePath(patchId, raised ? "raised_pad_footprint" : "building_pad"),
     ...normalizedBounds(summitRect, plan.buildingPad),
     priority: raised ? 100 : 50,
+    allowedOperations: [],
+    exclusions: [],
     tags: raised
       ? ["occupied", "no_build", "summit_pad"]
       : ["buildable", "superstructure"],
@@ -899,6 +909,8 @@ function emitSummitPad(
       uRange: [0, 1],
       vRange: [0, 1],
       priority: 50,
+      allowedOperations: [],
+      exclusions: [],
       tags: ["buildable", "superstructure"],
     }, ...(
       cell?.record.supportPatchId === pad.topPatchId
@@ -934,6 +946,8 @@ function cellFootprintRegion(
     id: structurePath(patchId, "cell_footprint"),
     ...normalizedBounds(surface, cell.record.footprint),
     priority: 150,
+    allowedOperations: [],
+    exclusions: [],
     tags: ["occupied", "no_build", "cell"],
   };
 }

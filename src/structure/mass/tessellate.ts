@@ -8,6 +8,7 @@ import type {
   StairConnectorRecord,
   StructureGraph,
 } from "../kernel/graph";
+import { patchIndex } from "../kernel/graph";
 import type { MasonryRule } from "../kernel/masonry";
 import { buildStair } from "../connector/build";
 import {
@@ -66,6 +67,7 @@ export function tessellateStructure(
 ): TessellationResult {
   const builder = new SolidBuilder();
   const { masonry, seed, stairTilesPerStep = 5 } = options;
+  const patches = patchIndex(graph);
 
   for (const mass of graph.masses) {
     const bands = mass.summit.pad
@@ -92,7 +94,7 @@ export function tessellateStructure(
       (face) => faceIsCellInteriorFloor(face, cell),
       "interior",
     );
-    builder.cullFaces((face) => faceIsCoveredByCellWall(face, cell));
+    builder.cullFaces((face) => faceIsCoveredByCellWall(face, cell, patches));
   }
 
   // A stair is resolved before tessellation, so its complete stepped envelope
@@ -108,7 +110,7 @@ export function tessellateStructure(
   for (const cell of graph.cells) {
     builder.withMaterial(
       "summit",
-      () => buildCell(builder, cell, masonry, seed),
+      () => buildCell(builder, cell, patches, masonry, seed),
     );
   }
 

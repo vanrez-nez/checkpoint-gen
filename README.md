@@ -84,6 +84,21 @@ footprint composition) are authored complete and only partly implemented. An
 unimplemented member is a named `error`, never a silent fallback, so a profile
 written today cannot quietly come to mean something else later.
 
+The first executable **Surface feature pipeline** is cut-first. A region states
+which typed operations it permits and which same-patch regions it excludes; a
+feature carries dependencies, relative ordering and an explicit `clip`, `skip`,
+`replace` or `error` conflict policy. Compilation is a pure graph reader: it
+topologically orders the features, resolves overlaps into deterministic
+rectangular fragments and reports named diagnostics without changing the patch.
+
+`cut` is currently the only executable surface operation, and it requires a
+rectangular region on a planar patch. Summit-building portals and room doors are
+drawn from those compiled patch cuts rather than from a separate list of opening
+rectangles, so the semantic surface now owns the void the tessellator emits.
+Arbitrary bottom-aligned or elevated cuts subdivide the wall on their `u`/`v`
+boundaries and expose only the required jamb, sill and soffit faces. The other
+operation names remain typed but deliberately produce an unimplemented error.
+
 `src/structure/mass/` resolves footprint plus elevation profile into bands. Two
 separate things narrow a mass, and keeping them apart is what makes both
 tunable: the **batter** leans a band's own faces inward over its rise, while the

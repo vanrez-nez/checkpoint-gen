@@ -54,6 +54,7 @@ import { massStructure } from "../src/structure/families/mass";
 import {
   patchIndex,
   serializeGraph,
+  StructureGraphBuilder,
   STRUCTURE_SCHEMA_VERSION,
   type CellOpeningRecord,
   type CellConnectionRecord,
@@ -77,7 +78,14 @@ import {
   stairSteps,
   stairWorldToLocal,
 } from "../src/structure/connector/stair";
-import { PATCH_ROLES } from "../src/structure/kernel/patch";
+import {
+  PATCH_ROLES,
+  type FeatureConflictPolicy,
+  type Patch,
+  type PatchFeature,
+  type PatchRegion,
+} from "../src/structure/kernel/patch";
+import { compilePatchFeatures } from "../src/structure/surface/features";
 import { createPatchOverlay } from "../src/structure/kernel/debug-overlay";
 import { generateStructure, type StructureSpec } from "../src/structure/mass/generate";
 import {
@@ -724,6 +732,128 @@ assert.ok(fallingGraph.patches.length > 0, "A falling curve must still build.");
 // Degenerate counts are answered, not thrown at.
 assert.deepEqual(distributeByCurve(0, 10, LINEAR_CURVE).values, []);
 assert.deepEqual(distributeByCurve(1, 10, LINEAR_CURVE).values, [10]);
+
+// --- patch feature compiler ------------------------------------------------
+// Patch features are declarative graph data. Compilation must be pure,
+// deterministic and independent of insertion order except where authored
+// dependencies say otherwise.
+const featureRegions = [
+  testRegion("feature_patch/region_a", [0, 0.5], [0, 1], 100),
+  testRegion("feature_patch/region_b", [0.25, 0.75], [0, 1], 50),
+  testRegion("feature_patch/region_c", [0.8, 1], [0, 1], 10),
+];
+const featureA = testCutFeature("feature_patch/a", featureRegions[0]!.id);
+const featureB = testCutFeature("feature_patch/b", featureRegions[1]!.id, {
+  conflictPolicy: "clip",
+  dependsOn: [featureA.id],
+});
+const featureC = testCutFeature("feature_patch/c", featureRegions[2]!.id, {
+  order: -10,
+  runsAfter: [featureB.id],
+});
+const featurePatch = testFeaturePatch(featureRegions, [featureC, featureB, featureA]);
+const featurePatchBefore = JSON.stringify(featurePatch);
+const compiledFeaturePatch = compilePatchFeatures(featurePatch);
+assert.equal(JSON.stringify(featurePatch), featurePatchBefore, "Feature compilation mutated its patch.");
+assert.deepEqual(
+  compiledFeaturePatch.features.map((entry) => entry.feature.id),
+  [featureA.id, featureB.id, featureC.id],
+  "Feature dependencies did not produce a stable topological order.",
+);
+assert.deepEqual(
+  compiledFeaturePatch.features[1]?.fragments,
+  [{ uMin: 0.5, uMax: 0.75, vMin: 0, vMax: 1 }],
+  "Clip did not subtract the previously accepted rectangular cut.",
+);
+assert.equal(
+  compiledFeaturePatch.diagnostics.filter(
+    (entry) => entry.code === "feature.conflict_clipped",
+  ).length,
+  1,
+);
+
+for (const expectation of [
+  { policy: "error", ids: [featureA.id], code: "feature.conflict" },
+  { policy: "skip", ids: [featureA.id], code: "feature.conflict_skipped" },
+  { policy: "replace", ids: [featureB.id], code: "feature.conflict_replaced" },
+] as const) {
+  const conflicting = compilePatchFeatures(testFeaturePatch(
+    featureRegions.slice(0, 2),
+    [
+      featureA,
+      testCutFeature(featureB.id, featureB.regionId!, {
+        conflictPolicy: expectation.policy,
+        order: 1,
+      }),
+    ],
+  ));
+  assert.deepEqual(
+    conflicting.features.map((entry) => entry.feature.id),
+    expectation.ids,
+    `${expectation.policy}: conflict resolution kept the wrong feature.`,
+  );
+  assert.equal(
+    conflicting.diagnostics.some((entry) => entry.code === expectation.code),
+    true,
+    `${expectation.policy}: conflict resolution emitted no named diagnostic.`,
+  );
+}
+
+const invalidFeatureCases = [
+  {
+    label: "missing dependency",
+    patch: testFeaturePatch([featureRegions[0]!], [testCutFeature(
+      featureA.id,
+      featureA.regionId!,
+      { dependsOn: ["feature_patch/missing"] },
+    )]),
+    code: "feature.dependency_missing",
+  },
+  {
+    label: "dependency cycle",
+    patch: testFeaturePatch(featureRegions.slice(0, 2), [
+      testCutFeature(featureA.id, featureA.regionId!, { dependsOn: [featureB.id] }),
+      testCutFeature(featureB.id, featureB.regionId!, { dependsOn: [featureA.id] }),
+    ]),
+    code: "feature.dependency_cycle",
+  },
+  {
+    label: "disallowed operation",
+    patch: testFeaturePatch([
+      { ...featureRegions[0]!, allowedOperations: [] },
+    ], [featureA]),
+    code: "feature.operation_disallowed",
+  },
+  {
+    label: "unimplemented operation",
+    patch: testFeaturePatch([
+      { ...featureRegions[0]!, allowedOperations: ["extrude"] },
+    ], [{ ...featureA, operation: "extrude" }]),
+    code: "feature.operation_unimplemented",
+  },
+  {
+    label: "unsupported evaluator",
+    patch: { ...testFeaturePatch([featureRegions[0]!], [featureA]), evaluator: "battered" },
+    code: "feature.evaluator_unsupported",
+  },
+  {
+    label: "missing exclusion",
+    patch: testFeaturePatch([
+      { ...featureRegions[0]!, exclusions: ["feature_patch/missing"] },
+    ], [featureA]),
+    code: "region.exclusion_missing",
+  },
+] as const;
+
+for (const invalid of invalidFeatureCases) {
+  assert.equal(
+    compilePatchFeatures(invalid.patch).diagnostics.some(
+      (entry) => entry.code === invalid.code && entry.severity === "error",
+    ),
+    true,
+    `${invalid.label}: compiler emitted no ${invalid.code} error.`,
+  );
+}
 
 // --- golden fixtures -------------------------------------------------------
 // Committed graphs, not committed meshes. A retuned proportion shows up as a
@@ -1926,8 +2056,40 @@ for (const wall of [cellFrontExterior, cellFrontInterior]) {
     operation: "cut",
     regionId: portal.id,
     order: 0,
+    dependsOn: [],
+    runsBefore: [],
+    runsAfter: [],
+    conflictPolicy: "error",
   }]);
 }
+
+const mismatchedCutBuilder = new StructureGraphBuilder(
+  "mismatched_cut",
+  createSeedSet(1),
+  summitCellGraph.site,
+);
+for (const patch of summitCellGraph.patches) {
+  if (patch.id !== cellFrontInterior.id) {
+    mismatchedCutBuilder.addPatch(patch);
+    continue;
+  }
+
+  mismatchedCutBuilder.addPatch({
+    ...patch,
+    regions: patch.regions.map((region) => ({
+      ...region,
+      uRange: [region.uRange[0] + 0.01, region.uRange[1] + 0.01],
+    })),
+  });
+}
+mismatchedCutBuilder.addCell(summitCell);
+assert.equal(
+  mismatchedCutBuilder.build([]).diagnostics.some(
+    (entry) => entry.code === "feature.paired_cut_mismatch",
+  ),
+  true,
+  "Paired wall faces accepted different world-space cuts.",
+);
 assert.equal(
   summitCellGraph.patches.filter(
     (patch) => patch.role === PATCH_ROLES.cellOpeningReveal,
@@ -2130,6 +2292,71 @@ assert.deepEqual(
   [],
   "A summit building without stairs must remain closed.",
 );
+
+// Geometry consumes compiled patch features, not CellRecord openings. Add two
+// cuts — including one elevated window-like opening — to the otherwise closed
+// chamber while leaving its topological opening list untouched.
+const isolatedPatches = patchIndex(isolatedCellGraph);
+const isolatedFrontWall = isolatedCell.walls.find(
+  (wall) => wall.orientation === "front",
+)!;
+const cutPatches = new Map(isolatedPatches);
+const authoredCuts = [
+  { id: "low", minX: -4, maxX: -2, vRange: [0, 0.25] as const },
+  { id: "elevated", minX: 2, maxX: 4, vRange: [0.35, 0.65] as const },
+];
+
+for (const patchId of [isolatedFrontWall.outerPatchId, isolatedFrontWall.innerPatchId]) {
+  const source = isolatedPatches.get(patchId)!;
+  const regions = authoredCuts.map((cut, index): PatchRegion => ({
+    id: `${patchId}/test_${cut.id}`,
+    uRange: normalizedXRange(source, cut.minX, cut.maxX),
+    vRange: cut.vRange,
+    priority: 100 - index,
+    allowedOperations: ["cut"],
+    exclusions: [],
+    tags: ["test", "opening"],
+  }));
+  const features = regions.map((region, index) => testCutFeature(
+    `${patchId}/cut_test_${authoredCuts[index]!.id}`,
+    region.id,
+    { order: index },
+  ));
+  cutPatches.set(patchId, { ...source, regions, features });
+}
+
+const featureDrivenCellBuilder = new SolidBuilder();
+buildCell(featureDrivenCellBuilder, isolatedCell, cutPatches, null, 89);
+for (const cut of authoredCuts) {
+  const opening: CellOpeningRecord = {
+    id: `test/${cut.id}`,
+    kind: "portal",
+    direction: "front",
+    width: cut.maxX - cut.minX,
+    height: (cut.vRange[1] - cut.vRange[0]) * isolatedCell.height,
+    bottomY: isolatedCell.bottomY + cut.vRange[0] * isolatedCell.height,
+    topY: isolatedCell.bottomY + cut.vRange[1] * isolatedCell.height,
+    threshold: {
+      minX: cut.minX,
+      maxX: cut.maxX,
+      minZ: isolatedCell.interior.maxZ,
+      maxZ: isolatedCell.footprint.maxZ,
+    },
+    exteriorPatchId: isolatedCell.supportPatchId,
+    interiorPatchId: isolatedCell.floorPatchId,
+    destinationRoomIds: [isolatedCell.rooms[0]!.id],
+    revealPatchIds: [],
+  };
+  assert.equal(
+    portalIsBlocked(featureDrivenCellBuilder, isolatedCell, opening),
+    false,
+    `${cut.id}: compiled patch cut did not open the wall geometry.`,
+  );
+}
+const featureDrivenGeometry = finalizeGeometry(featureDrivenCellBuilder).geometry;
+assert.equal(findCoincidentFaces(featureDrivenGeometry).pairs, 0);
+assert.equal(findBackfaces(featureDrivenGeometry).backfaces, 0);
+
 const squareCellRule = toMasonry(
   summitCellLayout,
   { ...DEFAULT_MASS_STONE_CONFIG, displacement: 0 },
@@ -2138,7 +2365,7 @@ assert.ok(squareCellRule);
 
 for (const masonry of [null, squareCellRule] as const) {
   const cellBuilder = new SolidBuilder();
-  buildCell(cellBuilder, summitCell, masonry, 71);
+  buildCell(cellBuilder, summitCell, patchIndex(summitCellGraph), masonry, 71);
   const cellGeometry = finalizeGeometry(cellBuilder).geometry;
   assert.equal(
     findCoincidentFaces(cellGeometry).pairs,
@@ -2165,7 +2392,13 @@ for (const masonry of [null, squareCellRule] as const) {
   );
 
   const allPortalBuilder = new SolidBuilder();
-  buildCell(allPortalBuilder, allPortalCell, masonry, 73);
+  buildCell(
+    allPortalBuilder,
+    allPortalCell,
+    patchIndex(allPortalGraph),
+    masonry,
+    73,
+  );
   const allPortalGeometry = finalizeGeometry(allPortalBuilder).geometry;
   assert.equal(
     findCoincidentFaces(allPortalGeometry).pairs,
@@ -2188,7 +2421,7 @@ for (const masonry of [null, squareCellRule] as const) {
   for (const planned of plannedCellGraphs) {
     const cell = planned.graph.cells[0]!;
     const plannedBuilder = new SolidBuilder();
-    buildCell(plannedBuilder, cell, masonry, 83);
+    buildCell(plannedBuilder, cell, patchIndex(planned.graph), masonry, 83);
     const plannedGeometry = finalizeGeometry(plannedBuilder).geometry;
     assert.equal(
       findCoincidentFaces(plannedGeometry).pairs,
@@ -2231,7 +2464,7 @@ for (const masonry of [null, squareCellRule] as const) {
   }
 
   const roofBuilder = new SolidBuilder();
-  buildCell(roofBuilder, summitCell, masonry, 79);
+  buildCell(roofBuilder, summitCell, patchIndex(summitCellGraph), masonry, 79);
   roofBuilder.cullFaces((face) => faceIsCoveredByRoof(face, summitRoof));
   buildRoof(roofBuilder, summitRoof);
   const roofGeometry = finalizeGeometry(roofBuilder).geometry;
@@ -4342,6 +4575,85 @@ console.log(
 
 // --- helpers ---------------------------------------------------------------
 
+function testRegion(
+  id: string,
+  uRange: readonly [number, number],
+  vRange: readonly [number, number],
+  priority: number,
+): PatchRegion {
+  return {
+    id,
+    uRange,
+    vRange,
+    priority,
+    allowedOperations: ["cut"],
+    exclusions: [],
+    tags: ["test"],
+  };
+}
+
+function testCutFeature(
+  id: string,
+  regionId: string,
+  overrides: Partial<PatchFeature> = {},
+): PatchFeature {
+  const conflictPolicy: FeatureConflictPolicy = overrides.conflictPolicy ?? "error";
+  return {
+    id,
+    operation: "cut",
+    regionId,
+    order: 0,
+    dependsOn: [],
+    runsBefore: [],
+    runsAfter: [],
+    conflictPolicy,
+    ...overrides,
+  };
+}
+
+function testFeaturePatch(
+  regions: readonly PatchRegion[],
+  features: readonly PatchFeature[],
+): Patch {
+  const id = "feature_patch";
+  return {
+    id,
+    role: "test_surface",
+    frame: {
+      origin: { x: 0, y: 0, z: 0 },
+      uAxis: { x: 1, y: 0, z: 0 },
+      vAxis: { x: 0, y: 1, z: 0 },
+      normal: { x: 0, y: 0, z: 1 },
+      uLength: 10,
+      vLength: 10,
+    },
+    dimensions: { u: 10, v: 10, thickness: 0 },
+    evaluator: "planar",
+    edges: {
+      uMin: { id: `${id}/edge_u_min`, orientation: "sideNegativeU", treatment: null },
+      uMax: { id: `${id}/edge_u_max`, orientation: "sidePositiveU", treatment: null },
+      vMin: { id: `${id}/edge_v_min`, orientation: "bottom", treatment: null },
+      vMax: { id: `${id}/edge_v_max`, orientation: "top", treatment: null },
+    },
+    adjacency: [],
+    regions,
+    features,
+    anchors: [],
+    tags: ["test"],
+  };
+}
+
+function normalizedXRange(
+  patch: Patch,
+  minX: number,
+  maxX: number,
+): readonly [number, number] {
+  const project = (x: number) =>
+    (x - patch.frame.origin.x) * patch.frame.uAxis.x / patch.frame.uLength;
+  const values = [project(minX), project(maxX)];
+  return [Math.min(...values), Math.max(...values)];
+}
+
 function assertGraphInvariants(graph: StructureGraph, label: string): void {
   assert.equal(graph.schemaVersion, STRUCTURE_SCHEMA_VERSION);
   assert.equal(graph.units, "meters");
@@ -4390,7 +4702,14 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
     }
 
     // Features address a real region on their patch. Cell portals are the first
-    // operation to fill this formerly reserved container.
+    // executable operation to fill this formerly reserved container.
+    assert.deepEqual(
+      compilePatchFeatures(patch).diagnostics.filter(
+        (entry) => entry.severity === "error",
+      ),
+      [],
+      `${label}: patch ${patch.id} has an invalid feature plan.`,
+    );
     for (const feature of patch.features) {
       assert.ok(isValidId(feature.id), `${label}: feature ${feature.id} is invalid.`);
       assert.ok(feature.operation, `${label}: feature ${feature.id} has no operation.`);

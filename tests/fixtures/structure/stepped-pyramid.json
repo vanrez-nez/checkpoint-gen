@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.5",
+  "schemaVersion": "1.6",
   "id": "structure",
   "units": "meters",
   "seeds": {
@@ -445,6 +445,8 @@
             1
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "circulation",
             "stair",
@@ -743,6 +745,8 @@
             0.981481
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "occupied",
             "no_build"
@@ -828,6 +832,8 @@
             1
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "circulation",
             "stair",
@@ -1126,6 +1132,8 @@
             0.969282
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "occupied",
             "no_build"
@@ -1212,6 +1220,8 @@
             1
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "circulation",
             "stair",
@@ -1510,6 +1520,8 @@
             0.963528
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "occupied",
             "no_build"
@@ -1596,6 +1608,8 @@
             1
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "circulation",
             "stair",
@@ -1894,6 +1908,8 @@
             0.956827
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "occupied",
             "no_build"
@@ -1980,6 +1996,8 @@
             1
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "circulation",
             "stair",
@@ -2278,6 +2296,8 @@
             0.948636
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "occupied",
             "no_build"
@@ -2364,6 +2384,8 @@
             1
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "circulation",
             "stair",
@@ -2662,6 +2684,8 @@
             0.938202
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "occupied",
             "no_build"
@@ -2748,6 +2772,8 @@
             1
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "circulation",
             "stair",
@@ -3046,6 +3072,8 @@
             0.924303
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "occupied",
             "no_build"
@@ -3132,6 +3160,8 @@
             1
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "circulation",
             "stair",
@@ -3427,6 +3457,8 @@
             1
           ],
           "priority": 10,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "buildable"
           ]
@@ -3442,6 +3474,8 @@
             1
           ],
           "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "circulation",
             "stair_arrival",
@@ -3459,6 +3493,8 @@
             0.875
           ],
           "priority": 50,
+          "allowedOperations": [],
+          "exclusions": [],
           "tags": [
             "buildable",
             "superstructure"
