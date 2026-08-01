@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.6",
+  "schemaVersion": "1.7",
   "id": "structure",
   "units": "meters",
   "seeds": {
@@ -2513,6 +2513,7 @@
     }
   ],
   "cells": [],
+  "facades": [],
   "frames": [],
   "roofs": [],
   "attachments": [],

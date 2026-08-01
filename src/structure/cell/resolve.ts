@@ -14,7 +14,6 @@ import {
 import {
   type CellConnectionRecord,
   type CellInteriorWallRecord,
-  type CellOpeningRecord,
   type CellRecord,
   type CellRoomRecord,
   type CellWallRecord,
@@ -45,6 +44,24 @@ export interface ResolvedCell {
   readonly record: CellRecord;
   readonly patches: readonly Patch[];
   readonly links: readonly (readonly [string, string])[];
+  /** Topological requests placed onto the exterior wall by facade grammar. */
+  readonly exteriorOpenings: readonly CellExteriorOpeningRequest[];
+}
+
+export interface CellExteriorOpeningRequest {
+  readonly id: string;
+  readonly kind: "portal";
+  readonly direction: HorizontalOrientation;
+  readonly width: number;
+  readonly height: number;
+  readonly bottomY: number;
+  readonly topY: number;
+  readonly threshold: Rect;
+  readonly exteriorWallPatchId: string;
+  readonly interiorWallPatchId: string;
+  readonly exteriorPatchId: string;
+  readonly interiorPatchId: string;
+  readonly destinationRoomIds: readonly string[];
 }
 
 /**
@@ -168,27 +185,6 @@ export function resolveSummitCell(
   ] as const) {
     const outerPatchId = structurePath(id, `wall_${wallSegment(orientation)}_exterior`);
     const innerPatchId = structurePath(id, `wall_${wallSegment(orientation)}_interior`);
-    const hasPortal = portalFacades.has(orientation);
-    const outerPortal = hasPortal
-      ? portalRegion(
-        outerPatchId,
-        footprint,
-        orientation,
-        spec.portalWidth,
-        spec.portalHeight,
-        spec.height,
-      )
-      : null;
-    const innerPortal = hasPortal
-      ? portalRegion(
-        innerPatchId,
-        interior,
-        orientation,
-        spec.portalWidth,
-        spec.portalHeight,
-        spec.height,
-      )
-      : null;
 
     patches.push(
       wallPatch({
@@ -198,7 +194,6 @@ export function resolveSummitCell(
         bottomY,
         topY,
         interior: false,
-        portal: outerPortal,
       }),
       wallPatch({
         id: innerPatchId,
@@ -207,7 +202,6 @@ export function resolveSummitCell(
         bottomY,
         topY,
         interior: true,
-        portal: innerPortal,
       }),
     );
     wallRecords.push({ orientation, outerPatchId, innerPatchId });
@@ -221,7 +215,7 @@ export function resolveSummitCell(
   linkWallLoop(wallRecords, "outerPatchId", links);
   linkWallLoop(wallRecords, "innerPatchId", links);
 
-  const openings: CellOpeningRecord[] = [];
+  const exteriorOpenings: CellExteriorOpeningRequest[] = [];
 
   for (const direction of portalFacades) {
     const wall = wallRecords.find((candidate) => candidate.orientation === direction)!;
@@ -232,52 +226,13 @@ export function resolveSummitCell(
       direction,
       spec.portalWidth,
     );
-    const revealIds = {
-      start: structurePath(portalId, "jamb_start"),
-      end: structurePath(portalId, "jamb_end"),
-      head: structurePath(portalId, "soffit"),
-    };
     const destinations = destinationRooms(
       roomPlan.rooms,
       spec.kind,
       direction,
     );
 
-    patches.push(
-      portalJambPatch(
-        revealIds.start,
-        threshold,
-        direction,
-        "start",
-        bottomY,
-        spec.portalHeight,
-      ),
-      portalJambPatch(
-        revealIds.end,
-        threshold,
-        direction,
-        "end",
-        bottomY,
-        spec.portalHeight,
-      ),
-      portalSoffitPatch(
-        revealIds.head,
-        threshold,
-        bottomY + spec.portalHeight,
-      ),
-    );
-    for (const revealId of Object.values(revealIds)) {
-      links.push(
-        [wall.outerPatchId, revealId],
-        [wall.innerPatchId, revealId],
-      );
-    }
-    links.push(
-      [revealIds.start, revealIds.head],
-      [revealIds.end, revealIds.head],
-    );
-
-    openings.push({
+    exteriorOpenings.push({
       id: portalId,
       kind: "portal",
       direction,
@@ -286,11 +241,12 @@ export function resolveSummitCell(
       bottomY,
       topY: bottomY + spec.portalHeight,
       threshold,
+      exteriorWallPatchId: wall.outerPatchId,
+      interiorWallPatchId: wall.innerPatchId,
       exteriorPatchId: placement.patchId,
       interiorPatchId: destinations[0]?.floorPatchId
         ?? roomPlan.rooms[0]!.floorPatchId,
       destinationRoomIds: destinations.map((room) => room.id),
-      revealPatchIds: Object.values(revealIds),
     });
   }
 
@@ -401,14 +357,14 @@ export function resolveSummitCell(
     placementAnchorId: placement.anchorId,
     floorPatchId,
     walls: wallRecords,
-    openings,
+    openings: [],
     rooms: roomPlan.rooms,
     interiorWalls: roomPlan.interiorWalls,
     connections: roomPlan.connections,
     patchIds: patches.map((patch) => patch.id),
   };
 
-  return { record, patches, links };
+  return { record, patches, links, exteriorOpenings };
 }
 
 interface ResolvedRoomPlan {
@@ -830,28 +786,6 @@ function wallSegment(orientation: HorizontalOrientation): string {
   }
 }
 
-function portalRegion(
-  patchId: string,
-  rect: Rect,
-  orientation: HorizontalOrientation,
-  portalWidth: number,
-  portalHeight: number,
-  wallHeight: number,
-): PatchRegion {
-  const centerU = 0.5;
-  const halfU = portalWidth / wallSpan(rect, orientation) * 0.5;
-
-  return {
-    id: structurePath(patchId, "portal"),
-    uRange: [centerU - halfU, centerU + halfU],
-    vRange: [0, portalHeight / wallHeight],
-    priority: 100,
-    allowedOperations: ["cut"],
-    exclusions: [],
-    tags: ["opening", "portal", "circulation"],
-  };
-}
-
 function wallSpan(rect: Rect, orientation: HorizontalOrientation): number {
   return orientation === "front" || orientation === "rear"
     ? rectWidth(rect)
@@ -906,7 +840,6 @@ function wallPatch(input: {
   readonly bottomY: number;
   readonly topY: number;
   readonly interior: boolean;
-  readonly portal: PatchRegion | null;
 }): Patch {
   const edge = rectEdge(input.rect, input.orientation);
   const frame = createFacadeFrame(
@@ -924,20 +857,6 @@ function wallPatch(input: {
     input.topY,
     edge.start,
   );
-  const regions = input.portal ? [input.portal] : [];
-  const features: PatchFeature[] = input.portal
-    ? [{
-      id: structurePath(input.id, "cut_portal"),
-      operation: "cut",
-      regionId: input.portal.id,
-      order: 0,
-      dependsOn: [],
-      runsBefore: [],
-      runsAfter: [],
-      conflictPolicy: "error",
-    }]
-    : [];
-
   return {
     id: input.id,
     role: input.interior
@@ -952,8 +871,8 @@ function wallPatch(input: {
     evaluator: "planar",
     edges: wallEdges(input.id, input.orientation),
     adjacency: [],
-    regions,
-    features,
+    regions: [],
+    features: [],
     anchors: [],
     tags: [
       input.interior ? "interior" : "exterior",
@@ -985,6 +904,7 @@ function interiorWallPatch(
   const features: PatchFeature[] = regions.map((region, index) => ({
     id: structurePath(id, `cut_door_${String(index + 1).padStart(2, "0")}`),
     operation: "cut",
+    depth: 0,
     regionId: region.id,
     order: index,
     dependsOn: [],

@@ -46,6 +46,8 @@ import {
   type ResolvedCell,
   type SummitCellSpec,
 } from "../cell/resolve";
+import { resolveCellFacades } from "../facade/resolve";
+import type { FacadeSpec } from "../facade/types";
 import {
   resolveSummitRoof,
   type SummitRoofSpec,
@@ -111,6 +113,8 @@ export interface StructureSpec {
   readonly stairs: readonly StairSpec[];
   /** Enclosed summit assemblies. This phase supports one single chamber. */
   readonly cells: readonly SummitCellSpec[];
+  /** Surface grammar applied to each enclosed cell's exterior walls. */
+  readonly facade: FacadeSpec;
   /** Roof assemblies resolved from the cells they cover. */
   readonly roofs: readonly SummitRoofSpec[];
 }
@@ -337,11 +341,27 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
   if (spec.cells[0] && !cell) {
     return graph.build(diagnostics.all);
   }
+  const resolvedFacades = cell
+    ? resolveCellFacades(cell, spec.facade, diagnostics)
+    : null;
+
+  if (cell && !resolvedFacades) {
+    return graph.build(diagnostics.all);
+  }
+
+  const facadedCell: ResolvedCell | null = cell && resolvedFacades
+    ? {
+      record: resolvedFacades.cell,
+      patches: resolvedFacades.patches,
+      links: resolvedFacades.links,
+      exteriorOpenings: cell.exteriorOpenings,
+    }
+    : null;
   const roof = spec.roofs[0]
     ? resolveSummitRoof(
       spec.id,
       spec.roofs[0],
-      cell?.record ?? null,
+      facadedCell?.record ?? null,
       diagnostics,
     )
     : null;
@@ -395,7 +415,7 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
         elevation.summitRect,
         summitPlan,
         summitPad,
-        cell,
+        facadedCell,
       );
 
     for (const facadeId of facadeIds) {
@@ -427,14 +447,17 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     ],
   } satisfies MassRecord);
 
-  if (cell) {
-    for (const patch of cell.patches) {
+  if (facadedCell) {
+    for (const patch of facadedCell.patches) {
       graph.addPatch(patch);
     }
-    for (const [a, b] of cell.links) {
+    for (const [a, b] of facadedCell.links) {
       graph.link(a, b);
     }
-    graph.addCell(cell.record);
+    graph.addCell(facadedCell.record);
+    for (const facade of resolvedFacades?.facades ?? []) {
+      graph.addFacade(facade);
+    }
   }
   if (roof) {
     for (const patch of roof.patches) {

@@ -84,20 +84,32 @@ footprint composition) are authored complete and only partly implemented. An
 unimplemented member is a named `error`, never a silent fallback, so a profile
 written today cannot quietly come to mean something else later.
 
-The first executable **Surface feature pipeline** is cut-first. A region states
-which typed operations it permits and which same-patch regions it excludes; a
+The executable **Surface feature pipeline** is cut-first and depth-aware. A
+region states which typed operations it permits and which same-patch regions it excludes; a
 feature carries dependencies, relative ordering and an explicit `clip`, `skip`,
 `replace` or `error` conflict policy. Compilation is a pure graph reader: it
 topologically orders the features, resolves overlaps into deterministic
 rectangular fragments and reports named diagnostics without changing the patch.
 
-`cut` is currently the only executable surface operation, and it requires a
-rectangular region on a planar patch. Summit-building portals and room doors are
-drawn from those compiled patch cuts rather than from a separate list of opening
-rectangles, so the semantic surface now owns the void the tessellator emits.
-Arbitrary bottom-aligned or elevated cuts subdivide the wall on their `u`/`v`
-boundaries and expose only the required jamb, sill and soffit faces. The other
-operation names remain typed but deliberately produce an unimplemented error.
+`cut`, `inset`, and `extrude` execute over rectangular regions on planar patches.
+The wall reader resolves them together as a `u`/`v`/depth grid: a cut removes the
+full wall depth, an inset stops the wall behind its base plane, and an extrusion
+continues it forward. This partitions the real wall volume rather than layering
+decoration over an unchanged face, so jambs, sills, soffits, recess returns, and
+projecting sides each have one owner. The other operation names remain typed but
+deliberately produce an unimplemented error.
+
+`src/structure/facade/` resolves every summit-building exterior wall into stable
+horizontal bays and vertical bands. Fixed dimensions are allocated before
+weighted remainder, bilateral rules are validated, and a three-bay Cell plan can
+project its partition ownership into facade bay widths. The default `plain`
+grammar still produces the established centred portals, but those portals are
+now exterior connection intents placed by Facade rather than regions authored
+inside Cell. The opt-in `hierarchical` grammar adds a primary entrance, elevated
+window, niches and recessed panels, bay-boundary pilasters, and a continuous
+frieze through the same three Surface operations. This first reader is limited
+to rectangular planar Cell facades; arched openings and battered Mass facades
+remain explicit later work.
 
 `src/structure/mass/` resolves footprint plus elevation profile into bands. Two
 separate things narrow a mass, and keeping them apart is what makes both
@@ -172,9 +184,9 @@ twin chamber, or a three-bay gatehouse. Multi-room plans own each shared
 partition once and cut configurable-width, configurable-height connections
 through both semantic wall faces and the generated wall blocks. Wall height,
 wall thickness, and the exterior portal dimensions remain real dimensions.
-Every enabled stair facade cuts one centred exterior portal through the matching
-building wall; those portals resolve directly to the room or rooms they reach,
-and with no stairs the building remains closed to the exterior.
+Every enabled stair requests one exterior connection on the matching building
+wall. Facade grammar places its centred portal, while Cell supplies the room or
+rooms it must reach; with no stairs the building remains closed to the exterior.
 
 The graph records each room and floor independently, the shared partitions,
 room connections, exterior and interior wall patches, roof-bearing wall crowns,

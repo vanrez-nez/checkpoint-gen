@@ -48,7 +48,11 @@ export const PATCH_OPERATIONS = [
 export type PatchOperation = (typeof PATCH_OPERATIONS)[number];
 
 /** Operations with a concrete reader in the current Surface phase. */
-export const IMPLEMENTED_PATCH_OPERATIONS: readonly PatchOperation[] = ["cut"];
+export const IMPLEMENTED_PATCH_OPERATIONS: readonly PatchOperation[] = [
+  "cut",
+  "inset",
+  "extrude",
+];
 
 export const FEATURE_CONFLICT_POLICIES = [
   "clip",
@@ -137,13 +141,15 @@ export interface PatchRegion {
 }
 
 /**
- * An operation applied to a region of a patch. Reserved: the mass system emits
- * none, and the operation pipeline that consumes these arrives in the next
- * phase. The field exists now so that phase adds behaviour rather than schema.
+ * An operation applied to a region of a patch. The current planar reader
+ * executes cuts and signed-depth wall profiles; the remaining authored
+ * vocabulary still fails explicitly until it gains a reader.
  */
 export interface PatchFeature {
   readonly id: string;
   readonly operation: PatchOperation;
+  /** Positive real depth for inset/extrude; zero for operations without depth. */
+  readonly depth: number;
   readonly regionId: string | null;
   readonly order: number;
   /** Hard prerequisites on the same patch. */

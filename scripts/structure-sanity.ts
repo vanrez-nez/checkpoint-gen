@@ -86,6 +86,8 @@ import {
   type PatchRegion,
 } from "../src/structure/kernel/patch";
 import { compilePatchFeatures } from "../src/structure/surface/features";
+import { resolveFacadeBands, resolveFacadeBays } from "../src/structure/facade/layout";
+import { DiagnosticCollector } from "../src/structure/kernel/validate";
 import { createPatchOverlay } from "../src/structure/kernel/debug-overlay";
 import { generateStructure, type StructureSpec } from "../src/structure/mass/generate";
 import {
@@ -161,6 +163,11 @@ assert.deepEqual(
     summitBuildingPlan: DEFAULT_MASS_LAYOUT.summitBuildingPlan,
     summitInteriorOpeningWidth: DEFAULT_MASS_LAYOUT.summitInteriorOpeningWidth,
     summitInteriorOpeningHeight: DEFAULT_MASS_LAYOUT.summitInteriorOpeningHeight,
+    facadeStyle: DEFAULT_MASS_LAYOUT.facadeStyle,
+    facadeRecessDepth: DEFAULT_MASS_LAYOUT.facadeRecessDepth,
+    facadePilasterProjection: DEFAULT_MASS_LAYOUT.facadePilasterProjection,
+    facadeFriezeHeight: DEFAULT_MASS_LAYOUT.facadeFriezeHeight,
+    facadeFriezeProjection: DEFAULT_MASS_LAYOUT.facadeFriezeProjection,
     summitRoofEnabled: DEFAULT_MASS_LAYOUT.summitRoofEnabled,
     summitRoofThickness: DEFAULT_MASS_LAYOUT.summitRoofThickness,
     summitRoofProjection: DEFAULT_MASS_LAYOUT.summitRoofProjection,
@@ -214,6 +221,11 @@ assert.deepEqual(
     summitBuildingPlan: "single_chamber",
     summitInteriorOpeningWidth: 1.5,
     summitInteriorOpeningHeight: 2.2,
+    facadeStyle: "plain",
+    facadeRecessDepth: 0.18,
+    facadePilasterProjection: 0.16,
+    facadeFriezeHeight: 0.3,
+    facadeFriezeProjection: 0.12,
     summitRoofEnabled: true,
     summitRoofThickness: 0.5,
     summitRoofProjection: 0.25,
@@ -827,14 +839,21 @@ const invalidFeatureCases = [
   {
     label: "unimplemented operation",
     patch: testFeaturePatch([
-      { ...featureRegions[0]!, allowedOperations: ["extrude"] },
-    ], [{ ...featureA, operation: "extrude" }]),
+      { ...featureRegions[0]!, allowedOperations: ["displace"] },
+    ], [{ ...featureA, operation: "displace" }]),
     code: "feature.operation_unimplemented",
   },
   {
     label: "unsupported evaluator",
     patch: { ...testFeaturePatch([featureRegions[0]!], [featureA]), evaluator: "battered" },
     code: "feature.evaluator_unsupported",
+  },
+  {
+    label: "missing depth",
+    patch: testFeaturePatch([
+      { ...featureRegions[0]!, allowedOperations: ["extrude"] },
+    ], [{ ...featureA, operation: "extrude", depth: 0 }]),
+    code: "feature.depth_required",
   },
   {
     label: "missing exclusion",
@@ -854,6 +873,57 @@ for (const invalid of invalidFeatureCases) {
     `${invalid.label}: compiler emitted no ${invalid.code} error.`,
   );
 }
+
+// --- facade layout resolvers ----------------------------------------------
+// Fixed dimensions are allocated before weights, and every result remains in
+// the patch's stable normalized domain.
+const facadeLayoutDiagnostics = new DiagnosticCollector();
+const resolvedBays = resolveFacadeBays(
+  "test/facade",
+  10,
+  { start: 1, end: 1 },
+  [
+    { id: "left", role: "secondary", weight: 1, hierarchy: 1 },
+    { id: "center", role: "entrance", width: 2, hierarchy: 3 },
+    { id: "right", role: "secondary", weight: 1, hierarchy: 1 },
+  ],
+  "bilateral",
+  facadeLayoutDiagnostics,
+);
+assert.ok(resolvedBays);
+assert.deepEqual(resolvedBays.map((bay) => bay.width), [3, 2, 3]);
+assert.deepEqual(resolvedBays.map((bay) => bay.uRange), [
+  [0.1, 0.4],
+  [0.4, 0.6],
+  [0.6, 0.9],
+]);
+const resolvedBands = resolveFacadeBands(
+  "test/facade",
+  4,
+  [
+    { id: "body", role: "opening_zone", weight: 1, continuity: "per_bay" },
+    { id: "frieze", role: "frieze", height: 0.5, continuity: "continuous" },
+  ],
+  facadeLayoutDiagnostics,
+);
+assert.ok(resolvedBands);
+assert.deepEqual(resolvedBands.map((band) => band.height), [3.5, 0.5]);
+assert.deepEqual(facadeLayoutDiagnostics.all, []);
+
+const invalidFacadeDiagnostics = new DiagnosticCollector();
+assert.equal(resolveFacadeBays(
+  "test/facade_invalid",
+  4,
+  { start: 0, end: 0 },
+  [
+    { id: "left", role: "secondary", weight: 1, hierarchy: 1 },
+    { id: "center", role: "primary", weight: 1, hierarchy: 3 },
+    { id: "right", role: "solid", weight: 1, hierarchy: 1 },
+  ],
+  "bilateral",
+  invalidFacadeDiagnostics,
+), null);
+assert.equal(invalidFacadeDiagnostics.all[0]?.code, "facade.bays_not_bilateral");
 
 // --- golden fixtures -------------------------------------------------------
 // Committed graphs, not committed meshes. A retuned proportion shows up as a
@@ -920,6 +990,14 @@ const FIXTURES: readonly { readonly name: string; readonly layout: MassLayoutCon
       cornicePlacement: "terraces",
       corniceProjection: 0.25,
       corniceHeight: 0.3,
+    },
+  },
+  {
+    name: "hierarchical-facade",
+    layout: {
+      ...cloneFrontStairLayout(),
+      summitBuildingEnabled: true,
+      facadeStyle: "hierarchical",
     },
   },
 ];
@@ -2012,6 +2090,8 @@ assert.deepEqual(
 );
 assertGraphInvariants(summitCellGraph, "single summit chamber");
 assert.equal(summitCellGraph.cells.length, 1);
+assert.equal(summitCellGraph.facades.length, 4);
+assert.equal(summitCellGraph.facades.every((facade) => facade.style === "plain"), true);
 const summitCell = summitCellGraph.cells[0]!;
 const summitCellMass = summitCellGraph.masses[0]!;
 const summitCellPlacement = summitCellMass.summit.placement!;
@@ -2052,8 +2132,9 @@ for (const wall of [cellFrontExterior, cellFrontInterior]) {
   const portal = wall.regions.find((region) => region.tags.includes("portal"));
   assert.ok(portal);
   assert.deepEqual(wall.features, [{
-    id: `${wall.id}/cut_portal`,
+    id: `${wall.id}/cut_front`,
     operation: "cut",
+    depth: 0,
     regionId: portal.id,
     order: 0,
     dependsOn: [],
@@ -2522,6 +2603,107 @@ for (const masonry of [null, squareCellRule] as const) {
   }
 }
 
+// The hierarchical preset proves the same resolver can author a facade rather
+// than merely replay the old centered portal: a portal, elevated windows,
+// niches/recessed panels, pilasters and a continuous frieze all resolve through
+// PatchFeature operations and the same wall-volume reader.
+const hierarchicalFacadeLayout: MassLayoutConfig = {
+  ...summitCellLayout,
+  ...FRONT_STAIR_ONLY,
+  facadeStyle: "hierarchical",
+};
+const hierarchicalFacadeGraph = generateStructure(
+  toStructureSpec(hierarchicalFacadeLayout),
+);
+assert.deepEqual(
+  hierarchicalFacadeGraph.diagnostics.filter((entry) => entry.severity === "error"),
+  [],
+);
+assert.equal(hierarchicalFacadeGraph.facades.length, 4);
+for (const facade of hierarchicalFacadeGraph.facades) {
+  assert.equal(facade.style, "hierarchical");
+  assert.equal(facade.symmetry, "bilateral");
+  assert.equal(facade.bays.length, 3);
+  assert.deepEqual(facade.bands.map((band) => band.role), ["opening_zone", "frieze"]);
+}
+const hierarchicalOperations = hierarchicalFacadeGraph.patches
+  .flatMap((patch) => patch.features.map((feature) => feature.operation));
+for (const operation of ["cut", "inset", "extrude"] as const) {
+  assert.equal(
+    hierarchicalOperations.includes(operation),
+    true,
+    `Hierarchical facade emitted no ${operation} feature.`,
+  );
+}
+assert.equal(
+  hierarchicalFacadeGraph.patches.some((patch) =>
+    patch.features.some((feature) => feature.id.endsWith("/cut_portal"))),
+  false,
+  "The removed Cell-authored portal feature path survived facade resolution.",
+);
+const hierarchicalCell = hierarchicalFacadeGraph.cells[0]!;
+assert.equal(hierarchicalCell.openings.length, 1);
+assert.equal(
+  hierarchicalFacadeGraph.patches.filter(
+    (patch) => patch.role === PATCH_ROLES.cellOpeningReveal,
+  ).length,
+  7,
+  "One portal and one elevated window must register complete semantic reveals.",
+);
+for (const masonry of [null, squareCellRule] as const) {
+  const builder = new SolidBuilder();
+  buildCell(
+    builder,
+    hierarchicalCell,
+    patchIndex(hierarchicalFacadeGraph),
+    masonry,
+    97,
+  );
+  const geometry = finalizeGeometry(builder).geometry;
+  assert.equal(
+    findCoincidentFaces(geometry).pairs,
+    0,
+    `Hierarchical facade ${masonry ? "masonry" : "bare"} emitted coincident faces.`,
+  );
+  assert.equal(
+    findBuriedFaces(geometry).faces,
+    0,
+    `Hierarchical facade ${masonry ? "masonry" : "bare"} emitted buried faces.`,
+  );
+  assert.ok(
+    findBackfaces(geometry).backfaces <= 1,
+    `Hierarchical facade ${masonry ? "masonry" : "bare"} exposed more than the one accepted through-window sightline.`,
+  );
+  assert.equal(
+    portalIsBlocked(builder, hierarchicalCell, hierarchicalCell.openings[0]!),
+    false,
+    `Hierarchical facade ${masonry ? "masonry" : "bare"} filled its portal.`,
+  );
+}
+
+const cellDerivedFacadeGraph = generateStructure(toStructureSpec({
+  ...summitCellLayout,
+  ...STAIRS_DISABLED,
+  summitBuildingPlan: "three_bay",
+  facadeStyle: "hierarchical",
+}));
+assert.deepEqual(
+  cellDerivedFacadeGraph.diagnostics.filter((entry) => entry.severity === "error"),
+  [],
+);
+const derivedFrontFacade = cellDerivedFacadeGraph.facades.find(
+  (facade) => facade.orientation === "front",
+)!;
+assert.equal(derivedFrontFacade.bays.length, 3);
+assert.ok(
+  derivedFrontFacade.bays[1]!.width > derivedFrontFacade.bays[0]!.width,
+  "The three-bay facade did not retain the wider center implied by partition ownership.",
+);
+assert.ok(
+  Math.abs(derivedFrontFacade.bays[0]!.width - derivedFrontFacade.bays[2]!.width) < 1e-9,
+  "The cell-derived three-bay facade lost bilateral symmetry.",
+);
+
 const cellWithOversizedPortal = generateStructure(toStructureSpec({
   ...summitCellLayout,
   summitBuildingPortalWidth: 100,
@@ -2535,6 +2717,21 @@ assert.equal(
 assert.deepEqual(cellWithOversizedPortal.masses, []);
 assert.deepEqual(cellWithOversizedPortal.patches, []);
 assert.deepEqual(cellWithOversizedPortal.cells, []);
+
+const cellWithDeepFacadeRecess = generateStructure(toStructureSpec({
+  ...summitCellLayout,
+  facadeStyle: "hierarchical",
+  summitBuildingWallThickness: 0.15,
+  facadeRecessDepth: 0.2,
+}));
+assert.equal(
+  cellWithDeepFacadeRecess.diagnostics.find(
+    (diagnostic) => diagnostic.severity === "error",
+  )?.code,
+  "facade.recess_too_deep",
+);
+assert.deepEqual(cellWithDeepFacadeRecess.cells, []);
+assert.deepEqual(cellWithDeepFacadeRecess.facades, []);
 
 const cellWithOversizedInteriorOpening = generateStructure(toStructureSpec({
   ...summitCellLayout,
@@ -4601,6 +4798,7 @@ function testCutFeature(
   return {
     id,
     operation: "cut",
+    depth: 0,
     regionId,
     order: 0,
     dependsOn: [],
@@ -4754,6 +4952,32 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
     graph.damage,
   ]) {
     assert.deepEqual(reserved, []);
+  }
+
+  assert.equal(
+    new Set(graph.facades.map((facade) => facade.id)).size,
+    graph.facades.length,
+    `${label}: duplicate facade id.`,
+  );
+  for (const facade of graph.facades) {
+    assert.ok(isValidId(facade.id), `${label}: facade id "${facade.id}" is invalid.`);
+    assert.equal(byId.get(facade.exteriorPatchId)?.role, PATCH_ROLES.cellWallExterior);
+    assert.equal(byId.get(facade.interiorPatchId)?.role, PATCH_ROLES.cellWallInterior);
+    assert.ok(graph.cells.some((cell) => cell.id === facade.cellId));
+    assert.ok(facade.bays.length > 0 && facade.bands.length > 0);
+    assert.ok(Math.abs(facade.bays[0]!.uRange[0]) <= 1);
+    assert.ok(Math.abs(facade.bands[0]!.vRange[0]) <= 1e-9);
+    assert.ok(Math.abs(facade.bands.at(-1)!.vRange[1] - 1) <= 1e-9);
+    const patchFeatures = new Set([
+      ...(byId.get(facade.exteriorPatchId)?.features.map((feature) => feature.id) ?? []),
+      ...(byId.get(facade.interiorPatchId)?.features.map((feature) => feature.id) ?? []),
+    ]);
+    for (const featureId of facade.featureIds) {
+      assert.ok(
+        patchFeatures.has(featureId),
+        `${label}: facade ${facade.id} names missing feature ${featureId}.`,
+      );
+    }
   }
 
   for (const connector of graph.connectors) {

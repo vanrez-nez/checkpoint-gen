@@ -178,7 +178,7 @@ massDefaultHashConfig.typeId = "mass";
 const massDefaultCode = encodeStructureHash(massDefaultHashConfig);
 assert.equal(
   massDefaultCode,
-  "g21AptwREYKFsLxLTGbfjt7YULunHNKN8YuaeMTnmoiBG23grrwBUebXB0vs",
+  "g21SChNo7gcbUAbWMdChDEjmKEj1kVsOEJ95LxMDRVqYhKEqSRNA23olb3alicoO",
 );
 assert.notEqual(massDefaultCode, circularDefaultCode);
 
@@ -1321,7 +1321,7 @@ assert.deepEqual(
 );
 assert.deepEqual(
   massControlTabs.find((tab) => tab.id === "summit")?.layoutGroups,
-  ["Summit", "Summit building", "Roof"],
+  ["Summit", "Summit building", "Facade", "Roof"],
 );
 assert.ok(
   massControlTabs.every(

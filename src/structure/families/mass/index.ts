@@ -50,7 +50,7 @@ export const massStructure = defineStructure<MassLayoutConfig>({
     {
       id: "summit",
       label: "Summit",
-      layoutGroups: ["Summit", "Summit building", "Roof"],
+      layoutGroups: ["Summit", "Summit building", "Facade", "Roof"],
     },
     { id: "materials", label: "Materials", props: ["materialPalette"] },
   ],

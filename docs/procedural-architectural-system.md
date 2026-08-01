@@ -362,13 +362,16 @@ runs_after: [portal_cut]
 conflict_policy: clip | skip | replace | error
 ```
 
-**Current implementation status (StructureGraph schema 1.6):** rectangular
-regions on planar patches can execute `cut`. Dependencies and `runs_before` /
-`runs_after` references are resolved within one patch, and overlapping features
-apply the declared `clip`, `skip`, `replace`, or `error` policy. Cell portals and
-interior doors use this pipeline for tessellation. The remaining operation
-vocabulary is typed and validated but returns a named unimplemented error until
-its geometry reader is added.
+**Current implementation status (StructureGraph schema 1.7):** rectangular
+regions on planar patches can execute `cut`, `inset`, and `extrude`.
+Dependencies and `runs_before` / `runs_after` references are resolved within one
+patch, and overlapping features apply the declared `clip`, `skip`, `replace`, or
+`error` policy. Cuts remove the
+full wall depth; insets and extrusions change the real public wall boundary, so
+their returns do not overlap a surviving base face. Cell portals, facade windows,
+niches, panels, pilasters, friezes, and interior doors use this pipeline. The
+remaining operation vocabulary is typed and validated but returns a named
+unimplemented error until its geometry reader is added.
 
 ### 5.5 Edge features
 
@@ -1347,6 +1350,18 @@ Reserve zones before populating features:
 - Damage exclusion or focus zones.
 
 When two features conflict, resolve by declared priority rather than arbitrary generation order.
+
+**Current implementation status (StructureGraph schema 1.7):** planar Cell
+facades resolve into graph-owned `FacadeRecord` entries with stable horizontal
+bays, vertical bands, hierarchy, symmetry, target wall pairs, and executable
+feature ids. Bay allocation supports fixed and weighted widths plus Cell-derived
+partition widths; band allocation supports fixed heights plus weighted remainder.
+The `plain` grammar preserves the established summit portal result while moving
+portal surface authorship out of Cell. The `hierarchical` grammar proves reuse
+with a primary portal, elevated window, niches and recessed panels, pilasters,
+and a continuous frieze. Rectangular planar Cell walls are the current geometry
+boundary; arches, curved apertures, and battered Mass-facade readers remain
+future work.
 
 ---
 
@@ -2779,7 +2794,7 @@ A practical first implementation can be staged.
 
 - Multiple stair modes and parapets.
 - Patch regions and feature operations.
-- Facade bands.
+- Facade bays, bands, hierarchy, and planar Cell feature grammar.
 - Masonry subdivision.
 - Deterministic seeds.
 

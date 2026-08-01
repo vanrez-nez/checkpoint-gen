@@ -34,6 +34,7 @@ import type { StairSideTreatment, StairSpec } from "../../connector/stair";
 import type { SummitCellSpec } from "../../cell/resolve";
 import type { SummitRoofSpec } from "../../roof/resolve";
 import type { HorizontalOrientation } from "../../kernel/frame";
+import type { FacadeStyle } from "../../facade/types";
 
 /**
  * A named height distribution, or `custom` for one authored on the curve editor.
@@ -109,6 +110,12 @@ export interface MassLayoutConfig {
   summitBuildingPlan: SummitBuildingPlan;
   summitInteriorOpeningWidth: number;
   summitInteriorOpeningHeight: number;
+  /** Exterior grammar applied after the Cell plan resolves. */
+  facadeStyle: FacadeStyle;
+  facadeRecessDepth: number;
+  facadePilasterProjection: number;
+  facadeFriezeHeight: number;
+  facadeFriezeProjection: number;
   /** Independent flat roof carried by the summit building walls. */
   summitRoofEnabled: boolean;
   summitRoofThickness: number;
@@ -190,6 +197,11 @@ export const MASS_LAYOUT_G1_BASELINE: Readonly<MassLayoutConfig> = {
   summitBuildingPlan: "single_chamber",
   summitInteriorOpeningWidth: 1.5,
   summitInteriorOpeningHeight: 2.2,
+  facadeStyle: "plain",
+  facadeRecessDepth: 0.18,
+  facadePilasterProjection: 0.16,
+  facadeFriezeHeight: 0.3,
+  facadeFriezeProjection: 0.12,
   summitRoofEnabled: true,
   summitRoofThickness: 0.5,
   summitRoofProjection: 0.25,
@@ -240,6 +252,11 @@ export const HEIGHT_CURVE_OPTIONS: Readonly<Record<string, HeightCurveMode>> = {
   "Base and crown": "ends_emphasised",
   "Tall middle": "middle_emphasised",
   Custom: "custom",
+};
+
+export const FACADE_STYLE_OPTIONS: Readonly<Record<string, FacadeStyle>> = {
+  Plain: "plain",
+  Hierarchical: "hierarchical",
 };
 
 /** The `[x1, y1, x2, y2]` a mode stands for, or null when it is authored. */
@@ -888,6 +905,63 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
       layout.summitBuildingEnabled
       && layout.summitBuildingPlan !== "single_chamber",
   }),
+  control.list({
+    key: "facadeStyle",
+    label: "style",
+    name: "Facade grammar",
+    group: "Facade",
+    options: FACADE_STYLE_OPTIONS,
+    scopes: ["layout"],
+    visibleWhen: (layout) => layout.summitBuildingEnabled,
+  }),
+  control.number({
+    key: "facadeRecessDepth",
+    label: "recess depth",
+    name: "Facade recess depth",
+    group: "Facade",
+    min: 0.02,
+    max: 0.8,
+    step: 0.01,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.summitBuildingEnabled && layout.facadeStyle === "hierarchical",
+  }),
+  control.number({
+    key: "facadePilasterProjection",
+    label: "pilaster projection",
+    name: "Facade pilaster projection",
+    group: "Facade",
+    min: 0.02,
+    max: 0.8,
+    step: 0.01,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.summitBuildingEnabled && layout.facadeStyle === "hierarchical",
+  }),
+  control.number({
+    key: "facadeFriezeHeight",
+    label: "frieze height",
+    name: "Facade frieze height",
+    group: "Facade",
+    min: 0.1,
+    max: 2,
+    step: 0.05,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.summitBuildingEnabled && layout.facadeStyle === "hierarchical",
+  }),
+  control.number({
+    key: "facadeFriezeProjection",
+    label: "frieze projection",
+    name: "Facade frieze projection",
+    group: "Facade",
+    min: 0.02,
+    max: 0.8,
+    step: 0.01,
+    scopes: ["layout"],
+    visibleWhen: (layout) =>
+      layout.summitBuildingEnabled && layout.facadeStyle === "hierarchical",
+  }),
 ];
 
 export function cloneMassLayout(
@@ -1009,6 +1083,13 @@ export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
     },
     stairs,
     cells: toCellSpecs(layout),
+    facade: {
+      style: layout.facadeStyle,
+      recessDepth: layout.facadeRecessDepth,
+      pilasterProjection: layout.facadePilasterProjection,
+      friezeHeight: layout.facadeFriezeHeight,
+      friezeProjection: layout.facadeFriezeProjection,
+    },
     roofs: toRoofSpecs(layout),
   };
 }

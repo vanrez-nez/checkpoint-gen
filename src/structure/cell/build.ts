@@ -13,7 +13,10 @@ import {
   masonrySeed,
   type MasonryRule,
 } from "../kernel/masonry";
-import { compiledCutFragments } from "../surface/features";
+import {
+  compiledCutFragments,
+  compiledSurfaceFragments,
+} from "../surface/features";
 
 const EPS = 1e-9;
 type SideFlags = readonly [boolean, boolean, boolean, boolean];
@@ -166,15 +169,15 @@ function cellPanels(
     }
 
     const axis = direction === "front" || direction === "rear" ? "x" : "z";
-    panels.push(...cutWallPanels({
+    panels.push(...profileWallPanels({
       id: wallPanelId(direction),
       rect: wallCenterRect(outer, inner, direction),
       axis,
+      direction,
+      wallThickness: cell.wallThickness,
       bottomY,
       topY,
-      surfaces: wallSurfaceSides(direction),
-      cuts: worldCuts(patch, axis),
-      boundaryExposed: () => false,
+      features: worldSurfaceFeatures(patch, axis),
     }));
   }
 
@@ -228,6 +231,212 @@ interface WallCut {
   readonly to: number;
   readonly bottomY: number;
   readonly topY: number;
+}
+
+interface WallSurfaceFeature extends WallCut {
+  readonly operation: "cut" | "inset" | "extrude";
+  readonly depth: number;
+}
+
+interface ProfileWallInput {
+  readonly id: string;
+  readonly rect: Rect;
+  readonly axis: "x" | "z";
+  readonly direction: CellRecord["walls"][number]["orientation"];
+  readonly wallThickness: number;
+  readonly bottomY: number;
+  readonly topY: number;
+  readonly features: readonly WallSurfaceFeature[];
+}
+
+/**
+ * Resolves a facade as an occupied u/v/depth grid.
+ *
+ * The wall core occupies depth `[-wallThickness, 0]`. Insets stop before zero,
+ * extrusions continue beyond it, and cuts occupy no depth at all. Since every
+ * depth transition is another block boundary, a recess return or pilaster side
+ * is owned once and the original public wall face does not survive underneath.
+ */
+function profileWallPanels(input: ProfileWallInput): CellPanel[] {
+  const start = input.axis === "x" ? input.rect.minX : input.rect.minZ;
+  const end = input.axis === "x" ? input.rect.maxX : input.rect.maxZ;
+  const features = input.features
+    .map((feature) => ({
+      ...feature,
+      from: clamp(feature.from, start, end),
+      to: clamp(feature.to, start, end),
+      bottomY: clamp(feature.bottomY, input.bottomY, input.topY),
+      topY: clamp(feature.topY, input.bottomY, input.topY),
+    }))
+    .filter((feature) =>
+      feature.to > feature.from + EPS && feature.topY > feature.bottomY + EPS);
+  const along = uniqueSorted([
+    start,
+    end,
+    ...features.flatMap((feature) => [feature.from, feature.to]),
+  ]);
+  const vertical = uniqueSorted([
+    input.bottomY,
+    input.topY,
+    ...features.flatMap((feature) => [feature.bottomY, feature.topY]),
+  ]);
+  const depths = uniqueSorted([
+    -input.wallThickness,
+    0,
+    ...features
+      .filter((feature) => feature.operation !== "cut")
+      .map((feature) => feature.operation === "inset" ? -feature.depth : feature.depth),
+  ]);
+  const surface = Array.from(
+    { length: along.length - 1 },
+    (_, u) => Array.from({ length: vertical.length - 1 }, (_, v) => {
+      const centre = {
+        along: (along[u]! + along[u + 1]!) * 0.5,
+        y: (vertical[v]! + vertical[v + 1]!) * 0.5,
+      };
+      let depth: number | null = 0;
+      for (const feature of features) {
+        if (
+          centre.along > feature.from + EPS
+          && centre.along < feature.to - EPS
+          && centre.y > feature.bottomY + EPS
+          && centre.y < feature.topY - EPS
+        ) {
+          depth = feature.operation === "cut"
+            ? null
+            : feature.operation === "inset" ? -feature.depth : feature.depth;
+        }
+      }
+      return depth;
+    }),
+  );
+  const occupied = Array.from(
+    { length: along.length - 1 },
+    (_, u) => Array.from({ length: vertical.length - 1 }, (_, v) =>
+      Array.from({ length: depths.length - 1 }, (_, d) => {
+        const faceDepth = surface[u]?.[v];
+        const centreDepth = (depths[d]! + depths[d + 1]!) * 0.5;
+        return faceDepth !== null
+          && centreDepth >= -input.wallThickness - EPS
+          && centreDepth <= faceDepth + EPS;
+      })),
+  );
+  const panels: CellPanel[] = [];
+
+  for (let u = 0; u < along.length - 1; u += 1) {
+    for (let v = 0; v < vertical.length - 1; v += 1) {
+      for (let d = 0; d < depths.length - 1; d += 1) {
+        if (occupied[u]?.[v]?.[d] !== true) {
+          continue;
+        }
+        const neighbours = {
+          uMin: u > 0 && occupied[u - 1]?.[v]?.[d] === true,
+          uMax: u < along.length - 2 && occupied[u + 1]?.[v]?.[d] === true,
+          vMin: v > 0 && occupied[u]?.[v - 1]?.[d] === true,
+          vMax: v < vertical.length - 2 && occupied[u]?.[v + 1]?.[d] === true,
+          dMin: d > 0 && occupied[u]?.[v]?.[d - 1] === true,
+          dMax: d < depths.length - 2 && occupied[u]?.[v]?.[d + 1] === true,
+        };
+        const sides = [...profileSides(input.direction, neighbours)] as [
+          boolean,
+          boolean,
+          boolean,
+          boolean,
+        ];
+        // Corner blocks own both ends of every exterior wall run. Only a gap
+        // inside the run may expose a jamb; the run boundary itself stays shut.
+        if (u === 0) {
+          sides[input.axis === "x" ? 0 : 3] = false;
+        }
+        if (u === along.length - 2) {
+          sides[input.axis === "x" ? 2 : 1] = false;
+        }
+        panels.push(panel(
+          `${input.id}_u${String(u).padStart(2, "0")}_v${String(v).padStart(2, "0")}_d${String(d).padStart(2, "0")}`,
+          profileRect(
+            input.rect,
+            input.axis,
+            input.direction,
+            along[u]!,
+            along[u + 1]!,
+            depths[d]!,
+            depths[d + 1]!,
+          ),
+          vertical[v]!,
+          vertical[v + 1]!,
+          sides,
+          input.axis,
+          !neighbours.vMax,
+          v > 0 && !neighbours.vMin,
+        ));
+      }
+    }
+  }
+  return panels;
+}
+
+function profileRect(
+  base: Rect,
+  axis: "x" | "z",
+  direction: CellRecord["walls"][number]["orientation"],
+  from: number,
+  to: number,
+  depthMin: number,
+  depthMax: number,
+): Rect {
+  const along = spanRect(base, axis, from, to);
+  switch (direction) {
+    case "front":
+      return { ...along, minZ: base.maxZ + depthMin, maxZ: base.maxZ + depthMax };
+    case "rear":
+      return { ...along, minZ: base.minZ - depthMax, maxZ: base.minZ - depthMin };
+    case "sidePositiveU":
+      return { ...along, minX: base.maxX + depthMin, maxX: base.maxX + depthMax };
+    case "sideNegativeU":
+      return { ...along, minX: base.minX - depthMax, maxX: base.minX - depthMin };
+  }
+}
+
+interface ProfileNeighbours {
+  readonly uMin: boolean;
+  readonly uMax: boolean;
+  readonly vMin: boolean;
+  readonly vMax: boolean;
+  readonly dMin: boolean;
+  readonly dMax: boolean;
+}
+
+function profileSides(
+  direction: CellRecord["walls"][number]["orientation"],
+  neighbours: ProfileNeighbours,
+): SideFlags {
+  const sides: [boolean, boolean, boolean, boolean] = [false, false, false, false];
+  if (direction === "front" || direction === "rear") {
+    sides[0] = !neighbours.uMin;
+    sides[2] = !neighbours.uMax;
+  } else {
+    sides[3] = !neighbours.uMin;
+    sides[1] = !neighbours.uMax;
+  }
+  switch (direction) {
+    case "front":
+      sides[3] = !neighbours.dMin;
+      sides[1] = !neighbours.dMax;
+      break;
+    case "rear":
+      sides[1] = !neighbours.dMin;
+      sides[3] = !neighbours.dMax;
+      break;
+    case "sidePositiveU":
+      sides[0] = !neighbours.dMin;
+      sides[2] = !neighbours.dMax;
+      break;
+    case "sideNegativeU":
+      sides[2] = !neighbours.dMin;
+      sides[0] = !neighbours.dMax;
+      break;
+  }
+  return sides;
 }
 
 interface CutWallInput {
@@ -359,6 +568,33 @@ function worldCuts(patch: Patch, axis: "x" | "z"): WallCut[] {
   });
 }
 
+function worldSurfaceFeatures(
+  patch: Patch,
+  axis: "x" | "z",
+): WallSurfaceFeature[] {
+  return compiledSurfaceFragments(patch).flatMap((compiled) =>
+    compiled.fragments.map((fragment, index) => {
+      const corners = [
+        evaluateFrame(patch.frame, fragment.uMin, fragment.vMin),
+        evaluateFrame(patch.frame, fragment.uMax, fragment.vMin),
+        evaluateFrame(patch.frame, fragment.uMin, fragment.vMax),
+        evaluateFrame(patch.frame, fragment.uMax, fragment.vMax),
+      ];
+      const along = corners.map((point) => axis === "x" ? point.x : point.z);
+      const vertical = corners.map((point) => point.y);
+
+      return {
+        id: `${compiled.feature.id}/fragment_${String(index + 1).padStart(2, "0")}`,
+        operation: compiled.feature.operation as "cut" | "inset" | "extrude",
+        depth: compiled.feature.depth,
+        from: Math.min(...along),
+        to: Math.max(...along),
+        bottomY: Math.min(...vertical),
+        topY: Math.max(...vertical),
+      };
+    }));
+}
+
 function interiorBoundaryCuts(
   cell: CellRecord,
   patches: ReadonlyMap<string, Patch>,
@@ -444,21 +680,6 @@ function wallPanelId(
       return "right";
     case "sideNegativeU":
       return "left";
-  }
-}
-
-function wallSurfaceSides(
-  direction: CellRecord["walls"][number]["orientation"],
-): SideFlags {
-  switch (direction) {
-    case "front":
-      return [false, true, false, true];
-    case "rear":
-      return [false, true, false, true];
-    case "sidePositiveU":
-      return [true, false, true, false];
-    case "sideNegativeU":
-      return [true, false, true, false];
   }
 }
 

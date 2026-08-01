@@ -2,6 +2,7 @@ import type { HorizontalOrientation, Rect, Vec3 } from "./frame";
 import type { Patch, PatchRole } from "./patch";
 import { resolvedSeeds, type SeedSet, type SeedSubsystem } from "./seed";
 import type { Diagnostic } from "./validate";
+import type { FacadeRecord } from "../facade/types";
 import {
   compilePatchFeatures,
   compiledCutWorldBounds,
@@ -15,10 +16,10 @@ import {
  * This is the artefact every later phase reads and no later phase mutates. The
  * schema is authored ahead of the systems that fill it: containers for cells,
  * frames, roofs, attachments and damage exist from the start, so adding those
- * systems fills known positions rather than reshaping the graph. Connectors and
- * cells and roofs are the first containers now populated.
+ * systems fills known positions rather than reshaping the graph. Connectors,
+ * cells, facades and roofs are the first containers now populated.
  */
-export const STRUCTURE_SCHEMA_VERSION = "1.6";
+export const STRUCTURE_SCHEMA_VERSION = "1.7";
 
 /**
  * Placeholder element type for a subsystem that has not been implemented yet.
@@ -311,6 +312,7 @@ export interface StructureGraph {
   readonly patches: readonly Patch[];
   readonly connectors: readonly ConnectorRecord[];
   readonly cells: readonly CellRecord[];
+  readonly facades: readonly FacadeRecord[];
   readonly frames: readonly ReservedEntity[];
   readonly roofs: readonly RoofRecord[];
   readonly attachments: readonly ReservedEntity[];
@@ -332,6 +334,7 @@ export class StructureGraphBuilder {
   private readonly masses: MassRecord[] = [];
   private readonly connectors: ConnectorRecord[] = [];
   private readonly cells: CellRecord[] = [];
+  private readonly facades: FacadeRecord[] = [];
   private readonly roofs: RoofRecord[] = [];
 
   constructor(
@@ -369,6 +372,10 @@ export class StructureGraphBuilder {
 
   addCell(cell: CellRecord): void {
     this.cells.push(cell);
+  }
+
+  addFacade(facade: FacadeRecord): void {
+    this.facades.push(facade);
   }
 
   addRoof(roof: RoofRecord): void {
@@ -416,6 +423,7 @@ export class StructureGraphBuilder {
       patches,
       connectors: this.connectors,
       cells: this.cells,
+      facades: this.facades,
       frames: [],
       roofs: this.roofs,
       attachments: [],

@@ -31,6 +31,20 @@ export interface CompiledPatchFeatures {
   readonly diagnostics: readonly Diagnostic[];
 }
 
+/** Every executable feature fragment after ordering and conflict resolution. */
+export function compiledSurfaceFragments(
+  patch: Patch,
+): readonly CompiledPatchFeature[] {
+  const compiled = compilePatchFeatures(patch);
+  const failure = compiled.diagnostics.find((entry) => entry.severity === "error");
+
+  if (failure) {
+    throw new Error(`${failure.message} (${failure.code})`);
+  }
+
+  return compiled.features;
+}
+
 /** Axis-aligned world bounds of one executable cut fragment. */
 export interface CutWorldBounds {
   readonly minX: number;
@@ -349,11 +363,37 @@ function validateFeature(
     ));
   }
 
-  if (feature.operation === "cut" && patch.evaluator !== "planar") {
+  if (
+    IMPLEMENTED_PATCH_OPERATIONS.includes(feature.operation)
+    && patch.evaluator !== "planar"
+  ) {
     diagnostics.push(error(
       "feature.evaluator_unsupported",
       feature.id,
-      `Patch operation "cut" currently requires a planar patch, not "${patch.evaluator}".`,
+      `Patch operation "${feature.operation}" currently requires a planar patch, not "${patch.evaluator}".`,
+    ));
+  }
+
+  if (!Number.isFinite(feature.depth) || feature.depth < 0) {
+    diagnostics.push(error(
+      "feature.depth_invalid",
+      feature.id,
+      "Feature depth must be a finite non-negative real dimension.",
+    ));
+  } else if (
+    (feature.operation === "inset" || feature.operation === "extrude")
+    && feature.depth <= EPS
+  ) {
+    diagnostics.push(error(
+      "feature.depth_required",
+      feature.id,
+      `Patch operation "${feature.operation}" requires positive depth.`,
+    ));
+  } else if (feature.operation === "cut" && feature.depth > EPS) {
+    diagnostics.push(error(
+      "feature.cut_depth_invalid",
+      feature.id,
+      "A through cut uses zero feature depth.",
     ));
   }
 

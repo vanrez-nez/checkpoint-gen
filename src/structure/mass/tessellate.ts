@@ -1,7 +1,7 @@
 import { finalizeGeometry } from "../../geometry/finalize";
 import { IDENTITY_MATRIX, type GeometryPart } from "../../geometry/part";
 import { SolidBuilder, type Vertex3 } from "../../geometry/solid-builder";
-import { rectCorners, rectIsValid, type Rect } from "../kernel/frame";
+import { evaluateFrame, rectCorners, rectIsValid, type Rect } from "../kernel/frame";
 import type {
   CellRecord,
   ElevationBandRecord,
@@ -25,6 +25,7 @@ import {
   faceIsCoveredByCellWall,
 } from "../cell/build";
 import { buildRoof, faceIsCoveredByRoof } from "../roof/build";
+import { compiledSurfaceFragments } from "../surface/features";
 
 /**
  * Turns a resolved structure graph into render geometry.
@@ -534,6 +535,45 @@ export function graphExtents(graph: StructureGraph): {
           y: Math.max(max.y, y),
           z: Math.max(max.z, rect.maxZ),
         };
+    }
+  }
+
+  // Facade projections are resolved surface depth, so they may extend beyond
+  // the Cell footprint even though they do not change the Cell's plan record.
+  const patches = patchIndex(graph);
+  for (const facade of graph.facades) {
+    const patch = patches.get(facade.exteriorPatchId);
+    if (!patch) {
+      continue;
+    }
+    for (const compiled of compiledSurfaceFragments(patch)) {
+      if (compiled.feature.operation !== "extrude") {
+        continue;
+      }
+      for (const fragment of compiled.fragments) {
+        for (const [u, v] of [
+          [fragment.uMin, fragment.vMin],
+          [fragment.uMax, fragment.vMin],
+          [fragment.uMin, fragment.vMax],
+          [fragment.uMax, fragment.vMax],
+        ] as const) {
+          const point = evaluateFrame(patch.frame, u, v, compiled.feature.depth);
+          min = min === null
+            ? { ...point }
+            : {
+              x: Math.min(min.x, point.x),
+              y: Math.min(min.y, point.y),
+              z: Math.min(min.z, point.z),
+            };
+          max = max === null
+            ? { ...point }
+            : {
+              x: Math.max(max.x, point.x),
+              y: Math.max(max.y, point.y),
+              z: Math.max(max.z, point.z),
+            };
+        }
+      }
     }
   }
 
