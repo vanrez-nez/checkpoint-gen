@@ -7,6 +7,7 @@ import { finalizeGeometry } from "../src/geometry/finalize";
 import { mergeParts } from "../src/geometry/merge-parts";
 import { materialSlotIndex, type MaterialSlot } from "../src/geometry/part";
 import { SolidBuilder } from "../src/geometry/solid-builder";
+import { DEFAULT_FIRE_BOWL_CONFIG } from "../src/props/fire-bowl/config";
 import {
   StoneGeometryBuilder,
   displacementDistance,
@@ -159,6 +160,8 @@ assert.deepEqual(
       DEFAULT_MASS_LAYOUT.stairSteppedParapetCorniceHeight,
     stairParapetCorniceProjection: DEFAULT_MASS_LAYOUT.stairParapetCorniceProjection,
     stairParapetCorniceHeight: DEFAULT_MASS_LAYOUT.stairParapetCorniceHeight,
+    stairFireBowlBottomEnabled: DEFAULT_MASS_LAYOUT.stairFireBowlBottomEnabled,
+    stairFireBowlTopEnabled: DEFAULT_MASS_LAYOUT.stairFireBowlTopEnabled,
     summitTreatment: DEFAULT_MASS_LAYOUT.summitTreatment,
     summitPadHeight: DEFAULT_MASS_LAYOUT.summitPadHeight,
     summitBuildingEnabled: DEFAULT_MASS_LAYOUT.summitBuildingEnabled,
@@ -217,6 +220,8 @@ assert.deepEqual(
     steppedParapetCorniceHeight: 0,
     stairParapetCorniceProjection: 0.2,
     stairParapetCorniceHeight: 0.25,
+    stairFireBowlBottomEnabled: true,
+    stairFireBowlTopEnabled: true,
     summitTreatment: "raised_pad",
     summitPadHeight: 0.35,
     summitBuildingEnabled: true,
@@ -5052,13 +5057,13 @@ const layoutOnly = massStructure.build({
   stone: DEFAULT_MASS_STONE_CONFIG,
   bevel: undefined as never,
   pillar: undefined as never,
-  fireBowl: undefined as never,
+  fireBowl: DEFAULT_FIRE_BOWL_CONFIG,
   sections: new Set([MASS_SECTION]),
 });
 assert.equal(layoutOnly.parts.length, 1);
 assert.ok(layoutOnly.graph, "The mass structure must report its graph.");
-assert.equal(layoutOnly.anchors.flames.length, 0);
-assert.equal(layoutOnly.anchors.glows.length, 0);
+assert.equal(layoutOnly.anchors.flames.length, 16);
+assert.equal(layoutOnly.anchors.glows.length, 8);
 assert.equal(layoutOnly.anchors.offering, null);
 
 const buildWithStairTiles = (stairTilesPerStep: number) => massStructure.build({
@@ -5066,7 +5071,7 @@ const buildWithStairTiles = (stairTilesPerStep: number) => massStructure.build({
   stone: DEFAULT_MASS_STONE_CONFIG,
   bevel: undefined as never,
   pillar: undefined as never,
-  fireBowl: undefined as never,
+  fireBowl: DEFAULT_FIRE_BOWL_CONFIG,
   sections: new Set([MASS_SECTION]),
 });
 const sparseStairTiles = buildWithStairTiles(2);
@@ -5093,7 +5098,7 @@ const graphOnly = massStructure.build({
   stone: DEFAULT_MASS_STONE_CONFIG,
   bevel: undefined as never,
   pillar: undefined as never,
-  fireBowl: undefined as never,
+  fireBowl: DEFAULT_FIRE_BOWL_CONFIG,
   sections: new Set<string>(),
 });
 assert.equal(graphOnly.parts.length, 0);

@@ -85,6 +85,10 @@ export interface CompositionAnchor {
   readonly x: number;
   readonly y: number;
   readonly z: number;
+  /** Optional unit direction used to offset a grouped glow in the X/Z plane. */
+  readonly outwardX?: number;
+  /** Optional unit direction used to offset a grouped glow in the X/Z plane. */
+  readonly outwardZ?: number;
 }
 
 /** Mount surface for the offering statue. */

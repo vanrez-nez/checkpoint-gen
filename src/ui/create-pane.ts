@@ -67,6 +67,7 @@ export interface ControlPaneOptions {
   config: StructureConfig;
   scene: MainScene;
   rendererLabel: string;
+  fireGlowShadowsSupported?: boolean;
   /** Called only after a valid structure-owned control has been applied. */
   onStructureConfigChange?: () => void;
 }
@@ -87,6 +88,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     config,
     scene,
     rendererLabel,
+    fireGlowShadowsSupported = true,
     onStructureConfigChange,
   } = options;
   const pane = new Pane({ container, title: "Structure" });
@@ -441,10 +443,19 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
       findControl(fire, "glowEnabled"),
       () => config.fireBowl.enabled && config.fire.enabled,
     );
+    visibility.addBlade(
+      findControl(fire, "glowCastShadow"),
+      () => fireGlowShadowsSupported
+        && config.fireBowl.enabled
+        && config.fire.enabled
+        && config.fire.glowEnabled,
+    );
     visibility.addBlades(
       [
         findControl(fire, "glowIntensity"),
         findControl(fire, "glowDistance"),
+        findControl(fire, "glowHorizontalDistance"),
+        findControl(fire, "glowVerticalDistance"),
         findControl(fire, "glowFlicker"),
       ],
       () => config.fireBowl.enabled

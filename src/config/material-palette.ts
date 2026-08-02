@@ -170,6 +170,7 @@ export const DEFAULT_MASS_MATERIAL_PALETTE: Readonly<
   frieze: surface("eroded-rock"),
   pillar: surface("eroded-rock"),
   cornice: surface("flamed-basalt", 0.35),
+  iron: surface("hammered-iron", 0.75),
   pedestal: surface("eroded-rock"),
   pier: surface("eroded-rock"),
   pierPanel: surface("dark-volcanic-stone", 0.75),

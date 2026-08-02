@@ -10,6 +10,12 @@ import {
 import { MainScene } from "./scene/main";
 import { createControlPane } from "./ui/create-pane";
 import { getStructure } from "./structure/registry";
+import {
+  fireGlowShadowCascadeCount,
+  requestedSamplerLimit,
+  requestedSampledTextureLimit,
+  supportsFireGlowShadows,
+} from "./scene/webgpu-limits";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -36,16 +42,61 @@ if (window.location.hash.length > 1) {
 }
 
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
-const renderer = new WebGPURenderer({ canvas: sceneCanvas, antialias: true });
+const adapter = await navigator.gpu?.requestAdapter({
+  // Three requests the compatibility feature level internally as well. The
+  // DOM type has not caught up with this WebGPU option yet.
+  featureLevel: "compatibility",
+} as GPURequestAdapterOptions);
+const sampledTextureLimit = requestedSampledTextureLimit(
+  adapter?.limits.maxSampledTexturesPerShaderStage,
+);
+const samplerLimit = requestedSamplerLimit(
+  adapter?.limits.maxSamplersPerShaderStage,
+);
+const requiredLimits: Record<string, number> = {};
+if (sampledTextureLimit !== null) {
+  requiredLimits.maxSampledTexturesPerShaderStage = sampledTextureLimit;
+}
+if (samplerLimit !== null) {
+  requiredLimits.maxSamplersPerShaderStage = samplerLimit;
+}
+const renderer = new WebGPURenderer({
+  canvas: sceneCanvas,
+  antialias: true,
+  requiredLimits: Object.keys(requiredLimits).length > 0
+    ? requiredLimits
+    : undefined,
+});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 await renderer.init();
 renderer.shadowMap.enabled = true;
+const rendererBackend = renderer.backend as {
+  isWebGPUBackend?: boolean;
+  device?: GPUDevice;
+};
+const deviceSampledTextureLimit =
+  rendererBackend.device?.limits.maxSampledTexturesPerShaderStage;
+const deviceSamplerLimit = rendererBackend.device?.limits.maxSamplersPerShaderStage;
+const sunShadowCascades = fireGlowShadowCascadeCount(
+  deviceSampledTextureLimit,
+  deviceSamplerLimit,
+);
+const fireGlowShadowsSupported = rendererBackend.isWebGPUBackend === true
+  && supportsFireGlowShadows(
+    deviceSampledTextureLimit,
+    deviceSamplerLimit,
+    sunShadowCascades,
+  );
+applyRendererCapabilities();
 
 const controls = new OrbitControls(camera, sceneCanvas);
 controls.enableDamping = true;
 
-const mainScene = new MainScene(config);
+const mainScene = new MainScene(config, {
+  fireGlowShadowsSupported,
+  sunShadowCascades,
+});
 
 const activeDefinition = getStructure(config.typeId);
 const activePalette = config.materialPalettes[activeDefinition.id];
@@ -74,12 +125,12 @@ try {
   );
 }
 
-const rendererBackend = renderer.backend as { isWebGPUBackend?: boolean };
 const pane = createControlPane({
   container: paneHost,
   config,
   scene: mainScene,
   rendererLabel: rendererBackend.isWebGPUBackend === true ? "WebGPU" : "WebGL2",
+  fireGlowShadowsSupported,
   onStructureConfigChange: writeGeometryHash,
 });
 const { stats } = pane;
@@ -145,10 +196,21 @@ function restoreGeometryHash(): void {
       applyStructureHash(config, window.location.hash);
     }
 
+    applyRendererCapabilities();
     pane.reloadStructureConfig();
   } catch (error) {
     console.warn("Ignoring invalid geometry code.", error);
     writeGeometryHash();
+  }
+}
+
+function applyRendererCapabilities(): void {
+  if (!fireGlowShadowsSupported && config.fire.glowCastShadow) {
+    config.fire.glowCastShadow = false;
+    console.warn(
+      "Fire glow shadows are unavailable because this GPU device does not expose "
+      + "enough sampled-texture and sampler bindings.",
+    );
   }
 }
 

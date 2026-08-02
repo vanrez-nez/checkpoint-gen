@@ -68,6 +68,10 @@ const CSM_LIGHT_MARGIN = 20;
 const SHADOW_MAP_SIZE = 1024;
 const MAX_FIRE_FLAMES = 16;
 const FIRE_GLOW_COLOR = 0xff5a12;
+const FIRE_GLOW_SHADOW_MAP_SIZE = 512;
+const FIRE_GLOW_SHADOW_NEAR = 0.01;
+const FIRE_GLOW_SHADOW_BIAS = -0.0002;
+const FIRE_GLOW_SHADOW_NORMAL_BIAS = 0.02;
 /** Vertex-normal helper length, as a fraction of the composition's diagonal. */
 const VERTEX_NORMAL_SIZE_RATIO = 0.008;
 
@@ -102,6 +106,13 @@ type FireGlowEntry = {
   flicker: number;
 };
 
+export interface MainSceneOptions {
+  /** Capability gate derived from the initialized renderer device. */
+  readonly fireGlowShadowsSupported?: boolean;
+  /** Two on 16-sampler devices, otherwise the normal three-cascade sun. */
+  readonly sunShadowCascades?: number;
+}
+
 export class MainScene {
   readonly scene = new THREE.Scene();
   private readonly composer = new StructureComposer();
@@ -119,6 +130,7 @@ export class MainScene {
   private readonly wireframeRadius = uniform(1);
   private readonly fireBatch: VertexConeFireBatch;
   private readonly fireGlowEntries: FireGlowEntry[] = [];
+  private readonly fireGlowShadowsSupported: boolean;
   private readonly sunLight: THREE.DirectionalLight;
   private readonly hemisphereLight: THREE.HemisphereLight;
   private readonly sunShadow: CSMShadowNode;
@@ -164,8 +176,9 @@ export class MainScene {
   private fireTime = 0;
   private wireframeVisible = false;
 
-  constructor(config: StructureConfig) {
+  constructor(config: StructureConfig, options: MainSceneOptions = {}) {
     validateOfferingConfig(config.offering);
+    this.fireGlowShadowsSupported = options.fireGlowShadowsSupported ?? true;
     this.offeringConfig = { ...config.offering };
     this.materialScale = config.view.materialScale;
     this.ambientOcclusionStrength = config.illumination.ambientOcclusion;
@@ -273,7 +286,7 @@ export class MainScene {
     this.sunLight.shadow.bias = -0.0001;
     this.sunLight.shadow.normalBias = 0.01;
     this.sunShadow = new CSMShadowNode(this.sunLight, {
-      cascades: CSM_CASCADES,
+      cascades: options.sunShadowCascades ?? CSM_CASCADES,
       maxFar: CSM_MAX_FAR,
       mode: "practical",
       lightMargin: CSM_LIGHT_MARGIN,
@@ -1034,6 +1047,12 @@ export class MainScene {
     while (this.fireGlowEntries.length < anchors.length) {
       const light = new THREE.PointLight(FIRE_GLOW_COLOR, 0, 0, 2);
       light.castShadow = false;
+      light.shadow.mapSize.set(
+        FIRE_GLOW_SHADOW_MAP_SIZE,
+        FIRE_GLOW_SHADOW_MAP_SIZE,
+      );
+      light.shadow.bias = FIRE_GLOW_SHADOW_BIAS;
+      light.shadow.normalBias = FIRE_GLOW_SHADOW_NORMAL_BIAS;
       this.scene.add(light);
       this.fireGlowEntries.push({
         light,
@@ -1054,15 +1073,32 @@ export class MainScene {
       const { light } = glowEntry;
       light.name = `Fire glow ${anchor.label}`;
       light.color.setHex(FIRE_GLOW_COLOR);
+      light.castShadow = this.fireGlowShadowsSupported
+        && fireConfig.glowCastShadow;
       light.intensity = fireConfig.glowIntensity;
       light.distance = fireConfig.glowDistance;
       light.decay = 2;
+      light.shadow.camera.near = FIRE_GLOW_SHADOW_NEAR;
+      light.shadow.camera.far = fireConfig.glowDistance;
+      light.shadow.camera.updateProjectionMatrix();
+
+      const horizontalLength = Math.hypot(
+        anchor.outwardX ?? 0,
+        anchor.outwardZ ?? 0,
+      );
+      const outwardX = horizontalLength > 0
+        ? (anchor.outwardX ?? 0) / horizontalLength
+        : 0;
+      const outwardZ = horizontalLength > 0
+        ? (anchor.outwardZ ?? 0) / horizontalLength
+        : 0;
       light.position.set(
-        anchor.x,
+        anchor.x + outwardX * fireConfig.glowHorizontalDistance,
         anchor.y
           + fireConfig.baseHeight
-          + fireConfig.height * fireConfig.scale * 0.35,
-        anchor.z,
+          + fireConfig.height * fireConfig.scale * 0.35
+          + fireConfig.glowVerticalDistance,
+        anchor.z + outwardZ * fireConfig.glowHorizontalDistance,
       );
       light.visible = !this.wireframeVisible;
       glowEntry.baseIntensity = fireConfig.glowIntensity;

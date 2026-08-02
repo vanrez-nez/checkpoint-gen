@@ -144,6 +144,9 @@ export interface MassLayoutConfig {
   /** Continuous raked cornice over a flat parapet. */
   stairParapetCorniceProjection: number;
   stairParapetCorniceHeight: number;
+  /** Optional bowl slots on the two square parapet-cornice terminals. */
+  stairFireBowlBottomEnabled: boolean;
+  stairFireBowlTopEnabled: boolean;
   seed: number;
 }
 
@@ -221,6 +224,8 @@ export const MASS_LAYOUT_BASELINE: Readonly<MassLayoutConfig> = {
   stairSteppedParapetCorniceHeight: 0,
   stairParapetCorniceProjection: 0.2,
   stairParapetCorniceHeight: 0.25,
+  stairFireBowlBottomEnabled: true,
+  stairFireBowlTopEnabled: true,
   seed: 1,
 };
 
@@ -315,6 +320,32 @@ export function hasEnabledStair(layout: MassLayoutConfig): boolean {
     || layout.stairRearEnabled
     || layout.stairLeftEnabled
     || layout.stairRightEnabled;
+}
+
+/** Smallest square terminal that can carry the existing bowl without becoming a toy detail. */
+export const MIN_STAIR_FIRE_BOWL_SLOT_WIDTH = 0.45;
+
+/** Whether the requested stair treatment exposes a large enough terminal cornice. */
+export function hasStairFireBowlSlotSpace(layout: MassLayoutConfig): boolean {
+  if (
+    !hasEnabledStair(layout)
+    || layout.stairSideTreatment === "none"
+    || layout.stairParapetHeight <= 0
+  ) {
+    return false;
+  }
+
+  const projection = layout.stairSideTreatment === "stepped_parapet"
+    ? layout.stairSteppedParapetCorniceProjection
+    : layout.stairParapetCorniceProjection;
+  const height = layout.stairSideTreatment === "stepped_parapet"
+    ? layout.stairSteppedParapetCorniceHeight
+    : layout.stairParapetCorniceHeight;
+
+  return projection > 0
+    && height > 0
+    && layout.stairParapetWidth + projection * 2
+      >= MIN_STAIR_FIRE_BOWL_SLOT_WIDTH;
 }
 
 const control = controlsFor<MassLayoutConfig>();
@@ -854,6 +885,22 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     scopes: ["layout"],
     visibleWhen: (layout) =>
       hasEnabledStair(layout) && layout.stairSideTreatment === "sloped_parapet",
+  }),
+  control.boolean({
+    key: "stairFireBowlBottomEnabled",
+    label: "bottom terminals",
+    name: "Bottom fire bowl slots",
+    group: "Fire bowl slots",
+    scopes: ["bowls"],
+    visibleWhen: hasStairFireBowlSlotSpace,
+  }),
+  control.boolean({
+    key: "stairFireBowlTopEnabled",
+    label: "top terminals",
+    name: "Top fire bowl slots",
+    group: "Fire bowl slots",
+    scopes: ["bowls"],
+    visibleWhen: hasStairFireBowlSlotSpace,
   }),
   control.number({
     key: "seed",

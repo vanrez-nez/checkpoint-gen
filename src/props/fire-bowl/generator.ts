@@ -12,6 +12,8 @@ export interface FireBowlGeometryResult {
 
 const SUPPORT_COUNT = 8;
 const FOOT_COUNT = 4;
+/** Diameter of the widest ring relative to the generator's resolved `unit`. */
+export const FIRE_BOWL_MAX_DIAMETER_FACTOR = 3.3;
 
 export function createFireBowlGeometry(
   config: FireBowlConfig,
@@ -317,4 +319,3 @@ function prepareIronPart(geometry: THREE.BufferGeometry): void {
     new THREE.Float32BufferAttribute(new Float32Array(vertexCount).fill(1), 1),
   );
 }
-

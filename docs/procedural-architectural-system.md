@@ -719,6 +719,51 @@ A valid stair connector must:
 - Provide landings wherever flights are intentionally interrupted.
 - Propagate openings through terrace curbs when needed.
 
+### 7.8 Parapet-terminal fire-bowl slots
+
+Mass stairs may expose attachment slots on the square cornice endings that
+finish each parapet. The initial slot vocabulary is explicit and stable:
+
+- `bottom_negative`
+- `bottom_positive`
+- `top_negative`
+- `top_positive`
+
+Bottom and top pairs are enabled independently. A pair resolves only when its
+stair has a parapet with a positive cornice, and when the terminal footprint is
+large enough to support the prop. The usable terminal width is:
+
+```text
+terminal_width = parapet_width + 2 * cornice_projection
+```
+
+Terminals narrower than `0.45 m` expose no slots; this is a normal omission,
+not a validation error. The fire-bowl generator receives that available width
+as its sizing reference. Its widest ring is limited to 90% of the terminal
+square, while the shared bowl scale may make it smaller. This keeps bowls
+centred on the cornice endings without overhang as parapet width or cornice
+projection changes.
+
+The bowl mesh uses the independent indexed `iron` material surface. Every
+resolved bowl publishes its own flame anchor. The negative/positive bowl pair
+at each terminal publishes one glow anchor at their midpoint, matching the
+circular structure's one-light-per-pair policy. Glow-light shadow casting is a
+shared Fire option and defaults off. Each glow anchor also carries the stair's
+outward X/Z direction: one horizontal-distance control offsets the light along
+that vector, while signed vertical distance offsets its automatically calculated
+flame-relative height. Both offsets default to zero. Attenuation range remains a
+separate control. Point-shadow cameras use a close near plane together with depth
+and normal bias, preventing nearby cornice and terrace surfaces from crossing a
+cube-shadow clipping seam.
+The renderer negotiates the sampled-texture
+and sampler limits from the WebGPU adapter before initialization. Eight local
+shadow maps with the normal three-cascade sun require 17 bindings of each kind.
+On a standard 16-sampler device, the sun uses two cascades so all eight local
+shadows remain available within the limit. If the initialized device cannot
+satisfy even that reduced 16-binding pipeline, the option is hidden and runtime
+shadow casting stays disabled. Mass owns only the architectural placement and
+fit calculation; it does not duplicate fire-bowl geometry or lighting.
+
 ---
 
 ## 8. Cell-Based Summit Buildings

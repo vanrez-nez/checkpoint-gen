@@ -241,7 +241,10 @@ export function validateActiveStructureGeometryConfig(
     validatePillarConfig(config.pillar);
   }
   if (definition.props.includes("fireBowl")) {
-    validateFireBowlConfig(config.fireBowl, config.pillar.shaftWidth);
+    validateFireBowlConfig(
+      config.fireBowl,
+      definition.props.includes("pillar") ? config.pillar.shaftWidth : 1,
+    );
   }
   if (definition.props.includes("fire")) {
     validateFireConfig(config.fire);
@@ -257,8 +260,8 @@ export function validateActiveStructureGeometryConfig(
  * refactor, so dragging any given slider costs what it always did rather than
  * regenerating everything.
  *
- * Fire bowls follow pillars because a bowl is sized from `pillar.shaftWidth`
- * and mounted at `pillar.height`.
+ * Pillar changes rebuild attached circular bowls. Structures with independent
+ * bowl slots, such as Mass parapet terminals, use only the bowl scope.
  */
 export const SECTIONS_BY_SCOPE: Readonly<Record<RebuildScope, readonly PartSection[]>> = {
   layout: ["layout"],

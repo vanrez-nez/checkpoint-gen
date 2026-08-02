@@ -16,25 +16,34 @@ export interface FireConfig {
   turbulence: number;
   intensity: number;
   glowEnabled: boolean;
+  glowCastShadow: boolean;
   glowIntensity: number;
+  /** Spherical attenuation range around the light. */
   glowDistance: number;
+  /** Outward offset from the pair midpoint in the structure's X/Z plane. */
+  glowHorizontalDistance: number;
+  /** Signed offset from the flame-derived light height. */
+  glowVerticalDistance: number;
   glowFlicker: number;
 }
 
 export const DEFAULT_FIRE_CONFIG: Readonly<FireConfig> = {
   enabled: true,
-  scale: 1.25,
-  radius: 0.08,
-  height: 0.43,
-  baseHeight: 0.065,
+  scale: 2.05,
+  radius: 0.095,
+  height: 0.56,
+  baseHeight: 0.14,
   radialSegments: 16,
   speed: 7,
   noiseScale: 4.8,
   turbulence: 2,
   intensity: 5,
   glowEnabled: true,
+  glowCastShadow: false,
   glowIntensity: 0.6,
   glowDistance: 3,
+  glowHorizontalDistance: 0,
+  glowVerticalDistance: 0,
   glowFlicker: 0.25,
 };
 
@@ -148,6 +157,13 @@ export const FIRE_CONTROLS: readonly ControlSpec<FireConfig>[] = [
     group: "Glow",
     scopes: ["fire"],
   }),
+  control.boolean({
+    key: "glowCastShadow",
+    label: "cast shadows",
+    name: "Fire glow cast shadows",
+    group: "Glow",
+    scopes: ["fire"],
+  }),
   control.number({
     key: "glowIntensity",
     label: "intensity",
@@ -160,12 +176,32 @@ export const FIRE_CONTROLS: readonly ControlSpec<FireConfig>[] = [
   }),
   control.number({
     key: "glowDistance",
-    label: "distance",
-    name: "Fire glow distance",
+    label: "range",
+    name: "Fire glow range",
     group: "Glow",
     min: 0.1,
     max: 10,
     step: 0.1,
+    scopes: ["fire"],
+  }),
+  control.number({
+    key: "glowHorizontalDistance",
+    label: "horizontal distance",
+    name: "Fire glow horizontal distance",
+    group: "Glow",
+    min: 0,
+    max: 3,
+    step: 0.05,
+    scopes: ["fire"],
+  }),
+  control.number({
+    key: "glowVerticalDistance",
+    label: "vertical distance",
+    name: "Fire glow vertical distance",
+    group: "Glow",
+    min: -3,
+    max: 3,
+    step: 0.05,
     scopes: ["fire"],
   }),
   control.number({

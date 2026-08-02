@@ -127,11 +127,26 @@ function groupGlowsByEntry(
   }
 
   return [...grouped.entries()].map(([entryIndex, entryFlames]) => ({
-    label: `entry-${entryIndex}`,
-    x: average(entryFlames.map((flame) => flame.x)),
-    y: average(entryFlames.map((flame) => flame.y)),
-    z: average(entryFlames.map((flame) => flame.z)),
+    ...circularGlowAnchor(entryIndex, entryFlames),
   }));
+}
+
+function circularGlowAnchor(
+  entryIndex: number,
+  entryFlames: readonly CompositionAnchor[],
+): CompositionAnchor {
+  const x = average(entryFlames.map((flame) => flame.x));
+  const z = average(entryFlames.map((flame) => flame.z));
+  const horizontalLength = Math.hypot(x, z);
+
+  return {
+    label: `entry-${entryIndex}`,
+    x,
+    y: average(entryFlames.map((flame) => flame.y)),
+    z,
+    outwardX: horizontalLength > 0 ? x / horizontalLength : 0,
+    outwardZ: horizontalLength > 0 ? z / horizontalLength : 0,
+  };
 }
 
 function average(values: readonly number[]): number {

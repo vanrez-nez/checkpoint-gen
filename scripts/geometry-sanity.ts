@@ -19,8 +19,13 @@ import {
   DEFAULT_MASS_LAYOUT,
   DEFAULT_MASS_STONE_CONFIG,
   MASS_LAYOUT_CONTROLS,
+  resolveMassLayout,
   type MassLayoutConfig,
 } from "../src/structure/families/mass/config";
+import {
+  MAX_FIRE_BOWL_SLOT_FILL,
+  resolveMassFireBowlSlots,
+} from "../src/structure/families/mass/fire-bowl-slots";
 import {
   PILLAR_HALL_LAYOUT_CONTROLS,
   type PillarHallLayoutConfig,
@@ -116,7 +121,21 @@ import {
   prepareOfferingGeometry,
 } from "../src/props/offering/model";
 import { MainScene } from "../src/scene/main";
+import {
+  DEFAULT_SAMPLERS_PER_SHADER_STAGE,
+  DEFAULT_SAMPLED_TEXTURES_PER_SHADER_STAGE,
+  FULL_SUN_SHADOW_CASCADES,
+  MAX_REQUESTED_SAMPLED_TEXTURES,
+  MIN_FIRE_GLOW_SHADOW_SAMPLED_TEXTURES,
+  REDUCED_SUN_SHADOW_CASCADES,
+  fireGlowShadowBindingCount,
+  fireGlowShadowCascadeCount,
+  requestedSamplerLimit,
+  requestedSampledTextureLimit,
+  supportsFireGlowShadows,
+} from "../src/scene/webgpu-limits";
 import { ValidationLog } from "../src/ui/validation-log";
+import { stairBasis, stairWorldToLocal } from "../src/structure/connector/stair";
 
 const config = createDefaultStructureConfig();
 const layout = DEFAULT_CIRCULAR_LAYOUT;
@@ -217,7 +236,7 @@ assert.ok(isStructureHash(circularDefaultCode));
 const massDefaultHashConfig = createDefaultStructureConfig();
 massDefaultHashConfig.typeId = "mass";
 const massDefaultCode = encodeStructureHash(massDefaultHashConfig);
-assert.ok(massDefaultCode.length <= 75);
+assert.ok(massDefaultCode.length <= 120);
 assert.doesNotMatch(massDefaultCode, /^g\d/);
 assert.equal(
   applyStructureHash(createDefaultStructureConfig(), massDefaultCode),
@@ -274,6 +293,158 @@ assertCompositionGeometryEqual(
 const massSurfaceComposition = new StructureComposer().build(
   massDefaultHashConfig,
 );
+
+// Mass owns bowl placement independently of pillars. Each enabled terminal is
+// a square slot derived from the resolved parapet width and cornice projection.
+const slottedMassConfig = createDefaultStructureConfig();
+slottedMassConfig.typeId = "mass";
+const slottedMassLayout = slottedMassConfig.layouts.mass as MassLayoutConfig;
+slottedMassLayout.stairFireBowlBottomEnabled = true;
+slottedMassLayout.stairFireBowlTopEnabled = true;
+const slottedMassGraph = resolveMassLayout(slottedMassLayout);
+const massBowlSlots = resolveMassFireBowlSlots(
+  slottedMassLayout,
+  slottedMassGraph,
+  slottedMassConfig.fireBowl,
+);
+assert.equal(massBowlSlots.length, slottedMassGraph.connectors.length * 4);
+assert.equal(massBowlSlots.filter((slot) => slot.level === "bottom").length, 8);
+assert.equal(massBowlSlots.filter((slot) => slot.level === "top").length, 8);
+for (const slot of massBowlSlots) {
+  const connector = slottedMassGraph.connectors.find((entry) => entry.id === slot.connectorId)!;
+  const parapet = connector.parapet!;
+  const outward = stairBasis(connector.direction).outward;
+  const expectedWidth = parapet.width + parapet.cornice!.projection * 2;
+  assert.ok(Math.abs(slot.availableWidth - expectedWidth) < 1e-9);
+  assert.equal(slot.bowlScale, Math.min(slottedMassConfig.fireBowl.scale, MAX_FIRE_BOWL_SLOT_FILL));
+  assert.equal(slot.outwardX, outward.x);
+  assert.equal(slot.outwardZ, outward.z);
+  const bowl = createFireBowlGeometry(
+    { ...slottedMassConfig.fireBowl, scale: slot.bowlScale },
+    slot.referenceWidth,
+  );
+  const bounds = bowl.geometry.boundingBox!;
+  assert.ok(bounds.max.x - bounds.min.x <= slot.availableWidth * MAX_FIRE_BOWL_SLOT_FILL + 1e-6);
+  assert.ok(bounds.max.z - bounds.min.z <= slot.availableWidth * MAX_FIRE_BOWL_SLOT_FILL + 1e-6);
+  const local = stairWorldToLocal(connector, slot);
+  assert.ok(Math.abs(
+    Math.abs(local.u) - (connector.width * 0.5 + parapet.width * 0.5)
+  ) < 1e-9);
+  assert.ok(Math.abs(
+    local.v - (slot.level === "bottom"
+      ? connector.run + expectedWidth * 0.5
+      : -expectedWidth * 0.5)
+  ) < 1e-9);
+  assert.ok(Math.abs(
+    slot.y - (slot.level === "bottom"
+      ? connector.bottomY + parapet.height
+      : connector.topY + parapet.height)
+  ) < 1e-9);
+  bowl.geometry.dispose();
+}
+
+const slottedMassComposition = new StructureComposer().build(slottedMassConfig);
+assert.equal(slottedMassComposition.sections.fireBowls.partCount, 16);
+assert.equal(slottedMassComposition.anchors.flames.length, 16);
+assert.equal(slottedMassComposition.anchors.glows.length, 8);
+for (const glow of slottedMassComposition.anchors.glows) {
+  const pair = massBowlSlots.filter(
+    (slot) => `${slot.connectorId}/${slot.level}/fire_glow` === glow.label,
+  );
+  assert.equal(pair.length, 2);
+  assert.ok(Math.abs(glow.x - (pair[0]!.x + pair[1]!.x) * 0.5) < 1e-9);
+  assert.ok(Math.abs(glow.y - (pair[0]!.y + pair[1]!.y) * 0.5) < 1e-9);
+  assert.ok(Math.abs(glow.z - (pair[0]!.z + pair[1]!.z) * 0.5) < 1e-9);
+  const connector = slottedMassGraph.connectors.find(
+    (entry) => entry.id === pair[0]!.connectorId,
+  )!;
+  assert.ok(Math.abs(stairWorldToLocal(connector, glow).u) < 1e-9);
+  const outward = stairBasis(connector.direction).outward;
+  assert.equal(glow.outwardX, outward.x);
+  assert.equal(glow.outwardZ, outward.z);
+}
+assert.ok(
+  slottedMassComposition.geometry.groups.some(
+    (group) => group.materialIndex === materialSlotIndex("iron"),
+  ),
+);
+
+const bottomOnlyMassLayout: MassLayoutConfig = {
+  ...slottedMassLayout,
+  stairFireBowlTopEnabled: false,
+};
+assert.equal(
+  resolveMassFireBowlSlots(
+    bottomOnlyMassLayout,
+    resolveMassLayout(bottomOnlyMassLayout),
+    slottedMassConfig.fireBowl,
+  ).length,
+  slottedMassGraph.connectors.length * 2,
+);
+
+const steppedSlotLayout: MassLayoutConfig = {
+  ...slottedMassLayout,
+  stairRearEnabled: false,
+  stairLeftEnabled: false,
+  stairRightEnabled: false,
+  stairSideTreatment: "stepped_parapet",
+  stairSteppedParapetCorniceProjection: 0.2,
+  stairSteppedParapetCorniceHeight: 0.2,
+};
+const steppedSlotGraph = resolveMassLayout(steppedSlotLayout);
+const steppedSlots = resolveMassFireBowlSlots(
+  steppedSlotLayout,
+  steppedSlotGraph,
+  slottedMassConfig.fireBowl,
+);
+assert.equal(steppedSlots.length, 4);
+const steppedConnector = steppedSlotGraph.connectors[0]!;
+assert.ok(steppedSlots.filter((slot) => slot.level === "bottom").every((slot) =>
+  Math.abs(
+    slot.y
+      - (steppedConnector.bottomY + steppedConnector.riser + steppedConnector.parapet!.height)
+  ) < 1e-9));
+
+const disabledMassBowlConfig = structuredClone(slottedMassConfig);
+disabledMassBowlConfig.fireBowl.enabled = false;
+const disabledMassBowls = new StructureComposer().build(disabledMassBowlConfig);
+assert.equal(disabledMassBowls.sections.fireBowls.partCount, 0);
+assert.equal(disabledMassBowls.anchors.flames.length, 0);
+assert.equal(disabledMassBowls.anchors.glows.length, 0);
+
+const crampedMassLayout: MassLayoutConfig = {
+  ...slottedMassLayout,
+  stairParapetWidth: 0.2,
+  stairParapetCorniceProjection: 0.05,
+};
+assert.equal(
+  resolveMassFireBowlSlots(
+    crampedMassLayout,
+    resolveMassLayout(crampedMassLayout),
+    slottedMassConfig.fireBowl,
+  ).length,
+  0,
+  "A parapet terminal below the minimum usable square must expose no bowl slots.",
+);
+const bottomSlotControl = MASS_LAYOUT_CONTROLS.find(
+  (spec) => spec.key === "stairFireBowlBottomEnabled",
+)!;
+assert.equal(bottomSlotControl.visibleWhen?.(DEFAULT_MASS_LAYOUT), true);
+assert.equal(bottomSlotControl.visibleWhen?.(crampedMassLayout), false);
+
+const noCorniceMassLayout: MassLayoutConfig = {
+  ...slottedMassLayout,
+  stairParapetCorniceProjection: 0,
+};
+assert.equal(
+  resolveMassFireBowlSlots(
+    noCorniceMassLayout,
+    resolveMassLayout(noCorniceMassLayout),
+    slottedMassConfig.fireBowl,
+  ).length,
+  0,
+  "A parapet without a resolved cornice must expose no bowl slots.",
+);
 assert.deepEqual(
   massSurfaceComposition.geometry.groups.map((group) => group.materialIndex),
   [
@@ -283,6 +454,7 @@ assert.deepEqual(
     materialSlotIndex("summit"),
     materialSlotIndex("interior"),
     materialSlotIndex("roof"),
+    materialSlotIndex("iron"),
     materialSlotIndex("portalReveal"),
     materialSlotIndex("cornice"),
   ],
@@ -395,6 +567,8 @@ massRoundTripLayout.footprintWidth = 30;
 massRoundTripLayout.bandCount = 5;
 massRoundTripLayout.stairSideTreatment = "sloped_parapet";
 massRoundTripLayout.stairParapetCorniceProjection = 0.1;
+massRoundTripLayout.stairFireBowlBottomEnabled = true;
+massRoundTripLayout.stairFireBowlTopEnabled = true;
 massRoundTripLayout.summitBuildingEnabled = true;
 massRoundTripLayout.summitRoofEnabled = true;
 const massRoundTripTarget = createDefaultStructureConfig();
@@ -1135,6 +1309,13 @@ assert.ok(Math.abs(
 ) < 1e-12);
 assert.equal(composition.anchors.flames.length, allPlacements.length);
 assert.equal(composition.anchors.glows.length, layout.entryCount);
+for (const glow of composition.anchors.glows) {
+  assert.ok(Math.abs(Math.hypot(glow.outwardX ?? 0, glow.outwardZ ?? 0) - 1) < 1e-9);
+  assert.ok(
+    glow.x * (glow.outwardX ?? 0) + glow.z * (glow.outwardZ ?? 0) > 0,
+    "Circular glow directions must point away from the structure centre.",
+  );
+}
 assert.ok(composition.anchors.flames.every(
   (flame) => Math.abs(flame.y - pillarConfig.height) < 1e-9,
 ));
@@ -1314,12 +1495,9 @@ assert.equal(
 assert.ok(STRUCTURES.some((structure) => structure.id === DEFAULT_STRUCTURE_ID));
 
 for (const definition of STRUCTURES) {
-  // Props form a dependency chain: flames need a bowl, bowls need a pillar.
+  // Flames need bowl placements; bowls may be pillar-mounted or structure-owned.
   if (definition.props.includes("fire")) {
     assert.ok(definition.props.includes("fireBowl"), `${definition.id}: fire needs fireBowl`);
-  }
-  if (definition.props.includes("fireBowl")) {
-    assert.ok(definition.props.includes("pillar"), `${definition.id}: fireBowl needs pillar`);
   }
   assert.ok(definition.layoutControls.length > 0, `${definition.id} has no layout controls`);
   assert.doesNotThrow(() => definition.validateLayout(definition.cloneLayout()));
@@ -1380,9 +1558,20 @@ for (const definition of STRUCTURES) {
 }
 
 const massControlTabs = getStructure("mass").controlTabs;
+const massDefinition = getStructure("mass");
+assert.deepEqual(
+  sectionsForScopes(["layout"], massDefinition),
+  new Set(["mass", "fireBowls"]),
+  "A full Mass layout rebuild must include its structure-owned bowl slots.",
+);
+assert.deepEqual(
+  sectionsForScopes(["bowls"], massDefinition),
+  new Set(["fireBowls"]),
+  "Mass bowl controls must rebuild only the bowl-slot section.",
+);
 assert.deepEqual(
   massControlTabs.map((tab) => tab.label),
-  ["Structure", "Stairs", "Summit", "Materials"],
+  ["Structure", "Stairs", "Summit", "Fire", "Materials"],
 );
 assert.deepEqual(
   getStructure("pillar_hall").controlTabs.map((tab) => tab.label),
@@ -1398,7 +1587,7 @@ assert.deepEqual(
 );
 assert.ok(
   massControlTabs.every(
-    (tab) => !["Pillars", "Fire", "Offering"].includes(tab.label),
+    (tab) => !["Pillars", "Offering"].includes(tab.label),
   ),
 );
 
@@ -1408,6 +1597,8 @@ assert.ok(
 // impossible to reintroduce.
 assertSpecCoverage(CIRCULAR_LAYOUT_CONTROLS, DEFAULT_CIRCULAR_LAYOUT, "circular layout");
 assertSpecCoverage(MASS_LAYOUT_CONTROLS, DEFAULT_MASS_LAYOUT, "mass layout");
+assert.equal(DEFAULT_MASS_LAYOUT.stairFireBowlBottomEnabled, true);
+assert.equal(DEFAULT_MASS_LAYOUT.stairFireBowlTopEnabled, true);
 assertSpecCoverage(createStoneControls(["layout"]), DEFAULT_STONE_CONFIG, "circular stone");
 assertSpecCoverage(createStoneControls(["layout"]), DEFAULT_MASS_STONE_CONFIG, "mass stone");
 assertSpecCoverage(createBevelControls(["layout"]), DEFAULT_BEVEL_CONFIG, "circular bevel");
@@ -1416,6 +1607,45 @@ assertSpecCoverage(PILLAR_STONE_CONTROLS, DEFAULT_PILLAR_CONFIG.stone, "pillar s
 assertSpecCoverage(PILLAR_BEVEL_CONTROLS, DEFAULT_PILLAR_CONFIG.bevel, "pillar bevel");
 assertSpecCoverage(FIRE_BOWL_CONTROLS, DEFAULT_FIRE_BOWL_CONFIG, "fire bowl");
 assertSpecCoverage(FIRE_CONTROLS, DEFAULT_FIRE_CONFIG, "fire");
+assert.deepEqual(
+  {
+    bowlScale: DEFAULT_FIRE_BOWL_CONFIG.scale,
+    bowlRadialSegments: DEFAULT_FIRE_BOWL_CONFIG.radialSegments,
+    flameScale: DEFAULT_FIRE_CONFIG.scale,
+    flameRadius: DEFAULT_FIRE_CONFIG.radius,
+    flameHeight: DEFAULT_FIRE_CONFIG.height,
+    flameBaseHeight: DEFAULT_FIRE_CONFIG.baseHeight,
+    flameRadialSegments: DEFAULT_FIRE_CONFIG.radialSegments,
+    speed: DEFAULT_FIRE_CONFIG.speed,
+    noiseScale: DEFAULT_FIRE_CONFIG.noiseScale,
+    turbulence: DEFAULT_FIRE_CONFIG.turbulence,
+    intensity: DEFAULT_FIRE_CONFIG.intensity,
+    glowIntensity: DEFAULT_FIRE_CONFIG.glowIntensity,
+    glowRange: DEFAULT_FIRE_CONFIG.glowDistance,
+    glowHorizontalDistance: DEFAULT_FIRE_CONFIG.glowHorizontalDistance,
+    glowVerticalDistance: DEFAULT_FIRE_CONFIG.glowVerticalDistance,
+    glowFlicker: DEFAULT_FIRE_CONFIG.glowFlicker,
+  },
+  {
+    bowlScale: 0.5,
+    bowlRadialSegments: 16,
+    flameScale: 2.05,
+    flameRadius: 0.095,
+    flameHeight: 0.56,
+    flameBaseHeight: 0.14,
+    flameRadialSegments: 16,
+    speed: 7,
+    noiseScale: 4.8,
+    turbulence: 2,
+    intensity: 5,
+    glowIntensity: 0.6,
+    glowRange: 3,
+    glowHorizontalDistance: 0,
+    glowVerticalDistance: 0,
+    glowFlicker: 0.25,
+  },
+  "Fire defaults must match the approved pane values.",
+);
 assertSpecCoverage(OFFERING_CONTROLS, DEFAULT_OFFERING_CONFIG, "offering");
 assertSpecCoverage(VIEW_CONTROLS, DEFAULT_VIEW_CONFIG, "view");
 assertSpecCoverage(ILLUMINATION_CONTROLS, DEFAULT_ILLUMINATION_CONFIG, "illumination");
@@ -1665,6 +1895,46 @@ assert.throws(
   () => validateFireConfig({ ...DEFAULT_FIRE_CONFIG, glowFlicker: 0.51 }),
   /Fire glow flicker/,
 );
+validateFireConfig({ ...DEFAULT_FIRE_CONFIG, glowVerticalDistance: -3 });
+assert.throws(
+  () => validateFireConfig({ ...DEFAULT_FIRE_CONFIG, glowVerticalDistance: -3.05 }),
+  /Fire glow vertical distance/,
+);
+assert.equal(
+  requestedSampledTextureLimit(DEFAULT_SAMPLED_TEXTURES_PER_SHADER_STAGE),
+  null,
+);
+assert.equal(
+  requestedSampledTextureLimit(MIN_FIRE_GLOW_SHADOW_SAMPLED_TEXTURES),
+  MIN_FIRE_GLOW_SHADOW_SAMPLED_TEXTURES,
+);
+assert.equal(
+  requestedSampledTextureLimit(MAX_REQUESTED_SAMPLED_TEXTURES * 2),
+  MAX_REQUESTED_SAMPLED_TEXTURES,
+);
+assert.equal(
+  requestedSamplerLimit(DEFAULT_SAMPLERS_PER_SHADER_STAGE),
+  null,
+);
+assert.equal(
+  fireGlowShadowCascadeCount(48, DEFAULT_SAMPLERS_PER_SHADER_STAGE),
+  REDUCED_SUN_SHADOW_CASCADES,
+);
+assert.equal(
+  fireGlowShadowCascadeCount(48, MIN_FIRE_GLOW_SHADOW_SAMPLED_TEXTURES),
+  FULL_SUN_SHADOW_CASCADES,
+);
+assert.equal(fireGlowShadowBindingCount(FULL_SUN_SHADOW_CASCADES), 17);
+assert.equal(fireGlowShadowBindingCount(REDUCED_SUN_SHADOW_CASCADES), 16);
+assert.equal(
+  supportsFireGlowShadows(
+    DEFAULT_SAMPLED_TEXTURES_PER_SHADER_STAGE,
+    DEFAULT_SAMPLERS_PER_SHADER_STAGE,
+    REDUCED_SUN_SHADOW_CASCADES,
+  ),
+  true,
+);
+assert.equal(supportsFireGlowShadows(48, 15, REDUCED_SUN_SHADOW_CASCADES), false);
 
 // --- fire batch ------------------------------------------------------------
 const fireBatch = new VertexConeFireBatch(DEFAULT_FIRE_CONFIG.radialSegments, 16);
@@ -1819,6 +2089,27 @@ assertSurfaceTextureScale(structureMesh.geometry, "pillar", 1);
 
 // Fire retuning must not rebuild geometry or recreate the flame batch.
 const firstGlowLight = scene.scene.children.find((child) => child.type === "PointLight");
+const firstPointLight = firstGlowLight as THREE.PointLight;
+const firstGlowAnchor = composition.anchors.glows[0]!;
+assert.equal(firstPointLight.castShadow, false);
+assert.equal(firstPointLight.distance, DEFAULT_FIRE_CONFIG.glowDistance);
+assert.equal(firstPointLight.shadow.camera.near, 0.01);
+assert.equal(firstPointLight.shadow.camera.far, DEFAULT_FIRE_CONFIG.glowDistance);
+assert.equal(firstPointLight.shadow.mapSize.width, 512);
+assert.equal(firstPointLight.shadow.mapSize.height, 512);
+assert.equal(firstPointLight.shadow.bias, -0.0002);
+assert.equal(firstPointLight.shadow.normalBias, 0.02);
+assert.ok(Math.abs(firstPointLight.position.x - firstGlowAnchor.x) < 1e-9);
+assert.ok(Math.abs(
+  firstPointLight.position.y
+    - (
+      firstGlowAnchor.y
+      + DEFAULT_FIRE_CONFIG.baseHeight
+      + DEFAULT_FIRE_CONFIG.height * DEFAULT_FIRE_CONFIG.scale * 0.35
+      + DEFAULT_FIRE_CONFIG.glowVerticalDistance
+    ),
+) < 1e-9);
+assert.ok(Math.abs(firstPointLight.position.z - firstGlowAnchor.z) < 1e-9);
 const flameObject = scene.scene.getObjectByName("Fire bowl flames") as THREE.Mesh;
 const flameGeometry = flameObject.geometry;
 const structureGeometry = structureMesh.geometry;
@@ -1827,6 +2118,10 @@ sceneConfig.fire.noiseScale = 6;
 sceneConfig.fire.turbulence = 1.5;
 sceneConfig.fire.intensity = 2;
 sceneConfig.fire.glowIntensity = 1.2;
+sceneConfig.fire.glowDistance = 4.5;
+sceneConfig.fire.glowHorizontalDistance = 0.75;
+sceneConfig.fire.glowVerticalDistance = 0.6;
+sceneConfig.fire.glowCastShadow = true;
 const tunedFireStats = scene.updateFireEffects(sceneConfig);
 assert.equal(tunedFireStats.flames.count, 8);
 assert.equal(scene.scene.getObjectByName("Fire bowl flames"), flameObject);
@@ -1836,7 +2131,34 @@ assert.equal(
   scene.scene.children.find((child) => child.type === "PointLight"),
   firstGlowLight,
 );
-assert.equal((firstGlowLight as THREE.PointLight).intensity, 1.2);
+assert.equal(firstPointLight.intensity, 1.2);
+assert.equal(firstPointLight.distance, 4.5);
+assert.equal(firstPointLight.shadow.camera.far, 4.5);
+assert.ok(Math.abs(
+  firstPointLight.position.x
+    - (firstGlowAnchor.x + (firstGlowAnchor.outwardX ?? 0) * 0.75),
+) < 1e-9);
+assert.ok(Math.abs(
+  firstPointLight.position.y
+    - (
+      firstGlowAnchor.y
+      + sceneConfig.fire.baseHeight
+      + sceneConfig.fire.height * sceneConfig.fire.scale * 0.35
+      + 0.6
+    ),
+) < 1e-9);
+assert.ok(Math.abs(
+  firstPointLight.position.z
+    - (firstGlowAnchor.z + (firstGlowAnchor.outwardZ ?? 0) * 0.75),
+) < 1e-9);
+assert.equal(firstPointLight.castShadow, true);
+sceneConfig.fire.glowCastShadow = false;
+scene.updateFireEffects(sceneConfig);
+assert.equal(
+  scene.scene.children.find((child) => child.type === "PointLight"),
+  firstGlowLight,
+);
+assert.equal(firstPointLight.castShadow, false);
 
 const eightEntryConfig = createDefaultStructureConfig();
 eightEntryConfig.layouts.circular.entryCount = 8;
@@ -1870,12 +2192,33 @@ assert.equal(independentFireStats.flames.vertexCount, 3_400);
 assert.equal(independentFireStats.flames.triangleCount, 6_016);
 assert.equal(independentFireStats.glowLightCount, 4);
 
+const massFireStats = scene.rebuild(slottedMassConfig);
+assert.equal(massFireStats.flames.count, 16);
+assert.equal(massFireStats.glowLightCount, 8);
+assert.equal(
+  scene.scene.children.filter((child) => child.type === "PointLight").length,
+  8,
+);
+
 const disabledFlameConfig = createDefaultStructureConfig();
 disabledFlameConfig.fire.enabled = false;
 const explicitlyDisabledFireStats = scene.updateFireEffects(disabledFlameConfig);
 assert.equal(explicitlyDisabledFireStats.flames.count, 0);
 assert.equal(explicitlyDisabledFireStats.glowLightCount, 0);
 scene.dispose();
+
+const limitedShadowConfig = createDefaultStructureConfig();
+limitedShadowConfig.fire.glowCastShadow = true;
+const limitedShadowScene = new MainScene(limitedShadowConfig, {
+  fireGlowShadowsSupported: false,
+});
+assert.equal(limitedShadowScene.getStats().glowLightCount, 4);
+assert.ok(
+  limitedShadowScene.scene.children
+    .filter((child) => child.type === "PointLight")
+    .every((child) => !(child as THREE.PointLight).castShadow),
+);
+limitedShadowScene.dispose();
 
 // --- cleanup ---------------------------------------------------------------
 for (const result of [

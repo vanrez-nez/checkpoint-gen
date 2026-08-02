@@ -219,6 +219,17 @@ therefore supported parts of the wall rather than cantilevers, and their
 endpoints do not expose raw cuts. Either style's wall is its own material
 surface, dressed apart from the flight it flanks while its cornice stays trim.
 
+Mass can use those square end blocks as explicit **fire-bowl slots**. Bottom and
+top terminals are enabled independently from the Fire tab. A slot exists only
+when the stair has a resolved parapet cornice and its square footprint—parapet
+width plus twice the cornice projection—is at least `0.45 m`. Bowl geometry uses
+the independent `iron` material slot, and its widest ring is automatically
+limited to 90% of that available square. The shared bowl scale may request a
+smaller result but cannot make it overhang the terminal. Flames remain one per
+bowl, while each left/right terminal pair shares one glow light centred between
+them. The light can then move outward along that stair's X/Z axis and vertically
+around its flame-derived height without disturbing the pair calculation.
+
 Masonry treads use an explicit **tiles per step** count. The count controls how
 many stones span every tread; stone-size variation may redistribute their
 individual widths, but the configured count remains exact and no longer follows
@@ -323,8 +334,13 @@ Every enabled bowl contains an animated vertex-displaced cone flame ported from
 the sibling `cheap-fire` experiment. All flames share one instanced mesh,
 geometry, and TSL material, so the complete set renders in one draw call. The
 two scrolling FBM samples run only in the vertex stage; interpolated heat drives
-the fragment color ramp without per-pixel noise. One unshadowed flickering point
-light per entrance provides a localized glow for its pair of bowls.
+the fragment color ramp without per-pixel noise. One flickering point light per
+entrance provides a localized glow for its pair of bowls. Glow-light shadow
+casting is disabled by default and can be enabled from the Fire controls. At
+startup the WebGPU renderer checks both sampled-texture and sampler limits and
+requests higher device limits only when the adapter supports them. A standard
+16-sampler device uses the reduced two-cascade sun shadow pipeline described
+below; the control stays unavailable only when even that pipeline cannot fit.
 
 Use the in-browser controls to adjust its overall radius, entry layout, paving
 density, and restrained stone variation.
@@ -408,7 +424,9 @@ The Fire Bowl tab controls whether bowls are generated, their overall scale,
 and radial detail. Separate Flame controls set visibility, overall scale,
 radius, height, base height, radial detail, animation speed, noise scale,
 turbulence, and intensity; these values do not inherit the bowl scale. Glow
-controls independently expose visibility, intensity, distance, and flicker. The
+controls independently expose visibility, intensity, attenuation range,
+horizontal distance in the structure's X/Z plane, a signed vertical offset from
+the flame-derived light height, and flicker. The
 tab also reports the combined fire-bowl vertex and triangle counts across all
 pillars, the instanced flame workload and draw count, and the number of
 entry-paired glow lights.
@@ -452,8 +470,11 @@ remains a master multiplier over all of them. Triplanar blending stays off, so
 tops, bevels, and vertical sides sample the baked maps directly.
 
 Lighting combines a cool hemisphere fill with a cool directional sun. The sun
-casts three faded WebGPU CSM cascades that track the active camera, while the
-structure geometry both casts and receives shadows. AO strength and crack
+normally casts three faded WebGPU CSM cascades that track the active camera. On
+a 16-sampler device it uses two cascades so all eight optional fire-glow shadow
+maps still fit the fragment-stage binding budget. Structure geometry both casts
+and receives shadows. Local point shadows use a close near plane plus depth and
+normal bias so nearby terraces do not expose cube-shadow seams. AO strength and crack
 shadow are re-derived from `userData` base arrays on the merged geometry, so
 they retune without regenerating anything.
 
