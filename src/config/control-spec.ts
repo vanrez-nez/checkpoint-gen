@@ -51,6 +51,12 @@ export interface NumberControlSpec<T> extends BaseControlSpec<T> {
   readonly max: number;
   readonly step: number;
   /**
+   * Optional Tweakpane-only increment. The stored/encoded value still uses
+   * `step`; this is for a semantic subset such as positive odd bay counts,
+   * where changing the codec grid would break existing geometry codes.
+   */
+  readonly inputStep?: number;
+  /**
    * Enforced only when true. `step` is never enforced for non-integers, since
    * float steps do not survive binary representation.
    */

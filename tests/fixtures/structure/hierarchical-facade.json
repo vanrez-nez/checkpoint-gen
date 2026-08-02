@@ -1,5 +1,4 @@
 {
-  "schemaVersion": "1.9",
   "id": "structure",
   "units": "meters",
   "seeds": {
@@ -6242,7 +6241,7 @@
       ]
     }
   ],
-  "frames": [],
+  "pillarHalls": [],
   "roofs": [
     {
       "id": "structure/summit_roof",

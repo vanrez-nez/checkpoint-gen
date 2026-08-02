@@ -32,19 +32,10 @@ import type {
 } from "../structure/definition";
 
 /**
- * Geometry-code schema version. Field order comes from the registered control
- * tables; adding, removing or reordering a field requires a version bump.
- *
- * `g2` is a dense mixed-radix encoding built on `proc-seed`'s `defineCodec` —
- * the shared codec this project's sibling repo also uses. Every field is
- * always present, in the fixed order the active structure's control tables
- * declare, so there is no sparse/default-omission behaviour to preserve and
- * no frozen "decoding baseline" object to interpret an entry's absence
- * against. Codes are correspondingly longer than the old `g1` scheme's, in
- * exchange for a field-count ceiling that no longer exists — `defineCodec`
- * packs into an arbitrary-precision integer, not a fixed bit width.
+ * Dense current-schema encoding. There is deliberately no version marker or
+ * migration layer: field order is the schema, and codes from older layouts may
+ * stop decoding when the generator contract changes.
  */
-const PREFIX = "g2";
 
 /**
  * The structure-type selector is encoded on its own, ahead of the active
@@ -103,8 +94,7 @@ export function encodeStructureHash(config: StructureConfig): string {
     writeFieldValue(field, form);
   }
 
-  return PREFIX
-    + typeCodec(definitions.length).encode({ type: structureIndex })
+  return typeCodec(definitions.length).encode({ type: structureIndex })
     + fieldsCodec(fields).encode(form);
 }
 
@@ -149,20 +139,14 @@ export function isStructureHash(fragment: string): boolean {
 function decodeStructureHash(fragment: string): DecodedGeometry {
   const code = fragment.startsWith("#") ? fragment.slice(1) : fragment;
 
-  if (!code.startsWith(PREFIX)) {
-    throw new Error(`Geometry code must start with "${PREFIX}".`);
-  }
-
-  const payload = code.slice(PREFIX.length);
-
-  if (payload.length <= TYPE_DIGITS) {
+  if (code.length <= TYPE_DIGITS) {
     throw new Error("Geometry code payload is empty.");
   }
 
   const definitions = listStructures();
   assertStructureCapacity(definitions.length);
   const typeForm = typeCodec(definitions.length).decode(
-    payload.slice(0, TYPE_DIGITS),
+    code.slice(0, TYPE_DIGITS),
   );
 
   if (!typeForm) {
@@ -180,7 +164,7 @@ function decodeStructureHash(fragment: string): DecodedGeometry {
   const decoded = createDefaultStructureConfig();
   decoded.typeId = definition.id;
   const fields = collectFields(decoded);
-  const form = fieldsCodec(fields).decode(payload.slice(TYPE_DIGITS));
+  const form = fieldsCodec(fields).decode(code.slice(TYPE_DIGITS));
 
   if (!form) {
     throw new Error("Geometry code payload is invalid or corrupted.");
@@ -199,7 +183,7 @@ function decodeStructureHash(fragment: string): DecodedGeometry {
 function assertStructureCapacity(count: number): void {
   if (count > TYPE_RADIX) {
     throw new RangeError(
-      `${count} registered structures exceed the ${TYPE_RADIX} the ${PREFIX} `
+      `${count} registered structures exceed the ${TYPE_RADIX} the `
       + "selector supports. Widen TYPE_DIGITS.",
     );
   }

@@ -1,10 +1,10 @@
 # Procedural Architectural System
 
-## A Surface-First Grammar for Platforms, Pyramids, Summit Buildings, and Colonnaded Structures
+## A Surface-First Grammar for Platforms, Pyramids, Summit Buildings, and Pillar Halls
 
 **Document status:** System specification  
 **Primary domain:** Rectilinear monumental and ceremonial architecture  
-**Core abstraction:** Semantic rectangular patches assembled into masses, cells, frames, and attachments  
+**Core abstraction:** Semantic rectangular patches assembled into masses, cells, family-owned structures, and attachments
 **Intended uses:** Procedural modeling, game environments, architectural variation, reusable asset generation, level-design tooling, and data-driven content pipelines
 
 ---
@@ -17,7 +17,7 @@ This document formalizes a procedural architectural system capable of generating
 - Multi-tier terraces and stepped pyramids.
 - Continuous or segmented stair systems.
 - Enclosed summit temples, gatehouses, palaces, and towers.
-- Open porticos, galleries, colonnades, and hypostyle halls.
+- Open pier-and-lintel screens, front galleries, and open-front pavilions.
 - Pillars, piers, columns, beams, cornices, parapets, and roof structures.
 - Masonry, surface ornament, weathering, vegetation, and coherent structural damage.
 - Combinations of the above as one hierarchical monument.
@@ -26,7 +26,7 @@ The system is surface-first, but not surface-only. Its smallest addressable arch
 
 1. **Mass system** — closed volumes such as platforms, pyramids, walls, towers, and roof blocks.
 2. **Cell system** — enclosed or partially enclosed spatial units such as rooms, passages, and courtyards.
-3. **Frame system** — supports and spans such as columns, piers, beams, porticos, and halls.
+3. **Family assembly system** — structure-specific arrangements such as Pillar Hall screens, galleries, and pavilions.
 4. **Surface system** — masonry, openings, moldings, reliefs, damage, and material treatment applied to generated patches.
 
 These systems share coordinates, attachment rules, materials, edge treatments, and constraints. A pyramid is therefore not a unique primitive, and a temple is not a single predefined mesh. Both are compositions made from reusable architectural rules.
@@ -85,7 +85,7 @@ Monument
 │   └── summit patches
 ├── summit superstructures
 │   ├── cell assemblies
-│   └── frame assemblies
+│   └── family-owned structures
 ├── roofs and crowns
 ├── attachments
 ├── surface treatments
@@ -128,7 +128,7 @@ One architectural structure can therefore receive many construction, style, and 
 
 | Entity | Definition |
 |---|---|
-| **Structure** | Root object containing all masses, spaces, frames, surfaces, attachments, and rules. |
+| **Structure** | Root object containing all masses, spaces, family-owned structures, surfaces, attachments, and rules. |
 | **Mass** | Closed or mostly closed architectural volume composed of patches. |
 | **Patch** | Bounded semantic surface with a local frame and normalized coordinates. |
 | **Region** | A normalized subdomain of a patch used by a feature or placement rule. |
@@ -137,9 +137,8 @@ One architectural structure can therefore receive many construction, style, and 
 | **Band** | Horizontal or vertical architectural layer with a profile and semantic role. |
 | **Cell** | Rectangular spatial unit representing a room, passage, solid block, court, or void. |
 | **Bay** | Interval between supports or a logical subdivision of a facade. |
-| **Frame** | Structural assembly of supports, spans, infill, and roof ranges. |
 | **Support** | Vertical load-bearing member such as a pier, pillar, or column. |
-| **Span** | Horizontal member connecting supports, walls, or frame nodes. |
+| **Span** | Horizontal member connecting supports, walls, or structural anchors. |
 | **Connector** | Traversable or topological connection between surfaces or cells. |
 | **Attachment** | A child object anchored to a patch, edge, region, cell, support, or span. |
 | **Profile** | Ordered cross-sections or offsets defining a shape through height or distance. |
@@ -362,7 +361,7 @@ runs_after: [portal_cut]
 conflict_policy: clip | skip | replace | error
 ```
 
-**Current implementation status (StructureGraph schema 1.9):** rectangular
+**Current implementation status:** rectangular
 regions on planar patches can execute `cut`, `inset`, and `extrude`.
 Dependencies and `runs_before` / `runs_after` references are resolved within one
 patch, and overlapping features apply the declared `clip`, `skip`, `replace`, or
@@ -852,7 +851,7 @@ clerestory
 vent
 niche
 passage
-colonnaded_opening
+screened_pier_opening
 lattice_panel
 roof_access
 ```
@@ -899,223 +898,147 @@ Cell assemblies must:
 
 ---
 
-## 9. Frame and Colonnade System
+## 9. Pillar Hall System
 
-### 9.1 Frame definition
+### 9.1 Family definition
 
-Frame systems generate open or semi-open structures:
+Pillar Hall is a dedicated structure family for the inspired square-pier and
+lintel compositions this project currently builds. It is not a historical
+reconstruction and does not carry a cultural label. It also does not sit on a
+generic Frame graph: its rows, bays, pier profiles, decorative panels, spans,
+and optional roof are owned and validated together by the family.
 
 ```yaml
-FrameSystem:
-  id: summit_portico
-  footprint: RegionRef
-  support_grid: SupportGrid
-  bay_rules: BayRules
-  support_profile: pier_heavy
-  spans: [SpanRule]
-  infill: [InfillRule]
-  entablature: EntablatureRule
-  roof_spans: [RoofSpan]
-  stylobate: stylobate_simple
+PillarHall:
+  archetype: linear_screen | front_gallery | open_pavilion
+  platform: SteppedPlatform
+  approach: FrontStair | none
+  rows: [PillarRow]
+  pier_profile: SteppedPierProfile
+  lintels: [BayLintel]
+  roof: ShallowSlab | none
 ```
 
-### 9.2 Support grids
+### 9.2 Implemented archetypes
 
-A support grid contains:
+The first slice resolves three complete compositions:
 
 ```text
-row count
-column count
-row spacing
-bay width sequence
-grid offsets
-edge setbacks
-corner treatment
-axis alignment
-missing support masks
-merged bay ranges
+linear_screen
+  low two-tier base
+  one row, five bays by default
+  continuous structural base with one full-depth centred plinth per pier
+  two recessed decorated panel fields per bay and end buttresses
+  exposed lintels, no stair, no roof
+
+front_gallery
+  three-tier platform and centred stair
+  parallel front and rear rows, five bays by default
+  shallow slab over the full gallery range
+
+open_pavilion
+  three-tier platform and broad centred stair
+  open-front U plan: rear row plus both side rows
+  exposed lintels, no front cross-row, no roof
 ```
 
-Grid layouts:
-
-```text
-single row portico
-double row gallery
-perimeter colonnade
-U-shaped hall
-L-shaped gallery
-central aisle
-multi-aisle hall
-hypostyle grid
-twin separated colonnades
-offset porticos
-```
+These are authored presets, not labels inferred from geometry. Selecting an
+archetype establishes a coherent starting composition; every exposed numeric
+control remains editable afterward.
 
 ### 9.3 Bays
 
-A bay is the interval between neighboring supports or wall piers.
+A bay is the open interval between neighbouring square piers. It owns its two
+support references, resolved width, row, and lintel. Before bays are divided,
+the resolver subtracts the actual outer extents of the pier profile, raised
+panels, lintel/cornice depth, roof projection, and Linear Screen terminations
+from the summit area. Bay counts are positive integers; they are not forced odd
+because the stair is a platform connector, not a special entrance bay cut
+through the upper assembly. A density constraint refuses combinations where
+the remaining run and selected pier width leave no credible opening.
 
-Bay contents:
+The U plan deduplicates its two rear corner supports across the rear and side
+rows. That shared ownership is part of the family record, not an accidental
+overlap in the mesh.
 
-```text
-open
-solid infill
-doorway
-lattice screen
-low wall
-decorative panel
-balustrade
-double_width_opening
-merged opening
-missing or collapsed span
-```
+### 9.4 Stepped piers
 
-Bay sequences can encode rhythm:
-
-```text
-open | open | entrance | open | open
-wall | open | open | open | wall
-screen | open | entrance | open | screen
-```
-
-Weighted randomness may vary infill, but primary axes and corner bays should follow explicit rules.
-
-### 9.4 Supports
-
-Support types:
+Every support uses the same fixed proportional stack, scaled by authored pier
+height and shaft width:
 
 ```text
-square_pier
-rectangular_pier
-round_column
-polygonal_column
-clustered_column
-wall_pier
-corner_pier
-engaged_pilaster
-sculptural_support
-timber_post
-ruined_stump
+foot         12% height, 1.55 x shaft width
+lower panel  36% height, 1.30 x shaft width
+shaft        30% height, 1.00 x shaft width
+capital      14% height, 1.30 x shaft width
+capstone      8% height, 1.65 x shaft width
 ```
 
-Every support exposes:
+The lower block derives one to four stacked panel fields from its resolved width
+and height; the default proportions produce three near-square fields. The shaft
+exposes one taller field on all four faces. Horizontal and vertical insets and
+rail widths are clamped independently from each field's available dimensions.
+Four shallow border rails leave the pier core visible behind each field, so
+every centre is genuinely recessed relative to its indexed panel border without
+requiring literal glyph sculpture.
 
-- Base anchor.
-- Shaft axis.
-- Capital bearing plane.
-- Adjacent bay references.
-- Load tags.
-- Surface patches.
-- Optional ornament zones.
+### 9.5 Lintels and upper profiles
 
-### 9.5 Spans and beams
+One rectangular lintel spans every resolved bay. Interior lintel pieces meet on
+their shared support centre, while the two terminal pieces and continuous
+cornice extend to one common end plane. This makes perpendicular Open Pavilion
+rows close cleanly over their shared corner piers and keeps the exposed end
+layers vertically aligned. `spanEndProjection` moves that common plane beyond
+the square end implied by the cornice depth. Linear Screen and Open Pavilion
+expose this upper work directly; Front Gallery uses it as the bearing line for
+its shallow slab.
 
-A span connects compatible supports or walls:
+### 9.6 Decorative language
 
-```yaml
-Span:
-  id: beam_front_03
-  start_support: pier_03
-  end_support: pier_04
-  type: lintel
-  section:
-    width: 0.8
-    height: 0.65
-  projection: 0.1
-  segmentation: three_stones
-  load_role: roof_bearing
-```
+The first slice uses only stepped rectangular construction:
 
-Span types:
+- layered pier feet, capitals, and capstones;
+- recessed shaft and lower-block panel fields;
+- a support-panel-support base rhythm on the Linear Screen, with every
+  full-depth projecting plinth centred beneath and containing its pier footprint,
+  and paired recessed fields filling each bay;
+- stepped end buttresses;
+- projecting cornice bands.
 
-```text
-lintel
-beam
-architrave
-corbelled_span
-stepped_span
-double_beam
-bracketed_beam
-wall_plate
-ruined_partial_span
-```
+No motif claims an archaeological source. Literal reliefs, glyph sculpture,
+figurative terminals, damage, and vegetation remain later attachment or surface
+work.
 
-### 9.6 Entablatures
+### 9.7 Roof rule
 
-The upper assembly above supports is a band stack:
+Only Front Gallery emits a roof in this slice. It is one shallow rectangular
+slab spanning the front and rear row range with a small projection. Linear
+Screen and Open Pavilion deliberately remain roofless so their lintels and
+capstones retain the silhouette shown by the reference direction.
 
-```text
-bearing slab
-architrave
-frieze
-cornice
-upper wall
-coping
-parapet
-roof curb
-```
+### 9.8 Constraints and material ownership
 
-It may span:
+A Pillar Hall is valid when every row fits its summit rectangle, the gallery row
+depth remains inside the platform, bay openings clear the selected pier width,
+and every span has both supports. Invalid combinations produce named recoverable
+validation errors and leave the last valid composition active.
 
-- One bay.
-- A continuous row.
-- A selected range.
-- The complete perimeter.
-- Separate left and right groups.
+The graph owns `pillarHalls` records for rows, supports, bays, members, and the
+optional family roof. It has no schema-version marker and no `frames` container.
+`pedestal`, `pier`, `pierPanel`, and `lintel` are independent indexed material
+slots; `stone`, `stairs`, `frieze`, `cornice`, and `roof` are reused shared
+surfaces. The Mass family contains no Pillar Hall controls or geometry branch.
 
-### 9.7 Roof spans over frames
+Contact ownership is resolved per exposed rectangle. Perpendicular lintels and
+members may cover only part of a larger side, so the covered sub-rectangle is
+removed while the remaining face is retained; a centroid hit is never allowed
+to erase an entire quad. The topology fixtures require zero coincident faces,
+zero buried faces, and no outward-facing holes for every archetype.
 
-A roof span references a valid bay range or grid region:
-
-```yaml
-RoofSpan:
-  id: portico_roof_left
-  support_rows: [front, rear]
-  bay_range: [0, 4]
-  elevation: auto
-  thickness: 0.5
-  edge_profile: projected_eave
-  continuity: continuous
-```
-
-This allows:
-
-- Continuous covered galleries.
-- Separated roof blocks.
-- Raised central roof sections.
-- Alternating open and covered bays.
-- Partially collapsed roof fields.
-
-### 9.8 Frame constraints
-
-A frame is valid when:
-
-- Every intact structural span has compatible bearing anchors.
-- Support spacing is within the selected span system's limit.
-- Roof ranges have sufficient support or explicit cantilever rules.
-- Infill geometry fits its bay.
-- Supports do not obstruct required circulation.
-- Corner conditions are resolved explicitly.
-- Removed supports trigger collapse, substitution, or a marked unstable state.
-
-**Current implementation status (StructureGraph schema 1.9):** Frame is now a
-populated graph subsystem rather than a reserved container. The first vertical
-slice resolves `single_row_portico` and `perimeter_colonnade` layouts over the
-shared summit placement, with square-pier profile stacks, deduplicated perimeter
-corner supports, real bay and span records, stair-derived centred entrance bays,
-segmented stylobates, per-bay lintels, and continuous architrave, frieze, and
-cornice bands. A Frame may stand alone or wrap an inset summit Cell; an attached
-entablature aligns to the Cell crown. Frame roof ranges replace the separate Cell
-roof when enabled. Standalone perimeter roofs enforce the current 8 m range
-limit, while standalone one-row portico roofs refuse generation because they
-lack a rear bearing. Both bare and masonry construction read the same resolved
-records through `SolidBuilder`.
-
-Supports, stylobates, lintels, architraves, friezes, cornices, and Frame roofs
-retain independent indexed material ownership. Current limits are intentional:
-bay infill, missing or collapsed members, arches, round or polygonal columns,
-fluting, ornament, double rows, U/L layouts, and hypostyle grids remain future
-Frame vocabulary rather than special-case geometry.
+Generic infill grammars, missing-member masks, arches, round supports,
+hypostyle grids, and arbitrary roof ranges are future research. They should not
+be reintroduced as a generic core until a concrete family needs them and proves
+the abstraction against more than one credible composition.
 
 ---
 
@@ -1230,7 +1153,7 @@ Named motifs belong to a style library and should not be selected without a comp
 Pilasters reuse the support profile but anchor to wall patches. Their depth is constrained by wall thickness and facade bands. They may:
 
 - Align with bay boundaries.
-- Frame portals.
+- Border portals with engaged supports.
 - Support a cornice visually or structurally.
 - Divide a long facade.
 - Continue through multiple vertical bands.
@@ -1287,7 +1210,7 @@ Bay widths may be:
 - Alternating.
 - Mirrored.
 - Derived from cell widths.
-- Derived from frame spacing.
+- Derived from structural-row spacing.
 
 ### 11.2 Vertical subdivision
 
@@ -1373,7 +1296,7 @@ Reserve zones before populating features:
 
 When two features conflict, resolve by declared priority rather than arbitrary generation order.
 
-**Current implementation status (StructureGraph schema 1.9):** planar Cell
+**Current implementation status:** planar Cell
 facades resolve into graph-owned `FacadeRecord` entries with stable horizontal
 bays, vertical bands, hierarchy, symmetry, target wall pairs, and executable
 feature ids. Bay allocation supports fixed and weighted widths plus Cell-derived
@@ -1393,7 +1316,7 @@ future work.
 
 ### 12.1 Roof ownership
 
-Roofs are independent assemblies that reference the cells, walls, or frames they cover. They should not be baked into each room or column.
+Roofs are independent assemblies that reference the cells, walls, or family-owned structures they cover. They should not be baked into each room or support.
 
 ### 12.2 Roof types
 
@@ -1900,7 +1823,7 @@ elevation band
 facade
 bay
 cell
-frame row
+structural row
 support family
 individual support
 patch
@@ -1916,7 +1839,7 @@ Use shared latent variables or rule groups:
 ```text
 monumentality → wider stairs, larger blocks, heavier cornices
 frontality → stronger axial alignment, richer front facade
-openness → more frame bays, fewer solid cells
+openness → more open bays, fewer solid cells
 vertical emphasis → smaller setbacks, taller central crown
 condition age → more joint erosion, staining, and block loss
 construction precision → tighter joints and more regular courses
@@ -1990,7 +1913,7 @@ Structure
 │   └── connectors
 ├── Superstructures
 │   ├── cell assemblies
-│   ├── frame assemblies
+│   ├── family-owned structures
 │   └── secondary masses
 ├── Roof assemblies
 ├── Attachments
@@ -2022,7 +1945,7 @@ site
   → patches
   → circulation
   → summit layout
-  → cells and frames
+  → cells and family structures
   → roofs
   → facade subdivisions
   → construction
@@ -2325,14 +2248,14 @@ structure:
 5. Connect cells with openings.
 6. Derive facade bays from cell boundaries.
 
-### Phase 7 — Generate frame assemblies
+### Phase 7 — Generate family-owned structural assemblies
 
-1. Resolve stylobate and frame footprint.
-2. Generate support grids.
-3. Resolve bay contents.
-4. Instantiate support profiles.
-5. Generate spans and entablatures.
-6. Validate support and circulation topology.
+1. Resolve the selected archetype against its platform placement.
+2. Generate its named rows and bays.
+3. Instantiate the family-specific support profiles and panel records.
+4. Generate lintels, cornices, and any archetype-owned roof.
+5. Preserve independent semantic material ownership for each detail family.
+6. Validate contacts, support topology, circulation, and the archetype silhouette.
 
 ### Phase 8 — Generate roofs and crowns
 
@@ -2385,11 +2308,11 @@ structure:
 **Current implementation status:** generated geometry retains a stable
 per-vertex semantic material index and coalesces triangles into one draw group
 per used slot. Facade portal reveals, window reveals, niches, recessed panels,
-pilasters, and friezes are independently assignable. Frame supports,
-stylobates, lintels, architraves, friezes, cornices, and roof ranges are likewise
-independent. Their defaults match the adjacent summit, trim, or roof materials,
-so indexed ownership does not change the approved look until an assignment is
-edited.
+pilasters, and friezes are independently assignable. Pillar Hall pedestals,
+piers, pier panels, lintels, friezes, cornices, and roofs are likewise
+independent. Their defaults remain coordinated with adjacent stone, trim, and
+roof materials, so indexed ownership does not change the approved look until an
+assignment is edited.
 
 ### Phase 14 — Outputs and validation
 
@@ -2556,9 +2479,9 @@ Key constraints:
 - Derive facade bays from the cell plan.
 - Support the crown over the central room or wall chain.
 
-### 21.3 Colonnaded podium
+### 21.3 Pillar Hall compositions
 
-**Intent:** A platform supporting open framed halls.
+**Intent:** A low stepped platform supporting an inspired pier-and-lintel structure.
 
 ```text
 Podium:
@@ -2566,31 +2489,28 @@ Podium:
   broad summit
   central stair
 
-Frame assemblies:
-  two separated porticos or one continuous gallery
-  square pier support profiles
-  open bays with a wider central entrance
-  architrave, frieze, cornice
+Pillar Hall:
+  Linear Screen, Front Gallery, or Open Pavilion
+  stepped square-pier profiles
+  open bays with independent lintel spans
+  inset pier panels and geometric base panels
+  aligned pier plinths alternating with paired bay panels on Linear Screen
 
 Roof:
-  one roof per bay range
-  optional gap on the main axis
+  shallow slab on Front Gallery only
+  exposed lintels on Linear Screen and Open Pavilion
 
 Construction:
-  stylobate beneath supports
-  segmented stone beams
-  capstones and heavy cornice
+  layered support feet
+  capstones and projecting cornice
+  independent indexed detail surfaces
 ```
 
 Variations:
 
-- Single-row portico.
-- Double-row gallery.
-- U-shaped hall.
-- Perimeter colonnade.
-- Multi-row hypostyle hall.
-- Selective wall or screen infill.
-- Collapsed roof range with fallen spans.
+- One-row Linear Screen.
+- Two-row Front Gallery.
+- Open-front U-plan Pavilion.
 
 ### 21.4 Three-bay gatehouse
 
@@ -2637,9 +2557,9 @@ Plan:
   multiple passages to the exterior
   hierarchy of public and private rooms
 
-Frames:
-  optional colonnaded courtyard edges
-  portico in front of major rooms
+Edges:
+  optional pier-and-lintel screens along courtyard edges
+  covered gallery in front of major rooms
 
 Roofs:
   grouped by cell strips
@@ -2652,7 +2572,7 @@ Facades:
   major portals aligned to circulation paths
 ```
 
-Complexity comes from composing rectangular cells and frame ranges, not from replacing the core grammar.
+Complexity comes from composing rectangular cells, facade bands, and family-owned edge structures, not from replacing the core grammar.
 
 ---
 
@@ -2786,7 +2706,7 @@ Represent them as:
 
 ### 23.3 Bridges and elevated passages
 
-Treat them as connector masses or frame spans between compatible anchors.
+Treat them as connector masses or explicitly supported spans between compatible anchors.
 
 ### 23.4 Underground spaces
 
@@ -2877,9 +2797,9 @@ Cell
   → rectangular spatial unit
   → rooms, courts, gatehouses, temples, palaces
 
-Frame
-  → support grid plus bays and spans
-  → porticos, galleries, colonnades, halls
+Pillar Hall
+  → family-owned rows, stepped piers, bays, and lintels
+  → screens, front galleries, open-front pavilions
 
 Support profile
   → stacked cross-sections
@@ -2890,7 +2810,7 @@ Facade grammar
   → openings, panels, moldings, hierarchy
 
 Roof assembly
-  → independent span over cells or frames
+  → independent span over cells or family-owned supports
   → slabs, eaves, parapets, crowns, drainage
 
 Attachment
@@ -2911,6 +2831,6 @@ Style and variation
 
 The key architectural distinction is:
 
-> A platform or pyramid is generated primarily from a footprint and an elevation profile; an enclosed superstructure is generated from a cellular plan and facade grammar; an open superstructure is generated from a support grid and bay system. All three resolve into semantic patches and therefore share the same surface, construction, attachment, material, and condition systems.
+> A platform or pyramid is generated primarily from a footprint and an elevation profile; an enclosed superstructure is generated from a cellular plan and facade grammar; the current open superstructure is generated by its Pillar Hall family. All three share the same construction, material, and validation foundations without forcing one generic layout graph onto unrelated forms.
 
-This arrangement is generic enough for simple platforms and pyramids while remaining extensible to temples, gatehouses, colonnaded halls, palaces, courtyards, ruins, and multi-phase complexes.
+This arrangement is extensible to platforms, pyramids, summit buildings, Pillar Halls, courtyards, ruins, and multi-phase complexes while allowing each credible structure family to prove its own composition rules first.

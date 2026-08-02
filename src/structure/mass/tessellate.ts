@@ -26,7 +26,7 @@ import {
 } from "../cell/build";
 import { buildRoof, faceIsCoveredByRoof } from "../roof/build";
 import { compiledSurfaceFragments } from "../surface/features";
-import { buildFrame, faceIsCoveredByFrame } from "../frame/build";
+import { buildPillarHall } from "../families/pillar-hall/build";
 
 /**
  * Turns a resolved structure graph into render geometry.
@@ -61,6 +61,9 @@ export interface TessellationOptions {
   readonly seed: number;
   /** Exact masonry tile count across each stair tread. */
   readonly stairTilesPerStep?: number;
+  /** Family-owned cache section and part id; Mass remains the default reader. */
+  readonly section?: string;
+  readonly partId?: string;
 }
 
 export function tessellateStructure(
@@ -68,7 +71,13 @@ export function tessellateStructure(
   options: TessellationOptions = { masonry: null, seed: 1, stairTilesPerStep: 5 },
 ): TessellationResult {
   const builder = new SolidBuilder();
-  const { masonry, seed, stairTilesPerStep = 5 } = options;
+  const {
+    masonry,
+    seed,
+    stairTilesPerStep = 5,
+    section = MASS_SECTION,
+    partId = "mass",
+  } = options;
   const patches = patchIndex(graph);
 
   for (const mass of graph.masses) {
@@ -99,12 +108,6 @@ export function tessellateStructure(
     builder.cullFaces((face) => faceIsCoveredByCellWall(face, cell, patches));
   }
 
-  // Frames own their support area on the summit just as Cell walls do. Remove
-  // only complete upward quads before any Frame geometry can select itself.
-  for (const frame of graph.frames) {
-    builder.cullFaces((face) => faceIsCoveredByFrame(face, frame));
-  }
-
   // A stair is resolved before tessellation, so its complete stepped envelope
   // is known before any of its blocks are laid. Remove only mass quads wholly
   // beneath that envelope. Doing this after the mass is complete covers bare
@@ -123,8 +126,8 @@ export function tessellateStructure(
   }
 
 
-  for (const frame of graph.frames) {
-    buildFrame(builder, frame, masonry, seed);
+  for (const hall of graph.pillarHalls) {
+    buildPillarHall(builder, hall, masonry, seed);
   }
 
   // The roof owns the room ceiling and projected soffits. Remove only the
@@ -132,10 +135,7 @@ export function tessellateStructure(
   // so neither assembly leaves a coincident contact plane.
   for (const roof of graph.roofs) {
     builder.cullFaces((face) => faceIsCoveredByRoof(face, roof));
-    builder.withMaterial(
-      roof.roofType === "frame_range" ? "frameRoof" : "roof",
-      () => buildRoof(builder, roof),
-    );
+    builder.withMaterial("roof", () => buildRoof(builder, roof));
   }
 
   // Connectors are read from the same graph and drawn with the same one
@@ -156,8 +156,8 @@ export function tessellateStructure(
 
   return {
     parts: [{
-      id: "mass",
-      section: MASS_SECTION,
+      id: partId,
+      section,
       slot: "stone",
       geometry,
       matrix: IDENTITY_MATRIX,
@@ -553,20 +553,21 @@ export function graphExtents(graph: StructureGraph): {
     }
   }
 
-  for (const frame of graph.frames) {
+  for (const hall of graph.pillarHalls) {
     const outlines = [
-      ...frame.supports.flatMap((support) => support.sections.map((section) => [
+      ...hall.supports.flatMap((support) => support.sections.map((section) => [
         section.footprint,
         section.topY,
       ] as const)),
-      ...frame.members.map((member) => [member.rect, member.topY] as const),
+      ...hall.members.map((member) => [member.rect, member.topY] as const),
+      ...(hall.roof ? [[hall.roof.footprint, hall.roof.topY] as const] : []),
     ];
     for (const [rect, y] of outlines) {
       min = min === null
-        ? { x: rect.minX, y: frame.bottomY, z: rect.minZ }
+        ? { x: rect.minX, y: hall.bottomY, z: rect.minZ }
         : {
           x: Math.min(min.x, rect.minX),
-          y: Math.min(min.y, frame.bottomY),
+          y: Math.min(min.y, hall.bottomY),
           z: Math.min(min.z, rect.minZ),
         };
       max = max === null

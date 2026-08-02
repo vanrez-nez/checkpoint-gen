@@ -1,11 +1,12 @@
 # Checkpoint Gen
 
 A low-poly procedural structure generator for Three.js. A *structure* composes
-reusable props and generators into a single merged geometry. Two are registered:
+reusable props and generators into a single merged geometry. Three are registered:
 the **circular** checkpoint, a seeded one-to-eight-way stone crossing with a
 three-tier center whose entries use polar coordinates; and **mass**, which
 resolves a footprint and an elevation profile into semantic patches and draws
-them as plain solids.
+them as plain solids; and **Pillar Hall**, an inspired pier-and-lintel family
+with Linear Screen, Front Gallery, and open-front Pavilion archetypes.
 
 ## Structures
 
@@ -28,7 +29,7 @@ shared prop table, it declares `sectionsByScope`.
 
 ### Geometry codes
 
-The URL fragment is a versioned code for the selected structure: `#g2...`. It
+The URL fragment is an unversioned current-schema code for the selected structure. It
 contains the structure type plus every value from that structure's layout and
 declared prop controls, including values currently hidden behind a disabled
 feature. The codec is `proc-seed`'s `defineCodec` — a dense mixed-radix
@@ -40,12 +41,9 @@ with the encoder about. A structure-type digit always comes first — exactly
 one base62 character, since the registry stays well under 62 entries — and
 selects which structure's own field list decodes the rest of the payload.
 
-Being dense costs length: a default circular checkpoint currently encodes to
-about 49 characters and a default mass to about 60, rather than the four a
-sparse code needed for the same case. The tradeoff is a schema with no field-
+Being dense costs length. The tradeoff is a schema with no field-
 count ceiling — `defineCodec` packs into an arbitrary-precision integer, not a
-fixed bit width — so a family's control table can keep growing without ever
-forcing a version bump on its own.
+fixed bit width.
 
 Scene state is deliberately outside this boundary. Camera/view state, global
 lighting, every material-palette selection and texture scale, the Scene tab's
@@ -55,13 +53,10 @@ into the address bar switches to that structure and regenerates it in place, whi
 control edits update the current history entry rather than adding one entry per
 slider movement.
 
-Codec field order comes from the registered control tables, and `defineCodec`'s
-own evolution rule governs from here: a new field must be *prepended*, never
-appended, and an existing field's range must never change, or every code
-already out there re-interprets. A schema change serious enough to break that
-rule bumps the prefix instead, exactly as the `g1` → `g2` move did — a `g1`
-code is rejected outright, with a console warning and a fall back to defaults,
-never silently misread as some other configuration.
+Codec field order comes from the registered control tables and is the complete
+wire schema. There is deliberately no migration layer or compatibility prefix:
+adding, removing, reordering, or retuning fields may invalidate older links.
+Decoding always targets the generator version currently running.
 
 ## The structure kernel
 
@@ -366,8 +361,10 @@ is validated: the selected family's layout and surface values, shared props,
 view, illumination, and color fields. Mass validation also resolves the
 cross-field structural rules, because a width or height may be inside its own
 slider range while its combination with batter, summit size, or stairs produces
-no buildable mass. An invalid edit leaves the last valid geometry in place and
-reports the error in the global status row below FPS.
+no buildable mass. An invalid edit restores the last valid values in place, so
+the existing Tweakpane bindings remain usable without a reload. The compact
+status row still shows the latest result, while the validation log records
+rejected control values and structural diagnostics for inspection.
 
 Not every control is a Tweakpane *binding*: the curve editor is a blade that owns
 its own value, so `bindControls` adds it and writes back by hand. It also plots
@@ -380,7 +377,8 @@ Controls are context dependent. Each structure definition partitions its layout
 folder groups and declared props among `controlTabs`; the pane replaces the tab
 bar from that schema when the type changes. The circular structure therefore
 owns Structure, Pillars, Fire, Offering, and Materials pages, while Mass owns
-Structure, Stairs, Summit, and Materials. Scene is global and appended to either
+Structure, Stairs, Summit, and Materials. Pillar Hall owns Structure, Details,
+and Materials. Scene is global and appended to any
 tab bar. The definition validator requires every layout group and prop to appear
 on exactly one page, preventing an unrelated tab or an unbound control group from
 leaking into a new structure.
@@ -421,6 +419,17 @@ and a texture scale. The circular checkpoint dresses its plate, its pillars, its
 fire bowls, and the offering statue apart; Mass dresses masonry, trim, stairs,
 stair walls, summit walls, interior floors, and roof, plus independently indexed
 portal reveals, window reveals, niches, recessed panels, pilasters, and friezes.
+Pillar Hall adds independently indexed pedestals, stepped piers, recessed pier
+panels, lintels, friezes, cornices, and its optional gallery roof. Linear Screen
+alternates one full-depth projecting plinth centred beneath every pier with two
+recessed panel fields per bay, backed by a continuous structural base and
+flanked by end buttresses. Each pier carries an aspect-ratio-derived stack of
+one to four lower fields beneath one taller shaft panel on every face; the
+default proportions resolve to three lower fields. Row centre-lines are inset
+from the summit using the actual pier, span, roof, and termination extents before
+the available run is divided into bays. Lintel and cornice ends share one
+resolved plane at row ends and corners; the **Span end projection** control moves
+that plane outward without misaligning the stacked span layers.
 Documents are loaded lazily, cached by id, and baked at 512px, so surfaces that
 select the same document share one material and one bake rather than paying for
 it twice. Changing an assignment

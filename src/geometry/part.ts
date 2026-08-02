@@ -21,11 +21,11 @@ export const MATERIAL_SLOTS = [
   "panel",
   "pilaster",
   "frieze",
-  "stylobate",
-  "beam",
-  "architrave",
   "cornice",
-  "frameRoof",
+  "pedestal",
+  "pier",
+  "pierPanel",
+  "lintel",
 ] as const;
 
 export type MaterialSlot = (typeof MATERIAL_SLOTS)[number];

@@ -16,7 +16,7 @@ import {
   DEFAULT_MASS_LAYOUT,
   DEFAULT_MASS_STONE_CONFIG,
   HEIGHT_CURVE_OPTIONS,
-  MASS_LAYOUT_G1_BASELINE,
+  MASS_LAYOUT_BASELINE,
   cloneMassLayout,
   heightCurveBezier,
   toHeightCurve,
@@ -55,7 +55,6 @@ import {
   patchIndex,
   serializeGraph,
   StructureGraphBuilder,
-  STRUCTURE_SCHEMA_VERSION,
   type CellOpeningRecord,
   type CellConnectionRecord,
   type CellRecord,
@@ -87,7 +86,15 @@ import {
 } from "../src/structure/kernel/patch";
 import { compilePatchFeatures } from "../src/structure/surface/features";
 import { resolveFacadeBands, resolveFacadeBays } from "../src/structure/facade/layout";
-import { resolveFrameBayWidths } from "../src/structure/frame/resolve";
+import {
+  PILLAR_HALL_PRESETS,
+  clonePillarHallLayout,
+  resolvePillarHallGraph,
+  toPillarHallMasonry,
+  validatePillarHallLayout,
+  type PillarHallLayoutConfig,
+} from "../src/structure/families/pillar-hall/config";
+import { DEFAULT_PILLAR_HALL_STONE_CONFIG } from "../src/structure/families/pillar-hall/config";
 import { DiagnosticCollector } from "../src/structure/kernel/validate";
 import { createPatchOverlay } from "../src/structure/kernel/debug-overlay";
 import { generateStructure, type StructureSpec } from "../src/structure/mass/generate";
@@ -174,22 +181,6 @@ assert.deepEqual(
     summitRoofProjection: DEFAULT_MASS_LAYOUT.summitRoofProjection,
     summitRoofCorniceProjection: DEFAULT_MASS_LAYOUT.summitRoofCorniceProjection,
     summitRoofCorniceHeight: DEFAULT_MASS_LAYOUT.summitRoofCorniceHeight,
-    frameEnabled: DEFAULT_MASS_LAYOUT.frameEnabled,
-    frameLayout: DEFAULT_MASS_LAYOUT.frameLayout,
-    frameFrontBays: DEFAULT_MASS_LAYOUT.frameFrontBayCount,
-    frameSideBays: DEFAULT_MASS_LAYOUT.frameSideBayCount,
-    frameHeight: DEFAULT_MASS_LAYOUT.frameHeight,
-    frameShaft: DEFAULT_MASS_LAYOUT.frameShaftWidth,
-    frameClearance: DEFAULT_MASS_LAYOUT.frameCellClearance,
-    stylobateHeight: DEFAULT_MASS_LAYOUT.frameStylobateHeight,
-    stylobateProjection: DEFAULT_MASS_LAYOUT.frameStylobateProjection,
-    lintelHeight: DEFAULT_MASS_LAYOUT.frameLintelHeight,
-    architraveHeight: DEFAULT_MASS_LAYOUT.frameArchitraveHeight,
-    frameFriezeHeight: DEFAULT_MASS_LAYOUT.frameFriezeHeight,
-    frameCorniceHeight: DEFAULT_MASS_LAYOUT.frameCorniceHeight,
-    frameRoofEnabled: DEFAULT_MASS_LAYOUT.frameRoofEnabled,
-    frameRoofThickness: DEFAULT_MASS_LAYOUT.frameRoofThickness,
-    frameRoofProjection: DEFAULT_MASS_LAYOUT.frameRoofProjection,
   },
   {
     seed: 741,
@@ -248,22 +239,6 @@ assert.deepEqual(
     summitRoofProjection: 0.25,
     summitRoofCorniceProjection: 0.2,
     summitRoofCorniceHeight: 0.25,
-    frameEnabled: false,
-    frameLayout: "single_row_portico",
-    frameFrontBays: 5,
-    frameSideBays: 3,
-    frameHeight: 4,
-    frameShaft: 0.5,
-    frameClearance: 0.55,
-    stylobateHeight: 0.2,
-    stylobateProjection: 0.1,
-    lintelHeight: 0.25,
-    architraveHeight: 0.18,
-    frameFriezeHeight: 0.22,
-    frameCorniceHeight: 0.15,
-    frameRoofEnabled: true,
-    frameRoofThickness: 0.35,
-    frameRoofProjection: 0.2,
   },
   "The Mass controls must open with the approved defaults.",
 );
@@ -284,7 +259,7 @@ const FRONT_STAIR_ONLY = {
 
 function cloneFrontStairLayout(): MassLayoutConfig {
   return {
-    ...cloneMassLayout(MASS_LAYOUT_G1_BASELINE),
+    ...cloneMassLayout(MASS_LAYOUT_BASELINE),
     ...FRONT_STAIR_ONLY,
   };
 }
@@ -981,12 +956,6 @@ assert.equal(resolveFacadeBays(
 ), null);
 assert.equal(invalidFacadeDiagnostics.all[0]?.code, "facade.bays_not_bilateral");
 
-// --- Frame grid resolver --------------------------------------------------
-assert.deepEqual(resolveFrameBayWidths(12, 5, 3), [2.25, 2.25, 3, 2.25, 2.25]);
-assert.deepEqual(resolveFrameBayWidths(10, 5), [2, 2, 2, 2, 2]);
-assert.equal(resolveFrameBayWidths(12, 4, 3), null);
-assert.equal(resolveFrameBayWidths(20, 5), null);
-
 // --- golden fixtures -------------------------------------------------------
 // Committed graphs, not committed meshes. A retuned proportion shows up as a
 // readable diff on the numbers that changed, which is the whole reason these are
@@ -1062,33 +1031,6 @@ const FIXTURES: readonly { readonly name: string; readonly layout: MassLayoutCon
       facadeStyle: "hierarchical",
     },
   },
-  {
-    name: "attached-portico",
-    layout: {
-      ...cloneFrontStairLayout(),
-      summitBuildingEnabled: true,
-      summitBuildingWidthRatio: 1,
-      summitBuildingDepthRatio: 0.9,
-      stairWidthRatio: 0.08,
-      stairSideTreatment: "none",
-      frameEnabled: true,
-      frameLayout: "single_row_portico",
-      frameRoofEnabled: true,
-    },
-  },
-  {
-    name: "standalone-perimeter-colonnade",
-    layout: {
-      ...cloneMassLayout(MASS_LAYOUT_G1_BASELINE),
-      ...STAIRS_DISABLED,
-      summitBuildingEnabled: false,
-      summitBuildingWidthRatio: 0.55,
-      summitBuildingDepthRatio: 0.7,
-      frameEnabled: true,
-      frameLayout: "perimeter_colonnade",
-      frameRoofEnabled: true,
-    },
-  },
 ];
 
 const graphs = new Map<string, StructureGraph>();
@@ -1111,123 +1053,218 @@ for (const fixture of FIXTURES) {
   assertMatchesFixture(fixture.name, graph);
 }
 
-// --- Frame / colonnade vertical slice ------------------------------------
-const attachedPortico = graphs.get("attached-portico")!;
-const porticoFrame = attachedPortico.frames[0]!;
-assert.equal(porticoFrame.layout, "single_row_portico");
-assert.equal(porticoFrame.rows.length, 1);
-assert.equal(porticoFrame.supports.length, 6);
-assert.equal(porticoFrame.bays.length, 5);
-assert.equal(porticoFrame.bays.filter((bay) => bay.entrance).length, 1);
-assert.equal(porticoFrame.attachedCellIds.length, 1);
-assert.equal(porticoFrame.topY, attachedPortico.cells[0]?.topY);
-assert.equal(attachedPortico.roofs[0]?.roofType, "frame_range");
-assert.ok(
-  (attachedPortico.cells[0]?.footprint.maxZ ?? Infinity)
-  < porticoFrame.footprint.maxZ,
-  "The attached portico did not inset the Cell behind its front support row.",
-);
-const attachedStair = attachedPortico.connectors[0]!;
-const attachedEntrance = porticoFrame.bays.find((bay) => bay.entrance)!;
-assert.ok(
-  attachedEntrance.width
-  >= attachedStair.width
-    + 2 * ((attachedStair.parapet?.width ?? 0)
-      + (attachedStair.parapet?.cornice?.projection ?? 0))
-    + 0.3 - 1e-9,
-  "The centred portico entrance bay does not clear its complete stair assembly.",
-);
+// --- Pillar Hall family ---------------------------------------------------
+const HALL_FIXTURES: readonly {
+  readonly name: string;
+  readonly layout: PillarHallLayoutConfig;
+}[] = [
+  { name: "pillar-hall-linear-screen", layout: clonePillarHallLayout(PILLAR_HALL_PRESETS.linear_screen) },
+  { name: "pillar-hall-front-gallery", layout: clonePillarHallLayout(PILLAR_HALL_PRESETS.front_gallery) },
+  { name: "pillar-hall-open-pavilion", layout: clonePillarHallLayout(PILLAR_HALL_PRESETS.open_pavilion) },
+];
 
-const standalonePerimeter = graphs.get("standalone-perimeter-colonnade")!;
-const perimeterFrame = standalonePerimeter.frames[0]!;
-assert.equal(perimeterFrame.layout, "perimeter_colonnade");
-assert.equal(perimeterFrame.rows.length, 4);
-assert.equal(perimeterFrame.supports.length, 16);
-assert.equal(perimeterFrame.bays.length, 16);
-assert.equal(perimeterFrame.attachedCellIds.length, 0);
-assert.equal(standalonePerimeter.cells.length, 0);
-assert.equal(standalonePerimeter.roofs[0]?.roofType, "frame_range");
-const cornerReferences = perimeterFrame.rows.flatMap((row) => row.supportIds)
-  .filter((id, index, ids) => ids.indexOf(id) !== index);
-assert.equal(new Set(cornerReferences).size, 4, "Perimeter corners were not shared once.");
+for (const fixture of HALL_FIXTURES) {
+  assert.doesNotThrow(() => validatePillarHallLayout(fixture.layout));
+  const graph = resolvePillarHallGraph(fixture.layout);
+  const hall = graph.pillarHalls[0]!;
+  assert.equal(hall.archetype, fixture.layout.archetype);
+  assert.deepEqual(
+    hall.supports[0]?.sections.map((section) => section.kind),
+    ["foot", "lower_panel", "shaft", "capital", "capstone"],
+  );
+  assert.ok(hall.supports.every((support) => support.panels.length === 16));
+  assert.ok(hall.supports.every((support) =>
+    support.panels.filter((panel) => panel.section === "lower_panel").length === 12
+    && support.panels.filter((panel) => panel.section === "shaft").length === 4));
+  assertGraphInvariants(graph, fixture.name);
+  assertMatchesFixture(fixture.name, graph);
 
-const frameMaterialSlots = [
-  "pillar",
-  "stylobate",
-  "beam",
-  "architrave",
-  "frieze",
-  "cornice",
-  "frameRoof",
-] as const;
-const frameMasonry = toMasonry(
-  DEFAULT_MASS_LAYOUT,
-  { ...DEFAULT_MASS_STONE_CONFIG, displacement: 0 },
-)!;
-for (const [name, graph] of [
-  ["attached portico", attachedPortico],
-  ["standalone perimeter", standalonePerimeter],
-] as const) {
-  for (const masonry of [null, frameMasonry] as const) {
-    // Isolate the upper assembly for exact topology checks; the Mass shell and
-    // stair already have their own matched invariant suites above.
-    const upperAssembly: StructureGraph = {
-      ...graph,
-      masses: [],
-      connectors: [],
-    };
-    const tessellated = tessellateStructure(upperAssembly, {
-      masonry,
-      seed: 109,
-      stairTilesPerStep: 5,
-    });
-    const geometry = mergeParts(tessellated.parts, [MASS_SECTION]).geometry;
-    const slots = new Set(geometry.groups.map((group) => group.materialIndex));
-    for (const slot of frameMaterialSlots) {
-      assert.equal(
-        slots.has(materialSlotIndex(slot)),
-        true,
-        `${name} ${masonry ? "masonry" : "bare"} emitted no indexed ${slot} group.`,
-      );
+  const geometry = mergeParts(tessellateStructure(graph, {
+    masonry: toPillarHallMasonry(
+      fixture.layout,
+      { ...DEFAULT_PILLAR_HALL_STONE_CONFIG, displacement: 0 },
+    ),
+    seed: 109,
+    stairTilesPerStep: fixture.layout.stairTilesPerStep,
+  }).parts, [MASS_SECTION]).geometry;
+  const slots = new Set(geometry.groups.map((group) => group.materialIndex));
+  for (const slot of ["stone", "pier", "pierPanel", "lintel", "cornice"] as const) {
+    assert.ok(slots.has(materialSlotIndex(slot)), `${fixture.name} emitted no ${slot} group.`);
+  }
+  const hallOnly = mergeParts(tessellateStructure({
+    ...graph,
+    masses: [],
+    connectors: [],
+  }, {
+    masonry: null,
+    seed: 109,
+    stairTilesPerStep: fixture.layout.stairTilesPerStep,
+  }).parts, [MASS_SECTION]).geometry;
+  const coincidence = findCoincidentFaces(hallOnly);
+  assert.equal(
+    coincidence.pairs,
+    0,
+    `${fixture.name} emitted coincident faces: ${coincidence.sample}; ${coincidence.planes.join(", ")}.`,
+  );
+  const buried = findBuriedFaces(hallOnly);
+  assert.equal(
+    buried.faces,
+    0,
+    `${fixture.name} emitted buried faces: ${buried.sample}.`,
+  );
+  const backfaces = findBackfaces(hallOnly, 48);
+  assert.equal(
+    backfaces.backfaces,
+    0,
+    `${fixture.name} exposed missing outward faces near ${backfaces.sample}.`,
+  );
+  assert.equal(hall.roof !== null, fixture.layout.archetype === "front_gallery");
+  for (const row of hall.rows) {
+    const horizontal = row.orientation === "front" || row.orientation === "rear";
+    const rowSupports = row.supportIds.map((id) => hall.supports.find((support) => support.id === id)!);
+    const supportCoordinates = rowSupports.map((support) => horizontal ? support.x : support.z);
+    const expectedEndExtent = (fixture.layout.lintelDepth + 0.24) * 0.5
+      + fixture.layout.spanEndProjection;
+    const expectedMin = Math.min(...supportCoordinates) - expectedEndExtent;
+    const expectedMax = Math.max(...supportCoordinates) + expectedEndExtent;
+    const cornice = hall.members.find((member) => member.id === `${row.id}/cornice`)!;
+    const lintels = row.bayIds.map((bayId) =>
+      hall.members.find((member) => member.id === `${bayId}/lintel`)!);
+    const corniceMin = horizontal ? cornice.rect.minX : cornice.rect.minZ;
+    const corniceMax = horizontal ? cornice.rect.maxX : cornice.rect.maxZ;
+    const lintelMin = Math.min(...lintels.map((member) =>
+      horizontal ? member.rect.minX : member.rect.minZ));
+    const lintelMax = Math.max(...lintels.map((member) =>
+      horizontal ? member.rect.maxX : member.rect.maxZ));
+    assert.ok(Math.abs(corniceMin - expectedMin) < 1e-9);
+    assert.ok(Math.abs(corniceMax - expectedMax) < 1e-9);
+    assert.ok(Math.abs(lintelMin - corniceMin) < 1e-9);
+    assert.ok(Math.abs(lintelMax - corniceMax) < 1e-9);
+  }
+  const summit = graph.masses[0]!.summit.placement!.rect;
+  const occupiedRects = [
+    ...hall.supports.flatMap((support) => support.sections.map((section) => section.footprint)),
+    ...hall.members.map((member) => member.rect),
+    ...(hall.roof ? [hall.roof.footprint] : []),
+  ];
+  assert.ok(occupiedRects.every((rect) =>
+    rect.minX >= summit.minX - 1e-9
+    && rect.maxX <= summit.maxX + 1e-9
+    && rect.minZ >= summit.minZ - 1e-9
+    && rect.maxZ <= summit.maxZ + 1e-9), `${fixture.name} exceeded the available summit area.`);
+  if (fixture.layout.archetype === "linear_screen") {
+    assert.ok(slots.has(materialSlotIndex("pedestal")));
+    assert.ok(slots.has(materialSlotIndex("frieze")));
+    assert.equal(hall.rows.length, 1);
+    const plinths = hall.members.filter((member) => member.kind === "support_plinth");
+    const panels = hall.members.filter((member) => member.kind === "base_frieze");
+    const pedestal = hall.members.find((member) => member.kind === "pedestal");
+    assert.ok(pedestal);
+    assert.equal(plinths.length, hall.supports.length);
+    assert.equal(panels.length, hall.bays.length * 2);
+    for (const support of hall.supports) {
+      const plinth = plinths.find((member) => member.id.startsWith(`${support.id}/`));
+      assert.ok(plinth, `${support.id} has no aligned base plinth.`);
+      assert.ok(Math.abs((plinth.rect.minX + plinth.rect.maxX) * 0.5 - support.x) < 1e-9);
+      assert.ok(Math.abs((plinth.rect.minZ + plinth.rect.maxZ) * 0.5 - support.z) < 1e-9);
+      assert.ok(Math.abs(plinth.topY - support.sections[0]!.bottomY) < 1e-9);
+      const foot = support.sections[0]!.footprint;
+      assert.ok(plinth.rect.minX <= foot.minX && plinth.rect.maxX >= foot.maxX);
+      assert.ok(plinth.rect.minZ <= foot.minZ && plinth.rect.maxZ >= foot.maxZ);
     }
-    const coincidence = findCoincidentFaces(geometry);
-    assert.equal(
-      coincidence.pairs,
-      0,
-      `${name} ${masonry ? "masonry" : "bare"} emitted coincident faces: ${coincidence.sample}; ${coincidence.planes.join(", ")}.`,
-    );
-    const buried = findBuriedFaces(geometry);
-    assert.equal(
-      buried.faces,
-      0,
-      `${name} ${masonry ? "masonry" : "bare"} emitted buried faces: ${buried.sample}.`,
-    );
-    const fullGeometry = mergeParts(tessellateStructure(graph, {
-      masonry,
-      seed: 109,
-      stairTilesPerStep: 5,
-    }).parts, [MASS_SECTION]).geometry;
-    const backfaces = findBackfaces(fullGeometry);
-    assert.ok(
-      backfaces.backfaces <= (name === "attached portico" ? 1 : 4),
-      `${name} ${masonry ? "masonry" : "bare"} left ${backfaces.backfaces} visible backfaces at ${backfaces.sample}.`,
-    );
+    for (const bay of hall.bays) {
+      const startPlinth = plinths.find((member) => member.id.startsWith(`${bay.startSupportId}/`));
+      const endPlinth = plinths.find((member) => member.id.startsWith(`${bay.endSupportId}/`));
+      const bayPanels = panels
+        .filter((member) => member.id.startsWith(`${bay.id}/`))
+        .sort((a, b) => a.rect.minX - b.rect.minX);
+      assert.ok(startPlinth && endPlinth);
+      assert.equal(bayPanels.length, 2);
+      assert.ok(Math.abs(bayPanels[0]!.rect.minX - startPlinth.rect.maxX) < 1e-9);
+      assert.ok(Math.abs(bayPanels[0]!.rect.maxX - bayPanels[1]!.rect.minX) < 1e-9);
+      assert.ok(Math.abs(bayPanels[1]!.rect.maxX - endPlinth.rect.minX) < 1e-9);
+    }
+  } else if (fixture.layout.archetype === "front_gallery") {
+    assert.ok(slots.has(materialSlotIndex("roof")));
+    assert.equal(hall.rows.length, 2);
+  } else {
+    assert.equal(hall.rows.length, 3);
+    assert.equal(hall.rows.some((row) => row.orientation === "front"), false);
+    assert.equal(graph.connectors[0]?.direction, "front");
   }
 }
 
-const unsupportedPorticoLayout: MassLayoutConfig = {
-  ...cloneMassLayout(MASS_LAYOUT_G1_BASELINE),
-  ...STAIRS_DISABLED,
-  summitBuildingEnabled: false,
-  frameEnabled: true,
-  frameLayout: "single_row_portico",
-  frameRoofEnabled: true,
-};
-assert.equal(
-  generateStructure(toStructureSpec(unsupportedPorticoLayout)).diagnostics
-    .find((entry) => entry.severity === "error")?.code,
-  "frame.roof_missing_rear_bearing",
-);
+// The exposed end-projection range moves one shared lintel/cornice end plane;
+// it must not reintroduce the corner gaps or overlapping faces it replaces.
+for (const spanEndProjection of [0.01, 1.5]) {
+  const layout = {
+    ...clonePillarHallLayout(PILLAR_HALL_PRESETS.open_pavilion),
+    platformWidth: 20,
+    platformDepth: 20,
+    spanEndProjection,
+  };
+  const graph = resolvePillarHallGraph(layout);
+  const hallOnly = mergeParts(tessellateStructure({
+    ...graph,
+    masses: [],
+    connectors: [],
+  }, {
+    masonry: null,
+    seed: 109,
+    stairTilesPerStep: layout.stairTilesPerStep,
+  }).parts, [MASS_SECTION]).geometry;
+  const coincidence = findCoincidentFaces(hallOnly);
+  assert.equal(
+    coincidence.pairs,
+    0,
+    `span end projection ${spanEndProjection} emitted ${coincidence.pairs} coincident faces: ${coincidence.sample}.`,
+  );
+  assert.equal(
+    findBuriedFaces(hallOnly).faces,
+    0,
+    `span end projection ${spanEndProjection} emitted buried faces.`,
+  );
+  assert.equal(
+    findBackfaces(hallOnly, 48).backfaces,
+    0,
+    `span end projection ${spanEndProjection} emitted backfaces.`,
+  );
+}
+
+// Panel stacks are selected from the section's actual aspect ratio rather than
+// a fixed count. Both ends of the exposed control range must remain usable.
+for (const [label, layout, expectedPanelCount] of [
+  ["short-wide piers", {
+    ...clonePillarHallLayout(PILLAR_HALL_PRESETS.linear_screen),
+    platformWidth: 20,
+    platformDepth: 4,
+    frontBayCount: 3,
+    pierHeight: 2,
+    pierWidth: 1.2,
+  }, 8],
+  ["tall-narrow piers", {
+    ...clonePillarHallLayout(PILLAR_HALL_PRESETS.linear_screen),
+    pierHeight: 9,
+    pierWidth: 0.3,
+  }, 20],
+] as const) {
+  const graph = resolvePillarHallGraph(layout);
+  const hall = graph.pillarHalls[0]!;
+  assert.ok(hall.supports.every((support) => support.panels.length === expectedPanelCount));
+  assertGraphInvariants(graph, label);
+  const geometry = mergeParts(tessellateStructure({
+    ...graph,
+    masses: [],
+    connectors: [],
+  }, {
+    masonry: null,
+    seed: 109,
+    stairTilesPerStep: layout.stairTilesPerStep,
+  }).parts, [MASS_SECTION]).geometry;
+  assert.equal(findCoincidentFaces(geometry).pairs, 0, `${label} emitted coincident faces.`);
+  assert.equal(findBuriedFaces(geometry).faces, 0, `${label} emitted buried faces.`);
+  assert.equal(findBackfaces(geometry, 48).backfaces, 0, `${label} emitted backfaces.`);
+}
 
 // --- determinism -----------------------------------------------------------
 // No Math.random, no clock: the same inputs must produce the same graph, every
@@ -5080,7 +5117,7 @@ assert.equal(
 overlay.dispose();
 
 console.log(
-  `Structure sanity passed: ${FIXTURES.length} fixtures,`
+  `Structure sanity passed: ${FIXTURES.length + HALL_FIXTURES.length} fixtures,`
   + ` ${pyramid.patches.length} pyramid patches,`
   + ` ${merged.totals.vertexCount} tessellated vertices.`,
 );
@@ -5169,7 +5206,6 @@ function normalizedXRange(
 }
 
 function assertGraphInvariants(graph: StructureGraph, label: string): void {
-  assert.equal(graph.schemaVersion, STRUCTURE_SCHEMA_VERSION);
   assert.equal(graph.units, "meters");
   assert.ok(graph.masses.length > 0, `${label}: no mass was generated.`);
 
@@ -5260,8 +5296,7 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
     }
   }
 
-  // Reserved containers stay empty until the phases that fill them arrive;
-  // connectors, cells, Frames and roofs are filled and validated below.
+  // Reserved containers stay empty until the phases that fill them arrive.
   for (const reserved of [
     graph.attachments,
     graph.damage,
@@ -5270,35 +5305,42 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
   }
 
   assert.equal(
-    new Set(graph.frames.map((frame) => frame.id)).size,
-    graph.frames.length,
-    `${label}: duplicate Frame id.`,
+    new Set(graph.pillarHalls.map((hall) => hall.id)).size,
+    graph.pillarHalls.length,
+    `${label}: duplicate Pillar Hall id.`,
   );
-  for (const frame of graph.frames) {
-    assert.ok(isValidId(frame.id), `${label}: Frame id "${frame.id}" is invalid.`);
-    assert.ok(frame.rows.length > 0 && frame.supports.length > 1);
-    assert.ok(frame.bays.length > 0 && frame.members.length > 0);
-    const supportIds = new Set(frame.supports.map((support) => support.id));
-    const bayIds = new Set(frame.bays.map((bay) => bay.id));
-    const memberIds = new Set(frame.members.map((member) => member.id));
-    for (const row of frame.rows) {
+  for (const hall of graph.pillarHalls) {
+    assert.ok(isValidId(hall.id), `${label}: Pillar Hall id "${hall.id}" is invalid.`);
+    assert.ok(hall.rows.length > 0 && hall.supports.length > 1);
+    assert.ok(hall.bays.length > 0 && hall.members.length > 0);
+    const supportIds = new Set(hall.supports.map((support) => support.id));
+    const bayIds = new Set(hall.bays.map((bay) => bay.id));
+    for (const row of hall.rows) {
       assert.ok(row.supportIds.every((id) => supportIds.has(id)));
       assert.ok(row.bayIds.every((id) => bayIds.has(id)));
-      assert.ok(row.stylobateIds.every((id) => memberIds.has(id)));
-      assert.ok(row.lintelIds.every((id) => memberIds.has(id)));
-      assert.ok(row.entablatureIds.every((id) => memberIds.has(id)));
-      if (row.entranceBayId) {
-        assert.ok(bayIds.has(row.entranceBayId));
-      }
     }
-    for (const support of frame.supports) {
+    for (const support of hall.supports) {
       assert.deepEqual(
         support.sections.map((section) => section.kind),
-        ["plinth", "base", "shaft", "capital", "bearing"],
+        ["foot", "lower_panel", "shaft", "capital", "capstone"],
       );
-      assert.ok(support.patchIds.every((id) => byId.has(id)));
+      assert.ok(support.panels.every((panel) => panel.materialRole === "pierPanel"));
+      for (const panel of support.panels) {
+        const faceWidth = panel.orientation === "front" || panel.orientation === "rear"
+          ? rectWidth(panel.supportFootprint)
+          : rectDepth(panel.supportFootprint);
+        assert.ok(
+          faceWidth - panel.insetU * 2 > panel.borderWidth * 2,
+          `${label}: ${panel.id} has no usable horizontal panel field.`,
+        );
+        assert.ok(
+          panel.topY - panel.bottomY - panel.insetV * 2 > panel.borderWidth * 2,
+          `${label}: ${panel.id} has no usable vertical panel field.`,
+        );
+      }
     }
-    assert.ok(frame.patchIds.every((id) => byId.has(id)));
+    assert.ok(graph.masses.some((mass) => mass.id === hall.platformMassId));
+    assert.ok(byId.has(hall.supportPatchId));
   }
 
   assert.equal(
@@ -5559,16 +5601,6 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
     }
     for (const patchId of roof.patchIds) {
       assert.ok(byId.has(patchId), `${label}: roof names missing patch ${patchId}.`);
-    }
-
-    if (roof.roofType === "frame_range") {
-      assert.ok(
-        graph.frames.some((frame) => frame.id === roof.coversFrameId),
-        `${label}: Frame roof covers a missing Frame.`,
-      );
-      assert.ok(roof.bearingFootprints.length > 0);
-      assert.ok(roof.bearingPatchIds.every((patchId) => byId.has(patchId)));
-      continue;
     }
 
     assert.ok(

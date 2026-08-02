@@ -1,5 +1,4 @@
 {
-  "schemaVersion": "1.9",
   "id": "structure",
   "units": "meters",
   "seeds": {
@@ -1270,7 +1269,7 @@
   ],
   "cells": [],
   "facades": [],
-  "frames": [],
+  "pillarHalls": [],
   "roofs": [],
   "attachments": [],
   "damage": [],

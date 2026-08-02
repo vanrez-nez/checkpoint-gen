@@ -85,11 +85,11 @@ export const MATERIAL_SURFACE_LABELS: Readonly<
   panel: "Recessed panels",
   pilaster: "Pilasters",
   frieze: "Friezes",
-  stylobate: "Colonnade stylobate",
-  beam: "Colonnade lintels",
-  architrave: "Colonnade architrave",
   cornice: "Cornices",
-  frameRoof: "Colonnade roof",
+  pedestal: "Pillar Hall pedestals",
+  pier: "Pillar Hall piers",
+  pierPanel: "Pillar Hall pier panels",
+  lintel: "Pillar Hall lintels",
   offering: "Offering",
 };
 
@@ -122,11 +122,11 @@ export const DEFAULT_STRUCTURE_MATERIAL_PALETTE: Readonly<
   panel: surface("stone"),
   pilaster: surface("stone"),
   frieze: surface("stone"),
-  stylobate: surface("stone"),
-  beam: surface("stone"),
-  architrave: surface("stone"),
   cornice: surface("stone"),
-  frameRoof: surface("stone"),
+  pedestal: surface("stone"),
+  pier: surface("stone"),
+  pierPanel: surface("stone"),
+  lintel: surface("stone"),
   offering: surface("stone"),
 };
 
@@ -169,11 +169,27 @@ export const DEFAULT_MASS_MATERIAL_PALETTE: Readonly<
   pilaster: surface("eroded-rock"),
   frieze: surface("eroded-rock"),
   pillar: surface("eroded-rock"),
-  stylobate: surface("eroded-rock"),
-  beam: surface("eroded-rock"),
-  architrave: surface("eroded-rock"),
   cornice: surface("flamed-basalt", 0.35),
-  frameRoof: surface("lichen-stone"),
+  pedestal: surface("eroded-rock"),
+  pier: surface("eroded-rock"),
+  pierPanel: surface("dark-volcanic-stone", 0.75),
+  lintel: surface("flamed-basalt", 0.5),
+};
+
+/** Pillar Hall's deliberately high-contrast indexed surface assignment. */
+export const DEFAULT_PILLAR_HALL_MATERIAL_PALETTE: Readonly<
+  StructureMaterialPalette
+> = {
+  ...DEFAULT_STRUCTURE_MATERIAL_PALETTE,
+  stone: surface("eroded-rock", 0.55),
+  stairs: surface("lichen-stone", 0.3),
+  pedestal: surface("dark-volcanic-stone", 0.55),
+  pier: surface("eroded-rock", 0.7),
+  pierPanel: surface("flamed-basalt", 0.55),
+  lintel: surface("dark-volcanic-stone", 0.55),
+  frieze: surface("flamed-basalt", 0.45),
+  cornice: surface("dark-volcanic-stone", 0.5),
+  roof: surface("lichen-stone", 0.45),
 };
 
 const control = controlsFor<MaterialSurfaceConfig>();

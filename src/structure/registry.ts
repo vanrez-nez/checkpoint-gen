@@ -1,5 +1,6 @@
 import { circularStructure } from "./families/circular";
 import { massStructure } from "./families/mass";
+import { pillarHallStructure } from "./families/pillar-hall";
 import type { StructureDefinition } from "./definition";
 
 /**
@@ -10,6 +11,7 @@ import type { StructureDefinition } from "./definition";
 export const STRUCTURES: readonly StructureDefinition[] = [
   circularStructure,
   massStructure,
+  pillarHallStructure,
 ];
 
 export const DEFAULT_STRUCTURE_ID = "circular";

@@ -3,7 +3,7 @@ import type { Patch, PatchRole } from "./patch";
 import { resolvedSeeds, type SeedSet, type SeedSubsystem } from "./seed";
 import type { Diagnostic } from "./validate";
 import type { FacadeRecord } from "../facade/types";
-import type { FrameRecord } from "../frame/types";
+import type { PillarHallRecord } from "../families/pillar-hall/types";
 import {
   compilePatchFeatures,
   compiledCutWorldBounds,
@@ -16,12 +16,10 @@ import {
  *
  * This is the artefact every later phase reads and no later phase mutates. The
  * schema is authored ahead of the systems that fill it: containers for cells,
- * frames, roofs, attachments and damage exist from the start, so adding those
+ * Pillar Halls, roofs, attachments and damage exist from the start, so adding those
  * systems fills known positions rather than reshaping the graph. Connectors,
  * cells, facades and roofs are the first containers now populated.
  */
-export const STRUCTURE_SCHEMA_VERSION = "1.9";
-
 /**
  * Placeholder element type for a subsystem that has not been implemented yet.
  * Later phases replace it with the real record while the container stays put.
@@ -293,30 +291,7 @@ export interface CellRoofRecord {
   readonly patchIds: readonly string[];
 }
 
-/** A slab spanning a resolved Frame range, with an optional Cell as rear bearing. */
-export interface FrameRoofRecord {
-  readonly id: string;
-  readonly kind: "roof";
-  readonly roofType: "frame_range";
-  readonly coversFrameId: string;
-  readonly coversCellIds: readonly string[];
-  readonly coversRoomIds: readonly string[];
-  readonly bearingPatchIds: readonly string[];
-  readonly bearingFootprints: readonly Rect[];
-  readonly slabFootprint: Rect;
-  readonly bottomY: number;
-  readonly slabTopY: number;
-  readonly topY: number;
-  readonly thickness: number;
-  readonly projection: number;
-  readonly topPatchId: string;
-  readonly ceilingPatchId: string;
-  readonly edgePatchIds: readonly string[];
-  readonly soffitPatchIds: readonly string[];
-  readonly patchIds: readonly string[];
-}
-
-export type RoofRecord = CellRoofRecord | FrameRoofRecord;
+export type RoofRecord = CellRoofRecord;
 
 export interface MassRecord {
   readonly id: string;
@@ -329,7 +304,6 @@ export interface MassRecord {
 }
 
 export interface StructureGraph {
-  readonly schemaVersion: string;
   readonly id: string;
   readonly units: "meters";
   readonly seeds: Readonly<Record<SeedSubsystem, number>>;
@@ -339,7 +313,7 @@ export interface StructureGraph {
   readonly connectors: readonly ConnectorRecord[];
   readonly cells: readonly CellRecord[];
   readonly facades: readonly FacadeRecord[];
-  readonly frames: readonly FrameRecord[];
+  readonly pillarHalls: readonly PillarHallRecord[];
   readonly roofs: readonly RoofRecord[];
   readonly attachments: readonly ReservedEntity[];
   readonly damage: readonly ReservedEntity[];
@@ -361,7 +335,7 @@ export class StructureGraphBuilder {
   private readonly connectors: ConnectorRecord[] = [];
   private readonly cells: CellRecord[] = [];
   private readonly facades: FacadeRecord[] = [];
-  private readonly frames: FrameRecord[] = [];
+  private readonly pillarHalls: PillarHallRecord[] = [];
   private readonly roofs: RoofRecord[] = [];
 
   constructor(
@@ -405,8 +379,8 @@ export class StructureGraphBuilder {
     this.facades.push(facade);
   }
 
-  addFrame(frame: FrameRecord): void {
-    this.frames.push(frame);
+  addPillarHall(hall: PillarHallRecord): void {
+    this.pillarHalls.push(hall);
   }
 
   addRoof(roof: RoofRecord): void {
@@ -445,7 +419,6 @@ export class StructureGraphBuilder {
     );
 
     return {
-      schemaVersion: STRUCTURE_SCHEMA_VERSION,
       id: this.id,
       units: "meters",
       seeds: resolvedSeeds(this.seeds),
@@ -455,7 +428,7 @@ export class StructureGraphBuilder {
       connectors: this.connectors,
       cells: this.cells,
       facades: this.facades,
-      frames: this.frames,
+      pillarHalls: this.pillarHalls,
       roofs: this.roofs,
       attachments: [],
       damage: [],

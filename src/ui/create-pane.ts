@@ -16,7 +16,9 @@ import type {
   StructureDefinition,
 } from "../structure/definition";
 import {
+  restoreStructureConfig,
   sectionsForScopes,
+  snapshotStructureConfig,
   validateActiveStructureConfig,
   type StructureConfig,
 } from "../config/structure-config";
@@ -48,6 +50,7 @@ import {
   createFolderRegistry,
   findControl,
   type BoundControl,
+  type DispatchChange,
 } from "./binder";
 import {
   createStatMirrors,
@@ -57,6 +60,7 @@ import {
   type StatRow,
 } from "./stats";
 import { VisibilityRegistry } from "./visibility";
+import { ValidationLog } from "./validation-log";
 
 export interface ControlPaneOptions {
   container: HTMLElement;
@@ -92,6 +96,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
   const stats = pane.addBlade({ view: "stats" }) as StatsBladeApi;
   stats.setRenderer(rendererLabel);
   const mirrors = createStatMirrors();
+  const validationLog = new ValidationLog();
 
   // These rows describe whichever structure type is currently selected, so
   // they remain global and stable while the type-specific tab bar is rebuilt.
@@ -108,17 +113,38 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     });
   }
 
+  const validationLogFolder = pane.addFolder({
+    title: "Validation log",
+    expanded: true,
+  });
+  validationLogFolder.addBinding(validationLog.mirror, "text", {
+    label: "",
+    readonly: true,
+    multiline: true,
+    rows: 8,
+    bufferSize: 1,
+    interval: 0,
+  });
+  validationLogFolder.addButton({ title: "Clear log" }).on("click", () => {
+    validationLog.clear();
+    pane.refresh();
+  });
+
   let visibility = new VisibilityRegistry();
   let tabs: TabApi | null = null;
+  let lastValidConfig = snapshotStructureConfig(config);
 
   // Global state, so it sits above the tab bar rather than inside a tab.
   pane.addBinding(config, "typeId", {
     label: "type",
     options: structureOptions(),
-  }).on("change", () => {
+  }).on("change", (event) => {
     buildControlTabs();
     // Every section belongs to the previous type's layout, so rebuild all.
-    dispatch(["layout", "pillars", "bowls", "fire", "offering", "material"]);
+    dispatch(
+      ["layout", "pillars", "bowls", "fire", "offering", "material"],
+      { key: "typeId", label: "Structure type", value: event.value },
+    );
   });
 
   buildControlTabs();
@@ -177,13 +203,30 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     buildSceneTab(scenePage);
   }
 
-  function dispatch(scopes: readonly RebuildScope[]): void {
+  function dispatch(
+    scopes: readonly RebuildScope[],
+    change?: DispatchChange,
+  ): void {
+    const rejectedTypeId = config.typeId;
+
     try {
       validateActiveStructureConfig(config);
     } catch (error) {
-      mirrors.validation.status = `error: ${
-        error instanceof Error ? error.message : String(error)
-      }`;
+      const message = error instanceof Error ? error.message : String(error);
+      const rejectedChange = change === undefined
+        ? `External update (${scopes.join(", ") || "no rebuild scope"})`
+        : `${change.label} (${change.key}) = ${formatLogValue(change.value)}`;
+      restoreStructureConfig(config, lastValidConfig);
+      mirrors.validation.status = `error: ${message}`;
+      validationLog.rejected(rejectedChange, message);
+
+      // A type change rebuilds the tabs before dispatch. If the newly selected
+      // family's retained state is invalid, restore both the selector and the
+      // tab bar to the last valid family.
+      if (config.typeId !== rejectedTypeId) {
+        buildControlTabs();
+      }
+
       visibility.apply(config);
       pane.refresh();
       return;
@@ -227,6 +270,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
 
     refreshStats();
     visibility.apply(config);
+    lastValidConfig = snapshotStructureConfig(config);
 
     if (scopes.some(isStructureScope)) {
       onStructureConfigChange?.();
@@ -234,7 +278,9 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
   }
 
   function refreshStats(): void {
-    applyStats(mirrors, scene.getStats(), activeStructure().sections[0] ?? "");
+    const sceneStats = scene.getStats();
+    applyStats(mirrors, sceneStats, activeStructure().sections[0] ?? "");
+    validationLog.diagnostics(sceneStats.diagnostics);
     pane.refresh();
   }
 
@@ -461,7 +507,11 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
       for (const { key, label } of ILLUMINATION_COLOR_KEYS) {
         illuminationFolder
           .addBinding(config.illumination, key, { label })
-          .on("change", () => dispatch(["illumination"]));
+          .on("change", (event) => dispatch(["illumination"], {
+            key,
+            label,
+            value: event.value,
+          }));
       }
     }
 
@@ -554,4 +604,16 @@ function applyStats(
   mirrors.totals.stones = stats.totals.stoneCount;
   mirrors.totals.vertices = stats.totals.vertexCount;
   mirrors.totals.triangles = stats.totals.triangleCount;
+}
+
+function formatLogValue(value: unknown): string {
+  if (typeof value === "string") {
+    return JSON.stringify(value);
+  }
+
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
+  }
 }

@@ -22,6 +22,10 @@ import {
   type MassLayoutConfig,
 } from "../src/structure/families/mass/config";
 import {
+  PILLAR_HALL_LAYOUT_CONTROLS,
+  type PillarHallLayoutConfig,
+} from "../src/structure/families/pillar-hall/config";
+import {
   createCircularPlacements,
   createPolarEntryFrames,
 } from "../src/structure/families/circular/layout";
@@ -31,7 +35,9 @@ import {
 } from "../src/structure/families/circular/shell";
 import {
   createDefaultStructureConfig,
+  restoreStructureConfig,
   sectionsForScopes,
+  snapshotStructureConfig,
   validateActiveStructureConfig,
   type StructureConfig,
 } from "../src/config/structure-config";
@@ -44,6 +50,7 @@ import { validateControls, type ControlSpec } from "../src/config/control-spec";
 import {
   DEFAULT_CIRCULAR_MATERIAL_PALETTE,
   DEFAULT_MASS_MATERIAL_PALETTE,
+  DEFAULT_PILLAR_HALL_MATERIAL_PALETTE,
   DEFAULT_STRUCTURE_MATERIAL_PALETTE,
   DEFAULT_TEXTURE_SCALE,
   MATERIAL_DOCUMENT_IDS,
@@ -109,6 +116,7 @@ import {
   prepareOfferingGeometry,
 } from "../src/props/offering/model";
 import { MainScene } from "../src/scene/main";
+import { ValidationLog } from "../src/ui/validation-log";
 
 const config = createDefaultStructureConfig();
 const layout = DEFAULT_CIRCULAR_LAYOUT;
@@ -164,11 +172,44 @@ assert.notStrictEqual(
 );
 assert.deepEqual(config.bevels.circular, DEFAULT_BEVEL_CONFIG);
 
+const validationLogTimes = [
+  new Date("2026-08-01T12:00:00"),
+  new Date("2026-08-01T12:00:01"),
+  new Date("2026-08-01T12:00:02"),
+];
+const validationLog = new ValidationLog(
+  () => validationLogTimes.shift() ?? new Date("2026-08-01T12:00:03"),
+  2,
+);
+validationLog.diagnostics([]);
+const initialValidationLog = validationLog.mirror.text;
+validationLog.diagnostics([]);
+assert.equal(
+  validationLog.mirror.text,
+  initialValidationLog,
+  "Unchanged structural diagnostics must not spam the validation log.",
+);
+validationLog.rejected(
+  "Main row bay count (frontBayCount) = 9",
+  "The front row has too many bays for the current pier width. (pillar_hall.bays_too_dense)",
+);
+validationLog.diagnostics([{
+  severity: "notice",
+  code: "pillar_hall.test_repair",
+  entityId: "pillar_hall/supports",
+  message: "A test repair was applied.",
+  resolved: "wider bays",
+}]);
+assert.doesNotMatch(validationLog.mirror.text, /No structural diagnostics/);
+assert.match(validationLog.mirror.text, /pillar_hall\.bays_too_dense/);
+assert.match(validationLog.mirror.text, /entity: pillar_hall\/supports/);
+assert.match(validationLog.mirror.text, /resolved: wider bays/);
+validationLog.clear();
+assert.equal(validationLog.mirror.text, "No validation events yet.");
+
 // --- structure geometry codes ---------------------------------------------
-// The g2 codec is dense: every field is always explicit, so a default code is
-// no longer four characters the way a sparse g1 code was — it costs the full
-// width its field count needs. The bound below is a generous ceiling on that
-// width, not a promise of brevity.
+// Every field is explicit in the unversioned current-schema code. The first
+// character is the structure selector; there is no migration prefix.
 const circularDefaultCode = encodeStructureHash(config);
 assert.ok(circularDefaultCode.length <= 55);
 assert.ok(isStructureHash(circularDefaultCode));
@@ -176,9 +217,11 @@ assert.ok(isStructureHash(circularDefaultCode));
 const massDefaultHashConfig = createDefaultStructureConfig();
 massDefaultHashConfig.typeId = "mass";
 const massDefaultCode = encodeStructureHash(massDefaultHashConfig);
+assert.ok(massDefaultCode.length <= 75);
+assert.doesNotMatch(massDefaultCode, /^g\d/);
 assert.equal(
+  applyStructureHash(createDefaultStructureConfig(), massDefaultCode),
   massDefaultCode,
-  "g213W4m1dcnBxxunZlbaGNSbc1iG6gmqSbLMj2lPyT5nbvDUemHqlqhw6GUWNLiQmEAbsLZVvjhzY",
 );
 assert.notEqual(massDefaultCode, circularDefaultCode);
 
@@ -265,17 +308,10 @@ assert.equal(
 );
 
 assert.throws(() => applyStructureHash(createDefaultStructureConfig(), "nope"));
-assert.throws(() => applyStructureHash(createDefaultStructureConfig(), "g2"));
+assert.throws(() => applyStructureHash(createDefaultStructureConfig(), "0"));
 assert.throws(
   () => applyStructureHash(createDefaultStructureConfig(), `${circularDefaultCode}A`),
   /invalid|corrupted/,
-);
-// A pre-migration g1 code must be rejected outright rather than misread —
-// the prefix bump is what makes that an explicit failure instead of a code
-// whose parameters decode fine but whose masonry renders differently.
-assert.throws(
-  () => applyStructureHash(createDefaultStructureConfig(), "g1xRQ4T4fGZF7WGs-D"),
-  /must start with "g2"/,
 );
 const offStepHashConfig = createDefaultStructureConfig();
 (offStepHashConfig.layouts.circular as { radius: number }).radius = 3.14159;
@@ -323,7 +359,7 @@ for (const scenario of geometryHashScenarios()) {
   }
 }
 
-for (const typeId of ["circular", "mass"]) {
+for (const typeId of ["circular", "mass", "pillar_hall"]) {
   const expected = createGeometryHashScenario(typeId, "all");
 
   for (const section of hashControlSections(expected)) {
@@ -1346,7 +1382,11 @@ for (const definition of STRUCTURES) {
 const massControlTabs = getStructure("mass").controlTabs;
 assert.deepEqual(
   massControlTabs.map((tab) => tab.label),
-  ["Structure", "Stairs", "Summit", "Colonnade", "Materials"],
+  ["Structure", "Stairs", "Summit", "Materials"],
+);
+assert.deepEqual(
+  getStructure("pillar_hall").controlTabs.map((tab) => tab.label),
+  ["Structure", "Details", "Materials"],
 );
 assert.deepEqual(
   massControlTabs.find((tab) => tab.id === "stairs")?.layoutGroups,
@@ -1387,6 +1427,7 @@ for (const surfaceId of MATERIAL_SURFACE_IDS) {
     ["structure", DEFAULT_STRUCTURE_MATERIAL_PALETTE],
     ["circular", DEFAULT_CIRCULAR_MATERIAL_PALETTE],
     ["mass", DEFAULT_MASS_MATERIAL_PALETTE],
+    ["pillar hall", DEFAULT_PILLAR_HALL_MATERIAL_PALETTE],
   ] as const) {
     assertSpecCoverage(
       MATERIAL_SURFACE_CONTROLS[surfaceId],
@@ -1421,6 +1462,45 @@ assert.doesNotThrow(() => validateActiveStructureConfig(
 const defaultMassConfig = createDefaultStructureConfig();
 defaultMassConfig.typeId = "mass";
 assert.doesNotThrow(() => validateActiveStructureConfig(defaultMassConfig));
+const defaultPillarHallConfig = createDefaultStructureConfig();
+defaultPillarHallConfig.typeId = "pillar_hall";
+assert.doesNotThrow(() => validateActiveStructureConfig(defaultPillarHallConfig));
+
+// Tweakpane writes into its bound object before dispatch validates the whole
+// composition. A rejected semantic edit must therefore restore the last valid
+// values in place, or that invalid value poisons every subsequent pane edit.
+const recoveryConfig = createDefaultStructureConfig();
+recoveryConfig.typeId = "pillar_hall";
+const recoveryLayout = recoveryConfig.layouts.pillar_hall as PillarHallLayoutConfig;
+assert.doesNotThrow(() => validateActiveStructureConfig(recoveryConfig));
+
+const recoverySnapshot = snapshotStructureConfig(recoveryConfig);
+const layoutsReference = recoveryConfig.layouts;
+const layoutReference = recoveryLayout;
+const stoneSurfaceReference = recoveryConfig.materialPalettes.pillar_hall!.stone;
+recoveryLayout.platformWidth = 4;
+recoveryLayout.frontBayCount = 9;
+recoveryLayout.pierWidth = 1.2;
+stoneSurfaceReference.document = "stone";
+assert.throws(
+  () => validateActiveStructureConfig(recoveryConfig),
+  /pillar_hall\.bays_too_dense/,
+);
+
+restoreStructureConfig(recoveryConfig, recoverySnapshot);
+assert.deepEqual(recoveryConfig, recoverySnapshot);
+assert.strictEqual(recoveryConfig.layouts, layoutsReference);
+assert.strictEqual(recoveryConfig.layouts.pillar_hall, layoutReference);
+assert.strictEqual(
+  recoveryConfig.materialPalettes.pillar_hall!.stone,
+  stoneSurfaceReference,
+);
+assert.doesNotThrow(() => validateActiveStructureConfig(recoveryConfig));
+recoveryLayout.frontBayCount = 6;
+assert.doesNotThrow(
+  () => validateActiveStructureConfig(recoveryConfig),
+  "A valid edit after recovery must be accepted without reloading.",
+);
 
 assertEveryControlParamIsValidated(
   createDefaultStructureConfig,
@@ -1437,6 +1517,16 @@ assertEveryControlParamIsValidated(
   MASS_LAYOUT_CONTROLS,
   (current) => current.layouts.mass,
   "mass layout",
+);
+assertEveryControlParamIsValidated(
+  () => {
+    const current = createDefaultStructureConfig();
+    current.typeId = "pillar_hall";
+    return current;
+  },
+  PILLAR_HALL_LAYOUT_CONTROLS,
+  (current) => current.layouts.pillar_hall,
+  "pillar hall layout",
 );
 assertEveryControlParamIsValidated(
   createDefaultStructureConfig,
@@ -1967,6 +2057,10 @@ function geometryHashScenarios(): readonly {
       label: "mass flat parapet",
       create: () => createGeometryHashScenario("mass", "sloped"),
     },
+    {
+      label: "pillar hall",
+      create: () => createGeometryHashScenario("pillar_hall", "all"),
+    },
   ];
 }
 
@@ -1986,8 +2080,6 @@ function createGeometryHashScenario(
     mass.summitBuildingEnabled = true;
     mass.summitRoofEnabled = true;
     mass.stairFrontEnabled = true;
-    // Keep the one-control Frame enable mutation structurally valid: its
-    // derived entrance bay must carry the complete stair-and-parapet assembly.
     mass.stairWidthRatio = 0.05;
     mass.stairParapetWidth = 0.25;
     mass.stairSteppedParapetCorniceProjection = 0;

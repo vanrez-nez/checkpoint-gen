@@ -35,3 +35,23 @@ body {
   position: static !important;
   width: 100% !important;
 }
+
+/* Give the validation history the full pane width instead of the normal
+   label/value split, and wrap long diagnostic paths and messages in place. */
+.pane-host .tp-lblv:has(.tp-mllv) {
+  display: block;
+}
+
+.pane-host .tp-lblv:has(.tp-mllv) > .tp-lblv_l {
+  display: none;
+}
+
+.pane-host .tp-lblv:has(.tp-mllv) > .tp-lblv_v {
+  width: 100%;
+}
+
+.pane-host .tp-mllv_i {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

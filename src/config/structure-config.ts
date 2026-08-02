@@ -122,6 +122,61 @@ export function createDefaultStructureConfig(): StructureConfig {
 }
 
 /**
+ * Captures a detached copy of the complete live configuration.
+ *
+ * The pane uses this as its last-known-good checkpoint. Keeping the snapshot
+ * detached is important because Tweakpane writes a binding before the shared
+ * validation boundary has a chance to accept or reject that edit.
+ */
+export function snapshotStructureConfig(
+  config: StructureConfig,
+): StructureConfig {
+  return structuredClone(config);
+}
+
+/**
+ * Restores a snapshot without replacing any existing config object or array.
+ * Tweakpane bindings retain references to those nested values, so assigning a
+ * fresh top-level config would leave the controls attached to stale state.
+ */
+export function restoreStructureConfig(
+  config: StructureConfig,
+  snapshot: Readonly<StructureConfig>,
+): void {
+  restoreRecord(
+    config as unknown as Record<string, unknown>,
+    snapshot as unknown as Readonly<Record<string, unknown>>,
+  );
+}
+
+function restoreRecord(
+  target: Record<string, unknown>,
+  source: Readonly<Record<string, unknown>>,
+): void {
+  for (const key of Object.keys(target)) {
+    if (!(key in source)) {
+      delete target[key];
+    }
+  }
+
+  for (const [key, value] of Object.entries(source)) {
+    const current = target[key];
+
+    if (isPlainRecord(current) && isPlainRecord(value)) {
+      restoreRecord(current, value);
+    } else if (Array.isArray(current) && Array.isArray(value)) {
+      current.splice(0, current.length, ...structuredClone(value));
+    } else {
+      target[key] = structuredClone(value);
+    }
+  }
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
  * Validates every parameter that can affect the active composition before any
  * cached geometry or render state is mutated.
  *

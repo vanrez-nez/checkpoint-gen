@@ -1,0 +1,3619 @@
+{
+  "id": "pillar_hall_structure",
+  "units": "meters",
+  "seeds": {
+    "massing": 1170628681,
+    "plan": 2422133880,
+    "facade": 1678044928,
+    "construction": 83962186,
+    "material": 850887427,
+    "condition": 138079555
+  },
+  "site": {
+    "upAxis": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+    },
+    "frontAxis": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+    },
+    "groundY": 0
+  },
+  "masses": [
+    {
+      "id": "pillar_hall_structure/platform",
+      "footprint": {
+        "minX": -7,
+        "maxX": 7,
+        "minZ": -1.4,
+        "maxZ": 1.4
+      },
+      "baseTreatment": "none",
+      "bands": [
+        {
+          "id": "pillar_hall_structure/platform/band_01",
+          "index": 0,
+          "bottomY": 0,
+          "topY": 0.4,
+          "rise": 0.4,
+          "lower": {
+            "minX": -7,
+            "maxX": 7,
+            "minZ": -1.4,
+            "maxZ": 1.4
+          },
+          "upper": {
+            "minX": -6.943784,
+            "maxX": 6.943784,
+            "minZ": -1.343784,
+            "maxZ": 1.343784
+          },
+          "wallProfile": "battered",
+          "surfaceRole": "battered_facade",
+          "upperTransition": "ledge",
+          "walkable": false,
+          "cornice": null
+        },
+        {
+          "id": "pillar_hall_structure/platform/band_02",
+          "index": 1,
+          "bottomY": 0.4,
+          "topY": 0.8,
+          "rise": 0.4,
+          "lower": {
+            "minX": -5.796216,
+            "maxX": 5.796216,
+            "minZ": -1.204216,
+            "maxZ": 1.204216
+          },
+          "upper": {
+            "minX": -5.74,
+            "maxX": 5.74,
+            "minZ": -1.148,
+            "maxZ": 1.148
+          },
+          "wallProfile": "battered",
+          "surfaceRole": "battered_facade",
+          "upperTransition": "none",
+          "walkable": false,
+          "cornice": null
+        }
+      ],
+      "summit": {
+        "y": 0.8,
+        "rect": {
+          "minX": -5.74,
+          "maxX": 5.74,
+          "minZ": -1.148,
+          "maxZ": 1.148
+        },
+        "buildable": {
+          "minX": -5.74,
+          "maxX": 5.74,
+          "minZ": -1.148,
+          "maxZ": 1.148
+        },
+        "buildingPad": {
+          "minX": -5.74,
+          "maxX": 5.74,
+          "minZ": -1.148,
+          "maxZ": 1.148
+        },
+        "treatment": "open_floor",
+        "patchId": "pillar_hall_structure/platform/band_02/summit_floor",
+        "placement": {
+          "rect": {
+            "minX": -5.74,
+            "maxX": 5.74,
+            "minZ": -1.148,
+            "maxZ": 1.148
+          },
+          "patchId": "pillar_hall_structure/platform/band_02/summit_floor",
+          "y": 0.8,
+          "anchorId": "pillar_hall_structure/platform/band_02/summit_floor/anchor_superstructure"
+        },
+        "pad": null
+      },
+      "totalHeight": 0.8,
+      "patchIds": [
+        "pillar_hall_structure/platform/band_01/facade_front",
+        "pillar_hall_structure/platform/band_01/facade_rear",
+        "pillar_hall_structure/platform/band_01/facade_side_positive_u",
+        "pillar_hall_structure/platform/band_01/facade_side_negative_u",
+        "pillar_hall_structure/platform/band_02/facade_front",
+        "pillar_hall_structure/platform/band_02/facade_rear",
+        "pillar_hall_structure/platform/band_02/facade_side_positive_u",
+        "pillar_hall_structure/platform/band_02/facade_side_negative_u"
+      ]
+    }
+  ],
+  "patches": [
+    {
+      "id": "pillar_hall_structure/platform/ground_interface",
+      "role": "ground_interface",
+      "frame": {
+        "origin": {
+          "x": -7,
+          "y": 0,
+          "z": -1.4
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "normal": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "uLength": 14,
+        "vLength": 2.8
+      },
+      "dimensions": {
+        "u": 14,
+        "v": 2.8,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "pillar_hall_structure/platform/ground_interface/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "pillar_hall_structure/platform/ground_interface/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "pillar_hall_structure/platform/ground_interface/edge_v_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "pillar_hall_structure/platform/ground_interface/edge_v_max",
+          "orientation": "front",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "pillar_hall_structure/platform/band_01/facade_front",
+        "pillar_hall_structure/platform/band_01/facade_rear",
+        "pillar_hall_structure/platform/band_01/facade_side_negative_u",
+        "pillar_hall_structure/platform/band_01/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "traversable",
+        "exterior"
+      ]
+    },
+    {
+      "id": "pillar_hall_structure/platform/band_01/facade_front",
+      "role": "battered_facade",
+      "frame": {
+        "origin": {
+          "x": -7,
+          "y": 0,
+          "z": 1.4
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0.137845,
+          "y": 0.980815,
+          "z": -0.137845
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "uLength": 14,
+        "vLength": 0.407824
+      },
+      "dimensions": {
+        "u": 14,
+        "v": 0.407824,
+        "thickness": 0
+      },
+      "evaluator": "battered",
+      "edges": {
+        "uMin": {
+          "id": "pillar_hall_structure/platform/band_01/facade_front/edge_u_min",
+          "orientation": "front",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "pillar_hall_structure/platform/band_01/facade_front/edge_u_max",
+          "orientation": "front",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "pillar_hall_structure/platform/band_01/facade_front/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "pillar_hall_structure/platform/band_01/facade_front/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "pillar_hall_structure/platform/band_01/facade_rear",
+        "pillar_hall_structure/platform/band_01/facade_side_negative_u",
+        "pillar_hall_structure/platform/band_01/ledge",
+        "pillar_hall_structure/platform/ground_interface"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "front"
+      ]
+    },
+    {
+      "id": "pillar_hall_structure/platform/band_01/facade_rear",
+      "role": "battered_facade",
+      "frame": {
+        "origin": {
+          "x": 7,
+          "y": 0,
+          "z": -1.4
+        },
+        "uAxis": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": -0.137845,
+          "y": 0.980815,
+          "z": 0.137845
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "uLength": 14,
+        "vLength": 0.407824
+      },
+      "dimensions": {
+        "u": 14,
+        "v": 0.407824,
+        "thickness": 0
+      },
+      "evaluator": "battered",
+      "edges": {
+        "uMin": {
+          "id": "pillar_hall_structure/platform/band_01/facade_rear/edge_u_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "pillar_hall_structure/platform/band_01/facade_rear/edge_u_max",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "pillar_hall_structure/platform/band_01/facade_rear/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "pillar_hall_structure/platform/band_01/facade_rear/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "pillar_hall_structure/platform/band_01/facade_front",
+        "pillar_hall_structure/platform/band_01/facade_side_positive_u",
+        "pillar_hall_structure/platform/band_01/ledge",
+        "pillar_hall_structure/platform/ground_interface"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "rear"
+      ]
+    },
+    {
+      "id": "pillar_hall_structure/platform/band_01/facade_side_positive_u",
+      "role": "battered_facade",
+      "frame": {
+        "origin": {
+          "x": 7,
+          "y": 0,
+          "z": 1.4
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "vAxis": {
+          "x": -0.137845,
+          "y": 0.980815,
+          "z": -0.137845
+        },
+        "normal": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 2.8,
+        "vLength": 0.407824
+      },
+      "dimensions": {
+        "u": 2.8,
+        "v": 0.407824,
+        "thickness": 0
+      },
+      "evaluator": "battered",
+      "edges": {
+        "uMin": {
+          "id": "pillar_hall_structure/platform/band_01/facade_side_positive_u/edge_u_min",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "pillar_hall_structure/platform/band_01/facade_side_positive_u/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "pillar_hall_structure/platform/band_01/facade_side_positive_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "pillar_hall_structure/platform/band_01/facade_side_positive_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "pillar_hall_structure/platform/band_01/facade_rear",
+        "pillar_hall_structure/platform/band_01/facade_side_negative_u",
+        "pillar_hall_structure/platform/band_01/ledge",
+        "pillar_hall_structure/platform/ground_interface"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "sidePositiveU"
+      ]
+    },
+    {
+      "id": "pillar_hall_structure/platform/band_01/facade_side_negative_u",
+      "role": "battered_facade",
+      "frame": {
+        "origin": {
+          "x": -7,
+          "y": 0,
+          "z": -1.4
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "vAxis": {
+          "x": 0.137845,
+          "y": 0.980815,
+          "z": 0.137845
+        },
+        "normal": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 2.8,
+        "vLength": 0.407824
+      },
+      "dimensions": {
+        "u": 2.8,
+        "v": 0.407824,
+        "thickness": 0
+      },
+      "evaluator": "battered",
+      "edges": {
+        "uMin": {
+          "id": "pillar_hall_structure/platform/band_01/facade_side_negative_u/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "pillar_hall_structure/platform/band_01/facade_side_negative_u/edge_u_max",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "pillar_hall_structure/platform/band_01/facade_side_negative_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "pillar_hall_structure/platform/band_01/facade_side_negative_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "pillar_hall_structure/platform/band_01/facade_front",
+        "pillar_hall_structure/platform/band_01/facade_side_positive_u",
+        "pillar_hall_structure/platform/band_01/ledge",
+        "pillar_hall_structure/platform/ground_interface"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "sideNegativeU"
+      ]
+    },
+    {
+      "id": "pillar_hall_structure/platform/band_01/ledge",
+      "role": "transition_band",
+      "frame": {
+        "origin": {
+          "x": -6.943784,
+          "y": 0.4,
+          "z": -1.343784
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "normal": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "uLength": 13.887567,
+        "vLength": 2.687567
+      },
+      "dimensions": {
+        "u": 13.887567,
+        "v": 2.687567,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "pillar_hall_structure/platform/band_01/ledge/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "pillar_hall_structure/platform/band_01/ledge/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "pillar_hall_structure/platform/band_01/ledge/edge_v_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "pillar_hall_structure/platform/band_01/ledge/edge_v_max",
+          "orientation": "front",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "pillar_hall_structure/platform/band_01/facade_front",
+        "pillar_hall_structure/platform/band_01/facade_rear",
+        "pillar_hall_structure/platform/band_01/facade_side_negative_u",
+        "pillar_hall_structure/platform/band_01/facade_side_positive_u",
+        "pillar_hall_structure/platform/band_02/facade_front",
+        "pillar_hall_structure/platform/band_02/facade_rear",
+        "pillar_hall_structure/platform/band_02/facade_side_negative_u",
+        "pillar_hall_structure/platform/band_02/facade_side_positive_u"
+      ],
+      "regions": [
+        {
+          "id": "pillar_hall_structure/platform/band_01/ledge/covered",
+          "uRange": [
+            0.082633,
+            0.917367
+          ],
+          "vRange": [
+            0.051931,
+            0.948069
+          ],
+          "priority": 100,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "occupied",
+            "no_build"
+          ]
+        }
+      ],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior"
+      ]
+    },
+    {
+      "id": "pillar_hall_structure/platform/band_02/facade_front",
+      "role": "battered_facade",
+      "frame": {
+        "origin": {
+          "x": -5.796216,
+          "y": 0.4,
+          "z": 1.204216
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0.137845,
+          "y": 0.980815,
+          "z": -0.137845
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "uLength": 11.592433,
+        "vLength": 0.407824
+      },
+      "dimensions": {
+        "u": 11.592433,
+        "v": 0.407824,
+        "thickness": 0
+      },
+      "evaluator": "battered",
+      "edges": {
+        "uMin": {
+          "id": "pillar_hall_structure/platform/band_02/facade_front/edge_u_min",
+          "orientation": "front",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "pillar_hall_structure/platform/band_02/facade_front/edge_u_max",
+          "orientation": "front",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "pillar_hall_structure/platform/band_02/facade_front/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "pillar_hall_structure/platform/band_02/facade_front/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "pillar_hall_structure/platform/band_01/ledge",
+        "pillar_hall_structure/platform/band_02/facade_rear",
+        "pillar_hall_structure/platform/band_02/facade_side_negative_u",
+        "pillar_hall_structure/platform/band_02/summit_floor"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "front"
+      ]
+    },
+    {
+      "id": "pillar_hall_structure/platform/band_02/facade_rear",
+      "role": "battered_facade",
+      "frame": {
+        "origin": {
+          "x": 5.796216,
+          "y": 0.4,
+          "z": -1.204216
+        },
+        "uAxis": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": -0.137845,
+          "y": 0.980815,
+          "z": 0.137845
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "uLength": 11.592433,
+        "vLength": 0.407824
+      },
+      "dimensions": {
+        "u": 11.592433,
+        "v": 0.407824,
+        "thickness": 0
+      },
+      "evaluator": "battered",
+      "edges": {
+        "uMin": {
+          "id": "pillar_hall_structure/platform/band_02/facade_rear/edge_u_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "pillar_hall_structure/platform/band_02/facade_rear/edge_u_max",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "pillar_hall_structure/platform/band_02/facade_rear/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "pillar_hall_structure/platform/band_02/facade_rear/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "pillar_hall_structure/platform/band_01/ledge",
+        "pillar_hall_structure/platform/band_02/facade_front",
+        "pillar_hall_structure/platform/band_02/facade_side_positive_u",
+        "pillar_hall_structure/platform/band_02/summit_floor"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "rear"
+      ]
+    },
+    {
+      "id": "pillar_hall_structure/platform/band_02/facade_side_positive_u",
+      "role": "battered_facade",
+      "frame": {
+        "origin": {
+          "x": 5.796216,
+          "y": 0.4,
+          "z": 1.204216
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "vAxis": {
+          "x": -0.137845,
+          "y": 0.980815,
+          "z": -0.137845
+        },
+        "normal": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 2.408433,
+        "vLength": 0.407824
+      },
+      "dimensions": {
+        "u": 2.408433,
+        "v": 0.407824,
+        "thickness": 0
+      },
+      "evaluator": "battered",
+      "edges": {
+        "uMin": {
+          "id": "pillar_hall_structure/platform/band_02/facade_side_positive_u/edge_u_min",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "pillar_hall_structure/platform/band_02/facade_side_positive_u/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "pillar_hall_structure/platform/band_02/facade_side_positive_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "pillar_hall_structure/platform/band_02/facade_side_positive_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "pillar_hall_structure/platform/band_01/ledge",
+        "pillar_hall_structure/platform/band_02/facade_rear",
+        "pillar_hall_structure/platform/band_02/facade_side_negative_u",
+        "pillar_hall_structure/platform/band_02/summit_floor"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "sidePositiveU"
+      ]
+    },
+    {
+      "id": "pillar_hall_structure/platform/band_02/facade_side_negative_u",
+      "role": "battered_facade",
+      "frame": {
+        "origin": {
+          "x": -5.796216,
+          "y": 0.4,
+          "z": -1.204216
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "vAxis": {
+          "x": 0.137845,
+          "y": 0.980815,
+          "z": 0.137845
+        },
+        "normal": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 2.408433,
+        "vLength": 0.407824
+      },
+      "dimensions": {
+        "u": 2.408433,
+        "v": 0.407824,
+        "thickness": 0
+      },
+      "evaluator": "battered",
+      "edges": {
+        "uMin": {
+          "id": "pillar_hall_structure/platform/band_02/facade_side_negative_u/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "pillar_hall_structure/platform/band_02/facade_side_negative_u/edge_u_max",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "pillar_hall_structure/platform/band_02/facade_side_negative_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "pillar_hall_structure/platform/band_02/facade_side_negative_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "pillar_hall_structure/platform/band_01/ledge",
+        "pillar_hall_structure/platform/band_02/facade_front",
+        "pillar_hall_structure/platform/band_02/facade_side_positive_u",
+        "pillar_hall_structure/platform/band_02/summit_floor"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "sideNegativeU"
+      ]
+    },
+    {
+      "id": "pillar_hall_structure/platform/band_02/summit_floor",
+      "role": "summit_floor",
+      "frame": {
+        "origin": {
+          "x": -5.74,
+          "y": 0.8,
+          "z": -1.148
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "normal": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "uLength": 11.48,
+        "vLength": 2.296
+      },
+      "dimensions": {
+        "u": 11.48,
+        "v": 2.296,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "pillar_hall_structure/platform/band_02/summit_floor/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "pillar_hall_structure/platform/band_02/summit_floor/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "pillar_hall_structure/platform/band_02/summit_floor/edge_v_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "pillar_hall_structure/platform/band_02/summit_floor/edge_v_max",
+          "orientation": "front",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "pillar_hall_structure/platform/band_02/facade_front",
+        "pillar_hall_structure/platform/band_02/facade_rear",
+        "pillar_hall_structure/platform/band_02/facade_side_negative_u",
+        "pillar_hall_structure/platform/band_02/facade_side_positive_u"
+      ],
+      "regions": [
+        {
+          "id": "pillar_hall_structure/platform/band_02/summit_floor/buildable",
+          "uRange": [
+            0,
+            1
+          ],
+          "vRange": [
+            0,
+            1
+          ],
+          "priority": 10,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "buildable"
+          ]
+        },
+        {
+          "id": "pillar_hall_structure/platform/band_02/summit_floor/building_pad",
+          "uRange": [
+            0,
+            1
+          ],
+          "vRange": [
+            0,
+            1
+          ],
+          "priority": 50,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "buildable",
+            "superstructure"
+          ]
+        }
+      ],
+      "features": [],
+      "anchors": [
+        {
+          "id": "pillar_hall_structure/platform/band_02/summit_floor/anchor_superstructure",
+          "kind": "superstructure",
+          "u": 0.5,
+          "v": 0.5,
+          "d": 0,
+          "regionId": "pillar_hall_structure/platform/band_02/summit_floor/building_pad",
+          "orientation": "front"
+        }
+      ],
+      "tags": [
+        "traversable",
+        "exterior",
+        "buildable"
+      ]
+    }
+  ],
+  "connectors": [],
+  "cells": [],
+  "facades": [],
+  "pillarHalls": [
+    {
+      "id": "pillar_hall_structure/pillar_hall",
+      "kind": "pillar_hall",
+      "archetype": "linear_screen",
+      "platformMassId": "pillar_hall_structure/platform",
+      "supportPatchId": "pillar_hall_structure/platform/band_02/summit_floor",
+      "footprint": {
+        "minX": -4.4565,
+        "maxX": 4.4565,
+        "minZ": -0.4677,
+        "maxZ": 0.4677
+      },
+      "bottomY": 0.8,
+      "topY": 6.48,
+      "rows": [
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front",
+          "orientation": "front",
+          "supportIds": [
+            "pillar_hall_structure/pillar_hall/support_0",
+            "pillar_hall_structure/pillar_hall/support_1",
+            "pillar_hall_structure/pillar_hall/support_2",
+            "pillar_hall_structure/pillar_hall/support_3",
+            "pillar_hall_structure/pillar_hall/support_4",
+            "pillar_hall_structure/pillar_hall/support_5"
+          ],
+          "bayIds": [
+            "pillar_hall_structure/pillar_hall/row_front/bay_0",
+            "pillar_hall_structure/pillar_hall/row_front/bay_1",
+            "pillar_hall_structure/pillar_hall/row_front/bay_2",
+            "pillar_hall_structure/pillar_hall/row_front/bay_3",
+            "pillar_hall_structure/pillar_hall/row_front/bay_4"
+          ]
+        }
+      ],
+      "supports": [
+        {
+          "id": "pillar_hall_structure/pillar_hall/support_0",
+          "x": -4.4565,
+          "z": 0,
+          "sections": [
+            {
+              "kind": "foot",
+              "footprint": {
+                "minX": -4.906,
+                "maxX": -4.007,
+                "minZ": -0.4495,
+                "maxZ": 0.4495
+              },
+              "bottomY": 1.62,
+              "topY": 2.136,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "lower_panel",
+              "footprint": {
+                "minX": -4.8335,
+                "maxX": -4.0795,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 3.684,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "shaft",
+              "footprint": {
+                "minX": -4.7465,
+                "maxX": -4.1665,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "capital",
+              "footprint": {
+                "minX": -4.8335,
+                "maxX": -4.0795,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 4.974,
+              "topY": 5.576,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "capstone",
+              "footprint": {
+                "minX": -4.935,
+                "maxX": -3.978,
+                "minZ": -0.4785,
+                "maxZ": 0.4785
+              },
+              "bottomY": 5.576,
+              "topY": 5.92,
+              "materialRole": "pier"
+            }
+          ],
+          "panels": [
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_lower_panel_0_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -4.8335,
+                "maxX": -4.0795,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_lower_panel_0_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -4.8335,
+                "maxX": -4.0795,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_lower_panel_0_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -4.8335,
+                "maxX": -4.0795,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_lower_panel_0_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -4.8335,
+                "maxX": -4.0795,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_lower_panel_1_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": -4.8335,
+                "maxX": -4.0795,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_lower_panel_1_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": -4.8335,
+                "maxX": -4.0795,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_lower_panel_1_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": -4.8335,
+                "maxX": -4.0795,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_lower_panel_1_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": -4.8335,
+                "maxX": -4.0795,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_lower_panel_2_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": -4.8335,
+                "maxX": -4.0795,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_lower_panel_2_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": -4.8335,
+                "maxX": -4.0795,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_lower_panel_2_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": -4.8335,
+                "maxX": -4.0795,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_lower_panel_2_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": -4.8335,
+                "maxX": -4.0795,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_shaft_0_front",
+              "orientation": "front",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -4.7465,
+                "maxX": -4.1665,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_shaft_0_rear",
+              "orientation": "rear",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -4.7465,
+                "maxX": -4.1665,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_shaft_0_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -4.7465,
+                "maxX": -4.1665,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_0/panel_shaft_0_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -4.7465,
+                "maxX": -4.1665,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            }
+          ]
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/support_1",
+          "x": -2.6739,
+          "z": 0,
+          "sections": [
+            {
+              "kind": "foot",
+              "footprint": {
+                "minX": -3.1234,
+                "maxX": -2.2244,
+                "minZ": -0.4495,
+                "maxZ": 0.4495
+              },
+              "bottomY": 1.62,
+              "topY": 2.136,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "lower_panel",
+              "footprint": {
+                "minX": -3.0509,
+                "maxX": -2.2969,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 3.684,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "shaft",
+              "footprint": {
+                "minX": -2.9639,
+                "maxX": -2.3839,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "capital",
+              "footprint": {
+                "minX": -3.0509,
+                "maxX": -2.2969,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 4.974,
+              "topY": 5.576,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "capstone",
+              "footprint": {
+                "minX": -3.1524,
+                "maxX": -2.1954,
+                "minZ": -0.4785,
+                "maxZ": 0.4785
+              },
+              "bottomY": 5.576,
+              "topY": 5.92,
+              "materialRole": "pier"
+            }
+          ],
+          "panels": [
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_lower_panel_0_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -3.0509,
+                "maxX": -2.2969,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_lower_panel_0_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -3.0509,
+                "maxX": -2.2969,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_lower_panel_0_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -3.0509,
+                "maxX": -2.2969,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_lower_panel_0_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -3.0509,
+                "maxX": -2.2969,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_lower_panel_1_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": -3.0509,
+                "maxX": -2.2969,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_lower_panel_1_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": -3.0509,
+                "maxX": -2.2969,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_lower_panel_1_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": -3.0509,
+                "maxX": -2.2969,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_lower_panel_1_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": -3.0509,
+                "maxX": -2.2969,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_lower_panel_2_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": -3.0509,
+                "maxX": -2.2969,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_lower_panel_2_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": -3.0509,
+                "maxX": -2.2969,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_lower_panel_2_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": -3.0509,
+                "maxX": -2.2969,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_lower_panel_2_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": -3.0509,
+                "maxX": -2.2969,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_shaft_0_front",
+              "orientation": "front",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -2.9639,
+                "maxX": -2.3839,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_shaft_0_rear",
+              "orientation": "rear",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -2.9639,
+                "maxX": -2.3839,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_shaft_0_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -2.9639,
+                "maxX": -2.3839,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_1/panel_shaft_0_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -2.9639,
+                "maxX": -2.3839,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            }
+          ]
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/support_2",
+          "x": -0.8913,
+          "z": 0,
+          "sections": [
+            {
+              "kind": "foot",
+              "footprint": {
+                "minX": -1.3408,
+                "maxX": -0.4418,
+                "minZ": -0.4495,
+                "maxZ": 0.4495
+              },
+              "bottomY": 1.62,
+              "topY": 2.136,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "lower_panel",
+              "footprint": {
+                "minX": -1.2683,
+                "maxX": -0.5143,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 3.684,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "shaft",
+              "footprint": {
+                "minX": -1.1813,
+                "maxX": -0.6013,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "capital",
+              "footprint": {
+                "minX": -1.2683,
+                "maxX": -0.5143,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 4.974,
+              "topY": 5.576,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "capstone",
+              "footprint": {
+                "minX": -1.3698,
+                "maxX": -0.4128,
+                "minZ": -0.4785,
+                "maxZ": 0.4785
+              },
+              "bottomY": 5.576,
+              "topY": 5.92,
+              "materialRole": "pier"
+            }
+          ],
+          "panels": [
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_lower_panel_0_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -1.2683,
+                "maxX": -0.5143,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_lower_panel_0_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -1.2683,
+                "maxX": -0.5143,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_lower_panel_0_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -1.2683,
+                "maxX": -0.5143,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_lower_panel_0_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -1.2683,
+                "maxX": -0.5143,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_lower_panel_1_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": -1.2683,
+                "maxX": -0.5143,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_lower_panel_1_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": -1.2683,
+                "maxX": -0.5143,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_lower_panel_1_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": -1.2683,
+                "maxX": -0.5143,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_lower_panel_1_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": -1.2683,
+                "maxX": -0.5143,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_lower_panel_2_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": -1.2683,
+                "maxX": -0.5143,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_lower_panel_2_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": -1.2683,
+                "maxX": -0.5143,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_lower_panel_2_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": -1.2683,
+                "maxX": -0.5143,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_lower_panel_2_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": -1.2683,
+                "maxX": -0.5143,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_shaft_0_front",
+              "orientation": "front",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -1.1813,
+                "maxX": -0.6013,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_shaft_0_rear",
+              "orientation": "rear",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -1.1813,
+                "maxX": -0.6013,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_shaft_0_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -1.1813,
+                "maxX": -0.6013,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_2/panel_shaft_0_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": -1.1813,
+                "maxX": -0.6013,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            }
+          ]
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/support_3",
+          "x": 0.8913,
+          "z": 0,
+          "sections": [
+            {
+              "kind": "foot",
+              "footprint": {
+                "minX": 0.4418,
+                "maxX": 1.3408,
+                "minZ": -0.4495,
+                "maxZ": 0.4495
+              },
+              "bottomY": 1.62,
+              "topY": 2.136,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "lower_panel",
+              "footprint": {
+                "minX": 0.5143,
+                "maxX": 1.2683,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 3.684,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "shaft",
+              "footprint": {
+                "minX": 0.6013,
+                "maxX": 1.1813,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "capital",
+              "footprint": {
+                "minX": 0.5143,
+                "maxX": 1.2683,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 4.974,
+              "topY": 5.576,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "capstone",
+              "footprint": {
+                "minX": 0.4128,
+                "maxX": 1.3698,
+                "minZ": -0.4785,
+                "maxZ": 0.4785
+              },
+              "bottomY": 5.576,
+              "topY": 5.92,
+              "materialRole": "pier"
+            }
+          ],
+          "panels": [
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_lower_panel_0_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 0.5143,
+                "maxX": 1.2683,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_lower_panel_0_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 0.5143,
+                "maxX": 1.2683,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_lower_panel_0_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 0.5143,
+                "maxX": 1.2683,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_lower_panel_0_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 0.5143,
+                "maxX": 1.2683,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_lower_panel_1_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": 0.5143,
+                "maxX": 1.2683,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_lower_panel_1_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": 0.5143,
+                "maxX": 1.2683,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_lower_panel_1_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": 0.5143,
+                "maxX": 1.2683,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_lower_panel_1_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": 0.5143,
+                "maxX": 1.2683,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_lower_panel_2_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": 0.5143,
+                "maxX": 1.2683,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_lower_panel_2_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": 0.5143,
+                "maxX": 1.2683,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_lower_panel_2_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": 0.5143,
+                "maxX": 1.2683,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_lower_panel_2_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": 0.5143,
+                "maxX": 1.2683,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_shaft_0_front",
+              "orientation": "front",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 0.6013,
+                "maxX": 1.1813,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_shaft_0_rear",
+              "orientation": "rear",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 0.6013,
+                "maxX": 1.1813,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_shaft_0_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 0.6013,
+                "maxX": 1.1813,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_3/panel_shaft_0_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 0.6013,
+                "maxX": 1.1813,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            }
+          ]
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/support_4",
+          "x": 2.6739,
+          "z": 0,
+          "sections": [
+            {
+              "kind": "foot",
+              "footprint": {
+                "minX": 2.2244,
+                "maxX": 3.1234,
+                "minZ": -0.4495,
+                "maxZ": 0.4495
+              },
+              "bottomY": 1.62,
+              "topY": 2.136,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "lower_panel",
+              "footprint": {
+                "minX": 2.2969,
+                "maxX": 3.0509,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 3.684,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "shaft",
+              "footprint": {
+                "minX": 2.3839,
+                "maxX": 2.9639,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "capital",
+              "footprint": {
+                "minX": 2.2969,
+                "maxX": 3.0509,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 4.974,
+              "topY": 5.576,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "capstone",
+              "footprint": {
+                "minX": 2.1954,
+                "maxX": 3.1524,
+                "minZ": -0.4785,
+                "maxZ": 0.4785
+              },
+              "bottomY": 5.576,
+              "topY": 5.92,
+              "materialRole": "pier"
+            }
+          ],
+          "panels": [
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_lower_panel_0_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 2.2969,
+                "maxX": 3.0509,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_lower_panel_0_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 2.2969,
+                "maxX": 3.0509,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_lower_panel_0_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 2.2969,
+                "maxX": 3.0509,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_lower_panel_0_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 2.2969,
+                "maxX": 3.0509,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_lower_panel_1_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": 2.2969,
+                "maxX": 3.0509,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_lower_panel_1_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": 2.2969,
+                "maxX": 3.0509,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_lower_panel_1_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": 2.2969,
+                "maxX": 3.0509,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_lower_panel_1_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": 2.2969,
+                "maxX": 3.0509,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_lower_panel_2_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": 2.2969,
+                "maxX": 3.0509,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_lower_panel_2_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": 2.2969,
+                "maxX": 3.0509,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_lower_panel_2_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": 2.2969,
+                "maxX": 3.0509,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_lower_panel_2_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": 2.2969,
+                "maxX": 3.0509,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_shaft_0_front",
+              "orientation": "front",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 2.3839,
+                "maxX": 2.9639,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_shaft_0_rear",
+              "orientation": "rear",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 2.3839,
+                "maxX": 2.9639,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_shaft_0_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 2.3839,
+                "maxX": 2.9639,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_4/panel_shaft_0_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 2.3839,
+                "maxX": 2.9639,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            }
+          ]
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/support_5",
+          "x": 4.4565,
+          "z": 0,
+          "sections": [
+            {
+              "kind": "foot",
+              "footprint": {
+                "minX": 4.007,
+                "maxX": 4.906,
+                "minZ": -0.4495,
+                "maxZ": 0.4495
+              },
+              "bottomY": 1.62,
+              "topY": 2.136,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "lower_panel",
+              "footprint": {
+                "minX": 4.0795,
+                "maxX": 4.8335,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 3.684,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "shaft",
+              "footprint": {
+                "minX": 4.1665,
+                "maxX": 4.7465,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "capital",
+              "footprint": {
+                "minX": 4.0795,
+                "maxX": 4.8335,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 4.974,
+              "topY": 5.576,
+              "materialRole": "pier"
+            },
+            {
+              "kind": "capstone",
+              "footprint": {
+                "minX": 3.978,
+                "maxX": 4.935,
+                "minZ": -0.4785,
+                "maxZ": 0.4785
+              },
+              "bottomY": 5.576,
+              "topY": 5.92,
+              "materialRole": "pier"
+            }
+          ],
+          "panels": [
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_lower_panel_0_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 4.0795,
+                "maxX": 4.8335,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_lower_panel_0_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 4.0795,
+                "maxX": 4.8335,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_lower_panel_0_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 4.0795,
+                "maxX": 4.8335,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_lower_panel_0_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 4.0795,
+                "maxX": 4.8335,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.136,
+              "topY": 2.652,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_lower_panel_1_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": 4.0795,
+                "maxX": 4.8335,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_lower_panel_1_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": 4.0795,
+                "maxX": 4.8335,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_lower_panel_1_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": 4.0795,
+                "maxX": 4.8335,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_lower_panel_1_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 1,
+              "supportFootprint": {
+                "minX": 4.0795,
+                "maxX": 4.8335,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 2.652,
+              "topY": 3.168,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_lower_panel_2_front",
+              "orientation": "front",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": 4.0795,
+                "maxX": 4.8335,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_lower_panel_2_rear",
+              "orientation": "rear",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": 4.0795,
+                "maxX": 4.8335,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_lower_panel_2_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": 4.0795,
+                "maxX": 4.8335,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_lower_panel_2_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "lower_panel",
+              "index": 2,
+              "supportFootprint": {
+                "minX": 4.0795,
+                "maxX": 4.8335,
+                "minZ": -0.377,
+                "maxZ": 0.377
+              },
+              "bottomY": 3.168,
+              "topY": 3.684,
+              "insetU": 0.065,
+              "insetV": 0.05,
+              "borderWidth": 0.04128,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_shaft_0_front",
+              "orientation": "front",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 4.1665,
+                "maxX": 4.7465,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_shaft_0_rear",
+              "orientation": "rear",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 4.1665,
+                "maxX": 4.7465,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_shaft_0_side_positive_u",
+              "orientation": "sidePositiveU",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 4.1665,
+                "maxX": 4.7465,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            },
+            {
+              "id": "pillar_hall_structure/pillar_hall/support_5/panel_shaft_0_side_negative_u",
+              "orientation": "sideNegativeU",
+              "section": "shaft",
+              "index": 0,
+              "supportFootprint": {
+                "minX": 4.1665,
+                "maxX": 4.7465,
+                "minZ": -0.29,
+                "maxZ": 0.29
+              },
+              "bottomY": 3.684,
+              "topY": 4.974,
+              "insetU": 0.0696,
+              "insetV": 0.1,
+              "borderWidth": 0.0464,
+              "depth": 0.055,
+              "materialRole": "pierPanel"
+            }
+          ]
+        }
+      ],
+      "bays": [
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_0",
+          "index": 0,
+          "rowId": "pillar_hall_structure/pillar_hall/row_front",
+          "startSupportId": "pillar_hall_structure/pillar_hall/support_0",
+          "endSupportId": "pillar_hall_structure/pillar_hall/support_1",
+          "width": 1.7826
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_1",
+          "index": 1,
+          "rowId": "pillar_hall_structure/pillar_hall/row_front",
+          "startSupportId": "pillar_hall_structure/pillar_hall/support_1",
+          "endSupportId": "pillar_hall_structure/pillar_hall/support_2",
+          "width": 1.7826
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_2",
+          "index": 2,
+          "rowId": "pillar_hall_structure/pillar_hall/row_front",
+          "startSupportId": "pillar_hall_structure/pillar_hall/support_2",
+          "endSupportId": "pillar_hall_structure/pillar_hall/support_3",
+          "width": 1.7826
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_3",
+          "index": 3,
+          "rowId": "pillar_hall_structure/pillar_hall/row_front",
+          "startSupportId": "pillar_hall_structure/pillar_hall/support_3",
+          "endSupportId": "pillar_hall_structure/pillar_hall/support_4",
+          "width": 1.7826
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_4",
+          "index": 4,
+          "rowId": "pillar_hall_structure/pillar_hall/row_front",
+          "startSupportId": "pillar_hall_structure/pillar_hall/support_4",
+          "endSupportId": "pillar_hall_structure/pillar_hall/support_5",
+          "width": 1.7826
+        }
+      ],
+      "members": [
+        {
+          "id": "pillar_hall_structure/pillar_hall/support_0/base_plinth",
+          "kind": "support_plinth",
+          "rect": {
+            "minX": -4.993,
+            "maxX": -3.92,
+            "minZ": -0.6003,
+            "maxZ": 0.6003
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "pedestal"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/support_1/base_plinth",
+          "kind": "support_plinth",
+          "rect": {
+            "minX": -3.2104,
+            "maxX": -2.1374,
+            "minZ": -0.6003,
+            "maxZ": 0.6003
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "pedestal"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/support_2/base_plinth",
+          "kind": "support_plinth",
+          "rect": {
+            "minX": -1.4278,
+            "maxX": -0.3548,
+            "minZ": -0.6003,
+            "maxZ": 0.6003
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "pedestal"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/support_3/base_plinth",
+          "kind": "support_plinth",
+          "rect": {
+            "minX": 0.3548,
+            "maxX": 1.4278,
+            "minZ": -0.6003,
+            "maxZ": 0.6003
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "pedestal"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/support_4/base_plinth",
+          "kind": "support_plinth",
+          "rect": {
+            "minX": 2.1374,
+            "maxX": 3.2104,
+            "minZ": -0.6003,
+            "maxZ": 0.6003
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "pedestal"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/support_5/base_plinth",
+          "kind": "support_plinth",
+          "rect": {
+            "minX": 3.92,
+            "maxX": 4.993,
+            "minZ": -0.6003,
+            "maxZ": 0.6003
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "pedestal"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_0/lintel",
+          "kind": "lintel",
+          "rect": {
+            "minX": -5.0165,
+            "maxX": -2.6739,
+            "minZ": -0.36,
+            "maxZ": 0.36
+          },
+          "bottomY": 5.92,
+          "topY": 6.3,
+          "materialRole": "lintel"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_0/base_frieze_0",
+          "kind": "base_frieze",
+          "rect": {
+            "minX": -3.92,
+            "maxX": -3.5652,
+            "minZ": 0.4785,
+            "maxZ": 0.5335
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "frieze"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_0/base_frieze_1",
+          "kind": "base_frieze",
+          "rect": {
+            "minX": -3.5652,
+            "maxX": -3.2104,
+            "minZ": 0.4785,
+            "maxZ": 0.5335
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "frieze"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_1/lintel",
+          "kind": "lintel",
+          "rect": {
+            "minX": -2.6739,
+            "maxX": -0.8913,
+            "minZ": -0.36,
+            "maxZ": 0.36
+          },
+          "bottomY": 5.92,
+          "topY": 6.3,
+          "materialRole": "lintel"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_1/base_frieze_0",
+          "kind": "base_frieze",
+          "rect": {
+            "minX": -2.1374,
+            "maxX": -1.7826,
+            "minZ": 0.4785,
+            "maxZ": 0.5335
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "frieze"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_1/base_frieze_1",
+          "kind": "base_frieze",
+          "rect": {
+            "minX": -1.7826,
+            "maxX": -1.4278,
+            "minZ": 0.4785,
+            "maxZ": 0.5335
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "frieze"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_2/lintel",
+          "kind": "lintel",
+          "rect": {
+            "minX": -0.8913,
+            "maxX": 0.8913,
+            "minZ": -0.36,
+            "maxZ": 0.36
+          },
+          "bottomY": 5.92,
+          "topY": 6.3,
+          "materialRole": "lintel"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_2/base_frieze_0",
+          "kind": "base_frieze",
+          "rect": {
+            "minX": -0.3548,
+            "maxX": 0,
+            "minZ": 0.4785,
+            "maxZ": 0.5335
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "frieze"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_2/base_frieze_1",
+          "kind": "base_frieze",
+          "rect": {
+            "minX": 0,
+            "maxX": 0.3548,
+            "minZ": 0.4785,
+            "maxZ": 0.5335
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "frieze"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_3/lintel",
+          "kind": "lintel",
+          "rect": {
+            "minX": 0.8913,
+            "maxX": 2.6739,
+            "minZ": -0.36,
+            "maxZ": 0.36
+          },
+          "bottomY": 5.92,
+          "topY": 6.3,
+          "materialRole": "lintel"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_3/base_frieze_0",
+          "kind": "base_frieze",
+          "rect": {
+            "minX": 1.4278,
+            "maxX": 1.7826,
+            "minZ": 0.4785,
+            "maxZ": 0.5335
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "frieze"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_3/base_frieze_1",
+          "kind": "base_frieze",
+          "rect": {
+            "minX": 1.7826,
+            "maxX": 2.1374,
+            "minZ": 0.4785,
+            "maxZ": 0.5335
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "frieze"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_4/lintel",
+          "kind": "lintel",
+          "rect": {
+            "minX": 2.6739,
+            "maxX": 5.0165,
+            "minZ": -0.36,
+            "maxZ": 0.36
+          },
+          "bottomY": 5.92,
+          "topY": 6.3,
+          "materialRole": "lintel"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_4/base_frieze_0",
+          "kind": "base_frieze",
+          "rect": {
+            "minX": 3.2104,
+            "maxX": 3.5652,
+            "minZ": 0.4785,
+            "maxZ": 0.5335
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "frieze"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/bay_4/base_frieze_1",
+          "kind": "base_frieze",
+          "rect": {
+            "minX": 3.5652,
+            "maxX": 3.92,
+            "minZ": 0.4785,
+            "maxZ": 0.5335
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "frieze"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/pedestal",
+          "kind": "pedestal",
+          "rect": {
+            "minX": -4.4565,
+            "maxX": 4.4565,
+            "minZ": -0.4785,
+            "maxZ": 0.4785
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "pedestal"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/row_front/cornice",
+          "kind": "cornice",
+          "rect": {
+            "minX": -5.0165,
+            "maxX": 5.0165,
+            "minZ": -0.48,
+            "maxZ": 0.48
+          },
+          "bottomY": 6.3,
+          "topY": 6.48,
+          "materialRole": "cornice"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/buttress_left",
+          "kind": "buttress",
+          "rect": {
+            "minX": -5.66,
+            "maxX": -4.993,
+            "minZ": -0.6003,
+            "maxZ": 0.6003
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "pedestal"
+        },
+        {
+          "id": "pillar_hall_structure/pillar_hall/buttress_right",
+          "kind": "buttress",
+          "rect": {
+            "minX": 4.993,
+            "maxX": 5.66,
+            "minZ": -0.6003,
+            "maxZ": 0.6003
+          },
+          "bottomY": 0.8,
+          "topY": 1.62,
+          "materialRole": "pedestal"
+        }
+      ],
+      "roof": null,
+      "patchIds": []
+    }
+  ],
+  "roofs": [],
+  "attachments": [],
+  "damage": [],
+  "diagnostics": []
+}
