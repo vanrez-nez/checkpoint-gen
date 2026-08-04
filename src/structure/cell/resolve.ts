@@ -362,6 +362,8 @@ export function resolveSummitCell(
     interiorWalls: roomPlan.interiorWalls,
     connections: roomPlan.connections,
     patchIds: patches.map((patch) => patch.id),
+    frames: [],
+    slots: [],
   };
 
   return { record, patches, links, exteriorOpenings };

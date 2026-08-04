@@ -34,7 +34,7 @@ export const pillarHallStructure = defineStructure<PillarHallLayoutConfig>({
     {
       id: "details",
       label: "Details",
-      layoutGroups: ["Piers", "Spans", "Roof", "Stonework"],
+      layoutGroups: ["Piers", "Spans", "Roof", "Stonework", "Slots"],
     },
     { id: "materials", label: "Materials", props: ["materialPalette"] },
   ],
@@ -53,6 +53,7 @@ export const pillarHallStructure = defineStructure<PillarHallLayoutConfig>({
     "frieze",
     "cornice",
     "roof",
+    "slotDebug",
   ],
   layoutControls: PILLAR_HALL_LAYOUT_CONTROLS,
   cloneLayout: clonePillarHallLayout,
@@ -67,6 +68,7 @@ export const pillarHallStructure = defineStructure<PillarHallLayoutConfig>({
         stairTilesPerStep: layout.stairTilesPerStep,
         section: PILLAR_HALL_SECTION,
         partId: "pillar-hall",
+        debugSlots: layout.debugSlots,
       }).parts]
       : [];
     return { parts, anchors: emptyCompositionAnchors(), graph };

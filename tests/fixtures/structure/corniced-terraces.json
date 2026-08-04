@@ -287,23 +287,41 @@
         "structure/mass_main/band_01/facade_rear",
         "structure/mass_main/band_01/facade_side_positive_u",
         "structure/mass_main/band_01/facade_side_negative_u",
+        "structure/mass_main/band_01/cornice_fascia_front",
+        "structure/mass_main/band_01/cornice_fascia_rear",
+        "structure/mass_main/band_01/cornice_fascia_side_positive_u",
+        "structure/mass_main/band_01/cornice_fascia_side_negative_u",
         "structure/mass_main/band_02/facade_front",
         "structure/mass_main/band_02/facade_rear",
         "structure/mass_main/band_02/facade_side_positive_u",
         "structure/mass_main/band_02/facade_side_negative_u",
+        "structure/mass_main/band_02/cornice_fascia_front",
+        "structure/mass_main/band_02/cornice_fascia_rear",
+        "structure/mass_main/band_02/cornice_fascia_side_positive_u",
+        "structure/mass_main/band_02/cornice_fascia_side_negative_u",
         "structure/mass_main/band_03/facade_front",
         "structure/mass_main/band_03/facade_rear",
         "structure/mass_main/band_03/facade_side_positive_u",
         "structure/mass_main/band_03/facade_side_negative_u",
+        "structure/mass_main/band_03/cornice_fascia_front",
+        "structure/mass_main/band_03/cornice_fascia_rear",
+        "structure/mass_main/band_03/cornice_fascia_side_positive_u",
+        "structure/mass_main/band_03/cornice_fascia_side_negative_u",
         "structure/mass_main/band_04/facade_front",
         "structure/mass_main/band_04/facade_rear",
         "structure/mass_main/band_04/facade_side_positive_u",
         "structure/mass_main/band_04/facade_side_negative_u",
+        "structure/mass_main/band_04/cornice_fascia_front",
+        "structure/mass_main/band_04/cornice_fascia_rear",
+        "structure/mass_main/band_04/cornice_fascia_side_positive_u",
+        "structure/mass_main/band_04/cornice_fascia_side_negative_u",
         "structure/mass_main/band_05/facade_front",
         "structure/mass_main/band_05/facade_rear",
         "structure/mass_main/band_05/facade_side_positive_u",
         "structure/mass_main/band_05/facade_side_negative_u"
-      ]
+      ],
+      "frames": [],
+      "slots": []
     }
   ],
   "patches": [
@@ -822,6 +840,10 @@
         }
       },
       "adjacency": [
+        "structure/mass_main/band_01/cornice_fascia_front",
+        "structure/mass_main/band_01/cornice_fascia_rear",
+        "structure/mass_main/band_01/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_01/cornice_fascia_side_positive_u",
         "structure/mass_main/band_01/facade_rear",
         "structure/mass_main/band_01/facade_side_negative_u",
         "structure/mass_main/band_01/ledge",
@@ -911,6 +933,10 @@
         }
       },
       "adjacency": [
+        "structure/mass_main/band_01/cornice_fascia_front",
+        "structure/mass_main/band_01/cornice_fascia_rear",
+        "structure/mass_main/band_01/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_01/cornice_fascia_side_positive_u",
         "structure/mass_main/band_01/facade_front",
         "structure/mass_main/band_01/facade_side_positive_u",
         "structure/mass_main/band_01/ledge",
@@ -980,6 +1006,10 @@
         }
       },
       "adjacency": [
+        "structure/mass_main/band_01/cornice_fascia_front",
+        "structure/mass_main/band_01/cornice_fascia_rear",
+        "structure/mass_main/band_01/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_01/cornice_fascia_side_positive_u",
         "structure/mass_main/band_01/facade_rear",
         "structure/mass_main/band_01/facade_side_negative_u",
         "structure/mass_main/band_01/ledge",
@@ -1049,6 +1079,10 @@
         }
       },
       "adjacency": [
+        "structure/mass_main/band_01/cornice_fascia_front",
+        "structure/mass_main/band_01/cornice_fascia_rear",
+        "structure/mass_main/band_01/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_01/cornice_fascia_side_positive_u",
         "structure/mass_main/band_01/facade_front",
         "structure/mass_main/band_01/facade_side_positive_u",
         "structure/mass_main/band_01/ledge",
@@ -1059,6 +1093,294 @@
       "anchors": [],
       "tags": [
         "exterior",
+        "sideNegativeU"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_01/cornice_fascia_front",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": -11.490572,
+          "y": 4.656933,
+          "z": 8.490572
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "uLength": 22.981143,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 22.981143,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_01/cornice_fascia_front/edge_u_min",
+          "orientation": "front",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_01/cornice_fascia_front/edge_u_max",
+          "orientation": "front",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_01/cornice_fascia_front/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_01/cornice_fascia_front/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_01/cornice_fascia_rear",
+        "structure/mass_main/band_01/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_01/facade_front",
+        "structure/mass_main/band_01/facade_rear",
+        "structure/mass_main/band_01/facade_side_negative_u",
+        "structure/mass_main/band_01/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
+        "front"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_01/cornice_fascia_rear",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": 11.490572,
+          "y": 4.656933,
+          "z": -8.490572
+        },
+        "uAxis": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "uLength": 22.981143,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 22.981143,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_01/cornice_fascia_rear/edge_u_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_01/cornice_fascia_rear/edge_u_max",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_01/cornice_fascia_rear/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_01/cornice_fascia_rear/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_01/cornice_fascia_front",
+        "structure/mass_main/band_01/cornice_fascia_side_positive_u",
+        "structure/mass_main/band_01/facade_front",
+        "structure/mass_main/band_01/facade_rear",
+        "structure/mass_main/band_01/facade_side_negative_u",
+        "structure/mass_main/band_01/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
+        "rear"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_01/cornice_fascia_side_positive_u",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": 11.490572,
+          "y": 4.656933,
+          "z": 8.490572
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 16.981143,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 16.981143,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_01/cornice_fascia_side_positive_u/edge_u_min",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_01/cornice_fascia_side_positive_u/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_01/cornice_fascia_side_positive_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_01/cornice_fascia_side_positive_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_01/cornice_fascia_rear",
+        "structure/mass_main/band_01/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_01/facade_front",
+        "structure/mass_main/band_01/facade_rear",
+        "structure/mass_main/band_01/facade_side_negative_u",
+        "structure/mass_main/band_01/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
+        "sidePositiveU"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_01/cornice_fascia_side_negative_u",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": -11.490572,
+          "y": 4.656933,
+          "z": -8.490572
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 16.981143,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 16.981143,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_01/cornice_fascia_side_negative_u/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_01/cornice_fascia_side_negative_u/edge_u_max",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_01/cornice_fascia_side_negative_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_01/cornice_fascia_side_negative_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_01/cornice_fascia_front",
+        "structure/mass_main/band_01/cornice_fascia_side_positive_u",
+        "structure/mass_main/band_01/facade_front",
+        "structure/mass_main/band_01/facade_rear",
+        "structure/mass_main/band_01/facade_side_negative_u",
+        "structure/mass_main/band_01/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
         "sideNegativeU"
       ]
     },
@@ -1210,6 +1532,10 @@
       },
       "adjacency": [
         "structure/mass_main/band_01/ledge",
+        "structure/mass_main/band_02/cornice_fascia_front",
+        "structure/mass_main/band_02/cornice_fascia_rear",
+        "structure/mass_main/band_02/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_02/cornice_fascia_side_positive_u",
         "structure/mass_main/band_02/facade_rear",
         "structure/mass_main/band_02/facade_side_negative_u",
         "structure/mass_main/band_02/ledge"
@@ -1299,6 +1625,10 @@
       },
       "adjacency": [
         "structure/mass_main/band_01/ledge",
+        "structure/mass_main/band_02/cornice_fascia_front",
+        "structure/mass_main/band_02/cornice_fascia_rear",
+        "structure/mass_main/band_02/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_02/cornice_fascia_side_positive_u",
         "structure/mass_main/band_02/facade_front",
         "structure/mass_main/band_02/facade_side_positive_u",
         "structure/mass_main/band_02/ledge"
@@ -1368,6 +1698,10 @@
       },
       "adjacency": [
         "structure/mass_main/band_01/ledge",
+        "structure/mass_main/band_02/cornice_fascia_front",
+        "structure/mass_main/band_02/cornice_fascia_rear",
+        "structure/mass_main/band_02/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_02/cornice_fascia_side_positive_u",
         "structure/mass_main/band_02/facade_rear",
         "structure/mass_main/band_02/facade_side_negative_u",
         "structure/mass_main/band_02/ledge"
@@ -1437,6 +1771,10 @@
       },
       "adjacency": [
         "structure/mass_main/band_01/ledge",
+        "structure/mass_main/band_02/cornice_fascia_front",
+        "structure/mass_main/band_02/cornice_fascia_rear",
+        "structure/mass_main/band_02/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_02/cornice_fascia_side_positive_u",
         "structure/mass_main/band_02/facade_front",
         "structure/mass_main/band_02/facade_side_positive_u",
         "structure/mass_main/band_02/ledge"
@@ -1446,6 +1784,294 @@
       "anchors": [],
       "tags": [
         "exterior",
+        "sideNegativeU"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_02/cornice_fascia_front",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": -10.11698,
+          "y": 7.540725,
+          "z": 7.45448
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "uLength": 20.233961,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 20.233961,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_02/cornice_fascia_front/edge_u_min",
+          "orientation": "front",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_02/cornice_fascia_front/edge_u_max",
+          "orientation": "front",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_02/cornice_fascia_front/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_02/cornice_fascia_front/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_02/cornice_fascia_rear",
+        "structure/mass_main/band_02/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_02/facade_front",
+        "structure/mass_main/band_02/facade_rear",
+        "structure/mass_main/band_02/facade_side_negative_u",
+        "structure/mass_main/band_02/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
+        "front"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_02/cornice_fascia_rear",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": 10.11698,
+          "y": 7.540725,
+          "z": -7.45448
+        },
+        "uAxis": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "uLength": 20.233961,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 20.233961,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_02/cornice_fascia_rear/edge_u_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_02/cornice_fascia_rear/edge_u_max",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_02/cornice_fascia_rear/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_02/cornice_fascia_rear/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_02/cornice_fascia_front",
+        "structure/mass_main/band_02/cornice_fascia_side_positive_u",
+        "structure/mass_main/band_02/facade_front",
+        "structure/mass_main/band_02/facade_rear",
+        "structure/mass_main/band_02/facade_side_negative_u",
+        "structure/mass_main/band_02/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
+        "rear"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_02/cornice_fascia_side_positive_u",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": 10.11698,
+          "y": 7.540725,
+          "z": 7.45448
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 14.908961,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 14.908961,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_02/cornice_fascia_side_positive_u/edge_u_min",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_02/cornice_fascia_side_positive_u/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_02/cornice_fascia_side_positive_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_02/cornice_fascia_side_positive_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_02/cornice_fascia_rear",
+        "structure/mass_main/band_02/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_02/facade_front",
+        "structure/mass_main/band_02/facade_rear",
+        "structure/mass_main/band_02/facade_side_negative_u",
+        "structure/mass_main/band_02/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
+        "sidePositiveU"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_02/cornice_fascia_side_negative_u",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": -10.11698,
+          "y": 7.540725,
+          "z": -7.45448
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 14.908961,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 14.908961,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_02/cornice_fascia_side_negative_u/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_02/cornice_fascia_side_negative_u/edge_u_max",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_02/cornice_fascia_side_negative_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_02/cornice_fascia_side_negative_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_02/cornice_fascia_front",
+        "structure/mass_main/band_02/cornice_fascia_side_positive_u",
+        "structure/mass_main/band_02/facade_front",
+        "structure/mass_main/band_02/facade_rear",
+        "structure/mass_main/band_02/facade_side_negative_u",
+        "structure/mass_main/band_02/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
         "sideNegativeU"
       ]
     },
@@ -1597,6 +2223,10 @@
       },
       "adjacency": [
         "structure/mass_main/band_02/ledge",
+        "structure/mass_main/band_03/cornice_fascia_front",
+        "structure/mass_main/band_03/cornice_fascia_rear",
+        "structure/mass_main/band_03/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_03/cornice_fascia_side_positive_u",
         "structure/mass_main/band_03/facade_rear",
         "structure/mass_main/band_03/facade_side_negative_u",
         "structure/mass_main/band_03/ledge"
@@ -1686,6 +2316,10 @@
       },
       "adjacency": [
         "structure/mass_main/band_02/ledge",
+        "structure/mass_main/band_03/cornice_fascia_front",
+        "structure/mass_main/band_03/cornice_fascia_rear",
+        "structure/mass_main/band_03/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_03/cornice_fascia_side_positive_u",
         "structure/mass_main/band_03/facade_front",
         "structure/mass_main/band_03/facade_side_positive_u",
         "structure/mass_main/band_03/ledge"
@@ -1755,6 +2389,10 @@
       },
       "adjacency": [
         "structure/mass_main/band_02/ledge",
+        "structure/mass_main/band_03/cornice_fascia_front",
+        "structure/mass_main/band_03/cornice_fascia_rear",
+        "structure/mass_main/band_03/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_03/cornice_fascia_side_positive_u",
         "structure/mass_main/band_03/facade_rear",
         "structure/mass_main/band_03/facade_side_negative_u",
         "structure/mass_main/band_03/ledge"
@@ -1824,6 +2462,10 @@
       },
       "adjacency": [
         "structure/mass_main/band_02/ledge",
+        "structure/mass_main/band_03/cornice_fascia_front",
+        "structure/mass_main/band_03/cornice_fascia_rear",
+        "structure/mass_main/band_03/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_03/cornice_fascia_side_positive_u",
         "structure/mass_main/band_03/facade_front",
         "structure/mass_main/band_03/facade_side_positive_u",
         "structure/mass_main/band_03/ledge"
@@ -1833,6 +2475,294 @@
       "anchors": [],
       "tags": [
         "exterior",
+        "sideNegativeU"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_03/cornice_fascia_front",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": -8.922497,
+          "y": 9.408744,
+          "z": 6.597497
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "uLength": 17.844995,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 17.844995,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_03/cornice_fascia_front/edge_u_min",
+          "orientation": "front",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_03/cornice_fascia_front/edge_u_max",
+          "orientation": "front",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_03/cornice_fascia_front/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_03/cornice_fascia_front/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_03/cornice_fascia_rear",
+        "structure/mass_main/band_03/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_03/facade_front",
+        "structure/mass_main/band_03/facade_rear",
+        "structure/mass_main/band_03/facade_side_negative_u",
+        "structure/mass_main/band_03/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
+        "front"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_03/cornice_fascia_rear",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": 8.922497,
+          "y": 9.408744,
+          "z": -6.597497
+        },
+        "uAxis": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "uLength": 17.844995,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 17.844995,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_03/cornice_fascia_rear/edge_u_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_03/cornice_fascia_rear/edge_u_max",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_03/cornice_fascia_rear/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_03/cornice_fascia_rear/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_03/cornice_fascia_front",
+        "structure/mass_main/band_03/cornice_fascia_side_positive_u",
+        "structure/mass_main/band_03/facade_front",
+        "structure/mass_main/band_03/facade_rear",
+        "structure/mass_main/band_03/facade_side_negative_u",
+        "structure/mass_main/band_03/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
+        "rear"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_03/cornice_fascia_side_positive_u",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": 8.922497,
+          "y": 9.408744,
+          "z": 6.597497
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 13.194995,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 13.194995,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_03/cornice_fascia_side_positive_u/edge_u_min",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_03/cornice_fascia_side_positive_u/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_03/cornice_fascia_side_positive_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_03/cornice_fascia_side_positive_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_03/cornice_fascia_rear",
+        "structure/mass_main/band_03/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_03/facade_front",
+        "structure/mass_main/band_03/facade_rear",
+        "structure/mass_main/band_03/facade_side_negative_u",
+        "structure/mass_main/band_03/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
+        "sidePositiveU"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_03/cornice_fascia_side_negative_u",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": -8.922497,
+          "y": 9.408744,
+          "z": -6.597497
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 13.194995,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 13.194995,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_03/cornice_fascia_side_negative_u/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_03/cornice_fascia_side_negative_u/edge_u_max",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_03/cornice_fascia_side_negative_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_03/cornice_fascia_side_negative_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_03/cornice_fascia_front",
+        "structure/mass_main/band_03/cornice_fascia_side_positive_u",
+        "structure/mass_main/band_03/facade_front",
+        "structure/mass_main/band_03/facade_rear",
+        "structure/mass_main/band_03/facade_side_negative_u",
+        "structure/mass_main/band_03/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
         "sideNegativeU"
       ]
     },
@@ -1984,6 +2914,10 @@
       },
       "adjacency": [
         "structure/mass_main/band_03/ledge",
+        "structure/mass_main/band_04/cornice_fascia_front",
+        "structure/mass_main/band_04/cornice_fascia_rear",
+        "structure/mass_main/band_04/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_04/cornice_fascia_side_positive_u",
         "structure/mass_main/band_04/facade_rear",
         "structure/mass_main/band_04/facade_side_negative_u",
         "structure/mass_main/band_04/ledge"
@@ -2073,6 +3007,10 @@
       },
       "adjacency": [
         "structure/mass_main/band_03/ledge",
+        "structure/mass_main/band_04/cornice_fascia_front",
+        "structure/mass_main/band_04/cornice_fascia_rear",
+        "structure/mass_main/band_04/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_04/cornice_fascia_side_positive_u",
         "structure/mass_main/band_04/facade_front",
         "structure/mass_main/band_04/facade_side_positive_u",
         "structure/mass_main/band_04/ledge"
@@ -2142,6 +3080,10 @@
       },
       "adjacency": [
         "structure/mass_main/band_03/ledge",
+        "structure/mass_main/band_04/cornice_fascia_front",
+        "structure/mass_main/band_04/cornice_fascia_rear",
+        "structure/mass_main/band_04/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_04/cornice_fascia_side_positive_u",
         "structure/mass_main/band_04/facade_rear",
         "structure/mass_main/band_04/facade_side_negative_u",
         "structure/mass_main/band_04/ledge"
@@ -2211,6 +3153,10 @@
       },
       "adjacency": [
         "structure/mass_main/band_03/ledge",
+        "structure/mass_main/band_04/cornice_fascia_front",
+        "structure/mass_main/band_04/cornice_fascia_rear",
+        "structure/mass_main/band_04/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_04/cornice_fascia_side_positive_u",
         "structure/mass_main/band_04/facade_front",
         "structure/mass_main/band_04/facade_side_positive_u",
         "structure/mass_main/band_04/ledge"
@@ -2220,6 +3166,294 @@
       "anchors": [],
       "tags": [
         "exterior",
+        "sideNegativeU"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_04/cornice_fascia_front",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": -7.859259,
+          "y": 10.532439,
+          "z": 5.871759
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "uLength": 15.718518,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 15.718518,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_04/cornice_fascia_front/edge_u_min",
+          "orientation": "front",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_04/cornice_fascia_front/edge_u_max",
+          "orientation": "front",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_04/cornice_fascia_front/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_04/cornice_fascia_front/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_04/cornice_fascia_rear",
+        "structure/mass_main/band_04/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_04/facade_front",
+        "structure/mass_main/band_04/facade_rear",
+        "structure/mass_main/band_04/facade_side_negative_u",
+        "structure/mass_main/band_04/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
+        "front"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_04/cornice_fascia_rear",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": 7.859259,
+          "y": 10.532439,
+          "z": -5.871759
+        },
+        "uAxis": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "uLength": 15.718518,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 15.718518,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_04/cornice_fascia_rear/edge_u_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_04/cornice_fascia_rear/edge_u_max",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_04/cornice_fascia_rear/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_04/cornice_fascia_rear/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_04/cornice_fascia_front",
+        "structure/mass_main/band_04/cornice_fascia_side_positive_u",
+        "structure/mass_main/band_04/facade_front",
+        "structure/mass_main/band_04/facade_rear",
+        "structure/mass_main/band_04/facade_side_negative_u",
+        "structure/mass_main/band_04/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
+        "rear"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_04/cornice_fascia_side_positive_u",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": 7.859259,
+          "y": 10.532439,
+          "z": 5.871759
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 11.743518,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 11.743518,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_04/cornice_fascia_side_positive_u/edge_u_min",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_04/cornice_fascia_side_positive_u/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_04/cornice_fascia_side_positive_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_04/cornice_fascia_side_positive_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_04/cornice_fascia_rear",
+        "structure/mass_main/band_04/cornice_fascia_side_negative_u",
+        "structure/mass_main/band_04/facade_front",
+        "structure/mass_main/band_04/facade_rear",
+        "structure/mass_main/band_04/facade_side_negative_u",
+        "structure/mass_main/band_04/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
+        "sidePositiveU"
+      ]
+    },
+    {
+      "id": "structure/mass_main/band_04/cornice_fascia_side_negative_u",
+      "role": "cornice",
+      "frame": {
+        "origin": {
+          "x": -7.859259,
+          "y": 10.532439,
+          "z": -5.871759
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 11.743518,
+        "vLength": 0.3
+      },
+      "dimensions": {
+        "u": 11.743518,
+        "v": 0.3,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "structure/mass_main/band_04/cornice_fascia_side_negative_u/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "structure/mass_main/band_04/cornice_fascia_side_negative_u/edge_u_max",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "structure/mass_main/band_04/cornice_fascia_side_negative_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "structure/mass_main/band_04/cornice_fascia_side_negative_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "structure/mass_main/band_04/cornice_fascia_front",
+        "structure/mass_main/band_04/cornice_fascia_side_positive_u",
+        "structure/mass_main/band_04/facade_front",
+        "structure/mass_main/band_04/facade_rear",
+        "structure/mass_main/band_04/facade_side_negative_u",
+        "structure/mass_main/band_04/facade_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "exterior",
+        "cornice",
         "sideNegativeU"
       ]
     },

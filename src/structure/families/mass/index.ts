@@ -60,7 +60,7 @@ export const massStructure = defineStructure<MassLayoutConfig>({
     {
       id: "summit",
       label: "Summit",
-      layoutGroups: ["Summit", "Summit building", "Facade", "Roof"],
+      layoutGroups: ["Summit", "Summit building", "Facade", "Roof", "Slots"],
     },
     {
       id: "fire",
@@ -97,6 +97,7 @@ export const massStructure = defineStructure<MassLayoutConfig>({
     "pillar",
     "cornice",
     "iron",
+    "slotDebug",
   ],
   layoutControls: MASS_LAYOUT_CONTROLS,
   cloneLayout: cloneMassLayout,
@@ -113,6 +114,7 @@ export const massStructure = defineStructure<MassLayoutConfig>({
         masonry: toMasonry(layout, stone),
         seed: stone.seed,
         stairTilesPerStep: layout.stairTilesPerStep,
+        debugSlots: layout.debugSlots,
       }).parts]
       : [];
 

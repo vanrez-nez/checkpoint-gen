@@ -64,6 +64,7 @@ import {
 import { resolveStela } from "../src/structure/families/stelae/resolve";
 import {
   patchIndex,
+  allSlots,
   serializeGraph,
   StructureGraphBuilder,
   type CellOpeningRecord,
@@ -73,6 +74,10 @@ import {
   type StructureGraph,
 } from "../src/structure/kernel/graph";
 import { isValidId } from "../src/structure/kernel/ids";
+import {
+  MIN_FIELD_EXTENT,
+  MIN_RIBBON_WIDTH,
+} from "../src/structure/kernel/slot";
 import { createSeedSet, deriveSeed, subsystemSeed } from "../src/structure/kernel/seed";
 import {
   evaluateFrame,
@@ -106,6 +111,7 @@ import {
   type PillarHallLayoutConfig,
 } from "../src/structure/families/pillar-hall/config";
 import { DEFAULT_PILLAR_HALL_STONE_CONFIG } from "../src/structure/families/pillar-hall/config";
+import { PILLAR_HALL_ARCHETYPES } from "../src/structure/families/pillar-hall/types";
 import { DiagnosticCollector } from "../src/structure/kernel/validate";
 import { createPatchOverlay } from "../src/structure/kernel/debug-overlay";
 import { generateStructure, type StructureSpec } from "../src/structure/mass/generate";
@@ -1046,6 +1052,24 @@ const FIXTURES: readonly { readonly name: string; readonly layout: MassLayoutCon
       facadeStyle: "hierarchical",
     },
   },
+  {
+    // The slot table is the product of this feature, so it is golden-tested
+    // like every other resolved proportion. Cornices and a summit building are
+    // on because they are the surfaces `all` reaches beyond the band walls.
+    name: "engraved-terraces",
+    layout: {
+      ...cloneFrontStairLayout(),
+      bandCount: 4,
+      totalHeight: 9,
+      batterAngle: 10,
+      cornicePlacement: "all",
+      corniceProjection: 0.25,
+      corniceHeight: 0.3,
+      stoneworkEnabled: true,
+      summitBuildingEnabled: true,
+      slotPlacement: "all",
+    },
+  },
 ];
 
 const graphs = new Map<string, StructureGraph>();
@@ -1076,6 +1100,13 @@ const HALL_FIXTURES: readonly {
   { name: "pillar-hall-linear-screen", layout: clonePillarHallLayout(PILLAR_HALL_PRESETS.linear_screen) },
   { name: "pillar-hall-front-gallery", layout: clonePillarHallLayout(PILLAR_HALL_PRESETS.front_gallery) },
   { name: "pillar-hall-open-pavilion", layout: clonePillarHallLayout(PILLAR_HALL_PRESETS.open_pavilion) },
+  {
+    name: "pillar-hall-engraved",
+    layout: {
+      ...clonePillarHallLayout(PILLAR_HALL_PRESETS.front_gallery),
+      slotPlacement: "all",
+    },
+  },
 ];
 
 for (const fixture of HALL_FIXTURES) {
@@ -5432,6 +5463,267 @@ assert.equal(
 );
 overlay.dispose();
 
+
+// --- engraving slots -------------------------------------------------------
+// The contract is that a published slot is a face you can actually engrave.
+// That means three things at once, and each of them has been wrong at least
+// once: the slot must sit on stone the structure really draws, the stretch
+// carrying it must lose its coursing so there is a plane there at all, and
+// nothing else about the build may move because a slot was published.
+const ENGRAVED_CASES: readonly {
+  readonly label: string;
+  readonly layout: MassLayoutConfig;
+}[] = [
+  { label: "engraved default", layout: { ...DEFAULT_MASS_LAYOUT } },
+  {
+    label: "engraved plumb",
+    // `findBuriedFaces` skips a face that is not axis-aligned, so a battered
+    // mass alone would let a buried prepared face through unnoticed.
+    layout: { ...DEFAULT_MASS_LAYOUT, batterAngle: 0 },
+  },
+  {
+    label: "engraved corniced",
+    layout: {
+      ...cloneFrontStairLayout(),
+      bandCount: 5,
+      totalHeight: 11,
+      batterAngle: 10,
+      cornicePlacement: "all",
+      corniceProjection: 0.25,
+      corniceHeight: 0.3,
+      stoneworkEnabled: true,
+    },
+  },
+];
+
+for (const { label, layout } of ENGRAVED_CASES) {
+  const squareSet = { ...DEFAULT_MASS_STONE_CONFIG, displacement: 0 };
+  const bare = generateStructure(toStructureSpec({
+    ...layout,
+    slotPlacement: "none",
+  }));
+  assert.equal(allSlots(bare).length, 0, `${label}: slots are not inert when off.`);
+
+  for (const placement of ["elevations", "all"] as const) {
+    const engravedLayout: MassLayoutConfig = { ...layout, slotPlacement: placement };
+    const graph = generateStructure(toStructureSpec(engravedLayout));
+    const scope = `${label} (${placement})`;
+    assertGraphInvariants(graph, scope);
+    assertSlotInvariants(graph, scope);
+    assert.ok(allSlots(graph).length > 0, `${scope}: prepared nothing.`);
+
+    const geometry = mergeParts(tessellateStructure(graph, {
+      masonry: toMasonry(engravedLayout, squareSet),
+      seed: engravedLayout.seed,
+      stairTilesPerStep: engravedLayout.stairTilesPerStep,
+    }).parts, [MASS_SECTION]).geometry;
+    assert.equal(
+      findCoincidentFaces(geometry).pairs,
+      findCoincidentFaces(mergeParts(tessellateStructure(
+        generateStructure(toStructureSpec({ ...layout, slotPlacement: "none" })),
+        {
+          masonry: toMasonry(layout, squareSet),
+          seed: layout.seed,
+          stairTilesPerStep: layout.stairTilesPerStep,
+        },
+      ).parts, [MASS_SECTION]).geometry).pairs,
+      `${scope}: preparing a face introduced coincident faces.`,
+    );
+    assert.equal(
+      findBackfaces(geometry, 48).backfaces,
+      0,
+      `${scope}: a prepared face left a hole.`,
+    );
+
+    // The load-bearing one. A slot nobody can paint is a slot that does not
+    // describe the geometry, which is the failure this whole feature exists to
+    // avoid — so every published slot must own exactly one face, no more.
+    const tinted = mergeParts(tessellateStructure(graph, {
+      masonry: toMasonry(engravedLayout, squareSet),
+      seed: engravedLayout.seed,
+      stairTilesPerStep: engravedLayout.stairTilesPerStep,
+      debugSlots: true,
+    }).parts, [MASS_SECTION]).geometry;
+    assert.equal(
+      tinted.getAttribute("position").count,
+      geometry.getAttribute("position").count,
+      `${scope}: tinting slots changed the vertex count.`,
+    );
+    assert.equal(
+      tinted.getIndex()?.count,
+      geometry.getIndex()?.count,
+      `${scope}: tinting slots changed the triangle count.`,
+    );
+    assert.equal(
+      tinted.groups
+        .filter((group) => group.materialIndex === materialSlotIndex("slotDebug"))
+        .reduce((total, group) => total + group.count / 6, 0),
+      allSlots(graph).length,
+      `${scope}: published slots and prepared faces disagree.`,
+    );
+  }
+}
+
+// Preparing one band must not reach the bands above it. The bond belongs to the
+// whole stack, so a stretch drawn flat still has to spend the courses it would
+// have laid — otherwise ticking a checkbox reshuffles every quoin over it.
+{
+  const bondLayout: MassLayoutConfig = {
+    ...cloneFrontStairLayout(),
+    bandCount: 4,
+    totalHeight: 8,
+    batterAngle: 0,
+    cornerRule: "alternating_interlock",
+    stoneworkEnabled: true,
+    summitBuildingEnabled: false,
+    summitTreatment: "open_floor",
+    stairFrontEnabled: false,
+    stairRearEnabled: false,
+    stairLeftEnabled: false,
+    stairRightEnabled: false,
+  };
+  const plain = generateStructure(toStructureSpec({
+    ...bondLayout,
+    slotPlacement: "none",
+  }));
+  const prepared = generateStructure(toStructureSpec({
+    ...bondLayout,
+    slotPlacement: "elevations",
+  }));
+  const lowest = prepared.masses[0]!.bands[0]!;
+  // Only the lowest band is prepared, so everything above it must be laid
+  // exactly as it was — same stones, same corners, same elevations.
+  const lowestOnly: StructureGraph = {
+    ...prepared,
+    masses: [{
+      ...prepared.masses[0]!,
+      slots: prepared.masses[0]!.slots.filter(
+        (slot) => slot.bandId === lowest.id,
+      ),
+    }],
+  };
+  assert.ok(
+    lowestOnly.masses[0]!.slots.length > 0,
+    "The bond test prepared nothing.",
+  );
+  const above = (graph: StructureGraph) => {
+    const position = mergeParts(tessellateStructure(graph, {
+      masonry: toMasonry(bondLayout, {
+        ...DEFAULT_MASS_STONE_CONFIG,
+        displacement: 0,
+      }),
+      seed: bondLayout.seed,
+      stairTilesPerStep: bondLayout.stairTilesPerStep,
+    }).parts, [MASS_SECTION]).geometry.getAttribute("position");
+    const points: string[] = [];
+    for (let index = 0; index < position.count; index += 1) {
+      if (position.getY(index) > lowest.topY + 1e-6) {
+        points.push([
+          position.getX(index),
+          position.getY(index),
+          position.getZ(index),
+        ].map((value) => value.toFixed(6)).join(","));
+      }
+    }
+    return points.sort().join("|");
+  };
+  const untouched = above(plain);
+  assert.ok(untouched.length > 0, "The bond test compared no stonework.");
+  assert.equal(
+    above(lowestOnly),
+    untouched,
+    "Preparing the lowest band moved the stonework above it.",
+  );
+}
+
+// A prepared band is one plane per elevation, not a course of stone ends. The
+// face count is the cheap proof that the gate actually fired.
+{
+  const gateLayout: MassLayoutConfig = {
+    ...cloneFrontStairLayout(),
+    bandCount: 2,
+    totalHeight: 5,
+    batterAngle: 0,
+    stoneworkEnabled: true,
+    stairFrontEnabled: false,
+    summitBuildingEnabled: false,
+    summitTreatment: "open_floor",
+  };
+  const faceCount = (placement: MassLayoutConfig["slotPlacement"]) => tessellateStructure(
+    generateStructure(toStructureSpec({ ...gateLayout, slotPlacement: placement })),
+    {
+      masonry: toMasonry(gateLayout, DEFAULT_MASS_STONE_CONFIG),
+      seed: gateLayout.seed,
+      stairTilesPerStep: gateLayout.stairTilesPerStep,
+    },
+  ).faceCount;
+  assert.ok(
+    faceCount("elevations") < faceCount("none") / 2,
+    "Preparing every elevation did not take the coursing off them.",
+  );
+}
+
+// The Pillar Hall needs no gate — nothing in it was ever coursed — so what is
+// checked is that publishing patches for the first time left the mesh alone and
+// that every field is a face.
+for (const archetype of PILLAR_HALL_ARCHETYPES) {
+  for (const placement of ["elevations", "all"] as const) {
+    const layout = {
+      ...clonePillarHallLayout(PILLAR_HALL_PRESETS[archetype]),
+      slotPlacement: placement,
+    };
+    const graph = resolvePillarHallGraph(layout);
+    const scope = `engraved ${archetype} (${placement})`;
+    assertGraphInvariants(graph, scope);
+    assertSlotInvariants(graph, scope);
+    assert.ok(graph.pillarHalls[0]!.slots.length > 0, `${scope}: prepared nothing.`);
+
+    const hallOnly = { ...graph, masses: [], connectors: [] };
+    const options = {
+      masonry: toPillarHallMasonry(layout, {
+        ...DEFAULT_PILLAR_HALL_STONE_CONFIG,
+        displacement: 0,
+      }),
+      seed: 109,
+      stairTilesPerStep: layout.stairTilesPerStep,
+    };
+    const geometry = mergeParts(
+      tessellateStructure(hallOnly, options).parts,
+      [MASS_SECTION],
+    ).geometry;
+    assert.equal(findCoincidentFaces(geometry).pairs, 0, `${scope}: coincident faces.`);
+    assert.equal(findBuriedFaces(geometry).faces, 0, `${scope}: buried faces.`);
+    assert.equal(findBackfaces(geometry, 48).backfaces, 0, `${scope}: backfaces.`);
+
+    const tinted = mergeParts(
+      tessellateStructure(hallOnly, { ...options, debugSlots: true }).parts,
+      [MASS_SECTION],
+    ).geometry;
+    assert.equal(
+      tinted.getIndex()?.count,
+      geometry.getIndex()?.count,
+      `${scope}: tinting slots changed the triangle count.`,
+    );
+    assert.equal(
+      tinted.groups
+        .filter((group) => group.materialIndex === materialSlotIndex("slotDebug"))
+        .reduce((total, group) => total + group.count / 6, 0),
+      graph.pillarHalls[0]!.slots.length,
+      `${scope}: published slots and prepared faces disagree.`,
+    );
+  }
+}
+
+// Resolution is arithmetic, so the same layout must publish the same table.
+{
+  const repeatable = { ...DEFAULT_MASS_LAYOUT, slotPlacement: "all" as const };
+  assert.equal(
+    serializeGraph(generateStructure(toStructureSpec(repeatable))),
+    serializeGraph(generateStructure(toStructureSpec(repeatable))),
+    "Slot resolution is not deterministic.",
+  );
+}
+
 console.log(
   `Structure sanity passed: ${FIXTURES.length + HALL_FIXTURES.length} fixtures,`
   + ` ${pyramid.patches.length} pyramid patches,`
@@ -5439,6 +5731,71 @@ console.log(
 );
 
 // --- helpers ---------------------------------------------------------------
+
+/**
+ * Every published slot addresses live stone.
+ *
+ * A slot that names a patch nobody emits, or reserves ground outside its own
+ * surface, is worse than no slot at all: it looks addressable and is not. The
+ * region and anchor checks are what make "published three ways" mean the same
+ * thing three ways.
+ */
+function assertSlotInvariants(graph: StructureGraph, label: string): void {
+  const patches = patchIndex(graph);
+  const seen = new Set<string>();
+  const claimed = new Map<string, { readonly uMin: number; readonly uMax: number; readonly vMin: number; readonly vMax: number }[]>();
+
+  for (const slot of allSlots(graph)) {
+    assert.ok(isValidId(slot.id), `${label}: slot id "${slot.id}" is malformed.`);
+    assert.ok(!seen.has(slot.id), `${label}: duplicate slot id "${slot.id}".`);
+    seen.add(slot.id);
+
+    const patch = patches.get(slot.patchId);
+    assert.ok(patch, `${label}: slot "${slot.id}" names no patch.`);
+    assert.ok(
+      patch!.regions.some((region) => region.id === slot.regionId),
+      `${label}: slot "${slot.id}" reserved no region on its patch.`,
+    );
+    assert.ok(
+      patch!.anchors.some((anchor) => anchor.id === slot.anchorId),
+      `${label}: slot "${slot.id}" published no anchor on its patch.`,
+    );
+
+    const { inscribed } = slot;
+    assert.ok(
+      inscribed.uMin >= -1e-9 && inscribed.uMax <= 1 + 1e-9
+      && inscribed.vMin >= -1e-9 && inscribed.vMax <= 1 + 1e-9,
+      `${label}: slot "${slot.id}" reaches outside its patch domain.`,
+    );
+    assert.ok(
+      inscribed.uMax > inscribed.uMin && inscribed.vMax > inscribed.vMin,
+      `${label}: slot "${slot.id}" inverted.`,
+    );
+    assert.ok(
+      slot.boundary.every((point) =>
+        point.u >= -1e-9 && point.u <= 1 + 1e-9
+        && point.v >= -1e-9 && point.v <= 1 + 1e-9),
+      `${label}: slot "${slot.id}" has an outline outside its patch domain.`,
+    );
+
+    const minimum = slot.kind === "ribbon" ? MIN_RIBBON_WIDTH : MIN_FIELD_EXTENT;
+    assert.ok(
+      Math.min(slot.extent.uBottom, slot.extent.uTop) > 0 && slot.extent.v >= minimum - 1e-9,
+      `${label}: slot "${slot.id}" is too small to have been published.`,
+    );
+
+    const others = claimed.get(slot.patchId) ?? [];
+    for (const other of others) {
+      const overlaps = inscribed.uMin < other.uMax - 1e-9
+        && inscribed.uMax > other.uMin + 1e-9
+        && inscribed.vMin < other.vMax - 1e-9
+        && inscribed.vMax > other.vMin + 1e-9;
+      assert.ok(!overlaps, `${label}: slot "${slot.id}" overlaps another on its patch.`);
+    }
+    others.push(inscribed);
+    claimed.set(slot.patchId, others);
+  }
+}
 
 function testRegion(
   id: string,

@@ -1,6 +1,9 @@
 import { insetRect, rectDepth, rectWidth, type HorizontalOrientation, type Rect } from "../../kernel/frame";
 import { structurePath } from "../../kernel/ids";
 import type { SummitPlacementRecord } from "../../kernel/graph";
+import type { Patch } from "../../kernel/patch";
+import { toSlotRule } from "../mass/config";
+import { resolvePillarHallSlots } from "./slots";
 import type { PillarHallLayoutConfig } from "./config";
 import type {
   PillarHallBayRecord,
@@ -48,12 +51,17 @@ interface RowIntent {
   readonly bayCount: number;
 }
 
+export interface ResolvedPillarHall {
+  readonly record: PillarHallRecord;
+  readonly patches: readonly Patch[];
+}
+
 export function resolvePillarHall(
   structureId: string,
   layout: PillarHallLayoutConfig,
   placement: SummitPlacementRecord,
   platformMassId: string,
-): PillarHallRecord {
+): ResolvedPillarHall {
   const id = structurePath(structureId, "pillar_hall");
   const footprint = resolveCenterlineFootprint(layout, placement.rect);
   if (rectWidth(footprint) <= 0 || rectDepth(footprint) <= 0) {
@@ -247,7 +255,7 @@ export function resolvePillarHall(
     }
     : null;
 
-  return {
+  const resolved: PillarHallRecord = {
     id,
     kind: "pillar_hall",
     archetype: layout.archetype,
@@ -262,6 +270,27 @@ export function resolvePillarHall(
     members,
     roof,
     patchIds: [],
+    frames: [],
+    slots: [],
+  };
+
+  // The hall's own surfaces reach the graph only where something has claimed
+  // them. A family that publishes a patch for every face of every box would
+  // bury the ones that mean something.
+  const prepared = resolvePillarHallSlots({
+    hall: resolved,
+    placement: layout.slotPlacement,
+    rule: toSlotRule(layout),
+  });
+
+  return {
+    record: {
+      ...resolved,
+      patchIds: prepared.patches.map((patch) => patch.id),
+      frames: prepared.frames,
+      slots: prepared.slots,
+    },
+    patches: prepared.patches,
   };
 }
 

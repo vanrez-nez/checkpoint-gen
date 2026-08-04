@@ -9,6 +9,7 @@ import {
 } from "../../kernel/frame";
 import type { MasonryRule } from "../../kernel/masonry";
 import type { PillarHallMemberRecord, PillarHallRecord, PillarPanelRecord } from "./types";
+import { panelFrameOf, preparedHallFields, type PreparedHallField } from "./slots";
 
 const EPS = 1e-9;
 
@@ -168,11 +169,18 @@ export function buildPillarHall(
     });
     claimedBottoms.push({ y: volume.bottomY, rect: volume.rect });
   }
+  const prepared = preparedHallFields(hall);
   for (const volume of semanticVolumes) {
     builder.withMaterial(volume.materialRole, () => {
       for (let side = 0; side < volume.sides.length; side += 1) {
         if (volume.sides[side]) {
-          addExposedVertical(builder, volume, side, semanticVolumes);
+          addExposedVertical(
+            builder,
+            volume,
+            side,
+            semanticVolumes,
+            fieldsOn(prepared, volume, side),
+          );
         }
       }
     });
@@ -224,15 +232,15 @@ function memberSides(
  * cutting or duplicating the pier core.
  */
 function buildPanelFrame(builder: SolidBuilder, panel: PillarPanelRecord): void {
-  const face = panelFace(panel);
-  const uMin = face.uMin + panel.insetU;
-  const uMax = face.uMax - panel.insetU;
-  const vMin = panel.bottomY + panel.insetV;
-  const vMax = panel.topY - panel.insetV;
-  const border = Math.min(panel.borderWidth, (uMax - uMin) * 0.22, (vMax - vMin) * 0.22);
-  if (uMax - uMin <= border * 2 || vMax - vMin <= border * 2) {
+  const frame = panelFrameOf(panel);
+
+  if (!frame) {
     return;
   }
+
+  const { plane, uMin, uMax, border } = frame;
+  const vMin = frame.bottomY;
+  const vMax = frame.topY;
 
   builder.withMaterial(panel.materialRole, () => {
     const rails = [
@@ -242,7 +250,7 @@ function buildPanelFrame(builder: SolidBuilder, panel: PillarPanelRecord): void 
       [uMax - border, uMax, vMin + border, vMax - border],
     ] as const;
     for (const [index, [a0, a1, b0, b1]] of rails.entries()) {
-      const rect = panelRailRect(panel.orientation, face.plane, a0, a1, panel.depth);
+      const rect = panelRailRect(panel.orientation, plane, a0, a1, panel.depth);
       const horizontalRail = index < 2;
       addRectBlock(
         builder,
@@ -426,6 +434,43 @@ interface VerticalFaceRect {
 }
 
 /**
+ * The prepared fields lying on one side of one volume.
+ *
+ * A field names the face it was measured on, so this is an identity test
+ * rather than a search: the field belongs here when its face is this volume's
+ * plan and this side's direction.
+ */
+function fieldsOn(
+  prepared: readonly PreparedHallField[],
+  volume: HallVolume,
+  side: number,
+): VerticalFaceRect[] {
+  const orientation = SIDE_ORIENTATIONS[side];
+
+  return prepared
+    .filter((field) =>
+      field.orientation === orientation
+      && Math.abs(field.host.minX - volume.rect.minX) <= EPS
+      && Math.abs(field.host.maxX - volume.rect.maxX) <= EPS
+      && Math.abs(field.host.minZ - volume.rect.minZ) <= EPS
+      && Math.abs(field.host.maxZ - volume.rect.maxZ) <= EPS)
+    .map((field) => ({
+      minU: field.minU,
+      maxU: field.maxU,
+      minV: field.minV,
+      maxV: field.maxV,
+    }));
+}
+
+/** Side index to the direction it faces; see `occupiesOutside`. */
+const SIDE_ORIENTATIONS: readonly HorizontalOrientation[] = [
+  "sideNegativeU",
+  "front",
+  "sidePositiveU",
+  "rear",
+];
+
+/**
  * Subdivides a block side by every volume pressed against its outside. This is
  * the vertical counterpart to `addExposedHorizontal`: a perpendicular lintel
  * may consume the centre of a face without deleting either exposed end.
@@ -435,6 +480,7 @@ function addExposedVertical(
   volume: HallVolume,
   side: number,
   volumes: readonly HallVolume[],
+  fields: readonly VerticalFaceRect[] = [],
 ): void {
   const runsAlongZ = side === 0 || side === 2;
   let visible: VerticalFaceRect[] = [{
@@ -457,6 +503,13 @@ function addExposedVertical(
     visible = visible.flatMap((piece) => subtractVerticalFace(piece, cover));
   }
 
+  // A prepared field gets edges of its own so an engraving has a face to sit
+  // on rather than a rectangle drawn somewhere inside a larger one. The pieces
+  // tile what was there before, so the elevation is unchanged.
+  for (const field of fields) {
+    visible = visible.flatMap((piece) => partitionVerticalFace(piece, field));
+  }
+
   for (const piece of visible) {
     const rect = runsAlongZ
       ? { ...volume.rect, minZ: piece.minU, maxZ: piece.maxU }
@@ -473,6 +526,35 @@ function addExposedVertical(
       sides,
     );
   }
+}
+
+/**
+ * `source` split around `field`, as the pieces that tile it.
+ *
+ * Returns `source` untouched when the field does not lie inside it, so a face
+ * carrying no field, or one carrying a field that belongs to a neighbour, is
+ * left exactly as it was.
+ */
+function partitionVerticalFace(
+  source: VerticalFaceRect,
+  field: VerticalFaceRect,
+): VerticalFaceRect[] {
+  const inside = field.minU >= source.minU - EPS
+    && field.maxU <= source.maxU + EPS
+    && field.minV >= source.minV - EPS
+    && field.maxV <= source.maxV + EPS;
+
+  if (!inside || field.maxU - field.minU <= EPS || field.maxV - field.minV <= EPS) {
+    return [source];
+  }
+
+  return [
+    { minU: source.minU, maxU: source.maxU, minV: source.minV, maxV: field.minV },
+    { minU: source.minU, maxU: source.maxU, minV: field.maxV, maxV: source.maxV },
+    { minU: source.minU, maxU: field.minU, minV: field.minV, maxV: field.maxV },
+    { minU: field.maxU, maxU: source.maxU, minV: field.minV, maxV: field.maxV },
+    field,
+  ].filter((piece) => piece.maxU - piece.minU > EPS && piece.maxV - piece.minV > EPS);
 }
 
 function occupiesOutside(candidate: Rect, source: Rect, side: number): boolean {
@@ -508,26 +590,6 @@ function subtractVerticalFace(
     { minU: overlap.minU, maxU: overlap.maxU, minV: source.minV, maxV: overlap.minV },
     { minU: overlap.minU, maxU: overlap.maxU, minV: overlap.maxV, maxV: source.maxV },
   ].filter((piece) => piece.maxU - piece.minU > EPS && piece.maxV - piece.minV > EPS);
-}
-
-interface PanelFace {
-  readonly plane: number;
-  readonly uMin: number;
-  readonly uMax: number;
-}
-
-function panelFace(panel: PillarPanelRecord): PanelFace {
-  const rect = panel.supportFootprint;
-  switch (panel.orientation) {
-    case "front":
-      return { plane: rect.maxZ, uMin: rect.minX, uMax: rect.maxX };
-    case "rear":
-      return { plane: rect.minZ, uMin: rect.minX, uMax: rect.maxX };
-    case "sidePositiveU":
-      return { plane: rect.maxX, uMin: rect.minZ, uMax: rect.maxZ };
-    case "sideNegativeU":
-      return { plane: rect.minX, uMin: rect.minZ, uMax: rect.maxZ };
-  }
 }
 
 function panelRailRect(

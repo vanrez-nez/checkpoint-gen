@@ -183,7 +183,9 @@
         "structure/mass_main/band_03/facade_rear",
         "structure/mass_main/band_03/facade_side_positive_u",
         "structure/mass_main/band_03/facade_side_negative_u"
-      ]
+      ],
+      "frames": [],
+      "slots": []
     }
   ],
   "patches": [
@@ -5930,7 +5932,9 @@
         "structure/summit_chamber/facade_right/window_primary/jamb_end",
         "structure/summit_chamber/facade_right/window_primary/soffit",
         "structure/summit_chamber/facade_right/window_primary/sill"
-      ]
+      ],
+      "frames": [],
+      "slots": []
     }
   ],
   "facades": [
@@ -6352,7 +6356,9 @@
         "structure/summit_roof/cornice/fascia_side_negative_u",
         "structure/summit_roof/cornice/soffit_side_negative_u",
         "structure/summit_roof/surface_top"
-      ]
+      ],
+      "frames": [],
+      "slots": []
     }
   ],
   "attachments": [],

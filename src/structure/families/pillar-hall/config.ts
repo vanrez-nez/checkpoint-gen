@@ -5,8 +5,10 @@ import { LINEAR_BEZIER, bezierCurve } from "../../kernel/curve";
 import type { StructureGraph } from "../../kernel/graph";
 import { IMPLEMENTED_CORNER_RULES, type CornerRule, type MasonryRule } from "../../kernel/masonry";
 import { createSeedSet } from "../../kernel/seed";
+import type { SlotPlacement } from "../../kernel/slot";
 import { generateStructure, type StructureSpec } from "../../mass/generate";
 import { createRectangleFootprint } from "../../mass/footprint";
+import { toSlotRule } from "../mass/config";
 import { resolvePillarHall } from "./resolve";
 import type { PillarHallArchetype } from "./types";
 
@@ -36,6 +38,13 @@ export interface PillarHallLayoutConfig {
   stoneWidth: number;
   stoneDepth: number;
   cornerRule: CornerRule;
+  /** Which surfaces are prepared as engravable fields. */
+  slotPlacement: SlotPlacement;
+  /** Border left standing around a prepared field. Zero takes the whole face. */
+  frameBorderWidth: number;
+  frameInsetU: number;
+  frameInsetV: number;
+  debugSlots: boolean;
   seed: number;
 }
 
@@ -75,6 +84,11 @@ export const PILLAR_HALL_PRESETS: Readonly<
     stoneWidth: 1.1,
     stoneDepth: 0.55,
     cornerRule: "butted",
+    slotPlacement: "none",
+    frameBorderWidth: 0.05,
+    frameInsetU: 0.02,
+    frameInsetV: 0.02,
+    debugSlots: false,
     seed: 31,
   },
   front_gallery: {
@@ -103,6 +117,11 @@ export const PILLAR_HALL_PRESETS: Readonly<
     stoneWidth: 1.15,
     stoneDepth: 0.6,
     cornerRule: "butted",
+    slotPlacement: "none",
+    frameBorderWidth: 0.05,
+    frameInsetU: 0.02,
+    frameInsetV: 0.02,
+    debugSlots: false,
     seed: 41,
   },
   open_pavilion: {
@@ -131,6 +150,11 @@ export const PILLAR_HALL_PRESETS: Readonly<
     stoneWidth: 1.05,
     stoneDepth: 0.55,
     cornerRule: "butted",
+    slotPlacement: "none",
+    frameBorderWidth: 0.05,
+    frameInsetU: 0.02,
+    frameInsetV: 0.02,
+    debugSlots: false,
     seed: 53,
   },
 };
@@ -143,6 +167,16 @@ export const PILLAR_HALL_ARCHETYPE_OPTIONS: Readonly<
   "Linear screen": "linear_screen",
   "Front gallery": "front_gallery",
   "Open pavilion": "open_pavilion",
+};
+
+/**
+ * How much of the hall is prepared for engraving. "Elevations" reaches the pier
+ * panel fields alone; "Everything" adds the members that span and crown them.
+ */
+const SLOT_PLACEMENT_OPTIONS: Readonly<Record<string, SlotPlacement>> = {
+  None: "none",
+  Elevations: "elevations",
+  Everything: "all",
 };
 
 const CORNER_RULE_OPTIONS: Readonly<Record<string, CornerRule>> = {
@@ -192,7 +226,17 @@ export const PILLAR_HALL_LAYOUT_CONTROLS: readonly ControlSpec<PillarHallLayoutC
   control.number({ key: "stoneDepth", label: "depth", name: "Stone depth", group: "Stonework", min: 0.2, max: 1.5, step: 0.05, scopes: ["layout"], visibleWhen: (layout) => layout.stoneworkEnabled }),
   control.list({ key: "cornerRule", label: "corners", name: "Corner rule", group: "Stonework", options: CORNER_RULE_OPTIONS, scopes: ["layout"], visibleWhen: (layout) => layout.stoneworkEnabled }),
   control.number({ key: "seed", label: "layout seed", name: "Pillar Hall seed", group: "Variation", min: 0, max: 9999, step: 1, integer: true, scopes: ["layout"] }),
+  control.list({ key: "slotPlacement", label: "placement", name: "Engraving slot placement", group: "Slots", options: SLOT_PLACEMENT_OPTIONS, scopes: ["layout"] }),
+  control.number({ key: "frameBorderWidth", label: "border", name: "Slot border width", group: "Slots", min: 0, max: 0.4, step: 0.005, scopes: ["layout"], visibleWhen: prepared }),
+  control.number({ key: "frameInsetU", label: "inset u", name: "Slot horizontal inset", group: "Slots", min: 0, max: 0.5, step: 0.005, scopes: ["layout"], visibleWhen: prepared }),
+  control.number({ key: "frameInsetV", label: "inset v", name: "Slot vertical inset", group: "Slots", min: 0, max: 0.5, step: 0.005, scopes: ["layout"], visibleWhen: prepared }),
+  control.boolean({ key: "debugSlots", label: "tint slots", name: "Tint published slots", group: "Slots", scopes: ["layout"], visibleWhen: prepared }),
 ];
+
+/** Frame and debug controls do nothing until something is prepared. */
+function prepared(layout: PillarHallLayoutConfig): boolean {
+  return layout.slotPlacement !== "none";
+}
 
 export function clonePillarHallLayout(
   source: Readonly<PillarHallLayoutConfig> = DEFAULT_PILLAR_HALL_LAYOUT,
@@ -219,7 +263,11 @@ export function resolvePillarHallGraph(layout: PillarHallLayoutConfig): Structur
     );
   }
   const hall = resolvePillarHall(graph.id, layout, placement, mass.id);
-  return { ...graph, pillarHalls: [hall] };
+  return {
+    ...graph,
+    patches: [...graph.patches, ...hall.patches],
+    pillarHalls: [hall.record],
+  };
 }
 
 export function toPillarHallMasonry(
@@ -286,5 +334,7 @@ function toPlatformSpec(layout: PillarHallLayoutConfig): StructureSpec {
     cells: [],
     facade: { style: "plain", recessDepth: 0.1, pilasterProjection: 0.1, friezeHeight: 0.2, friezeProjection: 0.1 },
     roofs: [],
+    slotPlacement: layout.slotPlacement,
+    slotRule: toSlotRule(layout),
   };
 }

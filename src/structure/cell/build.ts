@@ -6,7 +6,9 @@ import type {
 import {
   evaluateFrame,
   rectCorners,
+  rectEdge,
   rectIsValid,
+  type HorizontalOrientation,
   type Rect,
 } from "../kernel/frame";
 import type { CellRecord } from "../kernel/graph";
@@ -21,6 +23,8 @@ import {
   compiledCutFragments,
   compiledSurfaceFragments,
 } from "../surface/features";
+import { addFramedFace } from "../mass/shell";
+import { preparedCellFields, type PreparedCellField } from "./slots";
 
 const EPS = 1e-9;
 type SideFlags = readonly [boolean, boolean, boolean, boolean];
@@ -37,6 +41,12 @@ interface CellPanel {
   readonly axis: "x" | "z";
   /** Per-face semantic material ownership; omitted faces inherit the Cell slot. */
   readonly materials?: BlockFaceMaterials;
+  /**
+   * An engraving field prepared on this panel's outward face. A panel carrying
+   * one is laid flat instead of coursed, and its face is drawn as the border it
+   * keeps plus the field it gives away.
+   */
+  readonly field?: PreparedCellField;
 }
 
 export function buildCell(
@@ -57,6 +67,12 @@ export function buildCell(
 
   const boundaries = courseBoundaries(cell, masonry, seed, panels);
   for (const panel of panels) {
+    // A prepared wall keeps its plane. Coursing it would leave the engraving a
+    // staircase of stone ends to sit on.
+    if (panel.field) {
+      addPanelBlock(builder, panel);
+      continue;
+    }
     layPanelStones(builder, panel, masonry, seed, boundaries);
   }
 }
@@ -138,6 +154,7 @@ function cellPanels(
   cell: CellRecord,
   patches: ReadonlyMap<string, Patch>,
 ): CellPanel[] {
+  const prepared = preparedCellFields(cell, patches);
   const { footprint: outer, interior: inner, bottomY, topY } = cell;
   const panels: CellPanel[] = [
     // Corner blocks own the returns between adjacent wall spans. Their contact
@@ -175,7 +192,8 @@ function cellPanels(
     }
 
     const axis = direction === "front" || direction === "rear" ? "x" : "z";
-    panels.push(...profileWallPanels({
+    const field = prepared.get(direction);
+    const wallPanels = profileWallPanels({
       id: wallPanelId(direction),
       rect: wallCenterRect(outer, inner, direction),
       axis,
@@ -184,7 +202,14 @@ function cellPanels(
       bottomY,
       topY,
       features: worldSurfaceFeatures(patch, axis),
-    }));
+    });
+    // A field is only ever published for a featureless wall, which resolves to
+    // exactly one panel. The guard keeps that assumption honest rather than
+    // silently attaching a field to the first of several.
+    const only = wallPanels.length === 1 ? wallPanels[0] : undefined;
+    panels.push(
+      ...(field && only ? [{ ...only, field }] : wallPanels),
+    );
   }
 
   for (const wall of cell.interiorWalls) {
@@ -842,16 +867,78 @@ function addPanelBlock(builder: SolidBuilder, panel: CellPanel): void {
     y: panel.topY,
     z: point.z,
   }));
+  const { field } = panel;
+  const outward = field
+    ? PANEL_SIDE_RING.indexOf(field.orientation)
+    : -1;
 
   builder.addBlock(
     { bottom, top },
     {
-      sides: panel.sides,
+      // The prepared elevation is drawn below, split into its border and its
+      // field, so the block itself must not also cover that side.
+      sides: panel.sides.map(
+        (shown, side) => shown && side !== outward,
+      ) as unknown as CellPanel["sides"],
       top: panel.top,
       bottom: panel.bottom,
       materials: panel.materials,
     },
   );
+
+  if (field && outward >= 0) {
+    addFramedFace(
+      builder,
+      {
+        id: panel.id,
+        label: "wall",
+        bottomY: panel.bottomY,
+        topY: panel.topY,
+        lower: panel.rect,
+        upper: panel.rect,
+        overhang: 0,
+      },
+      field.orientation,
+      [{
+        face: field.orientation,
+        uRange: fieldSpanOf(panel.rect, field),
+        bottomY: field.minV,
+        topY: field.maxV,
+      }],
+    );
+  }
+}
+
+/** Rect side order, matching `CellPanel.sides`: left, front, right, rear. */
+const PANEL_SIDE_RING: readonly HorizontalOrientation[] = [
+  "sideNegativeU",
+  "front",
+  "sidePositiveU",
+  "rear",
+];
+
+/** The field's world span as a fraction of the panel's own outward edge. */
+function fieldSpanOf(
+  rect: Rect,
+  field: PreparedCellField,
+): readonly [number, number] {
+  const edge = rectEdge(rect, field.orientation);
+  const alongX = field.orientation === "front" || field.orientation === "rear";
+  const from = alongX ? edge.start.x : edge.start.z;
+  const to = alongX ? edge.end.x : edge.end.z;
+  const span = to - from;
+
+  if (Math.abs(span) <= EPS) {
+    return [0, 1];
+  }
+
+  const first = (field.minU - from) / span;
+  const second = (field.maxU - from) / span;
+
+  return [
+    Math.max(Math.min(first, second), 0),
+    Math.min(Math.max(first, second), 1),
+  ];
 }
 
 function courseBoundaries(

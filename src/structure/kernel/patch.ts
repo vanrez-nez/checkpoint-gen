@@ -90,6 +90,10 @@ export const PATCH_ROLES = {
   roofSoffit: "roof_soffit",
   /** Exposed vertical edge of a roof slab. */
   roofEdge: "roof_edge",
+  /** The pier face a panel's raised rails enclose. */
+  pierPanel: "pier_panel",
+  /** One elevation of a member spanning between piers. */
+  lintel: "lintel",
   /** Projected molding at the top of a roof assembly. */
   roofCornice: "cornice",
   /**

@@ -2,6 +2,7 @@ import type { Point2 } from "../../geometry/finalize";
 import type { Block, SolidBuilder, Vertex3 } from "../../geometry/solid-builder";
 import {
   insetRect,
+  rectCorners,
   rectDepth,
   rectEdge,
   rectIsValid,
@@ -17,6 +18,7 @@ import {
   randomRange,
 } from "../../geometry/stone-builder";
 import type { ElevationBandRecord } from "../kernel/graph";
+import { structurePath } from "../kernel/ids";
 import {
   divideCourseRing,
   divideCourses,
@@ -73,25 +75,108 @@ const CORNICE_STONE_RATIO = 2.5;
 export interface ShellOptions {
   readonly rule: MasonryRule;
   readonly seed: number;
+  /**
+   * Stretches to lay flat instead of coursing them, and the fields each one
+   * carries.
+   *
+   * A prepared engraving field needs a plane, and a coursed elevation is a
+   * staircase of stone ends. Keyed by {@link BandStretch} id, so a band's wall
+   * and its moulding are gated independently.
+   */
+  readonly preparedStretches?: ReadonlyMap<string, readonly PreparedField[]>;
+  /**
+   * Something other than the next band standing on the topmost crown, with the
+   * elevation it stands at. A summit building is the only one so far.
+   */
+  readonly crownClaim?: CrownClaim | null;
+}
+
+/**
+ * A crown that is neither open sky nor the footing of the band above.
+ *
+ * The shell does not know what a cell is, so the caller states the elevation to
+ * match and hands over the emitter for the surface it wants there instead.
+ */
+export interface CrownClaim {
+  readonly y: number;
+  readonly fill: (upper: Rect, y: number) => void;
 }
 
 /**
  * One stretch of a band over which the outline shrinks smoothly.
  *
- * A plain band is one segment. A corniced band is two, because the outline steps
+ * A plain band is one stretch. A corniced band is two, because the outline steps
  * outward at the springing and a course must never straddle that step — the
  * moulding's first course is the one that reaches back over the overhang, and
  * its underside is the soffit.
+ *
+ * This is the unit both subdivisions of a mass work in: `layCourses` divides one
+ * into stones, `layBareStretch` draws it whole, and an engraving slot names one
+ * by `id` to say which of the two it wants.
  */
-interface Segment {
+export interface BandStretch {
+  readonly id: string;
+  readonly label: "wall" | "cornice";
   readonly bottomY: number;
   readonly topY: number;
   readonly lower: Rect;
   readonly upper: Rect;
-  readonly rule: MasonryRule;
-  /** How much further than a stone's depth this segment's first course reaches. */
+  /** How much further than a stone's depth this stretch's first course reaches. */
   readonly overhang: number;
-  readonly label: string;
+}
+
+type Segment = BandStretch & { readonly rule: MasonryRule };
+
+/**
+ * A band's outline as one or two smooth stretches.
+ *
+ * Without a cornice the wall simply steps in from its base to its crown. With
+ * one, the wall stops at the springing and the moulding takes over from there,
+ * its outline stepped outward by the projection and held constant to the top.
+ */
+export function bandStretches(band: ElevationBandRecord): BandStretch[] {
+  const { cornice } = band;
+
+  if (!cornice || !rectIsValid(cornice.springing)) {
+    return [{
+      id: band.id,
+      label: "wall",
+      bottomY: band.bottomY,
+      topY: band.topY,
+      lower: band.lower,
+      upper: band.upper,
+      overhang: 0,
+    }];
+  }
+
+  return [
+    {
+      id: band.id,
+      label: "wall",
+      bottomY: band.bottomY,
+      topY: cornice.bottomY,
+      lower: band.lower,
+      upper: cornice.springing,
+      overhang: 0,
+    },
+    {
+      id: corniceStretchId(band),
+      label: "cornice",
+      bottomY: cornice.bottomY,
+      topY: band.topY,
+      lower: cornice.outline,
+      upper: cornice.outline,
+      // The moulding oversails the wall, so its first course reaches back past
+      // the projection and its underside closes the overhang. That soffit is the
+      // cornice; there is no separate piece of geometry for it.
+      overhang: cornice.projection,
+    },
+  ];
+}
+
+/** The id a band's moulding answers to, as a stretch in its own right. */
+export function corniceStretchId(band: ElevationBandRecord): string {
+  return structurePath(band.id, "cornice");
 }
 
 export function buildMassShell(
@@ -99,7 +184,7 @@ export function buildMassShell(
   bands: readonly ElevationBandRecord[],
   options: ShellOptions,
 ): void {
-  const { rule, seed } = options;
+  const { rule, seed, preparedStretches, crownClaim = null } = options;
   // A bond belongs to the whole stack, not to each semantic band. Restarting
   // this at every terrace made the first course of every band run through the
   // same elevations, so a stepped pedestal never alternated at its arrises.
@@ -120,16 +205,40 @@ export function buildMassShell(
     }
 
     for (const segment of segments) {
+      const isCrown = segment === crown;
+      // What stands on this band, so the courses know how much of their top is
+      // open to the sky. Null means nothing does and the whole crown is floor.
+      const under = isCrown ? (bands[index + 1]?.lower ?? null) : undefined;
+      const segmentSeed = masonrySeed(seed, band.id, segment.label);
+
+      const fields = preparedStretches?.get(segment.id);
+
+      if (fields) {
+        layBareStretch(builder, segment, {
+          isCrown,
+          under: under ?? null,
+          crownClaim,
+          fields,
+        });
+        // The bond belongs to the stack, so a stretch drawn flat still spends
+        // the courses it would have laid. Without this, preparing one band for
+        // engraving reshuffles the quoins of every band above it.
+        courseIndex += divideCourses(
+          segment.topY - segment.bottomY,
+          segment.rule,
+          masonrySeed(segmentSeed, "courses"),
+        ).length;
+        continue;
+      }
+
       builder.withMaterial(
         segment.label === "cornice" ? "cornice" : "stone",
         () => {
           courseIndex += layCourses(builder, segment, {
-            seed: masonrySeed(seed, band.id, segment.label),
+            seed: segmentSeed,
             courseIndex,
-            crowned: segment !== crown,
-            // What stands on this band, so the courses know how much of their top is
-            // open to the sky. Null means nothing does and the whole crown is floor.
-            under: segment === crown ? (bands[index + 1]?.lower ?? null) : undefined,
+            crowned: !isCrown,
+            under,
           });
         },
       );
@@ -137,58 +246,283 @@ export function buildMassShell(
   }
 }
 
-/**
- * A band's outline as one or two smooth stretches.
- *
- * Without a cornice the wall simply steps in from its base to its crown. With
- * one, the wall stops at the springing and the moulding takes over from there,
- * its outline stepped outward by the projection and held constant to the top.
- */
 function segmentsOf(band: ElevationBandRecord, rule: MasonryRule): Segment[] {
-  const { cornice } = band;
-
-  if (!cornice || !rectIsValid(cornice.springing)) {
-    return [{
-      bottomY: band.bottomY,
-      topY: band.topY,
-      lower: band.lower,
-      upper: band.upper,
-      rule,
-      overhang: 0,
-      label: "wall",
-    }];
-  }
-
-  return [
-    {
-      bottomY: band.bottomY,
-      topY: cornice.bottomY,
-      lower: band.lower,
-      upper: cornice.springing,
-      rule,
-      overhang: 0,
-      label: "wall",
-    },
-    {
-      bottomY: cornice.bottomY,
-      topY: band.topY,
-      lower: cornice.outline,
-      upper: cornice.outline,
+  return bandStretches(band).map((stretch) => ({
+    ...stretch,
+    rule: stretch.label === "cornice"
       // One course of long stones. A moulding is a run of them; coursing it like
       // the wall would stop it reading as the thing that finishes the wall.
-      rule: {
+      ? {
         ...rule,
-        courseHeight: Math.max(band.topY - cornice.bottomY, 1e-6),
+        courseHeight: Math.max(stretch.topY - stretch.bottomY, 1e-6),
         stoneWidth: rule.stoneWidth * CORNICE_STONE_RATIO,
-        cornerRule: "butted",
+        cornerRule: "butted" as const,
+      }
+      : rule,
+  }));
+}
+
+/**
+ * One engravable field on one face of a stretch, where it will be drawn.
+ *
+ * `uRange` is the face's own normalised span; the elevations are world. Fields
+ * on one face never overlap — the resolver splits around a stair rather than
+ * publishing two claims on the same stone.
+ */
+export interface PreparedField {
+  readonly face: HorizontalOrientation;
+  readonly uRange: readonly [number, number];
+  readonly bottomY: number;
+  readonly topY: number;
+}
+
+export interface BareStretchOptions {
+  /** Whether this stretch's crown is the topmost surface of its band. */
+  readonly isCrown: boolean;
+  /** Footprint standing on the crown, or null where nothing does. */
+  readonly under: Rect | null;
+  readonly crownClaim?: CrownClaim | null;
+  /**
+   * Fields to give edges of their own. A face carrying one is drawn as its
+   * border plus its field rather than as a single quad, which is what makes
+   * "only the inner face is engravable" true of the geometry and not just of
+   * the record.
+   */
+  readonly fields?: readonly PreparedField[];
+}
+
+/**
+ * One stretch as a single block, flat and unsubdivided.
+ *
+ * The same block the shell courses, just not divided — which is what makes the
+ * two paths comparable: turning stonework off subdivides the mass differently,
+ * it does not swap it for a different kind of geometry drawn by different code.
+ * It is also the only way to get an engravable face out of a coursed mass,
+ * since a course is a whole box and its elevation is a staircase of stone ends.
+ */
+export function layBareStretch(
+  builder: SolidBuilder,
+  stretch: BandStretch,
+  options: BareStretchOptions,
+): void {
+  if (!rectIsValid(stretch.lower) || !rectIsValid(stretch.upper)) {
+    return;
+  }
+
+  const { crownClaim = null, fields = [] } = options;
+  const claimed = options.isCrown
+    && crownClaim !== null
+    && Math.abs(crownClaim.y - stretch.topY) <= 1e-9;
+  const prepared = new Set(fields.map((field) => field.face));
+
+  builder.withMaterial(
+    stretch.label === "cornice" ? "cornice" : "stone",
+    () => {
+      builder.addBlock(
+        loftOf(stretch.lower, stretch.upper, stretch.bottomY, stretch.topY),
+        {
+          // A prepared face is drawn below, split into its border and its
+          // field, so the block itself must not also cover that side.
+          sides: SIDE_RING.map((orientation) => !prepared.has(orientation)),
+          // Only the topmost stretch shows its crown; whatever sits above a lower
+          // one covers it. The mass's ground face is buried and is never emitted.
+          // If another band stands here, its footprint owns that part of the
+          // crown, and the exposed remainder is emitted as four simple rectangles
+          // instead of hiding a full summit quad beneath the child.
+          top: options.isCrown && options.under === null && !claimed,
+          // A moulding's underside is its soffit, which oversails the wall it
+          // crowns and remains visible around the supporting wall.
+          bottom: stretch.label === "cornice",
+        },
+      );
+
+      for (const orientation of prepared) {
+        addFramedFace(
+          builder,
+          stretch,
+          orientation,
+          fields.filter((field) => field.face === orientation),
+        );
+      }
+
+      if (options.isCrown && options.under) {
+        addHorizontalRing(builder, stretch.upper, options.under, stretch.topY);
+      } else if (claimed && crownClaim) {
+        crownClaim.fill(stretch.upper, stretch.topY);
+      }
+    },
+  );
+}
+
+/**
+ * The order `rectCorners` walks a plan, so a block's side flags can be written
+ * by orientation instead of by index. Edge `i` runs corner `i` to `i + 1`.
+ */
+const SIDE_RING: readonly HorizontalOrientation[] = [
+  "sideNegativeU",
+  "front",
+  "sidePositiveU",
+  "rear",
+];
+
+/**
+ * One elevation, drawn as the border it keeps and the fields it gives away.
+ *
+ * The face is a trapezoid on a battered stretch — its right edge closes in as
+ * it rises — so the border quads follow that edge rather than a nominal `u = 1`
+ * that would hang off the stone. Every quad here is planar for the same reason
+ * the whole face is: both its horizontal edges run the same direction.
+ *
+ * Together the pieces tile the face exactly. Nothing is added, nothing is
+ * removed, and the silhouette is the one the unsplit block would have had.
+ */
+export function addFramedFace(
+  builder: SolidBuilder,
+  stretch: BandStretch,
+  orientation: HorizontalOrientation,
+  fields: readonly PreparedField[],
+): void {
+  const base = rectEdge(stretch.lower, orientation);
+  const crown = rectEdge(stretch.upper, orientation);
+  const baseLength = Math.hypot(
+    base.end.x - base.start.x,
+    base.end.z - base.start.z,
+  );
+
+  if (baseLength <= 1e-9) {
+    return;
+  }
+
+  const rise = stretch.topY - stretch.bottomY;
+  const toV = (y: number) => rise <= 1e-9 ? 0 : (y - stretch.bottomY) / rise;
+  // Where the face's own right edge sits, in the domain measured at the base.
+  const crownLength = Math.hypot(
+    crown.end.x - crown.start.x,
+    crown.end.z - crown.start.z,
+  );
+  const edgeU = (v: number) => 1 + (crownLength / baseLength - 1) * v;
+  const point = (u: number, v: number): Vertex3 => ({
+    x: base.start.x
+      + (base.end.x - base.start.x) * u
+      + (crown.start.x - base.start.x) * v,
+    y: stretch.bottomY + rise * v,
+    z: base.start.z
+      + (base.end.z - base.start.z) * u
+      + (crown.start.z - base.start.z) * v,
+  });
+  const quad = (
+    uFrom: (v: number) => number,
+    uTo: (v: number) => number,
+    vMin: number,
+    vMax: number,
+  ) => {
+    if (vMax - vMin <= 1e-9 || uTo(vMin) - uFrom(vMin) <= 1e-9) {
+      return;
+    }
+    const ring = [
+      point(uFrom(vMin), vMin),
+      point(uTo(vMin), vMin),
+      point(uTo(vMax), vMax),
+      point(uFrom(vMax), vMax),
+    ];
+    // A degenerate plan ring, as `addHorizontalRing` uses for a flat cap: the
+    // block has no thickness and contributes exactly the one side asked for.
+    builder.addBlock(
+      {
+        bottom: [ring[0]!, ring[1]!, ring[1]!, ring[0]!],
+        top: [ring[3]!, ring[2]!, ring[2]!, ring[3]!],
       },
-      // The moulding oversails the wall, so its first course reaches back past
-      // the projection and its underside closes the overhang. That soffit is the
-      // cornice; there is no separate piece of geometry for it.
-      overhang: cornice.projection,
-      label: "cornice",
+      { sides: [true, false, false, false] },
+    );
+  };
+
+  const sorted = [...fields].sort((a, b) => a.uRange[0] - b.uRange[0]);
+  const constant = (value: number) => () => value;
+  let cursor = 0;
+
+  for (const field of sorted) {
+    const [uMin, uMax] = field.uRange;
+    const vMin = toV(field.bottomY);
+    const vMax = toV(field.topY);
+
+    // Everything left of this field, full height.
+    quad(constant(cursor), constant(uMin), 0, 1);
+    // The border above and below it, then the field itself.
+    quad(constant(uMin), constant(uMax), 0, vMin);
+    quad(constant(uMin), constant(uMax), vMin, vMax);
+    quad(constant(uMin), constant(uMax), vMax, 1);
+    cursor = uMax;
+  }
+
+  // The remainder runs to the face's own edge, which rakes in on a battered
+  // stretch and is vertical on a plumb one.
+  quad(constant(cursor), edgeU, 0, 1);
+}
+
+/**
+ * Emits the exposed part of `outer` around an axis-aligned covered rectangle.
+ *
+ * Four rectangles are sufficient: full-height strips at left/right and the
+ * remaining rear/front strips between them. They meet only at edges, so the
+ * raised pad does not introduce an overlapping support surface.
+ */
+export function addHorizontalRing(
+  builder: SolidBuilder,
+  outer: Rect,
+  covered: Rect,
+  y: number,
+): void {
+  const pieces: readonly Rect[] = [
+    {
+      minX: outer.minX,
+      maxX: covered.minX,
+      minZ: outer.minZ,
+      maxZ: outer.maxZ,
+    },
+    {
+      minX: covered.maxX,
+      maxX: outer.maxX,
+      minZ: outer.minZ,
+      maxZ: outer.maxZ,
+    },
+    {
+      minX: covered.minX,
+      maxX: covered.maxX,
+      minZ: outer.minZ,
+      maxZ: covered.minZ,
+    },
+    {
+      minX: covered.minX,
+      maxX: covered.maxX,
+      minZ: covered.maxZ,
+      maxZ: outer.maxZ,
     },
   ];
+
+  for (const piece of pieces) {
+    if (!rectIsValid(piece)) {
+      continue;
+    }
+
+    const ring = rectCorners(piece).map((point) => ({
+      x: point.x,
+      y,
+      z: point.z,
+    }));
+
+    builder.addBlock(
+      { bottom: ring, top: ring },
+      { sides: [false, false, false, false], top: true, bottom: false },
+    );
+  }
+}
+
+/** A block lofting one outline into another between two heights. */
+function loftOf(lower: Rect, upper: Rect, bottomY: number, topY: number): Block {
+  return {
+    bottom: rectCorners(lower).map((point) => at(point, bottomY)),
+    top: rectCorners(upper).map((point) => at(point, topY)),
+  };
 }
 
 interface CourseOptions {

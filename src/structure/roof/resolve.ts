@@ -24,6 +24,17 @@ import {
   type PatchEdges,
   type PatchRole,
 } from "../kernel/patch";
+import {
+  NO_SLOT_RULE,
+  placementReaches,
+  resolveFaceSlot,
+  slotDepthBudget,
+  withSlotReservations,
+  type FrameRecord,
+  type SlotPlacement,
+  type SlotRecord,
+  type SlotRule,
+} from "../kernel/slot";
 import { DiagnosticCollector } from "../kernel/validate";
 
 export interface SummitRoofSpec {
@@ -33,6 +44,8 @@ export interface SummitRoofSpec {
   readonly projection: number;
   readonly corniceProjection: number;
   readonly corniceHeight: number;
+  readonly slotPlacement: SlotPlacement;
+  readonly slotRule: SlotRule;
 }
 
 export interface ResolvedRoof {
@@ -242,6 +255,20 @@ export function resolveSummitRoof(
     links.push([bearingPatchId, ceilingPatchId]);
   }
 
+  // `buildRoof` draws the projected ring only where the slab really oversails
+  // the walls; without a projection the fascia is the bearing ring instead.
+  const slabProjects = rectWidth(slabFootprint) - rectWidth(cell.footprint) > 1e-9
+    || rectDepth(slabFootprint) - rectDepth(cell.footprint) > 1e-9;
+  const { frames, slots } = resolveRoofSlots(
+    spec,
+    slabFootprint,
+    bottomY,
+    slabTopY,
+    slabEdgePatchIds,
+    cornice,
+    slabProjects ? cell.footprint : cell.interior,
+  );
+
   const record: RoofRecord = {
     id,
     kind: "roof",
@@ -263,9 +290,150 @@ export function resolveSummitRoof(
     edgePatchIds: finalEdgePatchIds,
     soffitPatchIds: finalSoffitPatchIds,
     patchIds: patches.map((patch) => patch.id),
+    frames,
+    slots,
   };
 
-  return { record, patches, links };
+  return { record, patches: withSlotReservations(patches, slots), links };
+}
+
+/**
+ * Prepares the roof's two rings of fascia.
+ *
+ * A fascia is already one flat quad per side — the roof is never coursed — so
+ * nothing has to be gated here, and these slots are pure reservation. They are
+ * ribbons rather than fields: a slab edge is a long thin run, and judging it by
+ * a field's minimum height would reject every roof this project builds.
+ */
+function resolveRoofSlots(
+  spec: SummitRoofSpec,
+  slabFootprint: Rect,
+  bottomY: number,
+  slabTopY: number,
+  slabEdgePatchIds: readonly string[],
+  cornice: RoofCorniceRecord | null,
+  slabInner: Rect,
+): { readonly frames: FrameRecord[]; readonly slots: SlotRecord[] } {
+  const frames: FrameRecord[] = [];
+  const slots: SlotRecord[] = [];
+
+  if (!placementReaches(spec.slotPlacement, "crowning")) {
+    return { frames, slots };
+  }
+
+  const rings = [
+    {
+      role: "slab",
+      outline: slabFootprint,
+      bottomY,
+      topY: slabTopY,
+      patchIds: slabEdgePatchIds,
+      projection: spec.projection,
+      hierarchy: 10,
+      inner: slabInner,
+    },
+    ...(cornice
+      ? [{
+        role: "cornice",
+        outline: cornice.outline,
+        bottomY: cornice.bottomY,
+        topY: cornice.topY,
+        patchIds: cornice.edgePatchIds,
+        projection: cornice.projection,
+        hierarchy: 20,
+        inner: slabFootprint,
+      }]
+      : []),
+  ];
+
+  for (const ring of rings) {
+    for (const [index, orientation] of HORIZONTAL_ORIENTATIONS.entries()) {
+      // The patch ids were pushed in this same order, one per orientation.
+      const patchId = ring.patchIds[index];
+
+      if (!patchId) {
+        continue;
+      }
+
+      const edge = rectEdge(ring.outline, orientation);
+      const width = Math.hypot(
+        edge.end.x - edge.start.x,
+        edge.end.z - edge.start.z,
+      );
+      // A ring's front and rear pieces run the full width and own both corners,
+      // so its side pieces are short by the projection at each end. The patch
+      // spans the whole edge either way, so the slot says which part of it the
+      // fascia is actually drawn over.
+      const uRange = drawnFasciaRange(orientation, ring.outline, ring.inner);
+      const resolved = resolveFaceSlot({
+        id: structurePath(patchId, "slot"),
+        kind: "ribbon",
+        part: "roof",
+        face: orientation,
+        faceRole: ring.role,
+        bandId: null,
+        bayId: null,
+        patchId,
+        uRange,
+        vRange: [0, 1],
+        widthBottom: width,
+        widthTop: width,
+        faceHeight: ring.topY - ring.bottomY,
+        hierarchy: ring.hierarchy,
+        flow: "horizontal",
+        continuity: "wrapping",
+        depthBudget: slotDepthBudget(ring.projection, spec.slotRule.recessDepth),
+        tags: ["roof", ring.role, "exterior", directionSegment(orientation)],
+        // A fascia is drawn as one quad per side and the roof is never split,
+        // so a border here would reserve a rectangle no face answers to. The
+        // fascia's own depth is the frame it already has.
+        rule: NO_SLOT_RULE,
+      });
+
+      if (!resolved) {
+        continue;
+      }
+      if (resolved.frame) {
+        frames.push(resolved.frame);
+      }
+      slots.push(resolved.slot);
+    }
+  }
+
+  return { frames, slots };
+}
+
+/**
+ * The part of a fascia's own edge that `addRingBlocks` draws it over.
+ *
+ * Front and rear pieces span the outer rectangle and take the corners with
+ * them; the side pieces are left running only the inner rectangle's depth.
+ */
+function drawnFasciaRange(
+  orientation: HorizontalOrientation,
+  outer: Rect,
+  inner: Rect,
+): readonly [number, number] {
+  if (orientation === "front" || orientation === "rear") {
+    return [0, 1];
+  }
+
+  const depth = rectDepth(outer);
+
+  if (depth <= 1e-9) {
+    return [0, 1];
+  }
+
+  // `rectEdge` runs +Z to -Z on the positive side and -Z to +Z on the negative
+  // one, so the span is read in the direction that edge actually walks.
+  const range = orientation === "sidePositiveU"
+    ? [(outer.maxZ - inner.maxZ) / depth, (outer.maxZ - inner.minZ) / depth]
+    : [(inner.minZ - outer.minZ) / depth, (inner.maxZ - outer.minZ) / depth];
+
+  return [
+    Math.max(Math.min(range[0]!, range[1]!), 0),
+    Math.min(Math.max(range[0]!, range[1]!), 1),
+  ];
 }
 
 function directionSegment(direction: HorizontalOrientation): string {

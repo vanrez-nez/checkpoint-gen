@@ -24,6 +24,13 @@ import {
 import type { ShapingCurve } from "../kernel/curve";
 import { ordinalSegment, structurePath } from "../kernel/ids";
 import {
+  slotAnchor,
+  slotRegion,
+  type SlotPlacement,
+  type SlotRecord,
+  type SlotRule,
+} from "../kernel/slot";
+import {
   PATCH_ROLES,
   type Patch,
   type PatchEdges,
@@ -46,6 +53,7 @@ import {
   type ResolvedCell,
   type SummitCellSpec,
 } from "../cell/resolve";
+import { resolveCellSlots } from "../cell/slots";
 import { resolveCellFacades } from "../facade/resolve";
 import type { FacadeSpec } from "../facade/types";
 import {
@@ -66,6 +74,11 @@ import {
   primaryRect,
   type Footprint,
 } from "./footprint";
+import {
+  bandFacadePatchId,
+  corniceFasciaPatchId,
+  resolveMassSlots,
+} from "./slots";
 
 /**
  * The mass system: footprint plus elevation profile in, semantic patches out.
@@ -117,14 +130,11 @@ export interface StructureSpec {
   readonly facade: FacadeSpec;
   /** Roof assemblies resolved from the cells they cover. */
   readonly roofs: readonly SummitRoofSpec[];
+  /** How much of the structure is prepared as engravable fields. */
+  readonly slotPlacement: SlotPlacement;
+  /** The border drawn around every field this structure prepares. */
+  readonly slotRule: SlotRule;
 }
-
-const FACADE_SEGMENT: Readonly<Record<HorizontalOrientation, string>> = {
-  front: "facade_front",
-  rear: "facade_rear",
-  sidePositiveU: "facade_side_positive_u",
-  sideNegativeU: "facade_side_negative_u",
-};
 
 interface SummitForecourt {
   readonly direction: HorizontalOrientation;
@@ -348,10 +358,24 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     return graph.build(diagnostics.all);
   }
 
-  const facadedCell: ResolvedCell | null = cell && resolvedFacades
-    ? {
-      record: resolvedFacades.cell,
+  // Resolved after the facade, because a wall the grammar has claimed is not a
+  // wall an engraving may also claim.
+  const cellSlots = cell && resolvedFacades
+    ? resolveCellSlots({
+      cell: resolvedFacades.cell,
       patches: resolvedFacades.patches,
+      placement: spec.slotPlacement,
+      rule: spec.slotRule,
+    })
+    : null;
+  const facadedCell: ResolvedCell | null = cell && resolvedFacades && cellSlots
+    ? {
+      record: {
+        ...resolvedFacades.cell,
+        frames: cellSlots.frames,
+        slots: cellSlots.slots,
+      },
+      patches: cellSlots.patches,
       links: resolvedFacades.links,
       exteriorOpenings: cell.exteriorOpenings,
     }
@@ -378,6 +402,19 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     regions: [],
   }));
 
+  // Resolved before any elevation patch exists, so each one is born carrying
+  // the reservations its slots imply rather than being amended afterwards.
+  const massSlots = resolveMassSlots({
+    bands,
+    detachedBands: summitPad ? [summitPad.band] : [],
+    stairs: stairs.map((stair) => ({
+      direction: stair.record.direction,
+      spanU: stair.spanU,
+    })),
+    placement: spec.slotPlacement,
+    rule: spec.slotRule,
+  });
+
   let previousTopPatchId: string | null = null;
 
   for (let index = 0; index < bands.length; index += 1) {
@@ -388,7 +425,24 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     }
 
     const next = bands[index + 1];
-    const facadeIds = emitBandFacades(graph, band, stairs);
+    const facadeIds = emitBandFacades(graph, band, stairs, massSlots.slots);
+    const corniceIds = emitCorniceFascias(graph, band, massSlots.slots);
+
+    // A moulding sits on the wall it crowns and turns the corner with its
+    // neighbours, exactly as the wall below it does.
+    for (const corniceId of corniceIds) {
+      for (const facadeId of facadeIds) {
+        graph.link(corniceId, facadeId);
+      }
+    }
+    for (let corner = 0; corner < corniceIds.length; corner += 1) {
+      const current = corniceIds[corner];
+      const neighbour = corniceIds[(corner + 1) % corniceIds.length];
+
+      if (current && neighbour) {
+        graph.link(current, neighbour);
+      }
+    }
 
     // A facade meets the ground or the terrace it rises from, and its two
     // neighbours around the corner.
@@ -415,6 +469,7 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
         summitPlan,
         summitPad,
         facadedCell,
+        massSlots.slots,
       );
 
     for (const facadeId of facadeIds) {
@@ -444,6 +499,8 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
       ...bands.flatMap((band) => bandPatchIds(band)),
       ...(summitPad?.patchIds ?? []),
     ],
+    frames: massSlots.frames,
+    slots: massSlots.slots,
   } satisfies MassRecord);
 
   if (facadedCell) {
@@ -554,13 +611,14 @@ function emitBandFacades(
   graph: StructureGraphBuilder,
   band: ElevationBandRecord,
   stairs: readonly ResolvedStair[],
+  slots: readonly SlotRecord[] = [],
 ): string[] {
   const evaluator: PatchEvaluator = band.wallProfile === "battered"
     ? "battered"
     : "planar";
 
   return HORIZONTAL_ORIENTATIONS.map((orientation) => {
-    const id = structurePath(band.id, FACADE_SEGMENT[orientation]);
+    const id = bandFacadePatchId(band.id, orientation);
     const base = rectEdge(band.lower, orientation);
     const crown = rectEdge(band.upper, orientation);
     const frame = createFacadeFrame(base, band.bottomY, band.topY, crown.start);
@@ -569,9 +627,13 @@ function emitBandFacades(
     const stair = stairs.find(
       (candidate) => candidate.record.direction === orientation,
     );
-    const regions = stair
-      ? [stairReserveRegion(id, band.lower, orientation, stair.spanU)]
-      : [];
+    const own = slots.filter((slot) => slot.patchId === id);
+    const regions = [
+      ...(stair
+        ? [stairReserveRegion(id, band.lower, orientation, stair.spanU)]
+        : []),
+      ...own.map(slotRegion),
+    ];
 
     graph.addPatch({
       id,
@@ -590,7 +652,7 @@ function emitBandFacades(
       adjacency: [],
       regions,
       features: [],
-      anchors: [],
+      anchors: own.map((slot) => slotAnchor(orientation)(slot)),
       tags: ["exterior", orientation],
     } satisfies Patch);
 
@@ -670,6 +732,7 @@ function emitSummit(
   plan: SummitPlan,
   pad: SummitPadRecord | null,
   cell: ResolvedCell | null,
+  slots: readonly SlotRecord[] = [],
 ): string {
   const id = structurePath(band.id, "summit_floor");
   const buildingPadRegionId = structurePath(id, "building_pad");
@@ -694,7 +757,7 @@ function emitSummit(
   }));
 
   if (pad) {
-    emitSummitPad(graph, id, pad, cell);
+    emitSummitPad(graph, id, pad, cell, slots);
   }
 
   return id;
@@ -916,8 +979,9 @@ function emitSummitPad(
   summitFloorPatchId: string,
   pad: SummitPadRecord,
   cell: ResolvedCell | null,
+  slots: readonly SlotRecord[] = [],
 ): void {
-  const facadeIds = emitBandFacades(graph, pad.band, []);
+  const facadeIds = emitBandFacades(graph, pad.band, [], slots);
   const buildingPadRegionId = structurePath(pad.topPatchId, "building_pad");
 
   graph.addPatch(horizontalPatch({
@@ -1117,7 +1181,62 @@ function normalizedBounds(outer: Rect, inner: Rect): {
 }
 
 function bandPatchIds(band: ElevationBandRecord): string[] {
-  return HORIZONTAL_ORIENTATIONS.map(
-    (orientation) => structurePath(band.id, FACADE_SEGMENT[orientation]),
-  );
+  return [
+    ...HORIZONTAL_ORIENTATIONS.map(
+      (orientation) => bandFacadePatchId(band.id, orientation),
+    ),
+    ...(band.cornice
+      ? HORIZONTAL_ORIENTATIONS.map(
+        (orientation) => corniceFasciaPatchId(band.id, orientation),
+      )
+      : []),
+  ];
+}
+
+/**
+ * The four faces of a band's moulding.
+ *
+ * The wall's own patch runs the whole rise to `band.upper`, which a moulding
+ * steps out past — so the fascia is a surface in its own right rather than the
+ * top of the wall's domain. It is emitted for every corniced band, whether or
+ * not anything has reserved it, because it is a real surface either way.
+ */
+function emitCorniceFascias(
+  graph: StructureGraphBuilder,
+  band: ElevationBandRecord,
+  slots: readonly SlotRecord[] = [],
+): string[] {
+  const { cornice } = band;
+
+  if (!cornice || !rectIsValid(cornice.outline)) {
+    return [];
+  }
+
+  return HORIZONTAL_ORIENTATIONS.map((orientation) => {
+    const id = corniceFasciaPatchId(band.id, orientation);
+    const edge = rectEdge(cornice.outline, orientation);
+    const frame = createFacadeFrame(
+      edge,
+      cornice.bottomY,
+      band.topY,
+      edge.start,
+    );
+    const own = slots.filter((slot) => slot.patchId === id);
+
+    graph.addPatch({
+      id,
+      role: PATCH_ROLES.roofCornice,
+      frame,
+      dimensions: { u: frame.uLength, v: frame.vLength, thickness: 0 },
+      evaluator: "planar",
+      edges: facadeEdges(id, orientation, null),
+      adjacency: [],
+      regions: own.map(slotRegion),
+      features: [],
+      anchors: own.map((slot) => slotAnchor(orientation)(slot)),
+      tags: ["exterior", "cornice", orientation],
+    } satisfies Patch);
+
+    return id;
+  });
 }

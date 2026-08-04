@@ -1,5 +1,6 @@
 import type { HorizontalOrientation, Rect, Vec3 } from "./frame";
 import type { Patch, PatchRole } from "./patch";
+import type { FrameRecord, SlotRecord } from "./slot";
 import { resolvedSeeds, type SeedSet, type SeedSubsystem } from "./seed";
 import type { Diagnostic } from "./validate";
 import type { FacadeRecord } from "../facade/types";
@@ -251,6 +252,10 @@ export interface CellRecord {
   readonly interiorWalls: readonly CellInteriorWallRecord[];
   readonly connections: readonly CellConnectionRecord[];
   readonly patchIds: readonly string[];
+  /** Borders resolved around this cell's engravable wall fields. */
+  readonly frames: readonly FrameRecord[];
+  /** Ornament slots reserved on this cell's exterior walls. */
+  readonly slots: readonly SlotRecord[];
 }
 
 export interface RoofCorniceRecord {
@@ -290,6 +295,10 @@ export interface CellRoofRecord {
   readonly edgePatchIds: readonly string[];
   readonly soffitPatchIds: readonly string[];
   readonly patchIds: readonly string[];
+  /** Borders resolved around this roof's engravable fascia fields. */
+  readonly frames: readonly FrameRecord[];
+  /** Ornament slots reserved on this roof's slab and cornice fascias. */
+  readonly slots: readonly SlotRecord[];
 }
 
 export type RoofRecord = CellRoofRecord;
@@ -302,6 +311,14 @@ export interface MassRecord {
   readonly summit: SummitRecord;
   readonly totalHeight: number;
   readonly patchIds: readonly string[];
+  /** Borders resolved around this mass's engravable elevation fields. */
+  readonly frames: readonly FrameRecord[];
+  /**
+   * Ornament slots reserved on this mass's elevations. A slot's `bandId` names
+   * the stretch it prepares, which is what the tessellator reads when deciding
+   * to lay that stretch flat instead of coursing it.
+   */
+  readonly slots: readonly SlotRecord[];
 }
 
 export interface StructureGraph {
@@ -451,6 +468,24 @@ export class StructureGraphBuilder {
 
 export function patchIndex(graph: StructureGraph): Map<string, Patch> {
   return new Map(graph.patches.map((patch) => [patch.id, patch]));
+}
+
+/**
+ * Every ornament slot the graph publishes, whichever record owns it.
+ *
+ * Slots live on the record that owns the surface — a mass owns its elevations,
+ * a cell its walls, a roof its fascias — because a graph may hold several of
+ * each. Readers that care about slots rather than about who resolved them ask
+ * here instead of walking five containers.
+ */
+export function allSlots(graph: StructureGraph): readonly SlotRecord[] {
+  return [
+    ...graph.masses.flatMap((mass) => mass.slots),
+    ...graph.cells.flatMap((cell) => cell.slots),
+    ...graph.roofs.flatMap((roof) => roof.slots),
+    ...graph.pillarHalls.flatMap((hall) => hall.slots),
+    ...graph.stelae.flatMap((stela) => stela.slots),
+  ];
 }
 
 /**

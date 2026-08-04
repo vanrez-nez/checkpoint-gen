@@ -5,7 +5,6 @@ import {
 } from "../../../geometry/solid-builder";
 import type { Point2 } from "../../../geometry/finalize";
 import {
-  evaluateFrame,
   rectCorners,
   rectDepth,
   rectEdge,
@@ -15,6 +14,7 @@ import {
   type Rect,
 } from "../../kernel/frame";
 import type { Patch } from "../../kernel/patch";
+import { tintSlots } from "../../kernel/slot";
 import {
   SIDE_ORIENTATIONS,
   planOutline,
@@ -52,9 +52,6 @@ const EPS = 1e-9;
 
 /** The monument-wide gradient sampled between two elevations. */
 type Shade = (bottomY: number, topY: number) => FaceShading;
-
-/** How far from a slot's plane geometry still counts as belonging to it. */
-const SLOT_TINT_TOLERANCE = 0.05;
 
 /** Slab depth behind an emitted face. Only the outward side is ever drawn. */
 const FACE_SLAB = 0.02;
@@ -211,7 +208,7 @@ export function buildStela(
   }
 
   if (options.debugSlots && options.patches) {
-    tintSlots(builder, stela, options.patches);
+    tintSlots(builder, stela.slots, options.patches);
   }
 }
 
@@ -723,50 +720,6 @@ function faceParam(
     x: edge.start.x + (edge.end.x - edge.start.x) * u,
     z: edge.start.z + (edge.end.z - edge.start.z) * u,
   };
-}
-
-// --- slot debugging -------------------------------------------------------
-
-/**
- * Repaints the geometry each published slot reserves.
- *
- * The slot table is the family's product and is otherwise invisible, so this is
- * the only way to check by eye that what was reserved is what got carved. It
- * reclassifies faces and changes no topology.
- */
-function tintSlots(
-  builder: SolidBuilder,
-  stela: StelaRecord,
-  patches: ReadonlyMap<string, Patch>,
-): void {
-  for (const slot of stela.slots) {
-    const patch = patches.get(slot.patchId);
-    if (!patch || slot.condition === "lost") {
-      continue;
-    }
-    const { inscribed } = slot;
-    const corners = [
-      [inscribed.uMin, inscribed.vMin],
-      [inscribed.uMax, inscribed.vMin],
-      [inscribed.uMax, inscribed.vMax],
-      [inscribed.uMin, inscribed.vMax],
-    ].map(([u, v]) => evaluateFrame(patch.frame, u!, v!, 0));
-    const box = {
-      minX: Math.min(...corners.map((c) => c.x)) - SLOT_TINT_TOLERANCE,
-      maxX: Math.max(...corners.map((c) => c.x)) + SLOT_TINT_TOLERANCE,
-      minY: Math.min(...corners.map((c) => c.y)) - SLOT_TINT_TOLERANCE,
-      maxY: Math.max(...corners.map((c) => c.y)) + SLOT_TINT_TOLERANCE,
-      minZ: Math.min(...corners.map((c) => c.z)) - SLOT_TINT_TOLERANCE,
-      maxZ: Math.max(...corners.map((c) => c.z)) + SLOT_TINT_TOLERANCE,
-    };
-    builder.assignFaceMaterial(
-      (face) => face.every((point) =>
-        point.x >= box.minX && point.x <= box.maxX
-        && point.y >= box.minY && point.y <= box.maxY
-        && point.z >= box.minZ && point.z <= box.maxZ),
-      "slotDebug",
-    );
-  }
 }
 
 // --- primitives -----------------------------------------------------------

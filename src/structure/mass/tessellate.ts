@@ -1,15 +1,16 @@
 import { finalizeGeometry } from "../../geometry/finalize";
 import { IDENTITY_MATRIX, type GeometryPart } from "../../geometry/part";
 import { SolidBuilder, type Vertex3 } from "../../geometry/solid-builder";
-import { evaluateFrame, rectCorners, rectIsValid, type Rect } from "../kernel/frame";
+import { evaluateFrame, rectIsValid } from "../kernel/frame";
 import type {
-  CellRecord,
   ElevationBandRecord,
+  MassRecord,
   StairConnectorRecord,
   StructureGraph,
 } from "../kernel/graph";
 import { patchIndex } from "../kernel/graph";
 import type { MasonryRule } from "../kernel/masonry";
+import { tintSlots } from "../kernel/slot";
 import { buildStair } from "../connector/build";
 import {
   stairLocalVertex,
@@ -17,7 +18,14 @@ import {
   stairWorldToLocal,
   type StairStep,
 } from "../connector/stair";
-import { buildMassShell } from "./shell";
+import {
+  bandStretches,
+  buildMassShell,
+  layBareStretch,
+  type CrownClaim,
+  type PreparedField,
+} from "./shell";
+import { preparedFieldsOf } from "./slots";
 import {
   addBareCellFloorSurface,
   buildCell,
@@ -92,17 +100,30 @@ export function tessellateStructure(
     const bands = mass.summit.pad
       ? [...mass.bands, mass.summit.pad.band]
       : mass.bands;
-
-    if (masonry) {
-      buildMassShell(builder, bands, { rule: masonry, seed });
-      continue;
-    }
-
+    // Resolved before either path branches, because a stretch laid flat inside
+    // an otherwise coursed mass reaches the same crown the greybox does.
     const cell = graph.cells.find(
       (candidate) =>
         candidate.supportPatchId === mass.summit.placement?.patchId,
     ) ?? null;
-    layBareMass(builder, bands, cell);
+    const crownClaim: CrownClaim | null = cell
+      ? {
+        y: cell.bottomY,
+        fill: (upper, y) => addBareCellFloorSurface(builder, upper, cell, y),
+      }
+      : null;
+
+    if (masonry) {
+      buildMassShell(builder, bands, {
+        rule: masonry,
+        seed,
+        preparedStretches: preparedStretches(mass, bands),
+        crownClaim,
+      });
+      continue;
+    }
+
+    layBareMass(builder, bands, crownClaim);
   }
 
   // The cell walls own their contact area on the supporting summit surface.
@@ -164,6 +185,22 @@ export function tessellateStructure(
         tilesPerStep: stairTilesPerStep,
       });
     });
+  }
+
+  // Last, so every face the structure will show already exists. Stelae tint
+  // their own as they are built; everything else is repainted from here.
+  if (debugSlots) {
+    tintSlots(
+      builder,
+      [
+        ...graph.masses.flatMap((mass) => mass.slots),
+        ...graph.cells.flatMap((cell) => cell.slots),
+        ...graph.roofs.flatMap((roof) => roof.slots),
+        ...graph.pillarHalls.flatMap((hall) => hall.slots),
+      ],
+      patches,
+      "whole",
+    );
   }
 
   const { geometry } = finalizeGeometry(builder);
@@ -274,7 +311,39 @@ export function faceIsCoveredByStair(
 }
 
 /**
- * The greybox: one block per band, flat and unsubdivided.
+ * The band stretches this mass has prepared for engraving, and the fields on
+ * each.
+ *
+ * A slot's `bandId` is the stretch it was cut from, so the gating rule is one
+ * lookup rather than a second traversal of the elevation: whatever the resolver
+ * decided to publish is exactly what the tessellator lays flat. Reading it back
+ * off the graph is also what keeps this module a pure reader.
+ */
+function preparedStretches(
+  mass: MassRecord,
+  bands: readonly ElevationBandRecord[],
+): ReadonlyMap<string, readonly PreparedField[]> {
+  const prepared = new Map<string, readonly PreparedField[]>();
+
+  if (mass.slots.length === 0) {
+    return prepared;
+  }
+
+  for (const band of bands) {
+    for (const stretch of bandStretches(band)) {
+      const fields = preparedFieldsOf(band, stretch, mass.slots);
+
+      if (fields.length > 0) {
+        prepared.set(stretch.id, fields);
+      }
+    }
+  }
+
+  return prepared;
+}
+
+/**
+ * The greybox: one block per band stretch, flat and unsubdivided.
  *
  * The same blocks the shell is built from, just not divided into courses — a
  * whole band is one stone. That is what makes the two paths comparable: turning
@@ -285,7 +354,7 @@ export function faceIsCoveredByStair(
 function layBareMass(
   builder: SolidBuilder,
   bands: readonly ElevationBandRecord[],
-  cell: CellRecord | null,
+  crownClaim: CrownClaim | null,
 ): void {
   for (let index = 0; index < bands.length; index += 1) {
     const band = bands[index];
@@ -294,142 +363,16 @@ function layBareMass(
       continue;
     }
 
-    const { cornice } = band;
+    const stretches = bandStretches(band);
     const under = bands[index + 1]?.lower ?? null;
-    // A cornice takes over the top of the band, so the wall stops short and the
-    // moulding finishes it. Without one the wall runs the full rise.
-    const stack: readonly {
-      readonly lower: Rect;
-      readonly upper: Rect;
-      readonly bottomY: number;
-      readonly topY: number;
-    }[] = cornice
-      ? [
-        {
-          lower: band.lower,
-          upper: cornice.springing,
-          bottomY: band.bottomY,
-          topY: cornice.bottomY,
-        },
-        {
-          lower: cornice.outline,
-          upper: cornice.outline,
-          bottomY: cornice.bottomY,
-          topY: band.topY,
-        },
-      ]
-      : [{
-        lower: band.lower,
-        upper: band.upper,
-        bottomY: band.bottomY,
-        topY: band.topY,
-      }];
 
-    for (let part = 0; part < stack.length; part += 1) {
-      const piece = stack[part];
-
-      if (!piece || !rectIsValid(piece.lower) || !rectIsValid(piece.upper)) {
-        continue;
-      }
-
-      const isCrown = part === stack.length - 1;
-      const supportsCell = isCrown
-        && cell !== null
-        && Math.abs(cell.bottomY - piece.topY) <= EPS;
-
-      builder.withMaterial(part === 1 ? "cornice" : "stone", () => {
-        builder.addBlock(
-          {
-            bottom: rectCorners(piece.lower).map((point) => ({
-              x: point.x,
-              y: piece.bottomY,
-              z: point.z,
-            })),
-            top: rectCorners(piece.upper).map((point) => ({
-              x: point.x,
-              y: piece.topY,
-              z: point.z,
-            })),
-          },
-          {
-            sides: [true, true, true, true],
-            // Only the topmost piece shows its crown; whatever sits above a lower
-            // one covers it. The mass's ground face is buried and is never emitted.
-            // A moulding's underside is its soffit, which oversails the wall and
-            // remains visible around the supporting wall.
-            // If another band stands here, its footprint owns that part of the
-            // crown. The exposed remainder is emitted as four simple rectangles
-            // below instead of hiding a full summit quad beneath the child.
-            top: isCrown && under === null && !supportsCell,
-            bottom: cornice !== null && part === 1,
-          },
-        );
-
-        if (isCrown && under) {
-          addHorizontalRing(builder, piece.upper, under, piece.topY);
-        } else if (supportsCell) {
-          addBareCellFloorSurface(builder, piece.upper, cell, piece.topY);
-        }
+    for (const [part, stretch] of stretches.entries()) {
+      layBareStretch(builder, stretch, {
+        isCrown: part === stretches.length - 1,
+        under,
+        crownClaim,
       });
     }
-  }
-}
-
-/**
- * Emits the exposed part of `outer` around an axis-aligned covered rectangle.
- *
- * Four rectangles are sufficient: full-height strips at left/right and the
- * remaining rear/front strips between them. They meet only at edges, so the
- * raised pad does not introduce an overlapping support surface.
- */
-function addHorizontalRing(
-  builder: SolidBuilder,
-  outer: Rect,
-  covered: Rect,
-  y: number,
-): void {
-  const pieces: readonly Rect[] = [
-    {
-      minX: outer.minX,
-      maxX: covered.minX,
-      minZ: outer.minZ,
-      maxZ: outer.maxZ,
-    },
-    {
-      minX: covered.maxX,
-      maxX: outer.maxX,
-      minZ: outer.minZ,
-      maxZ: outer.maxZ,
-    },
-    {
-      minX: covered.minX,
-      maxX: covered.maxX,
-      minZ: outer.minZ,
-      maxZ: covered.minZ,
-    },
-    {
-      minX: covered.minX,
-      maxX: covered.maxX,
-      minZ: covered.maxZ,
-      maxZ: outer.maxZ,
-    },
-  ];
-
-  for (const piece of pieces) {
-    if (!rectIsValid(piece)) {
-      continue;
-    }
-
-    const ring = rectCorners(piece).map((point) => ({
-      x: point.x,
-      y,
-      z: point.z,
-    }));
-
-    builder.addBlock(
-      { bottom: ring, top: ring },
-      { sides: [false, false, false, false], top: true, bottom: false },
-    );
   }
 }
 

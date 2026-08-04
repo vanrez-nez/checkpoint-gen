@@ -33,6 +33,7 @@ import {
 import type { StairSideTreatment, StairSpec } from "../../connector/stair";
 import type { SummitCellSpec } from "../../cell/resolve";
 import type { SummitRoofSpec } from "../../roof/resolve";
+import type { SlotPlacement, SlotRule } from "../../kernel/slot";
 import type { HorizontalOrientation } from "../../kernel/frame";
 import type { FacadeStyle } from "../../facade/types";
 
@@ -147,6 +148,17 @@ export interface MassLayoutConfig {
   /** Optional bowl slots on the two square parapet-cornice terminals. */
   stairFireBowlBottomEnabled: boolean;
   stairFireBowlTopEnabled: boolean;
+  /**
+   * Which surfaces are prepared as engravable fields. A prepared stretch loses
+   * its stonework, because a coursed elevation is a staircase of stone ends
+   * rather than a plane and there is nothing on it to engrave.
+   */
+  slotPlacement: SlotPlacement;
+  /** Border left standing around a prepared field. Zero takes the whole face. */
+  frameBorderWidth: number;
+  frameInsetU: number;
+  frameInsetV: number;
+  debugSlots: boolean;
   seed: number;
 }
 
@@ -226,6 +238,11 @@ export const MASS_LAYOUT_BASELINE: Readonly<MassLayoutConfig> = {
   stairParapetCorniceHeight: 0.25,
   stairFireBowlBottomEnabled: true,
   stairFireBowlTopEnabled: true,
+  slotPlacement: "none",
+  frameBorderWidth: 0.12,
+  frameInsetU: 0.1,
+  frameInsetV: 0.1,
+  debugSlots: false,
   seed: 1,
 };
 
@@ -272,6 +289,17 @@ export function heightCurveBezier(mode: HeightCurveMode): BezierValue | null {
  * Which bands take a cornice. "Terraces" leaves the crown bare so the summit
  * reads as the top of the mass rather than as one more moulded step.
  */
+/**
+ * How much of the mass is prepared for engraving. "Elevations" reaches the band
+ * walls alone; "Everything" adds what crowns and encloses them — the cornices,
+ * the summit walls and the summit roof's fascias.
+ */
+const SLOT_PLACEMENT_OPTIONS: Readonly<Record<string, SlotPlacement>> = {
+  None: "none",
+  Elevations: "elevations",
+  Everything: "all",
+};
+
 const CORNICE_PLACEMENT_OPTIONS: Readonly<Record<string, CornicePlacement>> = {
   None: "none",
   "Every band": "all",
@@ -1005,7 +1033,61 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     visibleWhen: (layout) =>
       layout.summitBuildingEnabled && layout.facadeStyle === "hierarchical",
   }),
+  control.list({
+    key: "slotPlacement",
+    label: "placement",
+    name: "Engraving slot placement",
+    group: "Slots",
+    options: SLOT_PLACEMENT_OPTIONS,
+    scopes: ["layout"],
+  }),
+  control.number({
+    key: "frameBorderWidth",
+    label: "border",
+    name: "Slot border width",
+    group: "Slots",
+    min: 0,
+    max: 0.8,
+    step: 0.005,
+    scopes: ["layout"],
+    visibleWhen: prepared,
+  }),
+  control.number({
+    key: "frameInsetU",
+    label: "inset u",
+    name: "Slot horizontal inset",
+    group: "Slots",
+    min: 0,
+    max: 1,
+    step: 0.005,
+    scopes: ["layout"],
+    visibleWhen: prepared,
+  }),
+  control.number({
+    key: "frameInsetV",
+    label: "inset v",
+    name: "Slot vertical inset",
+    group: "Slots",
+    min: 0,
+    max: 1,
+    step: 0.005,
+    scopes: ["layout"],
+    visibleWhen: prepared,
+  }),
+  control.boolean({
+    key: "debugSlots",
+    label: "tint slots",
+    name: "Tint published slots",
+    group: "Slots",
+    scopes: ["layout"],
+    visibleWhen: prepared,
+  }),
 ];
+
+/** Frame and debug controls do nothing until something is prepared. */
+function prepared(layout: MassLayoutConfig): boolean {
+  return layout.slotPlacement !== "none";
+}
 
 export function cloneMassLayout(
   source: Readonly<MassLayoutConfig> = DEFAULT_MASS_LAYOUT,
@@ -1134,6 +1216,28 @@ export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
       friezeProjection: layout.facadeFriezeProjection,
     },
     roofs: toRoofSpecs(layout),
+    slotPlacement: layout.slotPlacement,
+    slotRule: toSlotRule(layout),
+  };
+}
+
+/**
+ * The border every prepared field on this mass is drawn with.
+ *
+ * `recessDepth` is zero: this phase identifies and gates faces, it does not
+ * carve them, so a field stays coplanar with the border around it.
+ */
+export function toSlotRule(layout: {
+  readonly frameBorderWidth: number;
+  readonly frameInsetU: number;
+  readonly frameInsetV: number;
+}): SlotRule {
+  return {
+    style: "plain_field",
+    insetU: layout.frameInsetU,
+    insetV: layout.frameInsetV,
+    borderWidth: layout.frameBorderWidth,
+    recessDepth: 0,
   };
 }
 
@@ -1169,6 +1273,8 @@ function toRoofSpecs(layout: MassLayoutConfig): SummitRoofSpec[] {
     projection: layout.summitRoofProjection,
     corniceProjection: layout.summitRoofCorniceProjection,
     corniceHeight: layout.summitRoofCorniceHeight,
+    slotPlacement: layout.slotPlacement,
+    slotRule: toSlotRule(layout),
   }];
 }
 

@@ -155,7 +155,9 @@
         "pillar_hall_structure/platform/band_03/facade_rear",
         "pillar_hall_structure/platform/band_03/facade_side_positive_u",
         "pillar_hall_structure/platform/band_03/facade_side_negative_u"
-      ]
+      ],
+      "frames": [],
+      "slots": []
     }
   ],
   "patches": [
@@ -5944,7 +5946,9 @@
         }
       ],
       "roof": null,
-      "patchIds": []
+      "patchIds": [],
+      "frames": [],
+      "slots": []
     }
   ],
   "stelae": [],

@@ -7,11 +7,23 @@ import {
   rectFromSize,
   rectWidth,
   type HorizontalOrientation,
-  type Orientation,
   type Rect,
 } from "../../kernel/frame";
 import { ordinalSegment, structurePath } from "../../kernel/ids";
-import type { Patch, PatchAnchor, PatchRegion } from "../../kernel/patch";
+import type { Patch } from "../../kernel/patch";
+import {
+  MIN_FIELD_EXTENT,
+  MIN_RIBBON_LENGTH,
+  MIN_RIBBON_WIDTH,
+  aspectOf,
+  boundaryExtent,
+  faceBoundary,
+  inscribedRect,
+  resolveSlotFrame,
+  slotAnchor,
+  slotRegion,
+  unitBoundary,
+} from "../../kernel/slot";
 import type { StelaLayoutConfig } from "./config";
 import {
   IMPLEMENTED_STELA_BASE_TREATMENTS,
@@ -35,7 +47,6 @@ import {
   type StelaRecord,
   type StelaSlotRecord,
   type StelaTrunkRecord,
-  type StelaUv,
   type StelaUvRect,
 } from "./types";
 
@@ -51,11 +62,6 @@ import {
  */
 
 const EPS = 1e-9;
-
-/** Below these, a slot has no room for content and is simply not emitted. */
-const MIN_FIELD_EXTENT = 0.12;
-const MIN_RIBBON_WIDTH = 0.04;
-const MIN_RIBBON_LENGTH = 0.2;
 
 /** Stone that must survive between two opposed recessed faces. */
 const CORE_THICKNESS_RATIO = 0.35;
@@ -537,35 +543,32 @@ function resolveFrame(
   face: StelaFaceRecord,
   bay: StelaBayRecord,
 ): StelaFrameRecord | null {
-  const bayWidth = (bay.uRange[1] - bay.uRange[0]) * face.widthTop;
-  const insetU = Math.min(layout.frameInsetU, bayWidth * 0.2);
-  const insetV = Math.min(layout.frameInsetV, band.height * 0.2);
-  const border = Math.min(
-    layout.frameBorderWidth,
-    (bayWidth - insetU * 2) * 0.24,
-    (band.height - insetV * 2) * 0.24,
-  );
-
   // A frame whose borders would consume its field is omitted, and the band
   // keeps its unframed rectangle. This is a normal omission, not an error.
-  if (border <= EPS
-    || bayWidth - insetU * 2 <= border * 2 + MIN_FIELD_EXTENT
-    || band.height - insetV * 2 <= border * 2 + MIN_FIELD_EXTENT) {
-    return null;
-  }
-
-  return {
+  const frame = resolveSlotFrame({
     id: structurePath(bay.id, "frame"),
     style: layout.frameStyle,
     bandId: band.id,
     bayId: bay.id,
     faceId: face.id,
-    borderWidth: border,
+    width: (bay.uRange[1] - bay.uRange[0]) * face.widthTop,
+    height: band.height,
+    insetU: layout.frameInsetU,
+    insetV: layout.frameInsetV,
+    borderWidth: layout.frameBorderWidth,
     recessDepth: layout.frameRecessDepth,
-    insetU,
-    insetV,
     returnProfile: "square",
-  };
+  });
+
+  return frame === null
+    ? null
+    : {
+      ...frame,
+      style: layout.frameStyle,
+      bandId: band.id,
+      bayId: bay.id,
+      returnProfile: "square",
+    };
 }
 
 /**
@@ -865,9 +868,9 @@ function resolveSlots(
     const vMin = toV(fieldBottomY);
     const vMax = toV(fieldTopY);
 
-    const boundary = faceBoundary(face, uMin, uMax, vMin, vMax);
+    const boundary = faceBoundary(face.widthBottom, face.widthTop, uMin, uMax, vMin, vMax);
     const inscribed = inscribedRect(boundary);
-    const extent = boundaryExtent(face, uMin, uMax, vMin, vMax, bodyHeight);
+    const extent = boundaryExtent(face.widthBottom, face.widthTop, uMin, uMax, vMin, vMax, bodyHeight);
     if (extent.uTop < MIN_FIELD_EXTENT || extent.v < MIN_FIELD_EXTENT) {
       continue;
     }
@@ -888,7 +891,7 @@ function resolveSlots(
       boundary,
       inscribed,
       extent,
-      aspect: aspectOf(inscribed, face, bodyHeight),
+      aspect: aspectOf(inscribed, face.widthBottom, bodyHeight),
       depthBudget: depthBudget(layout, body, face, band, frame, bands),
       flow: "none",
       continuity: "per_face",
@@ -902,9 +905,9 @@ function resolveSlots(
     for (const face of faces) {
       const vMin = toV(band.bottomY);
       const vMax = toV(band.topY);
-      const boundary = faceBoundary(face, 0, 1, vMin, vMax);
+      const boundary = faceBoundary(face.widthBottom, face.widthTop, 0, 1, vMin, vMax);
       const inscribed = inscribedRect(boundary);
-      const extent = boundaryExtent(face, 0, 1, vMin, vMax, bodyHeight);
+      const extent = boundaryExtent(face.widthBottom, face.widthTop, 0, 1, vMin, vMax, bodyHeight);
       if (extent.v < MIN_RIBBON_WIDTH
         || extent.uTop < MIN_RIBBON_LENGTH
         || band.bottomY < groundY) {
@@ -930,7 +933,7 @@ function resolveSlots(
         boundary,
         inscribed,
         extent,
-        aspect: aspectOf(inscribed, face, bodyHeight),
+        aspect: aspectOf(inscribed, face.widthBottom, bodyHeight),
         depthBudget: {
           relief: Math.max(Math.min(layout.maxRelief, band.projection), 0),
           recess: recessBudget(body, face, (band.bottomY + band.topY) / 2),
@@ -955,10 +958,11 @@ function resolveSlots(
     }
     const vMin = toV(strip.bottomY);
     const vMax = toV(strip.topY);
-    const boundary = faceBoundary(face, strip.uRange[0], strip.uRange[1], vMin, vMax);
+    const boundary = faceBoundary(face.widthBottom, face.widthTop, strip.uRange[0], strip.uRange[1], vMin, vMax);
     const inscribed = inscribedRect(boundary);
     const extent = boundaryExtent(
-      face,
+      face.widthBottom,
+      face.widthTop,
       strip.uRange[0],
       strip.uRange[1],
       vMin,
@@ -984,7 +988,7 @@ function resolveSlots(
       boundary,
       inscribed,
       extent,
-      aspect: aspectOf(inscribed, face, bodyHeight),
+      aspect: aspectOf(inscribed, face.widthBottom, bodyHeight),
       depthBudget: {
         relief: Math.max(Math.min(layout.maxRelief, strip.depth), 0),
         recess: recessBudget(body, face, (strip.bottomY + strip.topY) / 2),
@@ -1014,7 +1018,7 @@ function resolveSlots(
         patchId: structurePath(id, "crown", "top"),
         regionId: structurePath(slotId, "region"),
         anchorId: structurePath(slotId, "anchor"),
-        boundary: rectBoundary(),
+        boundary: unitBoundary(),
         inscribed: { uMin: 0, uMax: 1, vMin: 0, vMax: 1 },
         extent: { uBottom: width, uTop: width, v: depth },
         aspect: width / depth,
@@ -1059,7 +1063,7 @@ function resolveSlots(
           patchId: structurePath(id, "base", `face_${ORIENTATION_SEGMENT[face.orientation]}`),
           regionId: structurePath(slotId, "region"),
           anchorId: structurePath(slotId, "anchor"),
-          boundary: rectBoundary(),
+          boundary: unitBoundary(),
           inscribed: { uMin: 0, uMax: 1, vMin: 0, vMax: 1 },
           extent: { uBottom: width, uTop: width, v: height },
           aspect: width / height,
@@ -1380,35 +1384,6 @@ function resolvePatches(
   return patches;
 }
 
-/**
- * A slot reaches the kernel as a reservation: an empty operation list is the
- * kernel's existing "nothing may target this yet" state, which is exactly what
- * a slot is until an ornament system claims it.
- */
-function slotRegion(slot: StelaSlotRecord): PatchRegion {
-  return {
-    id: slot.regionId,
-    uRange: [slot.inscribed.uMin, slot.inscribed.uMax],
-    vRange: [slot.inscribed.vMin, slot.inscribed.vMax],
-    priority: slot.hierarchy,
-    allowedOperations: [],
-    exclusions: [],
-    tags: [...slot.tags, slot.kind, `condition_${slot.condition}`],
-  };
-}
-
-function slotAnchor(orientation: Orientation) {
-  return (slot: StelaSlotRecord): PatchAnchor => ({
-    id: slot.anchorId,
-    kind: "ornament",
-    u: (slot.inscribed.uMin + slot.inscribed.uMax) / 2,
-    v: (slot.inscribed.vMin + slot.inscribed.vMax) / 2,
-    d: 0,
-    regionId: slot.regionId,
-    orientation,
-  });
-}
-
 // --- geometry helpers -----------------------------------------------------
 
 /** Plan outline of the body at a world elevation. */
@@ -1455,90 +1430,6 @@ function faceRole(
     default:
       return broad ? (orientation === "front" ? "primary" : "secondary") : "return";
   }
-}
-
-/**
- * A slot's true outline in the patch domain.
- *
- * The patch frame is a parallelogram — the same frame every battered facade in
- * this project uses — so a slot that keeps a constant fraction of a narrowing
- * face is a trapezoid here, not a rectangle. Publishing the real corners is
- * what lets a consumer follow the taper instead of overrunning the stone.
- */
-function faceBoundary(
-  face: StelaFaceRecord,
-  uMin: number,
-  uMax: number,
-  vMin: number,
-  vMax: number,
-): StelaUv[] {
-  const scaleAt = (v: number) =>
-    (face.widthBottom + (face.widthTop - face.widthBottom) * v) / face.widthBottom;
-  const low = scaleAt(vMin);
-  const high = scaleAt(vMax);
-  return [
-    { u: uMin * low, v: vMin },
-    { u: uMax * low, v: vMin },
-    { u: uMax * high, v: vMax },
-    { u: uMin * high, v: vMax },
-  ];
-}
-
-function rectBoundary(): StelaUv[] {
-  return [
-    { u: 0, v: 0 },
-    { u: 1, v: 0 },
-    { u: 1, v: 1 },
-    { u: 0, v: 1 },
-  ];
-}
-
-/** Largest axis-aligned rectangle inside a boundary whose edges converge. */
-function inscribedRect(boundary: readonly StelaUv[]): StelaUvRect {
-  const us = boundary.map((point) => point.u);
-  const vs = boundary.map((point) => point.v);
-  const [bottomLeft, bottomRight, topRight, topLeft] = boundary;
-  if (!bottomLeft || !bottomRight || !topRight || !topLeft) {
-    return {
-      uMin: Math.min(...us),
-      uMax: Math.max(...us),
-      vMin: Math.min(...vs),
-      vMax: Math.max(...vs),
-    };
-  }
-  return {
-    uMin: Math.max(bottomLeft.u, topLeft.u),
-    uMax: Math.min(bottomRight.u, topRight.u),
-    vMin: Math.min(bottomLeft.v, bottomRight.v),
-    vMax: Math.max(topLeft.v, topRight.v),
-  };
-}
-
-function boundaryExtent(
-  face: StelaFaceRecord,
-  uMin: number,
-  uMax: number,
-  vMin: number,
-  vMax: number,
-  bodyHeight: number,
-): { readonly uBottom: number; readonly uTop: number; readonly v: number } {
-  const widthAt = (v: number) =>
-    face.widthBottom + (face.widthTop - face.widthBottom) * v;
-  return {
-    uBottom: (uMax - uMin) * widthAt(vMin),
-    uTop: (uMax - uMin) * widthAt(vMax),
-    v: (vMax - vMin) * bodyHeight,
-  };
-}
-
-function aspectOf(
-  inscribed: StelaUvRect,
-  face: StelaFaceRecord,
-  bodyHeight: number,
-): number {
-  const width = (inscribed.uMax - inscribed.uMin) * face.widthBottom;
-  const height = (inscribed.vMax - inscribed.vMin) * bodyHeight;
-  return height <= EPS ? 0 : width / height;
 }
 
 function scaleRect(rect: Rect, scale: number): Rect {

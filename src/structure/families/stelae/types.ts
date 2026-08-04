@@ -1,5 +1,15 @@
 import type { MaterialSlot } from "../../../geometry/part";
-import type { HorizontalOrientation, Orientation, Rect } from "../../kernel/frame";
+import type { HorizontalOrientation, Rect } from "../../kernel/frame";
+import {
+  SLOT_CONDITIONS,
+  SLOT_KINDS,
+  type FrameRecord,
+  type SlotCondition,
+  type SlotKind,
+  type SlotRecord,
+  type Uv,
+  type UvRect,
+} from "../../kernel/slot";
 
 /**
  * Stela vocabulary and family-owned records.
@@ -198,19 +208,14 @@ export const IMPLEMENTED_STELA_FRAME_RETURNS: readonly StelaFrameReturn[] = [
   "square",
 ];
 
-export const STELA_SLOT_KINDS = [
-  "field",
-  "ribbon",
-  "cartouche",
-  "crown_face",
-  "base_face",
-] as const;
+/** Slot vocabulary is kernel-wide; the family names are aliases, not a fork. */
+export const STELA_SLOT_KINDS = SLOT_KINDS;
 
-export type StelaSlotKind = (typeof STELA_SLOT_KINDS)[number];
+export type StelaSlotKind = SlotKind;
 
-export const STELA_SLOT_CONDITIONS = ["intact", "partial", "lost"] as const;
+export const STELA_SLOT_CONDITIONS = SLOT_CONDITIONS;
 
-export type StelaSlotCondition = (typeof STELA_SLOT_CONDITIONS)[number];
+export type StelaSlotCondition = SlotCondition;
 
 export const STELA_CONDITION_STAGES = [
   "new",
@@ -258,18 +263,10 @@ export const IMPLEMENTED_STELA_DAMAGE_TYPES: readonly StelaDamageType[] = [
 ];
 
 /** Normalised sub-rectangle of a face's parametric domain. */
-export interface StelaUvRect {
-  readonly uMin: number;
-  readonly uMax: number;
-  readonly vMin: number;
-  readonly vMax: number;
-}
+export type StelaUvRect = UvRect;
 
 /** One point in a face's parametric domain. */
-export interface StelaUv {
-  readonly u: number;
-  readonly v: number;
-}
+export type StelaUv = Uv;
 
 export interface StelaGroundRecord {
   readonly contact: StelaGroundContact;
@@ -349,17 +346,11 @@ export interface StelaBayRecord {
   readonly hierarchy: number;
 }
 
-export interface StelaFrameRecord {
-  readonly id: string;
+/** The kernel frame, narrowed to the vocabulary this family actually resolves. */
+export interface StelaFrameRecord extends FrameRecord {
   readonly style: StelaFrameStyle;
   readonly bandId: string;
   readonly bayId: string;
-  readonly faceId: string;
-  readonly borderWidth: number;
-  /** How far the field sits behind its border. */
-  readonly recessDepth: number;
-  readonly insetU: number;
-  readonly insetV: number;
   readonly returnProfile: StelaFrameReturn;
 }
 
@@ -385,46 +376,13 @@ export interface StelaPocketRecord {
  * A reserved, addressable rectangle. This is the family's product: everything
  * else exists to resolve it. A slot carries no motif and no style — only where
  * it is, how big it is, and how much depth an ornament may occupy.
+ *
+ * The shape is the kernel's, narrowed to the parts of the stack and the face
+ * roles this family resolves.
  */
-export interface StelaSlotRecord {
-  readonly id: string;
-  readonly kind: StelaSlotKind;
+export interface StelaSlotRecord extends SlotRecord {
   readonly part: "base" | "body" | "crown";
-  readonly face: Orientation;
   readonly faceRole: StelaFaceRole;
-  readonly bandId: string | null;
-  readonly bayId: string | null;
-  readonly frameId: string | null;
-  readonly patchId: string;
-  readonly regionId: string;
-  readonly anchorId: string;
-  /**
-   * The slot's true outline in its patch's domain, bottom-left first. A patch
-   * frame is a parallelogram, so a slot on a narrowing face is a trapezoid here
-   * rather than a rectangle; a consumer that can follow the taper uses this.
-   */
-  readonly boundary: readonly StelaUv[];
-  /**
-   * Largest axis-aligned rectangle inside `boundary`. This is what the published
-   * patch region carries, and what a consumer needing a rectangle should use.
-   */
-  readonly inscribed: StelaUvRect;
-  /** Metres. `uBottom` and `uTop` differ only on a tapered face. */
-  readonly extent: {
-    readonly uBottom: number;
-    readonly uTop: number;
-    readonly v: number;
-  };
-  readonly aspect: number;
-  readonly depthBudget: {
-    readonly relief: number;
-    readonly recess: number;
-  };
-  readonly flow: "horizontal" | "vertical" | "none";
-  readonly continuity: "per_face" | "wrapping";
-  readonly hierarchy: number;
-  readonly condition: StelaSlotCondition;
-  readonly tags: readonly string[];
 }
 
 export interface StelaDamageRecord {

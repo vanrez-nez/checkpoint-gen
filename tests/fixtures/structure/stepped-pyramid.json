@@ -295,7 +295,9 @@
         "structure/mass_main/band_07/facade_rear",
         "structure/mass_main/band_07/facade_side_positive_u",
         "structure/mass_main/band_07/facade_side_negative_u"
-      ]
+      ],
+      "frames": [],
+      "slots": []
     }
   ],
   "patches": [

@@ -1,5 +1,6 @@
 import type { MaterialSlot } from "../../../geometry/part";
 import type { HorizontalOrientation, Rect } from "../../kernel/frame";
+import type { FrameRecord, SlotRecord } from "../../kernel/slot";
 
 export const PILLAR_HALL_ARCHETYPES = [
   "linear_screen",
@@ -104,4 +105,8 @@ export interface PillarHallRecord {
   readonly members: readonly PillarHallMemberRecord[];
   readonly roof: PillarHallRoofRecord | null;
   readonly patchIds: readonly string[];
+  /** Borders resolved around this hall's engravable fields. */
+  readonly frames: readonly FrameRecord[];
+  /** Ornament slots reserved on this hall's flat outward faces. */
+  readonly slots: readonly SlotRecord[];
 }
