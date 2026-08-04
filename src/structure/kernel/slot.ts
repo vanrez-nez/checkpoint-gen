@@ -197,6 +197,106 @@ export function resolveSlotFrame(input: {
 }
 
 /**
+ * Where one vertical edge of a field came from, and therefore how it leans.
+ *
+ * A battered facade's patch domain is sheared: the left arris is `u = 0` and
+ * the right one closes in as `v` rises, so every line on the face is affine in
+ * `v` and there are exactly two rules for which line to draw.
+ *
+ * `arris` keeps a constant fraction of the face's real width, so the edge runs
+ * parallel to the stone's own arris — right for an edge inherited from the face
+ * itself. `plumb` holds a constant world position, so the edge is vertical —
+ * right for an edge cut by something that is itself vertical, like the flank of
+ * a stair. The two rules coincide only at the face's centre-line.
+ */
+export type FaceEdgeRule = "arris" | "plumb";
+
+export interface FaceEdgeSource {
+  /** Where the edge sits in the domain measured at the face's base. */
+  readonly at: number;
+  readonly rule: FaceEdgeRule;
+}
+
+/** One edge as `u` at `v = 0` and at `v = 1`; every such edge is affine. */
+export type FaceEdgeLine = readonly [number, number];
+
+export function faceEdgeLine(
+  source: FaceEdgeSource,
+  widthBottom: number,
+  widthTop: number,
+): FaceEdgeLine {
+  const taper = widthBottom <= EPS ? 1 : widthTop / widthBottom;
+
+  return source.rule === "arris"
+    // A constant fraction of the width: the edge closes in with the face.
+    ? [source.at, source.at * taper]
+    // A constant world position: the face slides inward beneath a fixed line.
+    : [source.at, source.at - (1 - taper) / 2];
+}
+
+/**
+ * A plain span, both of whose edges belong to the face itself.
+ *
+ * On a plumb face the two rules are identical, so every family whose surfaces
+ * do not lean says what it means with this rather than choosing between them.
+ */
+export function arrisEdges(
+  span: readonly [number, number],
+): readonly [FaceEdgeSource, FaceEdgeSource] {
+  return [{ at: span[0], rule: "arris" }, { at: span[1], rule: "arris" }];
+}
+
+/**
+ * `source` with `cover` removed, as the zero, one or two spans that remain.
+ *
+ * The edges the cut introduces are plumb, because what cut them is: a stair's
+ * flank is a vertical plane at a fixed world position, whatever the wall behind
+ * it is doing. The edges inherited from `source` keep whatever rule they had.
+ */
+export function withoutRange(
+  source: readonly [FaceEdgeSource, FaceEdgeSource],
+  cover: readonly [number, number],
+): (readonly [FaceEdgeSource, FaceEdgeSource])[] {
+  const [from, to] = source;
+  const [coverFrom, coverTo] = cover;
+
+  if (coverTo <= from.at + EPS || coverFrom >= to.at - EPS) {
+    return [source];
+  }
+
+  const cutLow: FaceEdgeSource = {
+    at: Math.min(coverFrom, to.at),
+    rule: "plumb",
+  };
+  const cutHigh: FaceEdgeSource = {
+    at: Math.max(coverTo, from.at),
+    rule: "plumb",
+  };
+
+  return [
+    [from, cutLow] as const,
+    [cutHigh, to] as const,
+  ].filter((span) => span[1].at - span[0].at > EPS);
+}
+
+/** The outline two edges enclose between two heights, bottom-left first. */
+export function edgeBoundary(
+  left: FaceEdgeLine,
+  right: FaceEdgeLine,
+  vMin: number,
+  vMax: number,
+): Uv[] {
+  const at = (line: FaceEdgeLine, v: number) => line[0] + (line[1] - line[0]) * v;
+
+  return [
+    { u: at(left, vMin), v: vMin },
+    { u: at(right, vMin), v: vMin },
+    { u: at(right, vMax), v: vMax },
+    { u: at(left, vMax), v: vMax },
+  ];
+}
+
+/**
  * A slot's true outline in the patch domain.
  *
  * The patch frame is a parallelogram — the same frame every battered facade in
@@ -349,31 +449,28 @@ export function slotAnchor(orientation: Orientation) {
 }
 
 /**
- * How much of a structure is prepared for ornament.
+ * What one feature of a structure asks of its own engravable faces.
  *
- * A named vocabulary rather than a bank of per-surface booleans, for the same
- * reason `CORNICE_PLACEMENTS` is one: which surfaces carry ornament is a
- * composition decision with a small number of sensible answers, not sixteen
- * independent switches.
+ * Settings belong to the feature, not to the family. A band wall wants a large
+ * field, a cornice wants a running strip, and a pier panel is already framed by
+ * its rails — one border figure covering all three would be a border figure
+ * that suits none of them. Every slot-bearing feature therefore carries its own
+ * copy of this, generated as its own control folder.
  */
-export const SLOT_PLACEMENTS = ["none", "elevations", "all"] as const;
-
-export type SlotPlacement = (typeof SLOT_PLACEMENTS)[number];
-
-/**
- * What each placement reaches. `elevations` prepares the principal wall faces
- * only — a Mass band's wall, a Pillar Hall pier's panel. `all` adds everything
- * that crowns or encloses them: cornices, summit walls, roof fascias, lintels.
- */
-export function placementReaches(
-  placement: SlotPlacement,
-  surface: "elevation" | "crowning",
-): boolean {
-  if (placement === "none") {
-    return false;
-  }
-  return placement === "all" || surface === "elevation";
+export interface SlotFeatureConfig {
+  enabled: boolean;
+  borderWidth: number;
+  insetU: number;
+  insetV: number;
 }
+
+/** A feature that is switched off, for a family that has not authored one. */
+export const DISABLED_SLOT_FEATURE: SlotFeatureConfig = {
+  enabled: false,
+  borderWidth: 0,
+  insetU: 0,
+  insetV: 0,
+};
 
 /**
  * Stone that must survive behind a carved field. An ornament may sink as far
@@ -409,6 +506,29 @@ export const NO_SLOT_RULE: SlotRule = {
   recessDepth: 0,
 };
 
+/**
+ * The authored feature settings as a resolution rule.
+ *
+ * `style` and `recessDepth` stay with the family because they describe the
+ * recess rather than the border: only the stelae family carves one, and it
+ * chooses one style for the whole monument.
+ */
+export function slotRuleOf(
+  feature: SlotFeatureConfig,
+  recess: { readonly style: string; readonly recessDepth: number } = {
+    style: "plain_field",
+    recessDepth: 0,
+  },
+): SlotRule {
+  return {
+    style: recess.style,
+    insetU: feature.insetU,
+    insetV: feature.insetV,
+    borderWidth: feature.borderWidth,
+    recessDepth: recess.recessDepth,
+  };
+}
+
 export interface FaceSlotInput {
   readonly id: string;
   readonly kind: SlotKind;
@@ -418,8 +538,11 @@ export interface FaceSlotInput {
   readonly bandId: string | null;
   readonly bayId: string | null;
   readonly patchId: string;
-  /** Normalised span of the patch this slot may occupy. */
-  readonly uRange: readonly [number, number];
+  /**
+   * The two vertical edges bounding the span this slot may occupy, each saying
+   * where it came from so it can be drawn leaning the right way.
+   */
+  readonly uEdges: readonly [FaceEdgeSource, FaceEdgeSource];
   readonly vRange: readonly [number, number];
   /** Real width of the whole patch at `v = 0` and `v = 1`; equal when plumb. */
   readonly widthBottom: number;
@@ -452,18 +575,20 @@ export interface ResolvedFaceSlot {
  * cornice takes over the top.
  */
 export function resolveFaceSlot(input: FaceSlotInput): ResolvedFaceSlot | null {
-  const [uMin, uMax] = input.uRange;
+  const [leftSource, rightSource] = input.uEdges;
   const [vMin, vMax] = input.vRange;
 
-  if (uMax - uMin <= EPS || vMax - vMin <= EPS) {
+  if (rightSource.at - leftSource.at <= EPS || vMax - vMin <= EPS) {
     return null;
   }
 
+  const left = faceEdgeLine(leftSource, input.widthBottom, input.widthTop);
+  const right = faceEdgeLine(rightSource, input.widthBottom, input.widthTop);
   // The border is measured against the stone actually available, which on a
   // narrowing face is its top edge — the narrowest the field ever gets.
-  const widthAt = (v: number) =>
-    input.widthBottom + (input.widthTop - input.widthBottom) * v;
-  const hostWidth = (uMax - uMin) * Math.min(widthAt(vMin), widthAt(vMax));
+  const spanAt = (v: number) =>
+    (right[0] + (right[1] - right[0]) * v) - (left[0] + (left[1] - left[0]) * v);
+  const hostWidth = Math.min(spanAt(vMin), spanAt(vMax)) * input.widthBottom;
   const hostHeight = (vMax - vMin) * input.faceHeight;
 
   const frame = resolveSlotFrame({
@@ -483,35 +608,36 @@ export function resolveFaceSlot(input: FaceSlotInput): ResolvedFaceSlot | null {
 
   // Without a frame the field is the whole rectangle. With one it retreats by
   // the inset and the border together, which is the stone the border occupies.
-  const marginU = frame === null ? 0 : frame.insetU + frame.borderWidth;
-  const marginV = frame === null ? 0 : frame.insetV + frame.borderWidth;
-  const fieldUMin = uMin + marginU / Math.max(input.widthBottom, EPS);
-  const fieldUMax = uMax - marginU / Math.max(input.widthBottom, EPS);
+  // The border is authored in metres, and a constant offset in `u` is a
+  // constant offset in metres at every height, so both ends of an edge shift by
+  // the same amount and the edge keeps its lean.
+  const frameSet = frame !== null;
+  const marginU = frameSet ? (frame.insetU + frame.borderWidth) : 0;
+  const marginV = frameSet ? (frame.insetV + frame.borderWidth) : 0;
+  const shift = marginU / Math.max(input.widthBottom, EPS);
+  const fieldLeft: FaceEdgeLine = [left[0] + shift, left[1] + shift];
+  const fieldRight: FaceEdgeLine = [right[0] - shift, right[1] - shift];
   const fieldVMin = vMin + marginV / Math.max(input.faceHeight, EPS);
   const fieldVMax = vMax - marginV / Math.max(input.faceHeight, EPS);
 
-  if (fieldUMax - fieldUMin <= EPS || fieldVMax - fieldVMin <= EPS) {
+  if (
+    fieldRight[0] - fieldLeft[0] <= EPS
+    || fieldRight[1] - fieldLeft[1] <= EPS
+    || fieldVMax - fieldVMin <= EPS
+  ) {
     return null;
   }
 
-  const boundary = faceBoundary(
-    input.widthBottom,
-    input.widthTop,
-    fieldUMin,
-    fieldUMax,
-    fieldVMin,
-    fieldVMax,
-  );
+  const boundary = edgeBoundary(fieldLeft, fieldRight, fieldVMin, fieldVMax);
   const inscribed = inscribedRect(boundary);
-  const extent = boundaryExtent(
-    input.widthBottom,
-    input.widthTop,
-    fieldUMin,
-    fieldUMax,
-    fieldVMin,
-    fieldVMax,
-    input.faceHeight,
-  );
+  const spanAtField = (v: number) =>
+    (fieldRight[0] + (fieldRight[1] - fieldRight[0]) * v)
+    - (fieldLeft[0] + (fieldLeft[1] - fieldLeft[0]) * v);
+  const extent = {
+    uBottom: spanAtField(fieldVMin) * input.widthBottom,
+    uTop: spanAtField(fieldVMax) * input.widthBottom,
+    v: (fieldVMax - fieldVMin) * input.faceHeight,
+  };
 
   // A narrowing face's domain is a trapezoid anchored at `u = 0`, so a field far
   // enough to the right can run off the stone before it reaches the top. There
@@ -624,13 +750,19 @@ export function tintSlots(
     if (!patch || slot.condition === "lost") {
       continue;
     }
-    const { inscribed } = slot;
-    const corners = [
-      [inscribed.uMin, inscribed.vMin],
-      [inscribed.uMax, inscribed.vMin],
-      [inscribed.uMax, inscribed.vMax],
-      [inscribed.uMin, inscribed.vMax],
-    ].map(([u, v]) => evaluateFrame(patch.frame, u!, v!, 0));
+    // The outline, not the rectangle inside it: on a leaning face the two are
+    // different shapes, and it is the outline that was drawn.
+    const corners = slot.boundary.map(
+      (point) => evaluateFrame(patch.frame, point.u, point.v, 0),
+    );
+    if (match === "whole") {
+      builder.assignFaceMaterial(
+        (face) => sameCorners(face, corners),
+        "slotDebug",
+      );
+      continue;
+    }
+
     const bounds = {
       minX: Math.min(...corners.map((c) => c.x)),
       maxX: Math.max(...corners.map((c) => c.x)),
@@ -639,15 +771,6 @@ export function tintSlots(
       minZ: Math.min(...corners.map((c) => c.z)),
       maxZ: Math.max(...corners.map((c) => c.z)),
     };
-
-    if (match === "whole") {
-      builder.assignFaceMaterial(
-        (face) => sameBounds(face, bounds),
-        "slotDebug",
-      );
-      continue;
-    }
-
     const box = {
       minX: bounds.minX - SLOT_TINT_TOLERANCE,
       maxX: bounds.maxX + SLOT_TINT_TOLERANCE,
@@ -666,23 +789,29 @@ export function tintSlots(
   }
 }
 
-/** Whether a face occupies exactly the box a slot resolved to. */
-function sameBounds(
+/**
+ * Whether a face is the slot, corner for corner.
+ *
+ * Stronger than comparing bounding boxes, and it has to be: a leaning field and
+ * the upright rectangle around it share a box but are not the same stone. The
+ * comparison is order-independent because the builder is free to wind a quad
+ * either way.
+ */
+function sameCorners(
   face: readonly { readonly x: number; readonly y: number; readonly z: number }[],
-  bounds: {
-    readonly minX: number; readonly maxX: number;
-    readonly minY: number; readonly maxY: number;
-    readonly minZ: number; readonly maxZ: number;
-  },
+  corners: readonly { readonly x: number; readonly y: number; readonly z: number }[],
 ): boolean {
-  const xs = face.map((point) => point.x);
-  const ys = face.map((point) => point.y);
-  const zs = face.map((point) => point.z);
+  if (face.length !== corners.length) {
+    return false;
+  }
 
-  return Math.abs(Math.min(...xs) - bounds.minX) <= SLOT_TINT_MATCH
-    && Math.abs(Math.max(...xs) - bounds.maxX) <= SLOT_TINT_MATCH
-    && Math.abs(Math.min(...ys) - bounds.minY) <= SLOT_TINT_MATCH
-    && Math.abs(Math.max(...ys) - bounds.maxY) <= SLOT_TINT_MATCH
-    && Math.abs(Math.min(...zs) - bounds.minZ) <= SLOT_TINT_MATCH
-    && Math.abs(Math.max(...zs) - bounds.maxZ) <= SLOT_TINT_MATCH;
+  const near = (
+    a: { readonly x: number; readonly y: number; readonly z: number },
+    b: { readonly x: number; readonly y: number; readonly z: number },
+  ) => Math.abs(a.x - b.x) <= SLOT_TINT_MATCH
+    && Math.abs(a.y - b.y) <= SLOT_TINT_MATCH
+    && Math.abs(a.z - b.z) <= SLOT_TINT_MATCH;
+
+  return corners.every((corner) => face.some((point) => near(point, corner)))
+    && face.every((point) => corners.some((corner) => near(point, corner)));
 }

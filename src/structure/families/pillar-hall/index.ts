@@ -5,7 +5,10 @@ import { tessellateStructure } from "../../mass/tessellate";
 import {
   DEFAULT_PILLAR_HALL_LAYOUT,
   DEFAULT_PILLAR_HALL_STONE_CONFIG,
+  PILLAR_HALL_FRAMED_SLOT_FEATURES,
   PILLAR_HALL_LAYOUT_CONTROLS,
+  PILLAR_HALL_SLOT_FEATURE_IDS,
+  PILLAR_HALL_SLOT_FEATURE_LABELS,
   clonePillarHallLayout,
   resolvePillarHallGraph,
   toPillarHallMasonry,
@@ -34,7 +37,15 @@ export const pillarHallStructure = defineStructure<PillarHallLayoutConfig>({
     {
       id: "details",
       label: "Details",
-      layoutGroups: ["Piers", "Spans", "Roof", "Stonework", "Slots"],
+      layoutGroups: [
+        "Piers",
+        "Spans",
+        "Roof",
+        "Stonework",
+        ...PILLAR_HALL_SLOT_FEATURE_IDS.map(
+          (id) => PILLAR_HALL_SLOT_FEATURE_LABELS[id],
+        ),
+      ],
     },
     { id: "materials", label: "Materials", props: ["materialPalette"] },
   ],
@@ -53,22 +64,27 @@ export const pillarHallStructure = defineStructure<PillarHallLayoutConfig>({
     "frieze",
     "cornice",
     "roof",
-    "slotDebug",
   ],
   layoutControls: PILLAR_HALL_LAYOUT_CONTROLS,
+  slotFeatures: PILLAR_HALL_SLOT_FEATURE_IDS.map((id) => ({
+    id,
+    label: PILLAR_HALL_SLOT_FEATURE_LABELS[id],
+    framed: PILLAR_HALL_FRAMED_SLOT_FEATURES[id],
+    select: (layout: PillarHallLayoutConfig) => layout.slots[id],
+  })),
   cloneLayout: clonePillarHallLayout,
   validateLayout: validatePillarHallLayout,
 
-  build({ layout, stone, sections }) {
+  build({ layout, stone, debugSlots, sections }) {
     const graph = resolvePillarHallGraph(layout);
     const parts: GeometryPart[] = sections.has(PILLAR_HALL_SECTION)
       ? [...tessellateStructure(graph, {
         masonry: toPillarHallMasonry(layout, stone),
         seed: stone.seed,
         stairTilesPerStep: layout.stairTilesPerStep,
+        debugSlots,
         section: PILLAR_HALL_SECTION,
         partId: "pillar-hall",
-        debugSlots: layout.debugSlots,
       }).parts]
       : [];
     return { parts, anchors: emptyCompositionAnchors(), graph };

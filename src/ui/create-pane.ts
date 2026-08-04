@@ -10,10 +10,11 @@ import {
   structureOptions,
   getStructure,
 } from "../structure/registry";
-import type {
-  PropId,
-  StructureControlTab,
-  StructureDefinition,
+import {
+  slotFeatureControls,
+  type PropId,
+  type StructureControlTab,
+  type StructureDefinition,
 } from "../structure/definition";
 import {
   restoreStructureConfig,
@@ -313,6 +314,32 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
         () => visibleWhen === undefined || visibleWhen(layout),
         control.onShow,
       );
+    }
+
+    // A slot feature is one folder of its own settings, bound to its own
+    // sub-object. Its label is the group a tab assigned, so it lands here.
+    for (const feature of definition.slotFeatures ?? []) {
+      if (!groups.has(feature.label)) {
+        continue;
+      }
+
+      const target = feature.select(layout);
+      const featureBound = bindControls(
+        page,
+        target,
+        slotFeatureControls(feature.label, feature.framed),
+        dispatch,
+        folders,
+      );
+
+      for (const control of featureBound) {
+        const { visibleWhen } = control.spec;
+        visibility.addBlade(
+          control.binding,
+          () => visibleWhen === undefined || visibleWhen(target),
+          control.onShow,
+        );
+      }
     }
 
     for (const prop of tab.props ?? []) {

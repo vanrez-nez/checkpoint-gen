@@ -2,7 +2,7 @@ import { insetRect, rectDepth, rectWidth, type HorizontalOrientation, type Rect 
 import { structurePath } from "../../kernel/ids";
 import type { SummitPlacementRecord } from "../../kernel/graph";
 import type { Patch } from "../../kernel/patch";
-import { toSlotRule } from "../mass/config";
+import type { Diagnostic } from "../../kernel/validate";
 import { resolvePillarHallSlots } from "./slots";
 import type { PillarHallLayoutConfig } from "./config";
 import type {
@@ -32,6 +32,8 @@ const LINEAR_BASE_HEIGHT = 0.82;
 const LINEAR_BASE_DEPTH_RATIO = 1.65;
 const LINEAR_PLINTH_WIDTH_RATIO = 1.85;
 const LINEAR_PLINTH_DEPTH_RATIO = 2.07;
+/** The capstone's own width, which is the widest the pier ever gets. */
+const CAPSTONE_WIDTH_RATIO = 1.65;
 const CORNICE_HEIGHT = 0.18;
 const CORNICE_DEPTH_PROJECTION = 0.24;
 const EDGE_CLEARANCE = 0.08;
@@ -54,6 +56,7 @@ interface RowIntent {
 export interface ResolvedPillarHall {
   readonly record: PillarHallRecord;
   readonly patches: readonly Patch[];
+  readonly diagnostics: readonly Diagnostic[];
 }
 
 export function resolvePillarHall(
@@ -72,6 +75,10 @@ export function resolvePillarHall(
 
   const intents = rowIntents(layout, footprint);
   const supports = new Map<string, PillarSupportRecord>();
+  // Which row reached each shared corner first. Two rows meeting at one pier
+  // must not both claim the stone over it: they did, and the result was a
+  // duplicated block at every corner with each beam poking past the other.
+  const cornerOwners = new Map<string, string>();
   const rows: PillarHallRowRecord[] = [];
   const bays: PillarHallBayRecord[] = [];
   const members: PillarHallMemberRecord[] = [];
@@ -80,6 +87,15 @@ export function resolvePillarHall(
   const supportTopY = supportBottomY + layout.pierHeight;
   const lintelTopY = supportTopY + layout.lintelHeight;
   const corniceTopY = lintelTopY + CORNICE_HEIGHT;
+
+  for (const intent of intents) {
+    for (const end of [intent.from, intent.to]) {
+      const key = `${roundKey(end[0])}/${roundKey(end[1])}`;
+      if (!cornerOwners.has(key)) {
+        cornerOwners.set(key, intent.segment);
+      }
+    }
+  }
 
   for (const intent of intents) {
     const rowId = structurePath(id, `row_${intent.segment}`);
@@ -143,20 +159,6 @@ export function resolvePillarHall(
 
       const a = pointAt(intent, index / intent.bayCount);
       const b = pointAt(intent, (index + 1) / intent.bayCount);
-      members.push({
-        id: structurePath(bayId, "lintel"),
-        kind: "lintel",
-        rect: spanRect(
-          a,
-          b,
-          layout.lintelDepth,
-          index === 0 ? spanEndExtent(layout) : 0,
-          index === intent.bayCount - 1 ? spanEndExtent(layout) : 0,
-        ),
-        bottomY: supportTopY,
-        topY: lintelTopY,
-        materialRole: "lintel",
-      });
       if (hasContinuousBase) {
         for (const [panelIndex, rect] of baseFriezeRects(
           a,
@@ -190,15 +192,37 @@ export function resolvePillarHall(
         materialRole: "pedestal",
       });
     }
+    // A row's architrave is one beam, not a piece per bay. Cutting it at every
+    // pier centre gave five members that abut on a buried plane, and the slot
+    // table inherited the joints as five unequal ribbons with a border at each.
+    // The moulding above it was always resolved this way; the beam now matches.
+    const beamDepth = spanDepth(layout);
+    const mouldingDepth = beamDepth + CORNICE_DEPTH_PROJECTION;
+    const beamEnds = spanEnds(intent, cornerOwners, layout, beamDepth);
+    const mouldingEnds = spanEnds(intent, cornerOwners, layout, mouldingDepth);
+    members.push({
+      id: structurePath(rowId, "lintel"),
+      kind: "lintel",
+      rect: spanRect(
+        intent.from,
+        intent.to,
+        beamDepth,
+        beamEnds.start,
+        beamEnds.end,
+      ),
+      bottomY: supportTopY,
+      topY: lintelTopY,
+      materialRole: "lintel",
+    });
     members.push({
       id: structurePath(rowId, "cornice"),
       kind: "cornice",
       rect: spanRect(
         intent.from,
         intent.to,
-        layout.lintelDepth + CORNICE_DEPTH_PROJECTION,
-        spanEndExtent(layout),
-        spanEndExtent(layout),
+        mouldingDepth,
+        mouldingEnds.start,
+        mouldingEnds.end,
       ),
       bottomY: lintelTopY,
       topY: corniceTopY,
@@ -279,9 +303,20 @@ export function resolvePillarHall(
   // bury the ones that mean something.
   const prepared = resolvePillarHallSlots({
     hall: resolved,
-    placement: layout.slotPlacement,
-    rule: toSlotRule(layout),
+    features: layout.slots,
   });
+
+  const diagnostics: Diagnostic[] = [];
+  const capstoneDepth = layout.pierWidth * CAPSTONE_WIDTH_RATIO;
+
+  if (spanDepth(layout) > layout.lintelDepth + EPS) {
+    diagnostics.push({
+      severity: "notice",
+      code: "pillar_hall.span_widened_to_pier",
+      entityId: id,
+      message: `The requested span depth ${layout.lintelDepth} is narrower than the capstone it lands on; it was widened to ${capstoneDepth}.`,
+    });
+  }
 
   return {
     record: {
@@ -291,6 +326,7 @@ export function resolvePillarHall(
       slots: prepared.slots,
     },
     patches: prepared.patches,
+    diagnostics,
   };
 }
 
@@ -338,8 +374,51 @@ function resolveCenterlineFootprint(layout: PillarHallLayoutConfig, summit: Rect
 }
 
 /** Lintel and cornice share this end plane even though their depths differ. */
+/**
+ * How deep the architrave actually runs.
+ *
+ * A span narrower than the capstone it lands on reads as set back behind the
+ * piers rather than carried by them, so the authored depth is a floor and the
+ * pier decides the rest. The clamp is reported rather than silent: it changes
+ * the silhouette, and a control that quietly stops mattering is worse than one
+ * that says so.
+ */
+export function spanDepth(layout: PillarHallLayoutConfig): number {
+  return Math.max(layout.lintelDepth, layout.pierWidth * CAPSTONE_WIDTH_RATIO);
+}
+
+/**
+ * How far each end of a row's span reaches past its last pier.
+ *
+ * A free end projects. An end that meets another row stops flush against that
+ * row's side, so the two lap at the corner instead of occupying the same stone:
+ * a negative projection, pulling the member back by half the depth it abuts.
+ *
+ * That half-depth is the member's own. The beam and the moulding above it are
+ * different depths, so one figure for both left the beam short of the corner by
+ * half the cornice's projection while the moulding met — the entablature broke
+ * at exactly the corner it was supposed to turn.
+ */
+function spanEnds(
+  intent: RowIntent,
+  owners: ReadonlyMap<string, string>,
+  layout: PillarHallLayoutConfig,
+  depth: number,
+): { readonly start: number; readonly end: number } {
+  const extentAt = (point: readonly [number, number]) => {
+    const key = `${roundKey(point[0])}/${roundKey(point[1])}`;
+    const owner = owners.get(key);
+
+    return owner === undefined || owner === intent.segment
+      ? spanEndExtent(layout)
+      : -depth * 0.5;
+  };
+
+  return { start: extentAt(intent.from), end: extentAt(intent.to) };
+}
+
 function spanEndExtent(layout: PillarHallLayoutConfig): number {
-  return (layout.lintelDepth + CORNICE_DEPTH_PROJECTION) * 0.5
+  return (spanDepth(layout) + CORNICE_DEPTH_PROJECTION) * 0.5
     + layout.spanEndProjection;
 }
 
@@ -350,7 +429,7 @@ function rowEndExtent(layout: PillarHallLayoutConfig): number {
 /** Includes raised panels, which can become the widest pier detail. */
 function supportOuterHalf(layout: PillarHallLayoutConfig): number {
   return Math.max(
-    layout.pierWidth * 1.65 * 0.5,
+    layout.pierWidth * CAPSTONE_WIDTH_RATIO * 0.5,
     layout.pierWidth * 1.55 * 0.5,
     layout.pierWidth * 1.3 * 0.5 + layout.panelDepth,
     layout.pierWidth * 0.5 + layout.panelDepth,

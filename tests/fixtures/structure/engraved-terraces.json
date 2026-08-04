@@ -294,6 +294,66 @@
       ],
       "frames": [
         {
+          "id": "structure/mass_main/base/facade_front/slot_1/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/base",
+          "bayId": null,
+          "faceId": "structure/mass_main/base/facade_front",
+          "borderWidth": 0.06,
+          "recessDepth": 0,
+          "insetU": 0.05,
+          "insetV": 0.05,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/base/facade_front/slot_2/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/base",
+          "bayId": null,
+          "faceId": "structure/mass_main/base/facade_front",
+          "borderWidth": 0.06,
+          "recessDepth": 0,
+          "insetU": 0.05,
+          "insetV": 0.05,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/base/facade_rear/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/base",
+          "bayId": null,
+          "faceId": "structure/mass_main/base/facade_rear",
+          "borderWidth": 0.06,
+          "recessDepth": 0,
+          "insetU": 0.05,
+          "insetV": 0.05,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/base/facade_side_positive_u/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/base",
+          "bayId": null,
+          "faceId": "structure/mass_main/base/facade_side_positive_u",
+          "borderWidth": 0.06,
+          "recessDepth": 0,
+          "insetU": 0.05,
+          "insetV": 0.05,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/base/facade_side_negative_u/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/base",
+          "bayId": null,
+          "faceId": "structure/mass_main/base/facade_side_negative_u",
+          "borderWidth": 0.06,
+          "recessDepth": 0,
+          "insetU": 0.05,
+          "insetV": 0.05,
+          "returnProfile": "square"
+        },
+        {
           "id": "structure/mass_main/band_01/facade_front/slot_1/frame",
           "style": "plain_field",
           "bandId": "structure/mass_main/band_01",
@@ -351,6 +411,54 @@
           "recessDepth": 0,
           "insetU": 0.1,
           "insetV": 0.1,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_01/cornice_fascia_front/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_01/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_01/cornice_fascia_front",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_01/cornice_fascia_rear/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_01/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_01/cornice_fascia_rear",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_01/cornice_fascia_side_positive_u/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_01/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_01/cornice_fascia_side_positive_u",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_01/cornice_fascia_side_negative_u/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_01/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_01/cornice_fascia_side_negative_u",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
           "returnProfile": "square"
         },
         {
@@ -414,6 +522,54 @@
           "returnProfile": "square"
         },
         {
+          "id": "structure/mass_main/band_02/cornice_fascia_front/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_02/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_02/cornice_fascia_front",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_02/cornice_fascia_rear/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_02/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_02/cornice_fascia_rear",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_02/cornice_fascia_side_positive_u/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_02/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_02/cornice_fascia_side_positive_u",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_02/cornice_fascia_side_negative_u/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_02/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_02/cornice_fascia_side_negative_u",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
           "id": "structure/mass_main/band_03/facade_front/slot_1/frame",
           "style": "plain_field",
           "bandId": "structure/mass_main/band_03",
@@ -471,6 +627,54 @@
           "recessDepth": 0,
           "insetU": 0.1,
           "insetV": 0.1,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_03/cornice_fascia_front/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_03/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_03/cornice_fascia_front",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_03/cornice_fascia_rear/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_03/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_03/cornice_fascia_rear",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_03/cornice_fascia_side_positive_u/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_03/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_03/cornice_fascia_side_positive_u",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_03/cornice_fascia_side_negative_u/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_03/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_03/cornice_fascia_side_negative_u",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
           "returnProfile": "square"
         },
         {
@@ -532,6 +736,54 @@
           "insetU": 0.1,
           "insetV": 0.1,
           "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_04/cornice_fascia_front/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_04/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_04/cornice_fascia_front",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_04/cornice_fascia_rear/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_04/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_04/cornice_fascia_rear",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_04/cornice_fascia_side_positive_u/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_04/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_04/cornice_fascia_side_positive_u",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/mass_main/band_04/cornice_fascia_side_negative_u/slot/frame",
+          "style": "plain_field",
+          "bandId": "structure/mass_main/band_04/cornice",
+          "bayId": null,
+          "faceId": "structure/mass_main/band_04/cornice_fascia_side_negative_u",
+          "borderWidth": 0.04,
+          "recessDepth": 0,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
         }
       ],
       "slots": [
@@ -543,40 +795,40 @@
           "faceRole": "base_plinth",
           "bandId": "structure/mass_main/base",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/base/facade_front/slot_1/frame",
           "patchId": "structure/mass_main/base/facade_front",
           "regionId": "structure/mass_main/base/facade_front/slot_1/region",
           "anchorId": "structure/mass_main/base/facade_front/slot_1/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.0044,
+              "v": 0.314286
             },
             {
-              "u": 0.32,
-              "v": 0
+              "u": 0.3156,
+              "v": 0.314286
             },
             {
-              "u": 0.32,
-              "v": 1
+              "u": 0.3156,
+              "v": 0.685714
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.0044,
+              "v": 0.685714
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 0.32,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.0044,
+            "uMax": 0.3156,
+            "vMin": 0.314286,
+            "vMax": 0.685714
           },
           "extent": {
-            "uBottom": 8,
-            "uTop": 8,
-            "v": 0.35
+            "uBottom": 7.78,
+            "uTop": 7.78,
+            "v": 0.13
           },
-          "aspect": 22.857143,
+          "aspect": 59.846154,
           "depthBudget": {
             "relief": 0,
             "recess": 2.375
@@ -600,40 +852,40 @@
           "faceRole": "base_plinth",
           "bandId": "structure/mass_main/base",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/base/facade_front/slot_2/frame",
           "patchId": "structure/mass_main/base/facade_front",
           "regionId": "structure/mass_main/base/facade_front/slot_2/region",
           "anchorId": "structure/mass_main/base/facade_front/slot_2/anchor",
           "boundary": [
             {
-              "u": 0.68,
-              "v": 0
+              "u": 0.6844,
+              "v": 0.314286
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.9956,
+              "v": 0.314286
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.9956,
+              "v": 0.685714
             },
             {
-              "u": 0.68,
-              "v": 1
+              "u": 0.6844,
+              "v": 0.685714
             }
           ],
           "inscribed": {
-            "uMin": 0.68,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.6844,
+            "uMax": 0.9956,
+            "vMin": 0.314286,
+            "vMax": 0.685714
           },
           "extent": {
-            "uBottom": 8,
-            "uTop": 8,
-            "v": 0.35
+            "uBottom": 7.78,
+            "uTop": 7.78,
+            "v": 0.13
           },
-          "aspect": 22.857143,
+          "aspect": 59.846154,
           "depthBudget": {
             "relief": 0,
             "recess": 2.375
@@ -657,40 +909,40 @@
           "faceRole": "base_plinth",
           "bandId": "structure/mass_main/base",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/base/facade_rear/slot/frame",
           "patchId": "structure/mass_main/base/facade_rear",
           "regionId": "structure/mass_main/base/facade_rear/slot/region",
           "anchorId": "structure/mass_main/base/facade_rear/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.0044,
+              "v": 0.314286
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.9956,
+              "v": 0.314286
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.9956,
+              "v": 0.685714
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.0044,
+              "v": 0.685714
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.0044,
+            "uMax": 0.9956,
+            "vMin": 0.314286,
+            "vMax": 0.685714
           },
           "extent": {
-            "uBottom": 25,
-            "uTop": 25,
-            "v": 0.35
+            "uBottom": 24.78,
+            "uTop": 24.78,
+            "v": 0.13
           },
-          "aspect": 71.428571,
+          "aspect": 190.615385,
           "depthBudget": {
             "relief": 0,
             "recess": 2.375
@@ -714,40 +966,40 @@
           "faceRole": "base_plinth",
           "bandId": "structure/mass_main/base",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/base/facade_side_positive_u/slot/frame",
           "patchId": "structure/mass_main/base/facade_side_positive_u",
           "regionId": "structure/mass_main/base/facade_side_positive_u/slot/region",
           "anchorId": "structure/mass_main/base/facade_side_positive_u/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.005789,
+              "v": 0.314286
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.994211,
+              "v": 0.314286
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.994211,
+              "v": 0.685714
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.005789,
+              "v": 0.685714
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.005789,
+            "uMax": 0.994211,
+            "vMin": 0.314286,
+            "vMax": 0.685714
           },
           "extent": {
-            "uBottom": 19,
-            "uTop": 19,
-            "v": 0.35
+            "uBottom": 18.78,
+            "uTop": 18.78,
+            "v": 0.13
           },
-          "aspect": 54.285714,
+          "aspect": 144.461538,
           "depthBudget": {
             "relief": 0,
             "recess": 2.375
@@ -771,40 +1023,40 @@
           "faceRole": "base_plinth",
           "bandId": "structure/mass_main/base",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/base/facade_side_negative_u/slot/frame",
           "patchId": "structure/mass_main/base/facade_side_negative_u",
           "regionId": "structure/mass_main/base/facade_side_negative_u/slot/region",
           "anchorId": "structure/mass_main/base/facade_side_negative_u/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.005789,
+              "v": 0.314286
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.994211,
+              "v": 0.314286
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.994211,
+              "v": 0.685714
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.005789,
+              "v": 0.685714
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.005789,
+            "uMax": 0.994211,
+            "vMin": 0.314286,
+            "vMax": 0.685714
           },
           "extent": {
-            "uBottom": 19,
-            "uTop": 19,
-            "v": 0.35
+            "uBottom": 18.78,
+            "uTop": 18.78,
+            "v": 0.13
           },
-          "aspect": 54.285714,
+          "aspect": 144.461538,
           "depthBudget": {
             "relief": 0,
             "recess": 2.375
@@ -834,34 +1086,34 @@
           "anchorId": "structure/mass_main/band_01/facade_front/slot_1/anchor",
           "boundary": [
             {
-              "u": 0.009138,
+              "u": 0.009167,
               "v": 0.094873
             },
             {
-              "u": 0.302382,
+              "u": 0.301765,
               "v": 0.094873
             },
             {
-              "u": 0.295593,
+              "u": 0.290575,
               "v": 0.771794
             },
             {
-              "u": 0.008933,
+              "u": 0.009167,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.009138,
-            "uMax": 0.295593,
+            "uMin": 0.009167,
+            "uMax": 0.290575,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 7.037856,
-            "uTop": 6.879853,
+            "uBottom": 7.022361,
+            "uTop": 6.753802,
             "v": 1.569714
           },
-          "aspect": 4.379735,
+          "aspect": 4.30257,
           "depthBudget": {
             "relief": 0,
             "recess": 2.25
@@ -891,34 +1143,34 @@
           "anchorId": "structure/mass_main/band_01/facade_front/slot_2/anchor",
           "boundary": [
             {
-              "u": 0.694481,
+              "u": 0.695098,
               "v": 0.094873
             },
             {
-              "u": 0.987725,
+              "u": 0.987697,
               "v": 0.094873
             },
             {
-              "u": 0.965551,
+              "u": 0.965317,
               "v": 0.771794
             },
             {
-              "u": 0.67889,
+              "u": 0.683908,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.694481,
-            "uMax": 0.965551,
+            "uMin": 0.695098,
+            "uMax": 0.965317,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 7.037856,
-            "uTop": 6.879853,
+            "uBottom": 7.022361,
+            "uTop": 6.753802,
             "v": 1.569714
           },
-          "aspect": 4.144489,
+          "aspect": 4.131482,
           "depthBudget": {
             "relief": 0,
             "recess": 2.25
@@ -948,34 +1200,34 @@
           "anchorId": "structure/mass_main/band_01/facade_rear/slot/anchor",
           "boundary": [
             {
-              "u": 0.009138,
+              "u": 0.009167,
               "v": 0.094873
             },
             {
-              "u": 0.987725,
+              "u": 0.987697,
               "v": 0.094873
             },
             {
-              "u": 0.965551,
+              "u": 0.965317,
               "v": 0.771794
             },
             {
-              "u": 0.008933,
+              "u": 0.009167,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.009138,
-            "uMax": 0.965551,
+            "uMin": 0.009167,
+            "uMax": 0.965317,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 23.486101,
-            "uTop": 22.958831,
+            "uBottom": 23.484721,
+            "uTop": 22.947603,
             "v": 1.569714
           },
-          "aspect": 14.622991,
+          "aspect": 14.618975,
           "depthBudget": {
             "relief": 0,
             "recess": 2.25
@@ -1005,34 +1257,34 @@
           "anchorId": "structure/mass_main/band_01/facade_side_positive_u/slot/anchor",
           "boundary": [
             {
-              "u": 0.012171,
+              "u": 0.012222,
               "v": 0.094873
             },
             {
-              "u": 0.983647,
+              "u": 0.983596,
               "v": 0.094873
             },
             {
-              "u": 0.954172,
+              "u": 0.953756,
               "v": 0.771794
             },
             {
-              "u": 0.011806,
+              "u": 0.012222,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.012171,
-            "uMax": 0.954172,
+            "uMin": 0.012222,
+            "uMax": 0.953756,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 17.486561,
-            "uTop": 16.962573,
+            "uBottom": 17.484721,
+            "uTop": 16.947603,
             "v": 1.569714
           },
-          "aspect": 10.801976,
+          "aspect": 10.796622,
           "depthBudget": {
             "relief": 0,
             "recess": 2.25
@@ -1062,34 +1314,34 @@
           "anchorId": "structure/mass_main/band_01/facade_side_negative_u/slot/anchor",
           "boundary": [
             {
-              "u": 0.012171,
+              "u": 0.012222,
               "v": 0.094873
             },
             {
-              "u": 0.983647,
+              "u": 0.983596,
               "v": 0.094873
             },
             {
-              "u": 0.954172,
+              "u": 0.953756,
               "v": 0.771794
             },
             {
-              "u": 0.011806,
+              "u": 0.012222,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.012171,
-            "uMax": 0.954172,
+            "uMin": 0.012222,
+            "uMax": 0.953756,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 17.486561,
-            "uTop": 16.962573,
+            "uBottom": 17.484721,
+            "uTop": 16.947603,
             "v": 1.569714
           },
-          "aspect": 10.801976,
+          "aspect": 10.796622,
           "depthBudget": {
             "relief": 0,
             "recess": 2.25
@@ -1113,40 +1365,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_01/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_01/cornice_fascia_front/slot/frame",
           "patchId": "structure/mass_main/band_01/cornice_fascia_front",
           "regionId": "structure/mass_main/band_01/cornice_fascia_front/slot/region",
           "anchorId": "structure/mass_main/band_01/cornice_fascia_front/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.00294,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.99706,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.99706,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.00294,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.00294,
+            "uMax": 0.99706,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 23.812325,
-            "uTop": 23.812325,
-            "v": 0.3
+            "uBottom": 23.672325,
+            "uTop": 23.672325,
+            "v": 0.16
           },
-          "aspect": 79.374416,
+          "aspect": 147.95203,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -1170,40 +1422,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_01/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_01/cornice_fascia_rear/slot/frame",
           "patchId": "structure/mass_main/band_01/cornice_fascia_rear",
           "regionId": "structure/mass_main/band_01/cornice_fascia_rear/slot/region",
           "anchorId": "structure/mass_main/band_01/cornice_fascia_rear/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.00294,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.99706,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.99706,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.00294,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.00294,
+            "uMax": 0.99706,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 23.812325,
-            "uTop": 23.812325,
-            "v": 0.3
+            "uBottom": 23.672325,
+            "uTop": 23.672325,
+            "v": 0.16
           },
-          "aspect": 79.374416,
+          "aspect": 147.95203,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -1227,40 +1479,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_01/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_01/cornice_fascia_side_positive_u/slot/frame",
           "patchId": "structure/mass_main/band_01/cornice_fascia_side_positive_u",
           "regionId": "structure/mass_main/band_01/cornice_fascia_side_positive_u/slot/region",
           "anchorId": "structure/mass_main/band_01/cornice_fascia_side_positive_u/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.00393,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.99607,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.99607,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.00393,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.00393,
+            "uMax": 0.99607,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 17.812325,
-            "uTop": 17.812325,
-            "v": 0.3
+            "uBottom": 17.672325,
+            "uTop": 17.672325,
+            "v": 0.16
           },
-          "aspect": 59.374416,
+          "aspect": 110.45203,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -1284,40 +1536,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_01/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_01/cornice_fascia_side_negative_u/slot/frame",
           "patchId": "structure/mass_main/band_01/cornice_fascia_side_negative_u",
           "regionId": "structure/mass_main/band_01/cornice_fascia_side_negative_u/slot/region",
           "anchorId": "structure/mass_main/band_01/cornice_fascia_side_negative_u/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.00393,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.99607,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.99607,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.00393,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.00393,
+            "uMax": 0.99607,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 17.812325,
-            "uTop": 17.812325,
-            "v": 0.3
+            "uBottom": 17.672325,
+            "uTop": 17.672325,
+            "v": 0.16
           },
-          "aspect": 59.374416,
+          "aspect": 110.45203,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -1347,34 +1599,34 @@
           "anchorId": "structure/mass_main/band_02/facade_front/slot_1/anchor",
           "boundary": [
             {
-              "u": 0.010607,
+              "u": 0.010646,
               "v": 0.094873
             },
             {
-              "u": 0.270599,
+              "u": 0.269767,
               "v": 0.094873
             },
             {
-              "u": 0.26354,
+              "u": 0.256771,
               "v": 0.771794
             },
             {
-              "u": 0.010331,
+              "u": 0.010646,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.010607,
-            "uMax": 0.26354,
+            "uMin": 0.010646,
+            "uMax": 0.256771,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 5.372602,
-            "uTop": 5.232445,
+            "uBottom": 5.354606,
+            "uTop": 5.086047,
             "v": 1.569714
           },
-          "aspect": 3.329733,
+          "aspect": 3.240111,
           "depthBudget": {
             "relief": 0,
             "recess": 1.945561
@@ -1404,34 +1656,34 @@
           "anchorId": "structure/mass_main/band_02/facade_front/slot_2/anchor",
           "boundary": [
             {
-              "u": 0.725758,
+              "u": 0.72659,
               "v": 0.094873
             },
             {
-              "u": 0.98575,
+              "u": 0.985711,
               "v": 0.094873
             },
             {
-              "u": 0.960034,
+              "u": 0.959719,
               "v": 0.771794
             },
             {
-              "u": 0.706825,
+              "u": 0.713594,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.725758,
-            "uMax": 0.960034,
+            "uMin": 0.72659,
+            "uMax": 0.959719,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 5.372602,
-            "uTop": 5.232445,
+            "uBottom": 5.354606,
+            "uTop": 5.086047,
             "v": 1.569714
           },
-          "aspect": 3.084131,
+          "aspect": 3.069024,
           "depthBudget": {
             "relief": 0,
             "recess": 1.945561
@@ -1461,34 +1713,34 @@
           "anchorId": "structure/mass_main/band_02/facade_rear/slot/anchor",
           "boundary": [
             {
-              "u": 0.010607,
+              "u": 0.010646,
               "v": 0.094873
             },
             {
-              "u": 0.98575,
+              "u": 0.985711,
               "v": 0.094873
             },
             {
-              "u": 0.960034,
+              "u": 0.959719,
               "v": 0.771794
             },
             {
-              "u": 0.010331,
+              "u": 0.010646,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.010607,
-            "uMax": 0.960034,
+            "uMin": 0.010646,
+            "uMax": 0.959719,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 20.150815,
-            "uTop": 19.625133,
+            "uBottom": 20.149212,
+            "uTop": 19.612094,
             "v": 1.569714
           },
-          "aspect": 12.498723,
+          "aspect": 12.494059,
           "depthBudget": {
             "relief": 0,
             "recess": 1.945561
@@ -1518,34 +1770,34 @@
           "anchorId": "structure/mass_main/band_02/facade_side_positive_u/slot/anchor",
           "boundary": [
             {
-              "u": 0.014066,
+              "u": 0.014135,
               "v": 0.094873
             },
             {
-              "u": 0.981097,
+              "u": 0.981029,
               "v": 0.094873
             },
             {
-              "u": 0.947076,
+              "u": 0.94652,
               "v": 0.771794
             },
             {
-              "u": 0.013579,
+              "u": 0.014135,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.014066,
-            "uMax": 0.947076,
+            "uMin": 0.014135,
+            "uMax": 0.94652,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 15.05134,
-            "uTop": 14.529406,
+            "uBottom": 15.049212,
+            "uTop": 14.512094,
             "v": 1.569714
           },
-          "aspect": 9.251251,
+          "aspect": 9.245059,
           "depthBudget": {
             "relief": 0,
             "recess": 1.945561
@@ -1575,34 +1827,34 @@
           "anchorId": "structure/mass_main/band_02/facade_side_negative_u/slot/anchor",
           "boundary": [
             {
-              "u": 0.014066,
+              "u": 0.014135,
               "v": 0.094873
             },
             {
-              "u": 0.981097,
+              "u": 0.981029,
               "v": 0.094873
             },
             {
-              "u": 0.947076,
+              "u": 0.94652,
               "v": 0.771794
             },
             {
-              "u": 0.013579,
+              "u": 0.014135,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.014066,
-            "uMax": 0.947076,
+            "uMin": 0.014135,
+            "uMax": 0.94652,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 15.05134,
-            "uTop": 14.529406,
+            "uBottom": 15.049212,
+            "uTop": 14.512094,
             "v": 1.569714
           },
-          "aspect": 9.251251,
+          "aspect": 9.245059,
           "depthBudget": {
             "relief": 0,
             "recess": 1.945561
@@ -1626,40 +1878,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_02/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_02/cornice_fascia_front/slot/frame",
           "patchId": "structure/mass_main/band_02/cornice_fascia_front",
           "regionId": "structure/mass_main/band_02/cornice_fascia_front/slot/region",
           "anchorId": "structure/mass_main/band_02/cornice_fascia_front/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.003419,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.996581,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.996581,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.003419,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.003419,
+            "uMax": 0.996581,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 20.476815,
-            "uTop": 20.476815,
-            "v": 0.3
+            "uBottom": 20.336815,
+            "uTop": 20.336815,
+            "v": 0.16
           },
-          "aspect": 68.256051,
+          "aspect": 127.105095,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -1683,40 +1935,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_02/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_02/cornice_fascia_rear/slot/frame",
           "patchId": "structure/mass_main/band_02/cornice_fascia_rear",
           "regionId": "structure/mass_main/band_02/cornice_fascia_rear/slot/region",
           "anchorId": "structure/mass_main/band_02/cornice_fascia_rear/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.003419,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.996581,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.996581,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.003419,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.003419,
+            "uMax": 0.996581,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 20.476815,
-            "uTop": 20.476815,
-            "v": 0.3
+            "uBottom": 20.336815,
+            "uTop": 20.336815,
+            "v": 0.16
           },
-          "aspect": 68.256051,
+          "aspect": 127.105095,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -1740,40 +1992,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_02/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_02/cornice_fascia_side_positive_u/slot/frame",
           "patchId": "structure/mass_main/band_02/cornice_fascia_side_positive_u",
           "regionId": "structure/mass_main/band_02/cornice_fascia_side_positive_u/slot/region",
           "anchorId": "structure/mass_main/band_02/cornice_fascia_side_positive_u/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.004552,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.995448,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.995448,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.004552,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.004552,
+            "uMax": 0.995448,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 15.376815,
-            "uTop": 15.376815,
-            "v": 0.3
+            "uBottom": 15.236815,
+            "uTop": 15.236815,
+            "v": 0.16
           },
-          "aspect": 51.256051,
+          "aspect": 95.230095,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -1797,40 +2049,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_02/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_02/cornice_fascia_side_negative_u/slot/frame",
           "patchId": "structure/mass_main/band_02/cornice_fascia_side_negative_u",
           "regionId": "structure/mass_main/band_02/cornice_fascia_side_negative_u/slot/region",
           "anchorId": "structure/mass_main/band_02/cornice_fascia_side_negative_u/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.004552,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.995448,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.995448,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.004552,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.004552,
+            "uMax": 0.995448,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 15.376815,
-            "uTop": 15.376815,
-            "v": 0.3
+            "uBottom": 15.236815,
+            "uTop": 15.236815,
+            "v": 0.16
           },
-          "aspect": 51.256051,
+          "aspect": 95.230095,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -1860,34 +2112,34 @@
           "anchorId": "structure/mass_main/band_03/facade_front/slot_1/anchor",
           "boundary": [
             {
-              "u": 0.01264,
+              "u": 0.012695,
               "v": 0.094873
             },
             {
-              "u": 0.226635,
+              "u": 0.225452,
               "v": 0.094873
             },
             {
-              "u": 0.21958,
+              "u": 0.209954,
               "v": 0.771794
             },
             {
-              "u": 0.012247,
+              "u": 0.012695,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.01264,
-            "uMax": 0.21958,
+            "uMin": 0.012695,
+            "uMax": 0.209954,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 3.708311,
-            "uTop": 3.592869,
+            "uBottom": 3.686851,
+            "uTop": 3.418292,
             "v": 1.569714
           },
-          "aspect": 2.284525,
+          "aspect": 2.177653,
           "depthBudget": {
             "relief": 0,
             "recess": 1.641123
@@ -1917,34 +2169,34 @@
           "anchorId": "structure/mass_main/band_03/facade_front/slot_2/anchor",
           "boundary": [
             {
-              "u": 0.769021,
+              "u": 0.770204,
               "v": 0.094873
             },
             {
-              "u": 0.983016,
+              "u": 0.98296,
               "v": 0.094873
             },
             {
-              "u": 0.952414,
+              "u": 0.951965,
               "v": 0.771794
             },
             {
-              "u": 0.745081,
+              "u": 0.754706,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.769021,
-            "uMax": 0.952414,
+            "uMin": 0.770204,
+            "uMax": 0.951965,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 3.708311,
-            "uTop": 3.592869,
+            "uBottom": 3.686851,
+            "uTop": 3.418292,
             "v": 1.569714
           },
-          "aspect": 2.024581,
+          "aspect": 2.006566,
           "depthBudget": {
             "relief": 0,
             "recess": 1.641123
@@ -1974,34 +2226,34 @@
           "anchorId": "structure/mass_main/band_03/facade_rear/slot/anchor",
           "boundary": [
             {
-              "u": 0.01264,
+              "u": 0.012695,
               "v": 0.094873
             },
             {
-              "u": 0.983016,
+              "u": 0.98296,
               "v": 0.094873
             },
             {
-              "u": 0.952414,
+              "u": 0.951965,
               "v": 0.771794
             },
             {
-              "u": 0.012247,
+              "u": 0.012695,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.01264,
-            "uMax": 0.952414,
+            "uMin": 0.012695,
+            "uMax": 0.951965,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 16.815614,
-            "uTop": 16.292134,
+            "uBottom": 16.813702,
+            "uTop": 16.276584,
             "v": 1.569714
           },
-          "aspect": 10.374705,
+          "aspect": 10.369143,
           "depthBudget": {
             "relief": 0,
             "recess": 1.641123
@@ -2031,34 +2283,34 @@
           "anchorId": "structure/mass_main/band_03/facade_side_positive_u/slot/anchor",
           "boundary": [
             {
-              "u": 0.016661,
+              "u": 0.016757,
               "v": 0.094873
             },
             {
-              "u": 0.977605,
+              "u": 0.977509,
               "v": 0.094873
             },
             {
-              "u": 0.93738,
+              "u": 0.936599,
               "v": 0.771794
             },
             {
-              "u": 0.015975,
+              "u": 0.016757,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.016661,
-            "uMax": 0.93738,
+            "uMin": 0.016757,
+            "uMax": 0.936599,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 12.616225,
-            "uTop": 12.097108,
+            "uBottom": 12.613702,
+            "uTop": 12.076584,
             "v": 1.569714
           },
-          "aspect": 7.700837,
+          "aspect": 7.693496,
           "depthBudget": {
             "relief": 0,
             "recess": 1.641123
@@ -2088,34 +2340,34 @@
           "anchorId": "structure/mass_main/band_03/facade_side_negative_u/slot/anchor",
           "boundary": [
             {
-              "u": 0.016661,
+              "u": 0.016757,
               "v": 0.094873
             },
             {
-              "u": 0.977605,
+              "u": 0.977509,
               "v": 0.094873
             },
             {
-              "u": 0.93738,
+              "u": 0.936599,
               "v": 0.771794
             },
             {
-              "u": 0.015975,
+              "u": 0.016757,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.016661,
-            "uMax": 0.93738,
+            "uMin": 0.016757,
+            "uMax": 0.936599,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 12.616225,
-            "uTop": 12.097108,
+            "uBottom": 12.613702,
+            "uTop": 12.076584,
             "v": 1.569714
           },
-          "aspect": 7.700837,
+          "aspect": 7.693496,
           "depthBudget": {
             "relief": 0,
             "recess": 1.641123
@@ -2139,40 +2391,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_03/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_03/cornice_fascia_front/slot/frame",
           "patchId": "structure/mass_main/band_03/cornice_fascia_front",
           "regionId": "structure/mass_main/band_03/cornice_fascia_front/slot/region",
           "anchorId": "structure/mass_main/band_03/cornice_fascia_front/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.004084,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.995916,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.995916,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.004084,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.004084,
+            "uMax": 0.995916,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 17.141306,
-            "uTop": 17.141306,
-            "v": 0.3
+            "uBottom": 17.001306,
+            "uTop": 17.001306,
+            "v": 0.16
           },
-          "aspect": 57.137686,
+          "aspect": 106.258161,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2196,40 +2448,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_03/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_03/cornice_fascia_rear/slot/frame",
           "patchId": "structure/mass_main/band_03/cornice_fascia_rear",
           "regionId": "structure/mass_main/band_03/cornice_fascia_rear/slot/region",
           "anchorId": "structure/mass_main/band_03/cornice_fascia_rear/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.004084,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.995916,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.995916,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.004084,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.004084,
+            "uMax": 0.995916,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 17.141306,
-            "uTop": 17.141306,
-            "v": 0.3
+            "uBottom": 17.001306,
+            "uTop": 17.001306,
+            "v": 0.16
           },
-          "aspect": 57.137686,
+          "aspect": 106.258161,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2253,40 +2505,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_03/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_03/cornice_fascia_side_positive_u/slot/frame",
           "patchId": "structure/mass_main/band_03/cornice_fascia_side_positive_u",
           "regionId": "structure/mass_main/band_03/cornice_fascia_side_positive_u/slot/region",
           "anchorId": "structure/mass_main/band_03/cornice_fascia_side_positive_u/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.005409,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.994591,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.994591,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.005409,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.005409,
+            "uMax": 0.994591,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 12.941306,
-            "uTop": 12.941306,
-            "v": 0.3
+            "uBottom": 12.801306,
+            "uTop": 12.801306,
+            "v": 0.16
           },
-          "aspect": 43.137686,
+          "aspect": 80.008161,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2310,40 +2562,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_03/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_03/cornice_fascia_side_negative_u/slot/frame",
           "patchId": "structure/mass_main/band_03/cornice_fascia_side_negative_u",
           "regionId": "structure/mass_main/band_03/cornice_fascia_side_negative_u/slot/region",
           "anchorId": "structure/mass_main/band_03/cornice_fascia_side_negative_u/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.005409,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.994591,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.994591,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.005409,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.005409,
+            "uMax": 0.994591,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 12.941306,
-            "uTop": 12.941306,
-            "v": 0.3
+            "uBottom": 12.801306,
+            "uTop": 12.801306,
+            "v": 0.16
           },
-          "aspect": 43.137686,
+          "aspect": 80.008161,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2373,34 +2625,34 @@
           "anchorId": "structure/mass_main/band_04/facade_front/slot_1/anchor",
           "boundary": [
             {
-              "u": 0.015637,
+              "u": 0.015722,
               "v": 0.094873
             },
             {
-              "u": 0.161825,
+              "u": 0.16001,
               "v": 0.094873
             },
             {
-              "u": 0.15558,
+              "u": 0.140818,
               "v": 0.771794
             },
             {
-              "u": 0.015034,
+              "u": 0.015722,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.015637,
-            "uMax": 0.15558,
+            "uMin": 0.015722,
+            "uMax": 0.140818,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 2.045671,
-            "uTop": 1.966727,
+            "uBottom": 2.019096,
+            "uTop": 1.750537,
             "v": 1.569714
           },
-          "aspect": 1.247541,
+          "aspect": 1.115195,
           "depthBudget": {
             "relief": 0,
             "recess": 1.336684
@@ -2430,34 +2682,34 @@
           "anchorId": "structure/mass_main/band_04/facade_front/slot_2/anchor",
           "boundary": [
             {
-              "u": 0.832796,
+              "u": 0.83461,
               "v": 0.094873
             },
             {
-              "u": 0.978983,
+              "u": 0.978899,
               "v": 0.094873
             },
             {
-              "u": 0.941203,
+              "u": 0.940515,
               "v": 0.771794
             },
             {
-              "u": 0.800657,
+              "u": 0.815419,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.832796,
-            "uMax": 0.941203,
+            "uMin": 0.83461,
+            "uMax": 0.940515,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 2.045671,
-            "uTop": 1.966727,
+            "uBottom": 2.019096,
+            "uTop": 1.750537,
             "v": 1.569714
           },
-          "aspect": 0.966417,
+          "aspect": 0.944108,
           "depthBudget": {
             "relief": 0,
             "recess": 1.336684
@@ -2487,34 +2739,34 @@
           "anchorId": "structure/mass_main/band_04/facade_rear/slot/anchor",
           "boundary": [
             {
-              "u": 0.015637,
+              "u": 0.015722,
               "v": 0.094873
             },
             {
-              "u": 0.978983,
+              "u": 0.978899,
               "v": 0.094873
             },
             {
-              "u": 0.941203,
+              "u": 0.940515,
               "v": 0.771794
             },
             {
-              "u": 0.015034,
+              "u": 0.015722,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.015637,
-            "uMax": 0.941203,
+            "uMin": 0.015722,
+            "uMax": 0.940515,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 13.48056,
-            "uTop": 12.960331,
+            "uBottom": 13.478193,
+            "uTop": 12.941075,
             "v": 1.569714
           },
-          "aspect": 8.251114,
+          "aspect": 8.244227,
           "depthBudget": {
             "relief": 0,
             "recess": 1.336684
@@ -2544,34 +2796,34 @@
           "anchorId": "structure/mass_main/band_04/facade_side_positive_u/slot/anchor",
           "boundary": [
             {
-              "u": 0.020428,
+              "u": 0.020573,
               "v": 0.094873
             },
             {
-              "u": 0.972532,
+              "u": 0.972387,
               "v": 0.094873
             },
             {
-              "u": 0.923337,
+              "u": 0.922158,
               "v": 0.771794
             },
             {
-              "u": 0.019395,
+              "u": 0.020573,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.020428,
-            "uMax": 0.923337,
+            "uMin": 0.020573,
+            "uMax": 0.922158,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 10.18129,
-            "uTop": 9.666273,
+            "uBottom": 10.178193,
+            "uTop": 9.641075,
             "v": 1.569714
           },
-          "aspect": 6.150946,
+          "aspect": 6.141933,
           "depthBudget": {
             "relief": 0,
             "recess": 1.336684
@@ -2601,34 +2853,34 @@
           "anchorId": "structure/mass_main/band_04/facade_side_negative_u/slot/anchor",
           "boundary": [
             {
-              "u": 0.020428,
+              "u": 0.020573,
               "v": 0.094873
             },
             {
-              "u": 0.972532,
+              "u": 0.972387,
               "v": 0.094873
             },
             {
-              "u": 0.923337,
+              "u": 0.922158,
               "v": 0.771794
             },
             {
-              "u": 0.019395,
+              "u": 0.020573,
               "v": 0.771794
             }
           ],
           "inscribed": {
-            "uMin": 0.020428,
-            "uMax": 0.923337,
+            "uMin": 0.020573,
+            "uMax": 0.922158,
             "vMin": 0.094873,
             "vMax": 0.771794
           },
           "extent": {
-            "uBottom": 10.18129,
-            "uTop": 9.666273,
+            "uBottom": 10.178193,
+            "uTop": 9.641075,
             "v": 1.569714
           },
-          "aspect": 6.150946,
+          "aspect": 6.141933,
           "depthBudget": {
             "relief": 0,
             "recess": 1.336684
@@ -2652,40 +2904,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_04/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_04/cornice_fascia_front/slot/frame",
           "patchId": "structure/mass_main/band_04/cornice_fascia_front",
           "regionId": "structure/mass_main/band_04/cornice_fascia_front/slot/region",
           "anchorId": "structure/mass_main/band_04/cornice_fascia_front/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.00507,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.99493,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.99493,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.00507,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.00507,
+            "uMax": 0.99493,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 13.805796,
-            "uTop": 13.805796,
-            "v": 0.3
+            "uBottom": 13.665796,
+            "uTop": 13.665796,
+            "v": 0.16
           },
-          "aspect": 46.019321,
+          "aspect": 85.411226,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2709,40 +2961,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_04/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_04/cornice_fascia_rear/slot/frame",
           "patchId": "structure/mass_main/band_04/cornice_fascia_rear",
           "regionId": "structure/mass_main/band_04/cornice_fascia_rear/slot/region",
           "anchorId": "structure/mass_main/band_04/cornice_fascia_rear/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.00507,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.99493,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.99493,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.00507,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.00507,
+            "uMax": 0.99493,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 13.805796,
-            "uTop": 13.805796,
-            "v": 0.3
+            "uBottom": 13.665796,
+            "uTop": 13.665796,
+            "v": 0.16
           },
-          "aspect": 46.019321,
+          "aspect": 85.411226,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2766,40 +3018,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_04/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_04/cornice_fascia_side_positive_u/slot/frame",
           "patchId": "structure/mass_main/band_04/cornice_fascia_side_positive_u",
           "regionId": "structure/mass_main/band_04/cornice_fascia_side_positive_u/slot/region",
           "anchorId": "structure/mass_main/band_04/cornice_fascia_side_positive_u/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.006663,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.993337,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.993337,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.006663,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.006663,
+            "uMax": 0.993337,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 10.505796,
-            "uTop": 10.505796,
-            "v": 0.3
+            "uBottom": 10.365796,
+            "uTop": 10.365796,
+            "v": 0.16
           },
-          "aspect": 35.019321,
+          "aspect": 64.786226,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2823,40 +3075,40 @@
           "faceRole": "cornice",
           "bandId": "structure/mass_main/band_04/cornice",
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/mass_main/band_04/cornice_fascia_side_negative_u/slot/frame",
           "patchId": "structure/mass_main/band_04/cornice_fascia_side_negative_u",
           "regionId": "structure/mass_main/band_04/cornice_fascia_side_negative_u/slot/region",
           "anchorId": "structure/mass_main/band_04/cornice_fascia_side_negative_u/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.006663,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.993337,
+              "v": 0.233333
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.993337,
+              "v": 0.766667
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.006663,
+              "v": 0.766667
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.006663,
+            "uMax": 0.993337,
+            "vMin": 0.233333,
+            "vMax": 0.766667
           },
           "extent": {
-            "uBottom": 10.505796,
-            "uTop": 10.505796,
-            "v": 0.3
+            "uBottom": 10.365796,
+            "uTop": 10.365796,
+            "v": 0.16
           },
-          "aspect": 35.019321,
+          "aspect": 64.786226,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -3032,12 +3284,12 @@
         {
           "id": "structure/mass_main/base/facade_front/slot_1/region",
           "uRange": [
-            0,
-            0.32
+            0.0044,
+            0.3156
           ],
           "vRange": [
-            0,
-            1
+            0.314286,
+            0.685714
           ],
           "priority": 10,
           "allowedOperations": [],
@@ -3054,12 +3306,12 @@
         {
           "id": "structure/mass_main/base/facade_front/slot_2/region",
           "uRange": [
-            0.68,
-            1
+            0.6844,
+            0.9956
           ],
           "vRange": [
-            0,
-            1
+            0.314286,
+            0.685714
           ],
           "priority": 10,
           "allowedOperations": [],
@@ -3165,12 +3417,12 @@
         {
           "id": "structure/mass_main/base/facade_rear/slot/region",
           "uRange": [
-            0,
-            1
+            0.0044,
+            0.9956
           ],
           "vRange": [
-            0,
-            1
+            0.314286,
+            0.685714
           ],
           "priority": 10,
           "allowedOperations": [],
@@ -3267,12 +3519,12 @@
         {
           "id": "structure/mass_main/base/facade_side_positive_u/slot/region",
           "uRange": [
-            0,
-            1
+            0.005789,
+            0.994211
           ],
           "vRange": [
-            0,
-            1
+            0.314286,
+            0.685714
           ],
           "priority": 10,
           "allowedOperations": [],
@@ -3369,12 +3621,12 @@
         {
           "id": "structure/mass_main/base/facade_side_negative_u/slot/region",
           "uRange": [
-            0,
-            1
+            0.005789,
+            0.994211
           ],
           "vRange": [
-            0,
-            1
+            0.314286,
+            0.685714
           ],
           "priority": 10,
           "allowedOperations": [],
@@ -3585,8 +3837,8 @@
         {
           "id": "structure/mass_main/band_01/facade_front/slot_1/region",
           "uRange": [
-            0.009138,
-            0.295593
+            0.009167,
+            0.290575
           ],
           "vRange": [
             0.094873,
@@ -3607,8 +3859,8 @@
         {
           "id": "structure/mass_main/band_01/facade_front/slot_2/region",
           "uRange": [
-            0.694481,
-            0.965551
+            0.695098,
+            0.965317
           ],
           "vRange": [
             0.094873,
@@ -3632,7 +3884,7 @@
         {
           "id": "structure/mass_main/band_01/facade_front/slot_1/anchor",
           "kind": "ornament",
-          "u": 0.152366,
+          "u": 0.149871,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_01/facade_front/slot_1/region",
@@ -3641,7 +3893,7 @@
         {
           "id": "structure/mass_main/band_01/facade_front/slot_2/anchor",
           "kind": "ornament",
-          "u": 0.830016,
+          "u": 0.830208,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_01/facade_front/slot_2/region",
@@ -3722,8 +3974,8 @@
         {
           "id": "structure/mass_main/band_01/facade_rear/slot/region",
           "uRange": [
-            0.009138,
-            0.965551
+            0.009167,
+            0.965317
           ],
           "vRange": [
             0.094873,
@@ -3747,7 +3999,7 @@
         {
           "id": "structure/mass_main/band_01/facade_rear/slot/anchor",
           "kind": "ornament",
-          "u": 0.487344,
+          "u": 0.487242,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_01/facade_rear/slot/region",
@@ -3828,8 +4080,8 @@
         {
           "id": "structure/mass_main/band_01/facade_side_positive_u/slot/region",
           "uRange": [
-            0.012171,
-            0.954172
+            0.012222,
+            0.953756
           ],
           "vRange": [
             0.094873,
@@ -3853,7 +4105,7 @@
         {
           "id": "structure/mass_main/band_01/facade_side_positive_u/slot/anchor",
           "kind": "ornament",
-          "u": 0.483171,
+          "u": 0.482989,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_01/facade_side_positive_u/slot/region",
@@ -3934,8 +4186,8 @@
         {
           "id": "structure/mass_main/band_01/facade_side_negative_u/slot/region",
           "uRange": [
-            0.012171,
-            0.954172
+            0.012222,
+            0.953756
           ],
           "vRange": [
             0.094873,
@@ -3959,7 +4211,7 @@
         {
           "id": "structure/mass_main/band_01/facade_side_negative_u/slot/anchor",
           "kind": "ornament",
-          "u": 0.483171,
+          "u": 0.482989,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_01/facade_side_negative_u/slot/region",
@@ -4038,12 +4290,12 @@
         {
           "id": "structure/mass_main/band_01/cornice_fascia_front/slot/region",
           "uRange": [
-            0,
-            1
+            0.00294,
+            0.99706
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -4143,12 +4395,12 @@
         {
           "id": "structure/mass_main/band_01/cornice_fascia_rear/slot/region",
           "uRange": [
-            0,
-            1
+            0.00294,
+            0.99706
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -4248,12 +4500,12 @@
         {
           "id": "structure/mass_main/band_01/cornice_fascia_side_positive_u/slot/region",
           "uRange": [
-            0,
-            1
+            0.00393,
+            0.99607
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -4353,12 +4605,12 @@
         {
           "id": "structure/mass_main/band_01/cornice_fascia_side_negative_u/slot/region",
           "uRange": [
-            0,
-            1
+            0.00393,
+            0.99607
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -4571,8 +4823,8 @@
         {
           "id": "structure/mass_main/band_02/facade_front/slot_1/region",
           "uRange": [
-            0.010607,
-            0.26354
+            0.010646,
+            0.256771
           ],
           "vRange": [
             0.094873,
@@ -4593,8 +4845,8 @@
         {
           "id": "structure/mass_main/band_02/facade_front/slot_2/region",
           "uRange": [
-            0.725758,
-            0.960034
+            0.72659,
+            0.959719
           ],
           "vRange": [
             0.094873,
@@ -4618,7 +4870,7 @@
         {
           "id": "structure/mass_main/band_02/facade_front/slot_1/anchor",
           "kind": "ornament",
-          "u": 0.137074,
+          "u": 0.133709,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_02/facade_front/slot_1/region",
@@ -4627,7 +4879,7 @@
         {
           "id": "structure/mass_main/band_02/facade_front/slot_2/anchor",
           "kind": "ornament",
-          "u": 0.842896,
+          "u": 0.843154,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_02/facade_front/slot_2/region",
@@ -4708,8 +4960,8 @@
         {
           "id": "structure/mass_main/band_02/facade_rear/slot/region",
           "uRange": [
-            0.010607,
-            0.960034
+            0.010646,
+            0.959719
           ],
           "vRange": [
             0.094873,
@@ -4733,7 +4985,7 @@
         {
           "id": "structure/mass_main/band_02/facade_rear/slot/anchor",
           "kind": "ornament",
-          "u": 0.485321,
+          "u": 0.485182,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_02/facade_rear/slot/region",
@@ -4814,8 +5066,8 @@
         {
           "id": "structure/mass_main/band_02/facade_side_positive_u/slot/region",
           "uRange": [
-            0.014066,
-            0.947076
+            0.014135,
+            0.94652
           ],
           "vRange": [
             0.094873,
@@ -4839,7 +5091,7 @@
         {
           "id": "structure/mass_main/band_02/facade_side_positive_u/slot/anchor",
           "kind": "ornament",
-          "u": 0.480571,
+          "u": 0.480327,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_02/facade_side_positive_u/slot/region",
@@ -4920,8 +5172,8 @@
         {
           "id": "structure/mass_main/band_02/facade_side_negative_u/slot/region",
           "uRange": [
-            0.014066,
-            0.947076
+            0.014135,
+            0.94652
           ],
           "vRange": [
             0.094873,
@@ -4945,7 +5197,7 @@
         {
           "id": "structure/mass_main/band_02/facade_side_negative_u/slot/anchor",
           "kind": "ornament",
-          "u": 0.480571,
+          "u": 0.480327,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_02/facade_side_negative_u/slot/region",
@@ -5024,12 +5276,12 @@
         {
           "id": "structure/mass_main/band_02/cornice_fascia_front/slot/region",
           "uRange": [
-            0,
-            1
+            0.003419,
+            0.996581
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -5129,12 +5381,12 @@
         {
           "id": "structure/mass_main/band_02/cornice_fascia_rear/slot/region",
           "uRange": [
-            0,
-            1
+            0.003419,
+            0.996581
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -5234,12 +5486,12 @@
         {
           "id": "structure/mass_main/band_02/cornice_fascia_side_positive_u/slot/region",
           "uRange": [
-            0,
-            1
+            0.004552,
+            0.995448
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -5339,12 +5591,12 @@
         {
           "id": "structure/mass_main/band_02/cornice_fascia_side_negative_u/slot/region",
           "uRange": [
-            0,
-            1
+            0.004552,
+            0.995448
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -5557,8 +5809,8 @@
         {
           "id": "structure/mass_main/band_03/facade_front/slot_1/region",
           "uRange": [
-            0.01264,
-            0.21958
+            0.012695,
+            0.209954
           ],
           "vRange": [
             0.094873,
@@ -5579,8 +5831,8 @@
         {
           "id": "structure/mass_main/band_03/facade_front/slot_2/region",
           "uRange": [
-            0.769021,
-            0.952414
+            0.770204,
+            0.951965
           ],
           "vRange": [
             0.094873,
@@ -5604,7 +5856,7 @@
         {
           "id": "structure/mass_main/band_03/facade_front/slot_1/anchor",
           "kind": "ornament",
-          "u": 0.11611,
+          "u": 0.111325,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_03/facade_front/slot_1/region",
@@ -5613,7 +5865,7 @@
         {
           "id": "structure/mass_main/band_03/facade_front/slot_2/anchor",
           "kind": "ornament",
-          "u": 0.860717,
+          "u": 0.861085,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_03/facade_front/slot_2/region",
@@ -5694,8 +5946,8 @@
         {
           "id": "structure/mass_main/band_03/facade_rear/slot/region",
           "uRange": [
-            0.01264,
-            0.952414
+            0.012695,
+            0.951965
           ],
           "vRange": [
             0.094873,
@@ -5719,7 +5971,7 @@
         {
           "id": "structure/mass_main/band_03/facade_rear/slot/anchor",
           "kind": "ornament",
-          "u": 0.482527,
+          "u": 0.48233,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_03/facade_rear/slot/region",
@@ -5800,8 +6052,8 @@
         {
           "id": "structure/mass_main/band_03/facade_side_positive_u/slot/region",
           "uRange": [
-            0.016661,
-            0.93738
+            0.016757,
+            0.936599
           ],
           "vRange": [
             0.094873,
@@ -5825,7 +6077,7 @@
         {
           "id": "structure/mass_main/band_03/facade_side_positive_u/slot/anchor",
           "kind": "ornament",
-          "u": 0.47702,
+          "u": 0.476678,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_03/facade_side_positive_u/slot/region",
@@ -5906,8 +6158,8 @@
         {
           "id": "structure/mass_main/band_03/facade_side_negative_u/slot/region",
           "uRange": [
-            0.016661,
-            0.93738
+            0.016757,
+            0.936599
           ],
           "vRange": [
             0.094873,
@@ -5931,7 +6183,7 @@
         {
           "id": "structure/mass_main/band_03/facade_side_negative_u/slot/anchor",
           "kind": "ornament",
-          "u": 0.47702,
+          "u": 0.476678,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_03/facade_side_negative_u/slot/region",
@@ -6010,12 +6262,12 @@
         {
           "id": "structure/mass_main/band_03/cornice_fascia_front/slot/region",
           "uRange": [
-            0,
-            1
+            0.004084,
+            0.995916
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -6115,12 +6367,12 @@
         {
           "id": "structure/mass_main/band_03/cornice_fascia_rear/slot/region",
           "uRange": [
-            0,
-            1
+            0.004084,
+            0.995916
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -6220,12 +6472,12 @@
         {
           "id": "structure/mass_main/band_03/cornice_fascia_side_positive_u/slot/region",
           "uRange": [
-            0,
-            1
+            0.005409,
+            0.994591
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -6325,12 +6577,12 @@
         {
           "id": "structure/mass_main/band_03/cornice_fascia_side_negative_u/slot/region",
           "uRange": [
-            0,
-            1
+            0.005409,
+            0.994591
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -6543,8 +6795,8 @@
         {
           "id": "structure/mass_main/band_04/facade_front/slot_1/region",
           "uRange": [
-            0.015637,
-            0.15558
+            0.015722,
+            0.140818
           ],
           "vRange": [
             0.094873,
@@ -6565,8 +6817,8 @@
         {
           "id": "structure/mass_main/band_04/facade_front/slot_2/region",
           "uRange": [
-            0.832796,
-            0.941203
+            0.83461,
+            0.940515
           ],
           "vRange": [
             0.094873,
@@ -6590,7 +6842,7 @@
         {
           "id": "structure/mass_main/band_04/facade_front/slot_1/anchor",
           "kind": "ornament",
-          "u": 0.085608,
+          "u": 0.07827,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_04/facade_front/slot_1/region",
@@ -6599,7 +6851,7 @@
         {
           "id": "structure/mass_main/band_04/facade_front/slot_2/anchor",
           "kind": "ornament",
-          "u": 0.887,
+          "u": 0.887563,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_04/facade_front/slot_2/region",
@@ -6680,8 +6932,8 @@
         {
           "id": "structure/mass_main/band_04/facade_rear/slot/region",
           "uRange": [
-            0.015637,
-            0.941203
+            0.015722,
+            0.940515
           ],
           "vRange": [
             0.094873,
@@ -6705,7 +6957,7 @@
         {
           "id": "structure/mass_main/band_04/facade_rear/slot/anchor",
           "kind": "ornament",
-          "u": 0.47842,
+          "u": 0.478118,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_04/facade_rear/slot/region",
@@ -6786,8 +7038,8 @@
         {
           "id": "structure/mass_main/band_04/facade_side_positive_u/slot/region",
           "uRange": [
-            0.020428,
-            0.923337
+            0.020573,
+            0.922158
           ],
           "vRange": [
             0.094873,
@@ -6811,7 +7063,7 @@
         {
           "id": "structure/mass_main/band_04/facade_side_positive_u/slot/anchor",
           "kind": "ornament",
-          "u": 0.471883,
+          "u": 0.471366,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_04/facade_side_positive_u/slot/region",
@@ -6892,8 +7144,8 @@
         {
           "id": "structure/mass_main/band_04/facade_side_negative_u/slot/region",
           "uRange": [
-            0.020428,
-            0.923337
+            0.020573,
+            0.922158
           ],
           "vRange": [
             0.094873,
@@ -6917,7 +7169,7 @@
         {
           "id": "structure/mass_main/band_04/facade_side_negative_u/slot/anchor",
           "kind": "ornament",
-          "u": 0.471883,
+          "u": 0.471366,
           "v": 0.433333,
           "d": 0,
           "regionId": "structure/mass_main/band_04/facade_side_negative_u/slot/region",
@@ -6996,12 +7248,12 @@
         {
           "id": "structure/mass_main/band_04/cornice_fascia_front/slot/region",
           "uRange": [
-            0,
-            1
+            0.00507,
+            0.99493
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -7101,12 +7353,12 @@
         {
           "id": "structure/mass_main/band_04/cornice_fascia_rear/slot/region",
           "uRange": [
-            0,
-            1
+            0.00507,
+            0.99493
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -7206,12 +7458,12 @@
         {
           "id": "structure/mass_main/band_04/cornice_fascia_side_positive_u/slot/region",
           "uRange": [
-            0,
-            1
+            0.006663,
+            0.993337
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -7311,12 +7563,12 @@
         {
           "id": "structure/mass_main/band_04/cornice_fascia_side_negative_u/slot/region",
           "uRange": [
-            0,
-            1
+            0.006663,
+            0.993337
           ],
           "vRange": [
-            0,
-            1
+            0.233333,
+            0.766667
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -7740,6 +7992,50 @@
             "portal",
             "circulation"
           ]
+        },
+        {
+          "id": "structure/summit_chamber/wall_front_slot_1/region",
+          "uRange": [
+            0.064394,
+            0.388258
+          ],
+          "vRange": [
+            0.045,
+            0.605
+          ],
+          "priority": 10,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "engraving",
+            "exterior",
+            "cell_wall",
+            "front",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "structure/summit_chamber/wall_front_slot_2/region",
+          "uRange": [
+            0.611742,
+            0.935606
+          ],
+          "vRange": [
+            0.045,
+            0.605
+          ],
+          "priority": 10,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "engraving",
+            "exterior",
+            "cell_wall",
+            "front",
+            "field",
+            "condition_intact"
+          ]
         }
       ],
       "features": [
@@ -7756,7 +8052,26 @@
           "conflictPolicy": "error"
         }
       ],
-      "anchors": [],
+      "anchors": [
+        {
+          "id": "structure/summit_chamber/wall_front_slot_1/anchor",
+          "kind": "ornament",
+          "u": 0.226326,
+          "v": 0.325,
+          "d": 0,
+          "regionId": "structure/summit_chamber/wall_front_slot_1/region",
+          "orientation": "front"
+        },
+        {
+          "id": "structure/summit_chamber/wall_front_slot_2/anchor",
+          "kind": "ornament",
+          "u": 0.773674,
+          "v": 0.325,
+          "d": 0,
+          "regionId": "structure/summit_chamber/wall_front_slot_2/region",
+          "orientation": "front"
+        }
+      ],
       "tags": [
         "exterior",
         "cell_wall",
@@ -7977,12 +8292,12 @@
         {
           "id": "structure/summit_chamber/wall_rear_slot/region",
           "uRange": [
-            0.068182,
-            0.931818
+            0.064394,
+            0.935606
           ],
           "vRange": [
-            0.055,
-            0.945
+            0.045,
+            0.955
           ],
           "priority": 10,
           "allowedOperations": [],
@@ -8191,12 +8506,12 @@
         {
           "id": "structure/summit_chamber/wall_side_positive_u_slot/region",
           "uRange": [
-            0.09697,
-            0.90303
+            0.091582,
+            0.908418
           ],
           "vRange": [
-            0.055,
-            0.945
+            0.045,
+            0.955
           ],
           "priority": 10,
           "allowedOperations": [],
@@ -8405,12 +8720,12 @@
         {
           "id": "structure/summit_chamber/wall_side_negative_u_slot/region",
           "uRange": [
-            0.09697,
-            0.90303
+            0.091582,
+            0.908418
           ],
           "vRange": [
-            0.055,
-            0.945
+            0.045,
+            0.955
           ],
           "priority": 10,
           "allowedOperations": [],
@@ -8874,12 +9189,12 @@
         {
           "id": "structure/summit_roof/slab/fascia_front/slot/region",
           "uRange": [
-            0,
-            1
+            0.008137,
+            0.991863
           ],
           "vRange": [
-            0,
-            1
+            0.18,
+            0.82
           ],
           "priority": 10,
           "allowedOperations": [],
@@ -9051,12 +9366,12 @@
         {
           "id": "structure/summit_roof/slab/fascia_rear/slot/region",
           "uRange": [
-            0,
-            1
+            0.008137,
+            0.991863
           ],
           "vRange": [
-            0,
-            1
+            0.18,
+            0.82
           ],
           "priority": 10,
           "allowedOperations": [],
@@ -9228,12 +9543,12 @@
         {
           "id": "structure/summit_roof/slab/fascia_side_positive_u/slot/region",
           "uRange": [
-            0.031546,
-            0.968454
+            0.042902,
+            0.957098
           ],
           "vRange": [
-            0,
-            1
+            0.18,
+            0.82
           ],
           "priority": 10,
           "allowedOperations": [],
@@ -9405,12 +9720,12 @@
         {
           "id": "structure/summit_roof/slab/fascia_side_negative_u/slot/region",
           "uRange": [
-            0.031546,
-            0.968454
+            0.042902,
+            0.957098
           ],
           "vRange": [
-            0,
-            1
+            0.18,
+            0.82
           ],
           "priority": 10,
           "allowedOperations": [],
@@ -9581,12 +9896,12 @@
         {
           "id": "structure/summit_roof/cornice/fascia_front/slot/region",
           "uRange": [
-            0,
-            1
+            0.004363,
+            0.995637
           ],
           "vRange": [
-            0,
-            1
+            0.2,
+            0.8
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -9757,12 +10072,12 @@
         {
           "id": "structure/summit_roof/cornice/fascia_rear/slot/region",
           "uRange": [
-            0,
-            1
+            0.004363,
+            0.995637
           ],
           "vRange": [
-            0,
-            1
+            0.2,
+            0.8
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -9933,12 +10248,12 @@
         {
           "id": "structure/summit_roof/cornice/fascia_side_positive_u/slot/region",
           "uRange": [
-            0.024024,
-            0.975976
+            0.03003,
+            0.96997
           ],
           "vRange": [
-            0,
-            1
+            0.2,
+            0.8
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -10109,12 +10424,12 @@
         {
           "id": "structure/summit_roof/cornice/fascia_side_negative_u/slot/region",
           "uRange": [
-            0.024024,
-            0.975976
+            0.03003,
+            0.96997
           ],
           "vRange": [
-            0,
-            1
+            0.2,
+            0.8
           ],
           "priority": 20,
           "allowedOperations": [],
@@ -10639,15 +10954,39 @@
       ],
       "frames": [
         {
+          "id": "structure/summit_chamber/wall_front_slot_1/frame",
+          "style": "plain_field",
+          "bandId": null,
+          "bayId": null,
+          "faceId": "structure/summit_chamber/wall_front_exterior",
+          "borderWidth": 0.1,
+          "recessDepth": 0,
+          "insetU": 0.08,
+          "insetV": 0.08,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/summit_chamber/wall_front_slot_2/frame",
+          "style": "plain_field",
+          "bandId": null,
+          "bayId": null,
+          "faceId": "structure/summit_chamber/wall_front_exterior",
+          "borderWidth": 0.1,
+          "recessDepth": 0,
+          "insetU": 0.08,
+          "insetV": 0.08,
+          "returnProfile": "square"
+        },
+        {
           "id": "structure/summit_chamber/wall_rear_slot/frame",
           "style": "plain_field",
           "bandId": null,
           "bayId": null,
           "faceId": "structure/summit_chamber/wall_rear_exterior",
-          "borderWidth": 0.12,
+          "borderWidth": 0.1,
           "recessDepth": 0,
-          "insetU": 0.1,
-          "insetV": 0.1,
+          "insetU": 0.08,
+          "insetV": 0.08,
           "returnProfile": "square"
         },
         {
@@ -10656,10 +10995,10 @@
           "bandId": null,
           "bayId": null,
           "faceId": "structure/summit_chamber/wall_right_exterior",
-          "borderWidth": 0.12,
+          "borderWidth": 0.1,
           "recessDepth": 0,
-          "insetU": 0.1,
-          "insetV": 0.1,
+          "insetU": 0.08,
+          "insetV": 0.08,
           "returnProfile": "square"
         },
         {
@@ -10668,14 +11007,128 @@
           "bandId": null,
           "bayId": null,
           "faceId": "structure/summit_chamber/wall_left_exterior",
-          "borderWidth": 0.12,
+          "borderWidth": 0.1,
           "recessDepth": 0,
-          "insetU": 0.1,
-          "insetV": 0.1,
+          "insetU": 0.08,
+          "insetV": 0.08,
           "returnProfile": "square"
         }
       ],
       "slots": [
+        {
+          "id": "structure/summit_chamber/wall_front_slot_1",
+          "kind": "field",
+          "part": "cell",
+          "face": "front",
+          "faceRole": "cell_wall_exterior",
+          "bandId": null,
+          "bayId": null,
+          "frameId": "structure/summit_chamber/wall_front_slot_1/frame",
+          "patchId": "structure/summit_chamber/wall_front_exterior",
+          "regionId": "structure/summit_chamber/wall_front_slot_1/region",
+          "anchorId": "structure/summit_chamber/wall_front_slot_1/anchor",
+          "boundary": [
+            {
+              "u": 0.064394,
+              "v": 0.045
+            },
+            {
+              "u": 0.388258,
+              "v": 0.045
+            },
+            {
+              "u": 0.388258,
+              "v": 0.605
+            },
+            {
+              "u": 0.064394,
+              "v": 0.605
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.064394,
+            "uMax": 0.388258,
+            "vMin": 0.045,
+            "vMax": 0.605
+          },
+          "extent": {
+            "uBottom": 3.42,
+            "uTop": 3.42,
+            "v": 2.24
+          },
+          "aspect": 1.526786,
+          "depthBudget": {
+            "relief": 0,
+            "recess": 0.125
+          },
+          "flow": "horizontal",
+          "continuity": "per_face",
+          "hierarchy": 10,
+          "condition": "intact",
+          "tags": [
+            "engraving",
+            "exterior",
+            "cell_wall",
+            "front"
+          ]
+        },
+        {
+          "id": "structure/summit_chamber/wall_front_slot_2",
+          "kind": "field",
+          "part": "cell",
+          "face": "front",
+          "faceRole": "cell_wall_exterior",
+          "bandId": null,
+          "bayId": null,
+          "frameId": "structure/summit_chamber/wall_front_slot_2/frame",
+          "patchId": "structure/summit_chamber/wall_front_exterior",
+          "regionId": "structure/summit_chamber/wall_front_slot_2/region",
+          "anchorId": "structure/summit_chamber/wall_front_slot_2/anchor",
+          "boundary": [
+            {
+              "u": 0.611742,
+              "v": 0.045
+            },
+            {
+              "u": 0.935606,
+              "v": 0.045
+            },
+            {
+              "u": 0.935606,
+              "v": 0.605
+            },
+            {
+              "u": 0.611742,
+              "v": 0.605
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.611742,
+            "uMax": 0.935606,
+            "vMin": 0.045,
+            "vMax": 0.605
+          },
+          "extent": {
+            "uBottom": 3.42,
+            "uTop": 3.42,
+            "v": 2.24
+          },
+          "aspect": 1.526786,
+          "depthBudget": {
+            "relief": 0,
+            "recess": 0.125
+          },
+          "flow": "horizontal",
+          "continuity": "per_face",
+          "hierarchy": 10,
+          "condition": "intact",
+          "tags": [
+            "engraving",
+            "exterior",
+            "cell_wall",
+            "front"
+          ]
+        },
         {
           "id": "structure/summit_chamber/wall_rear_slot",
           "kind": "field",
@@ -10690,34 +11143,34 @@
           "anchorId": "structure/summit_chamber/wall_rear_slot/anchor",
           "boundary": [
             {
-              "u": 0.068182,
-              "v": 0.055
+              "u": 0.064394,
+              "v": 0.045
             },
             {
-              "u": 0.931818,
-              "v": 0.055
+              "u": 0.935606,
+              "v": 0.045
             },
             {
-              "u": 0.931818,
-              "v": 0.945
+              "u": 0.935606,
+              "v": 0.955
             },
             {
-              "u": 0.068182,
-              "v": 0.945
+              "u": 0.064394,
+              "v": 0.955
             }
           ],
           "inscribed": {
-            "uMin": 0.068182,
-            "uMax": 0.931818,
-            "vMin": 0.055,
-            "vMax": 0.945
+            "uMin": 0.064394,
+            "uMax": 0.935606,
+            "vMin": 0.045,
+            "vMax": 0.955
           },
           "extent": {
-            "uBottom": 9.12,
-            "uTop": 9.12,
-            "v": 3.56
+            "uBottom": 9.2,
+            "uTop": 9.2,
+            "v": 3.64
           },
-          "aspect": 2.561798,
+          "aspect": 2.527473,
           "depthBudget": {
             "relief": 0,
             "recess": 0.125
@@ -10747,34 +11200,34 @@
           "anchorId": "structure/summit_chamber/wall_side_positive_u_slot/anchor",
           "boundary": [
             {
-              "u": 0.09697,
-              "v": 0.055
+              "u": 0.091582,
+              "v": 0.045
             },
             {
-              "u": 0.90303,
-              "v": 0.055
+              "u": 0.908418,
+              "v": 0.045
             },
             {
-              "u": 0.90303,
-              "v": 0.945
+              "u": 0.908418,
+              "v": 0.955
             },
             {
-              "u": 0.09697,
-              "v": 0.945
+              "u": 0.091582,
+              "v": 0.955
             }
           ],
           "inscribed": {
-            "uMin": 0.09697,
-            "uMax": 0.90303,
-            "vMin": 0.055,
-            "vMax": 0.945
+            "uMin": 0.091582,
+            "uMax": 0.908418,
+            "vMin": 0.045,
+            "vMax": 0.955
           },
           "extent": {
-            "uBottom": 5.985,
-            "uTop": 5.985,
-            "v": 3.56
+            "uBottom": 6.065,
+            "uTop": 6.065,
+            "v": 3.64
           },
-          "aspect": 1.68118,
+          "aspect": 1.666209,
           "depthBudget": {
             "relief": 0,
             "recess": 0.125
@@ -10804,34 +11257,34 @@
           "anchorId": "structure/summit_chamber/wall_side_negative_u_slot/anchor",
           "boundary": [
             {
-              "u": 0.09697,
-              "v": 0.055
+              "u": 0.091582,
+              "v": 0.045
             },
             {
-              "u": 0.90303,
-              "v": 0.055
+              "u": 0.908418,
+              "v": 0.045
             },
             {
-              "u": 0.90303,
-              "v": 0.945
+              "u": 0.908418,
+              "v": 0.955
             },
             {
-              "u": 0.09697,
-              "v": 0.945
+              "u": 0.091582,
+              "v": 0.955
             }
           ],
           "inscribed": {
-            "uMin": 0.09697,
-            "uMax": 0.90303,
-            "vMin": 0.055,
-            "vMax": 0.945
+            "uMin": 0.091582,
+            "uMax": 0.908418,
+            "vMin": 0.045,
+            "vMax": 0.955
           },
           "extent": {
-            "uBottom": 5.985,
-            "uTop": 5.985,
-            "v": 3.56
+            "uBottom": 6.065,
+            "uTop": 6.065,
+            "v": 3.64
           },
-          "aspect": 1.68118,
+          "aspect": 1.666209,
           "depthBudget": {
             "relief": 0,
             "recess": 0.125
@@ -11133,7 +11586,104 @@
         "structure/summit_roof/cornice/soffit_side_negative_u",
         "structure/summit_roof/surface_top"
       ],
-      "frames": [],
+      "frames": [
+        {
+          "id": "structure/summit_roof/slab/fascia_front/slot/frame",
+          "style": "plain_field",
+          "bandId": null,
+          "bayId": null,
+          "faceId": "structure/summit_roof/slab/fascia_front",
+          "borderWidth": 0.05,
+          "recessDepth": 0,
+          "insetU": 0.04,
+          "insetV": 0.04,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/summit_roof/slab/fascia_rear/slot/frame",
+          "style": "plain_field",
+          "bandId": null,
+          "bayId": null,
+          "faceId": "structure/summit_roof/slab/fascia_rear",
+          "borderWidth": 0.05,
+          "recessDepth": 0,
+          "insetU": 0.04,
+          "insetV": 0.04,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/summit_roof/slab/fascia_side_positive_u/slot/frame",
+          "style": "plain_field",
+          "bandId": null,
+          "bayId": null,
+          "faceId": "structure/summit_roof/slab/fascia_side_positive_u",
+          "borderWidth": 0.05,
+          "recessDepth": 0,
+          "insetU": 0.04,
+          "insetV": 0.04,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/summit_roof/slab/fascia_side_negative_u/slot/frame",
+          "style": "plain_field",
+          "bandId": null,
+          "bayId": null,
+          "faceId": "structure/summit_roof/slab/fascia_side_negative_u",
+          "borderWidth": 0.05,
+          "recessDepth": 0,
+          "insetU": 0.04,
+          "insetV": 0.04,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/summit_roof/cornice/fascia_front/slot/frame",
+          "style": "plain_field",
+          "bandId": null,
+          "bayId": null,
+          "faceId": "structure/summit_roof/cornice/fascia_front",
+          "borderWidth": 0.03,
+          "recessDepth": 0,
+          "insetU": 0.02,
+          "insetV": 0.02,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/summit_roof/cornice/fascia_rear/slot/frame",
+          "style": "plain_field",
+          "bandId": null,
+          "bayId": null,
+          "faceId": "structure/summit_roof/cornice/fascia_rear",
+          "borderWidth": 0.03,
+          "recessDepth": 0,
+          "insetU": 0.02,
+          "insetV": 0.02,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/summit_roof/cornice/fascia_side_positive_u/slot/frame",
+          "style": "plain_field",
+          "bandId": null,
+          "bayId": null,
+          "faceId": "structure/summit_roof/cornice/fascia_side_positive_u",
+          "borderWidth": 0.03,
+          "recessDepth": 0,
+          "insetU": 0.02,
+          "insetV": 0.02,
+          "returnProfile": "square"
+        },
+        {
+          "id": "structure/summit_roof/cornice/fascia_side_negative_u/slot/frame",
+          "style": "plain_field",
+          "bandId": null,
+          "bayId": null,
+          "faceId": "structure/summit_roof/cornice/fascia_side_negative_u",
+          "borderWidth": 0.03,
+          "recessDepth": 0,
+          "insetU": 0.02,
+          "insetV": 0.02,
+          "returnProfile": "square"
+        }
+      ],
       "slots": [
         {
           "id": "structure/summit_roof/slab/fascia_front/slot",
@@ -11143,40 +11693,40 @@
           "faceRole": "slab",
           "bandId": null,
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/summit_roof/slab/fascia_front/slot/frame",
           "patchId": "structure/summit_roof/slab/fascia_front",
           "regionId": "structure/summit_roof/slab/fascia_front/slot/region",
           "anchorId": "structure/summit_roof/slab/fascia_front/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.008137,
+              "v": 0.18
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.991863,
+              "v": 0.18
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.991863,
+              "v": 0.82
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.008137,
+              "v": 0.82
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.008137,
+            "uMax": 0.991863,
+            "vMin": 0.18,
+            "vMax": 0.82
           },
           "extent": {
-            "uBottom": 11.06,
-            "uTop": 11.06,
-            "v": 0.5
+            "uBottom": 10.88,
+            "uTop": 10.88,
+            "v": 0.32
           },
-          "aspect": 22.12,
+          "aspect": 34,
           "depthBudget": {
             "relief": 0,
             "recess": 0.0625
@@ -11200,40 +11750,40 @@
           "faceRole": "slab",
           "bandId": null,
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/summit_roof/slab/fascia_rear/slot/frame",
           "patchId": "structure/summit_roof/slab/fascia_rear",
           "regionId": "structure/summit_roof/slab/fascia_rear/slot/region",
           "anchorId": "structure/summit_roof/slab/fascia_rear/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.008137,
+              "v": 0.18
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.991863,
+              "v": 0.18
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.991863,
+              "v": 0.82
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.008137,
+              "v": 0.82
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.008137,
+            "uMax": 0.991863,
+            "vMin": 0.18,
+            "vMax": 0.82
           },
           "extent": {
-            "uBottom": 11.06,
-            "uTop": 11.06,
-            "v": 0.5
+            "uBottom": 10.88,
+            "uTop": 10.88,
+            "v": 0.32
           },
-          "aspect": 22.12,
+          "aspect": 34,
           "depthBudget": {
             "relief": 0,
             "recess": 0.0625
@@ -11257,40 +11807,40 @@
           "faceRole": "slab",
           "bandId": null,
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/summit_roof/slab/fascia_side_positive_u/slot/frame",
           "patchId": "structure/summit_roof/slab/fascia_side_positive_u",
           "regionId": "structure/summit_roof/slab/fascia_side_positive_u/slot/region",
           "anchorId": "structure/summit_roof/slab/fascia_side_positive_u/slot/anchor",
           "boundary": [
             {
-              "u": 0.031546,
-              "v": 0
+              "u": 0.042902,
+              "v": 0.18
             },
             {
-              "u": 0.968454,
-              "v": 0
+              "u": 0.957098,
+              "v": 0.18
             },
             {
-              "u": 0.968454,
-              "v": 1
+              "u": 0.957098,
+              "v": 0.82
             },
             {
-              "u": 0.031546,
-              "v": 1
+              "u": 0.042902,
+              "v": 0.82
             }
           ],
           "inscribed": {
-            "uMin": 0.031546,
-            "uMax": 0.968454,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.042902,
+            "uMax": 0.957098,
+            "vMin": 0.18,
+            "vMax": 0.82
           },
           "extent": {
-            "uBottom": 7.425,
-            "uTop": 7.425,
-            "v": 0.5
+            "uBottom": 7.245,
+            "uTop": 7.245,
+            "v": 0.32
           },
-          "aspect": 14.85,
+          "aspect": 22.640625,
           "depthBudget": {
             "relief": 0,
             "recess": 0.0625
@@ -11314,40 +11864,40 @@
           "faceRole": "slab",
           "bandId": null,
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/summit_roof/slab/fascia_side_negative_u/slot/frame",
           "patchId": "structure/summit_roof/slab/fascia_side_negative_u",
           "regionId": "structure/summit_roof/slab/fascia_side_negative_u/slot/region",
           "anchorId": "structure/summit_roof/slab/fascia_side_negative_u/slot/anchor",
           "boundary": [
             {
-              "u": 0.031546,
-              "v": 0
+              "u": 0.042902,
+              "v": 0.18
             },
             {
-              "u": 0.968454,
-              "v": 0
+              "u": 0.957098,
+              "v": 0.18
             },
             {
-              "u": 0.968454,
-              "v": 1
+              "u": 0.957098,
+              "v": 0.82
             },
             {
-              "u": 0.031546,
-              "v": 1
+              "u": 0.042902,
+              "v": 0.82
             }
           ],
           "inscribed": {
-            "uMin": 0.031546,
-            "uMax": 0.968454,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.042902,
+            "uMax": 0.957098,
+            "vMin": 0.18,
+            "vMax": 0.82
           },
           "extent": {
-            "uBottom": 7.425,
-            "uTop": 7.425,
-            "v": 0.5
+            "uBottom": 7.245,
+            "uTop": 7.245,
+            "v": 0.32
           },
-          "aspect": 14.85,
+          "aspect": 22.640625,
           "depthBudget": {
             "relief": 0,
             "recess": 0.0625
@@ -11371,40 +11921,40 @@
           "faceRole": "cornice",
           "bandId": null,
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/summit_roof/cornice/fascia_front/slot/frame",
           "patchId": "structure/summit_roof/cornice/fascia_front",
           "regionId": "structure/summit_roof/cornice/fascia_front/slot/region",
           "anchorId": "structure/summit_roof/cornice/fascia_front/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.004363,
+              "v": 0.2
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.995637,
+              "v": 0.2
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.995637,
+              "v": 0.8
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.004363,
+              "v": 0.8
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.004363,
+            "uMax": 0.995637,
+            "vMin": 0.2,
+            "vMax": 0.8
           },
           "extent": {
-            "uBottom": 11.46,
-            "uTop": 11.46,
-            "v": 0.25
+            "uBottom": 11.36,
+            "uTop": 11.36,
+            "v": 0.15
           },
-          "aspect": 45.84,
+          "aspect": 75.733333,
           "depthBudget": {
             "relief": 0,
             "recess": 0.05
@@ -11428,40 +11978,40 @@
           "faceRole": "cornice",
           "bandId": null,
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/summit_roof/cornice/fascia_rear/slot/frame",
           "patchId": "structure/summit_roof/cornice/fascia_rear",
           "regionId": "structure/summit_roof/cornice/fascia_rear/slot/region",
           "anchorId": "structure/summit_roof/cornice/fascia_rear/slot/anchor",
           "boundary": [
             {
-              "u": 0,
-              "v": 0
+              "u": 0.004363,
+              "v": 0.2
             },
             {
-              "u": 1,
-              "v": 0
+              "u": 0.995637,
+              "v": 0.2
             },
             {
-              "u": 1,
-              "v": 1
+              "u": 0.995637,
+              "v": 0.8
             },
             {
-              "u": 0,
-              "v": 1
+              "u": 0.004363,
+              "v": 0.8
             }
           ],
           "inscribed": {
-            "uMin": 0,
-            "uMax": 1,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.004363,
+            "uMax": 0.995637,
+            "vMin": 0.2,
+            "vMax": 0.8
           },
           "extent": {
-            "uBottom": 11.46,
-            "uTop": 11.46,
-            "v": 0.25
+            "uBottom": 11.36,
+            "uTop": 11.36,
+            "v": 0.15
           },
-          "aspect": 45.84,
+          "aspect": 75.733333,
           "depthBudget": {
             "relief": 0,
             "recess": 0.05
@@ -11485,40 +12035,40 @@
           "faceRole": "cornice",
           "bandId": null,
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/summit_roof/cornice/fascia_side_positive_u/slot/frame",
           "patchId": "structure/summit_roof/cornice/fascia_side_positive_u",
           "regionId": "structure/summit_roof/cornice/fascia_side_positive_u/slot/region",
           "anchorId": "structure/summit_roof/cornice/fascia_side_positive_u/slot/anchor",
           "boundary": [
             {
-              "u": 0.024024,
-              "v": 0
+              "u": 0.03003,
+              "v": 0.2
             },
             {
-              "u": 0.975976,
-              "v": 0
+              "u": 0.96997,
+              "v": 0.2
             },
             {
-              "u": 0.975976,
-              "v": 1
+              "u": 0.96997,
+              "v": 0.8
             },
             {
-              "u": 0.024024,
-              "v": 1
+              "u": 0.03003,
+              "v": 0.8
             }
           ],
           "inscribed": {
-            "uMin": 0.024024,
-            "uMax": 0.975976,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.03003,
+            "uMax": 0.96997,
+            "vMin": 0.2,
+            "vMax": 0.8
           },
           "extent": {
-            "uBottom": 7.925,
-            "uTop": 7.925,
-            "v": 0.25
+            "uBottom": 7.825,
+            "uTop": 7.825,
+            "v": 0.15
           },
-          "aspect": 31.7,
+          "aspect": 52.166667,
           "depthBudget": {
             "relief": 0,
             "recess": 0.05
@@ -11542,40 +12092,40 @@
           "faceRole": "cornice",
           "bandId": null,
           "bayId": null,
-          "frameId": null,
+          "frameId": "structure/summit_roof/cornice/fascia_side_negative_u/slot/frame",
           "patchId": "structure/summit_roof/cornice/fascia_side_negative_u",
           "regionId": "structure/summit_roof/cornice/fascia_side_negative_u/slot/region",
           "anchorId": "structure/summit_roof/cornice/fascia_side_negative_u/slot/anchor",
           "boundary": [
             {
-              "u": 0.024024,
-              "v": 0
+              "u": 0.03003,
+              "v": 0.2
             },
             {
-              "u": 0.975976,
-              "v": 0
+              "u": 0.96997,
+              "v": 0.2
             },
             {
-              "u": 0.975976,
-              "v": 1
+              "u": 0.96997,
+              "v": 0.8
             },
             {
-              "u": 0.024024,
-              "v": 1
+              "u": 0.03003,
+              "v": 0.8
             }
           ],
           "inscribed": {
-            "uMin": 0.024024,
-            "uMax": 0.975976,
-            "vMin": 0,
-            "vMax": 1
+            "uMin": 0.03003,
+            "uMax": 0.96997,
+            "vMin": 0.2,
+            "vMax": 0.8
           },
           "extent": {
-            "uBottom": 7.925,
-            "uTop": 7.925,
-            "v": 0.25
+            "uBottom": 7.825,
+            "uTop": 7.825,
+            "v": 0.15
           },
-          "aspect": 31.7,
+          "aspect": 52.166667,
           "depthBudget": {
             "relief": 0,
             "recess": 0.05

@@ -995,7 +995,8 @@ control remains editable afterward.
 ### 9.3 Bays
 
 A bay is the open interval between neighbouring square piers. It owns its two
-support references, resolved width, row, and lintel. Before bays are divided,
+support references, resolved width, and row. It does not own a lintel: the beam
+over it belongs to the whole row (§9.5). Before bays are divided,
 the resolver subtracts the actual outer extents of the pier profile, raised
 panels, lintel/cornice depth, roof projection, and Linear Screen terminations
 from the summit area. Bay counts are positive integers; they are not forced odd
@@ -1005,7 +1006,9 @@ the remaining run and selected pier width leave no credible opening.
 
 The U plan deduplicates its two rear corner supports across the rear and side
 rows. That shared ownership is part of the family record, not an accidental
-overlap in the mesh.
+overlap in the mesh, and it extends upward: the row that reaches a shared corner
+first also owns the stone over it, and the row that arrives second stops flush
+against it.
 
 ### 9.4 Stepped piers
 
@@ -1030,14 +1033,23 @@ requiring literal glyph sculpture.
 
 ### 9.5 Lintels and upper profiles
 
-One rectangular lintel spans every resolved bay. Interior lintel pieces meet on
-their shared support centre, while the two terminal pieces and continuous
-cornice extend to one common end plane. This makes perpendicular Open Pavilion
-rows close cleanly over their shared corner piers and keeps the exposed end
-layers vertically aligned. `spanEndProjection` moves that common plane beyond
-the square end implied by the cornice depth. Linear Screen and Open Pavilion
-expose this upper work directly; Front Gallery uses it as the bearing line for
-its shallow slab.
+One rectangular lintel spans an entire row, matching the cornice above it. A
+piece per bay met the next on a buried plane at every support centre, which cost
+nothing in silhouette but divided the row's elevation — and therefore its
+engraving slots — into as many unequal ribbons as it had bays.
+
+The architrave is never narrower than the capstone it lands on. A span authored
+below `pier width x 1.65` is widened to it and the change is reported as
+`pillar_hall.span_widened_to_pier`, because a beam set back behind its piers
+reads as carried by nothing.
+
+Each end of a row is resolved on its own. A free end projects past its last pier
+by half the cornice depth plus `spanEndProjection`. An end that meets another
+row stops flush against that row's side instead, so two rows lap at a shared
+corner rather than both claiming the stone over it — the first row to reach a
+corner owns it, the same precedence the support table already uses. Linear
+Screen and Open Pavilion expose this upper work directly; Front Gallery uses it
+as the bearing line for its shallow slab.
 
 ### 9.6 Decorative language
 
@@ -1079,7 +1091,12 @@ Contact ownership is resolved per exposed rectangle. Perpendicular lintels and
 members may cover only part of a larger side, so the covered sub-rectangle is
 removed while the remaining face is retained; a centroid hit is never allowed
 to erase an entire quad. The topology fixtures require zero coincident faces,
-zero buried faces, and no outward-facing holes for every archetype.
+zero buried faces, and no outward-facing holes for every archetype, and no two
+span members may occupy the same stone.
+
+An engraving slot is refused on a face anything presses against, whole rather
+than in part: the builder splits such a face around whatever covers it, and a
+field spanning two of those pieces would belong to neither.
 
 Generic infill grammars, missing-member masks, arches, round supports,
 hypostyle grids, and arbitrary roof ranges are future research. They should not

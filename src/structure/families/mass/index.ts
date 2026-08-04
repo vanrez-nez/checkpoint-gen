@@ -11,6 +11,8 @@ import {
   DEFAULT_MASS_LAYOUT,
   DEFAULT_MASS_STONE_CONFIG,
   MASS_LAYOUT_CONTROLS,
+  MASS_SLOT_FEATURE_IDS,
+  MASS_SLOT_FEATURE_LABELS,
   cloneMassLayout,
   resolveMassLayout,
   toMasonry,
@@ -53,6 +55,9 @@ export const massStructure = defineStructure<MassLayoutConfig>({
         "Setbacks",
         "Base",
         "Variation",
+        MASS_SLOT_FEATURE_LABELS.plinth,
+        MASS_SLOT_FEATURE_LABELS.bandWall,
+        MASS_SLOT_FEATURE_LABELS.bandCornice,
       ],
       props: ["stone"],
     },
@@ -60,7 +65,15 @@ export const massStructure = defineStructure<MassLayoutConfig>({
     {
       id: "summit",
       label: "Summit",
-      layoutGroups: ["Summit", "Summit building", "Facade", "Roof", "Slots"],
+      layoutGroups: [
+        "Summit",
+        "Summit building",
+        "Facade",
+        "Roof",
+        MASS_SLOT_FEATURE_LABELS.summitWall,
+        MASS_SLOT_FEATURE_LABELS.summitRoofFascia,
+        MASS_SLOT_FEATURE_LABELS.summitRoofCornice,
+      ],
     },
     {
       id: "fire",
@@ -97,13 +110,17 @@ export const massStructure = defineStructure<MassLayoutConfig>({
     "pillar",
     "cornice",
     "iron",
-    "slotDebug",
   ],
   layoutControls: MASS_LAYOUT_CONTROLS,
+  slotFeatures: MASS_SLOT_FEATURE_IDS.map((id) => ({
+    id,
+    label: MASS_SLOT_FEATURE_LABELS[id],
+    select: (layout: MassLayoutConfig) => layout.slots[id],
+  })),
   cloneLayout: cloneMassLayout,
   validateLayout: validateMassLayout,
 
-  build({ layout, stone, fireBowl, sections }) {
+  build({ layout, stone, fireBowl, debugSlots, sections }) {
     // The graph is resolved on every build regardless of what was requested:
     // it is arithmetic over a handful of rectangles, and the scene needs the
     // semantic layer for the debug overlay and the diagnostics readout even
@@ -114,7 +131,7 @@ export const massStructure = defineStructure<MassLayoutConfig>({
         masonry: toMasonry(layout, stone),
         seed: stone.seed,
         stairTilesPerStep: layout.stairTilesPerStep,
-        debugSlots: layout.debugSlots,
+        debugSlots,
       }).parts]
       : [];
 

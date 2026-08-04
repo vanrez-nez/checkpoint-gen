@@ -3363,19 +3363,6 @@
           "materialRole": "pedestal"
         },
         {
-          "id": "pillar_hall_structure/pillar_hall/row_front/bay_0/lintel",
-          "kind": "lintel",
-          "rect": {
-            "minX": -5.0165,
-            "maxX": -2.6739,
-            "minZ": -0.36,
-            "maxZ": 0.36
-          },
-          "bottomY": 5.92,
-          "topY": 6.3,
-          "materialRole": "lintel"
-        },
-        {
           "id": "pillar_hall_structure/pillar_hall/row_front/bay_0/base_frieze_0",
           "kind": "base_frieze",
           "rect": {
@@ -3400,19 +3387,6 @@
           "bottomY": 0.8,
           "topY": 1.62,
           "materialRole": "frieze"
-        },
-        {
-          "id": "pillar_hall_structure/pillar_hall/row_front/bay_1/lintel",
-          "kind": "lintel",
-          "rect": {
-            "minX": -2.6739,
-            "maxX": -0.8913,
-            "minZ": -0.36,
-            "maxZ": 0.36
-          },
-          "bottomY": 5.92,
-          "topY": 6.3,
-          "materialRole": "lintel"
         },
         {
           "id": "pillar_hall_structure/pillar_hall/row_front/bay_1/base_frieze_0",
@@ -3441,19 +3415,6 @@
           "materialRole": "frieze"
         },
         {
-          "id": "pillar_hall_structure/pillar_hall/row_front/bay_2/lintel",
-          "kind": "lintel",
-          "rect": {
-            "minX": -0.8913,
-            "maxX": 0.8913,
-            "minZ": -0.36,
-            "maxZ": 0.36
-          },
-          "bottomY": 5.92,
-          "topY": 6.3,
-          "materialRole": "lintel"
-        },
-        {
           "id": "pillar_hall_structure/pillar_hall/row_front/bay_2/base_frieze_0",
           "kind": "base_frieze",
           "rect": {
@@ -3480,19 +3441,6 @@
           "materialRole": "frieze"
         },
         {
-          "id": "pillar_hall_structure/pillar_hall/row_front/bay_3/lintel",
-          "kind": "lintel",
-          "rect": {
-            "minX": 0.8913,
-            "maxX": 2.6739,
-            "minZ": -0.36,
-            "maxZ": 0.36
-          },
-          "bottomY": 5.92,
-          "topY": 6.3,
-          "materialRole": "lintel"
-        },
-        {
           "id": "pillar_hall_structure/pillar_hall/row_front/bay_3/base_frieze_0",
           "kind": "base_frieze",
           "rect": {
@@ -3517,19 +3465,6 @@
           "bottomY": 0.8,
           "topY": 1.62,
           "materialRole": "frieze"
-        },
-        {
-          "id": "pillar_hall_structure/pillar_hall/row_front/bay_4/lintel",
-          "kind": "lintel",
-          "rect": {
-            "minX": 2.6739,
-            "maxX": 5.0165,
-            "minZ": -0.36,
-            "maxZ": 0.36
-          },
-          "bottomY": 5.92,
-          "topY": 6.3,
-          "materialRole": "lintel"
         },
         {
           "id": "pillar_hall_structure/pillar_hall/row_front/bay_4/base_frieze_0",
@@ -3571,13 +3506,26 @@
           "materialRole": "pedestal"
         },
         {
+          "id": "pillar_hall_structure/pillar_hall/row_front/lintel",
+          "kind": "lintel",
+          "rect": {
+            "minX": -5.135,
+            "maxX": 5.135,
+            "minZ": -0.4785,
+            "maxZ": 0.4785
+          },
+          "bottomY": 5.92,
+          "topY": 6.3,
+          "materialRole": "lintel"
+        },
+        {
           "id": "pillar_hall_structure/pillar_hall/row_front/cornice",
           "kind": "cornice",
           "rect": {
-            "minX": -5.0165,
-            "maxX": 5.0165,
-            "minZ": -0.48,
-            "maxZ": 0.48
+            "minX": -5.135,
+            "maxX": 5.135,
+            "minZ": -0.5985,
+            "maxZ": 0.5985
           },
           "bottomY": 6.3,
           "topY": 6.48,
@@ -3620,5 +3568,12 @@
   "roofs": [],
   "attachments": [],
   "damage": [],
-  "diagnostics": []
+  "diagnostics": [
+    {
+      "severity": "notice",
+      "code": "pillar_hall.span_widened_to_pier",
+      "entityId": "pillar_hall_structure/pillar_hall",
+      "message": "The requested span depth 0.72 is narrower than the capstone it lands on; it was widened to 0.9569999999999999."
+    }
+  ]
 }

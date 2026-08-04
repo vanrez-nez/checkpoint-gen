@@ -33,7 +33,7 @@ import {
 import type { StairSideTreatment, StairSpec } from "../../connector/stair";
 import type { SummitCellSpec } from "../../cell/resolve";
 import type { SummitRoofSpec } from "../../roof/resolve";
-import type { SlotPlacement, SlotRule } from "../../kernel/slot";
+import type { MassSlotFeatures } from "../../mass/slots";
 import type { HorizontalOrientation } from "../../kernel/frame";
 import type { FacadeStyle } from "../../facade/types";
 
@@ -149,17 +149,59 @@ export interface MassLayoutConfig {
   stairFireBowlBottomEnabled: boolean;
   stairFireBowlTopEnabled: boolean;
   /**
-   * Which surfaces are prepared as engravable fields. A prepared stretch loses
-   * its stonework, because a coursed elevation is a staircase of stone ends
-   * rather than a plane and there is nothing on it to engrave.
+   * Engravable fields, authored per feature. A prepared stretch loses its
+   * stonework, because a coursed elevation is a staircase of stone ends rather
+   * than a plane and there is nothing on it to engrave.
    */
-  slotPlacement: SlotPlacement;
-  /** Border left standing around a prepared field. Zero takes the whole face. */
-  frameBorderWidth: number;
-  frameInsetU: number;
-  frameInsetV: number;
-  debugSlots: boolean;
+  slots: MassSlotFeatures;
+  /**
+   * Course-aligned engravable strips per band elevation, so an elevation can
+   * carry both set stone and engraving. Zero prepares the whole face.
+   */
+  slotBands: number;
   seed: number;
+}
+
+/** Every feature of a mass that can carry an engraving, in pane order. */
+export const MASS_SLOT_FEATURE_IDS = [
+  "plinth",
+  "bandWall",
+  "bandCornice",
+  "summitWall",
+  "summitRoofFascia",
+  "summitRoofCornice",
+] as const;
+
+export type MassSlotFeatureId = (typeof MASS_SLOT_FEATURE_IDS)[number];
+
+export const MASS_SLOT_FEATURE_LABELS: Readonly<
+  Record<MassSlotFeatureId, string>
+> = {
+  plinth: "Plinth slots",
+  bandWall: "Band wall slots",
+  bandCornice: "Band cornice slots",
+  summitWall: "Summit wall slots",
+  summitRoofFascia: "Roof fascia slots",
+  summitRoofCornice: "Roof cornice slots",
+};
+
+/** Nothing is prepared until it is asked for; the borders are a starting point. */
+function defaultMassSlots(): MassLayoutConfig["slots"] {
+  const off = (borderWidth: number, inset: number) => ({
+    enabled: false,
+    borderWidth,
+    insetU: inset,
+    insetV: inset,
+  });
+
+  return {
+    plinth: off(0.06, 0.05),
+    bandWall: off(0.12, 0.1),
+    bandCornice: off(0.04, 0.03),
+    summitWall: off(0.1, 0.08),
+    summitRoofFascia: off(0.05, 0.04),
+    summitRoofCornice: off(0.03, 0.02),
+  };
 }
 
 /** Surface defaults tuned specifically for the coursed Mass structure. */
@@ -238,11 +280,8 @@ export const MASS_LAYOUT_BASELINE: Readonly<MassLayoutConfig> = {
   stairParapetCorniceHeight: 0.25,
   stairFireBowlBottomEnabled: true,
   stairFireBowlTopEnabled: true,
-  slotPlacement: "none",
-  frameBorderWidth: 0.12,
-  frameInsetU: 0.1,
-  frameInsetV: 0.1,
-  debugSlots: false,
+  slots: defaultMassSlots(),
+  slotBands: 0,
   seed: 1,
 };
 
@@ -289,17 +328,6 @@ export function heightCurveBezier(mode: HeightCurveMode): BezierValue | null {
  * Which bands take a cornice. "Terraces" leaves the crown bare so the summit
  * reads as the top of the mass rather than as one more moulded step.
  */
-/**
- * How much of the mass is prepared for engraving. "Elevations" reaches the band
- * walls alone; "Everything" adds what crowns and encloses them — the cornices,
- * the summit walls and the summit roof's fascias.
- */
-const SLOT_PLACEMENT_OPTIONS: Readonly<Record<string, SlotPlacement>> = {
-  None: "none",
-  Elevations: "elevations",
-  Everything: "all",
-};
-
 const CORNICE_PLACEMENT_OPTIONS: Readonly<Record<string, CornicePlacement>> = {
   None: "none",
   "Every band": "all",
@@ -1033,68 +1061,43 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     visibleWhen: (layout) =>
       layout.summitBuildingEnabled && layout.facadeStyle === "hierarchical",
   }),
-  control.list({
-    key: "slotPlacement",
-    label: "placement",
-    name: "Engraving slot placement",
-    group: "Slots",
-    options: SLOT_PLACEMENT_OPTIONS,
-    scopes: ["layout"],
-  }),
   control.number({
-    key: "frameBorderWidth",
-    label: "border",
-    name: "Slot border width",
-    group: "Slots",
+    key: "slotBands",
+    label: "slot bands",
+    name: "Engravable bands per elevation",
+    group: MASS_SLOT_FEATURE_LABELS.bandWall,
     min: 0,
-    max: 0.8,
-    step: 0.005,
+    max: 8,
+    step: 1,
+    integer: true,
     scopes: ["layout"],
-    visibleWhen: prepared,
-  }),
-  control.number({
-    key: "frameInsetU",
-    label: "inset u",
-    name: "Slot horizontal inset",
-    group: "Slots",
-    min: 0,
-    max: 1,
-    step: 0.005,
-    scopes: ["layout"],
-    visibleWhen: prepared,
-  }),
-  control.number({
-    key: "frameInsetV",
-    label: "inset v",
-    name: "Slot vertical inset",
-    group: "Slots",
-    min: 0,
-    max: 1,
-    step: 0.005,
-    scopes: ["layout"],
-    visibleWhen: prepared,
-  }),
-  control.boolean({
-    key: "debugSlots",
-    label: "tint slots",
-    name: "Tint published slots",
-    group: "Slots",
-    scopes: ["layout"],
-    visibleWhen: prepared,
+    visibleWhen: (layout) => layout.slots.bandWall.enabled,
   }),
 ];
 
-/** Frame and debug controls do nothing until something is prepared. */
-function prepared(layout: MassLayoutConfig): boolean {
-  return layout.slotPlacement !== "none";
+export function cloneMassSlots(
+  source: Readonly<MassLayoutConfig["slots"]>,
+): MassLayoutConfig["slots"] {
+  return {
+    plinth: { ...source.plinth },
+    bandWall: { ...source.bandWall },
+    bandCornice: { ...source.bandCornice },
+    summitWall: { ...source.summitWall },
+    summitRoofFascia: { ...source.summitRoofFascia },
+    summitRoofCornice: { ...source.summitRoofCornice },
+  };
 }
 
 export function cloneMassLayout(
   source: Readonly<MassLayoutConfig> = DEFAULT_MASS_LAYOUT,
 ): MassLayoutConfig {
-  // The curve is copied rather than shared, or the pane would write straight
-  // through a clone into the module-level defaults.
-  return { ...source, heightCurveBezier: [...source.heightCurveBezier] };
+  // The curve and every slot feature are copied rather than shared, or the pane
+  // would write straight through a clone into the module-level defaults.
+  return {
+    ...source,
+    heightCurveBezier: [...source.heightCurveBezier],
+    slots: cloneMassSlots(source.slots),
+  };
 }
 
 export function validateMassLayout(layout: MassLayoutConfig): void {
@@ -1216,28 +1219,8 @@ export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
       friezeProjection: layout.facadeFriezeProjection,
     },
     roofs: toRoofSpecs(layout),
-    slotPlacement: layout.slotPlacement,
-    slotRule: toSlotRule(layout),
-  };
-}
-
-/**
- * The border every prepared field on this mass is drawn with.
- *
- * `recessDepth` is zero: this phase identifies and gates faces, it does not
- * carve them, so a field stays coplanar with the border around it.
- */
-export function toSlotRule(layout: {
-  readonly frameBorderWidth: number;
-  readonly frameInsetU: number;
-  readonly frameInsetV: number;
-}): SlotRule {
-  return {
-    style: "plain_field",
-    insetU: layout.frameInsetU,
-    insetV: layout.frameInsetV,
-    borderWidth: layout.frameBorderWidth,
-    recessDepth: 0,
+    slots: layout.slots,
+    slotBands: layout.slotBands,
   };
 }
 
@@ -1273,8 +1256,8 @@ function toRoofSpecs(layout: MassLayoutConfig): SummitRoofSpec[] {
     projection: layout.summitRoofProjection,
     corniceProjection: layout.summitRoofCorniceProjection,
     corniceHeight: layout.summitRoofCorniceHeight,
-    slotPlacement: layout.slotPlacement,
-    slotRule: toSlotRule(layout),
+    fasciaSlots: layout.slots.summitRoofFascia,
+    corniceSlots: layout.slots.summitRoofCornice,
   }];
 }
 

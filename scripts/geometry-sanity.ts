@@ -237,6 +237,16 @@ const massDefaultHashConfig = createDefaultStructureConfig();
 massDefaultHashConfig.typeId = "mass";
 const massDefaultCode = encodeStructureHash(massDefaultHashConfig);
 assert.ok(massDefaultCode.length <= 120);
+// The other families have room today; the assert is what keeps it visible when
+// the next batch of per-feature settings lands.
+{
+  const hallCode = createDefaultStructureConfig();
+  hallCode.typeId = "pillar_hall";
+  assert.ok(encodeStructureHash(hallCode).length <= 70);
+  const stelaCode = createDefaultStructureConfig();
+  stelaCode.typeId = "stela";
+  assert.ok(encodeStructureHash(stelaCode).length <= 70);
+}
 assert.doesNotMatch(massDefaultCode, /^g\d/);
 assert.equal(
   applyStructureHash(createDefaultStructureConfig(), massDefaultCode),
@@ -253,6 +263,10 @@ const sceneOnlyHashConfig = createDefaultStructureConfig();
 const sceneIndependentCode = encodeStructureHash(sceneOnlyHashConfig);
 sceneOnlyHashConfig.view.wireframe = !sceneOnlyHashConfig.view.wireframe;
 sceneOnlyHashConfig.view.patchDebug = !sceneOnlyHashConfig.view.patchDebug;
+// Deliberately included: the slot tint declares the "layout" scope so it can
+// reach the builder, which makes it the one debug control that could plausibly
+// leak into a geometry code. It must not.
+sceneOnlyHashConfig.view.slotDebug = !sceneOnlyHashConfig.view.slotDebug;
 sceneOnlyHashConfig.illumination.keyIntensity = 1.2;
 sceneOnlyHashConfig.illumination.keyColor = "#ff0000";
 assert.equal(
@@ -1546,7 +1560,12 @@ for (const definition of STRUCTURES) {
   );
   assert.deepEqual(
     new Set(assignedLayoutGroups),
-    new Set(definition.layoutControls.map((control) => control.group)),
+    // A slot feature's label is a layout group like any other: it is the title
+    // of its own folder, so a tab has to claim it or the folder has no page.
+    new Set([
+      ...definition.layoutControls.map((control) => control.group),
+      ...(definition.slotFeatures ?? []).map((feature) => feature.label),
+    ]),
     `${definition.id} tab layout does not cover its control groups`,
   );
   assert.equal(
@@ -1611,7 +1630,15 @@ assert.deepEqual(
 );
 assert.deepEqual(
   massControlTabs.find((tab) => tab.id === "summit")?.layoutGroups,
-  ["Summit", "Summit building", "Facade", "Roof", "Slots"],
+  [
+    "Summit",
+    "Summit building",
+    "Facade",
+    "Roof",
+    "Summit wall slots",
+    "Roof fascia slots",
+    "Roof cornice slots",
+  ],
 );
 assert.ok(
   massControlTabs.every(

@@ -1,6 +1,14 @@
 import type { SolidBuilder } from "../../geometry/solid-builder";
-import { rectCorners, rectIsValid, type Rect } from "../kernel/frame";
+import {
+  rectCorners,
+  rectIsValid,
+  type HorizontalOrientation,
+  type Rect,
+} from "../kernel/frame";
 import type { RoofRecord } from "../kernel/graph";
+import type { Patch } from "../kernel/patch";
+import { addFramedFace, type PreparedField } from "../mass/shell";
+import { fieldForPiece, preparedRoofFields } from "./slots";
 
 const EPS = 1e-9;
 type SideFlags = readonly [boolean, boolean, boolean, boolean];
@@ -13,9 +21,16 @@ type SideFlags = readonly [boolean, boolean, boolean, boolean];
 export function buildRoof(
   builder: SolidBuilder,
   roof: RoofRecord,
+  patches: ReadonlyMap<string, Patch> = new Map(),
 ): void {
   const topIsExposed = roof.cornice === null;
   const slabProjects = !sameRect(roof.slabFootprint, roof.bearingFootprint);
+  // A reserved fascia is drawn as its border plus its field, so the border it
+  // was measured against is a face and not a rectangle nobody answers for.
+  const { slab: slabFields, cornice: corniceFields } = preparedRoofFields(
+    roof,
+    patches,
+  );
 
   addRectBlock(
     builder,
@@ -35,6 +50,7 @@ export function buildRoof(
     !slabProjects,
     topIsExposed,
     false,
+    slabProjects ? undefined : slabFields,
   );
   if (slabProjects) {
     addRingBlocks(
@@ -46,6 +62,7 @@ export function buildRoof(
       true,
       topIsExposed,
       true,
+      slabFields,
     );
   }
 
@@ -76,6 +93,7 @@ export function buildRoof(
       true,
       true,
       true,
+      corniceFields,
     );
   });
 }
@@ -106,6 +124,7 @@ function addRingBlocks(
   showOuterSides: boolean,
   showTop: boolean,
   showBottom: boolean,
+  fields?: ReadonlyMap<HorizontalOrientation, PreparedField>,
 ): void {
   const pieces: readonly {
     readonly rect: Rect;
@@ -158,16 +177,78 @@ function addRingBlocks(
   ];
 
   for (const piece of pieces) {
+    const prepared = fields
+      ? preparedSideOf(fields, piece.rect, piece.sides)
+      : null;
     addRectBlock(
       builder,
       piece.rect,
       bottomY,
       topY,
-      piece.sides,
+      prepared
+        ? piece.sides.map(
+          (shown, side) => shown && side !== prepared.side,
+        ) as unknown as SideFlags
+        : piece.sides,
       showTop,
       showBottom,
     );
+
+    if (prepared) {
+      addFramedFace(
+        builder,
+        {
+          id: "fascia",
+          label: "wall",
+          bottomY,
+          topY,
+          lower: piece.rect,
+          upper: piece.rect,
+          overhang: 0,
+        },
+        prepared.orientation,
+        [prepared.field],
+      );
+    }
   }
+}
+
+/** Rect side order, matching the flags above: left, front, right, rear. */
+const SIDE_RING: readonly HorizontalOrientation[] = [
+  "sideNegativeU",
+  "front",
+  "sidePositiveU",
+  "rear",
+];
+
+/**
+ * The one outward side of a ring piece that carries a reserved field.
+ *
+ * A piece shows at most one fascia — the ring's front and rear pieces also show
+ * their ends, but those are returns into the corner, not elevations.
+ */
+function preparedSideOf(
+  fields: ReadonlyMap<HorizontalOrientation, PreparedField>,
+  piece: Rect,
+  sides: SideFlags,
+): {
+  readonly side: number;
+  readonly orientation: HorizontalOrientation;
+  readonly field: PreparedField;
+} | null {
+  for (const [side, orientation] of SIDE_RING.entries()) {
+    if (!sides[side] || !fields.has(orientation)) {
+      continue;
+    }
+
+    const field = fieldForPiece(fields, orientation, piece);
+
+    if (field) {
+      return { side, orientation, field };
+    }
+  }
+
+  return null;
 }
 
 function addRectBlock(

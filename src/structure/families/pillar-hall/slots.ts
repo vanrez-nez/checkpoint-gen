@@ -10,14 +10,16 @@ import {
 import { structurePath } from "../../kernel/ids";
 import { PATCH_ROLES, type Patch } from "../../kernel/patch";
 import {
+  DISABLED_SLOT_FEATURE,
   NO_SLOT_RULE,
-  placementReaches,
+  arrisEdges,
   resolveFaceSlot,
   slotDepthBudget,
+  slotRuleOf,
   withSlotReservations,
   type FrameRecord,
+  type SlotFeatureConfig,
   type SlotKind,
-  type SlotPlacement,
   type SlotRecord,
   type SlotRule,
 } from "../../kernel/slot";
@@ -125,10 +127,18 @@ function panelFieldRect(
   }
 }
 
+/** The slot-bearing features of a hall, each authored on its own. */
+export interface PillarHallSlotFeatures {
+  readonly pierPanel: SlotFeatureConfig;
+  readonly span: SlotFeatureConfig;
+  readonly spanCornice: SlotFeatureConfig;
+  readonly basePanel: SlotFeatureConfig;
+  readonly roofFascia: SlotFeatureConfig;
+}
+
 export interface PillarHallSlotInput {
   readonly hall: PillarHallRecord;
-  readonly placement: SlotPlacement;
-  readonly rule: SlotRule;
+  readonly features: PillarHallSlotFeatures;
 }
 
 /**
@@ -141,7 +151,7 @@ export interface PillarHallSlotInput {
  */
 export function hallFaces(
   hall: PillarHallRecord,
-  rule: SlotRule,
+  features: PillarHallSlotFeatures,
 ): SlotFace[] {
   const faces: SlotFace[] = [];
 
@@ -164,7 +174,7 @@ export function hallFaces(
         part: panel.section,
         hierarchy: 30,
         thickness: panel.depth,
-        surface: "elevation",
+        feature: features.pierPanel,
         host: panel.supportFootprint,
         // The rails are the border. Framing the stone they already enclose
         // would be a second border inside the first.
@@ -174,12 +184,12 @@ export function hallFaces(
   }
 
   for (const member of hall.members) {
-    faces.push(...memberFaces(member, rule));
+    faces.push(...memberFaces(member, features));
   }
 
   if (hall.roof) {
     faces.push(
-      ...roofFaces(structurePath(hall.id, "roof"), hall.roof, rule),
+      ...roofFaces(structurePath(hall.id, "roof"), hall.roof, features.roofFascia),
     );
   }
 
@@ -285,13 +295,25 @@ function faceIsObstructed(
  * so this is where the published `inscribed` rectangle is converted back — once,
  * from the same face list the resolver measured against.
  */
+/**
+ * Face geometry does not depend on which features were switched on, so the
+ * builder enumerates them all and joins against the published table.
+ */
+const ALWAYS_ON_FEATURES: PillarHallSlotFeatures = {
+  pierPanel: DISABLED_SLOT_FEATURE,
+  span: DISABLED_SLOT_FEATURE,
+  spanCornice: DISABLED_SLOT_FEATURE,
+  basePanel: DISABLED_SLOT_FEATURE,
+  roofFascia: DISABLED_SLOT_FEATURE,
+};
+
 export function preparedHallFields(
   hall: PillarHallRecord,
 ): PreparedHallField[] {
   const bySlotPatch = new Map(hall.slots.map((slot) => [slot.patchId, slot]));
   const prepared: PreparedHallField[] = [];
 
-  for (const face of hallFaces(hall, NO_SLOT_RULE)) {
+  for (const face of hallFaces(hall, ALWAYS_ON_FEATURES)) {
     const slot = bySlotPatch.get(face.id);
 
     if (!slot || !face.host) {
@@ -351,10 +373,6 @@ export function resolvePillarHallSlots(
   const slots: SlotRecord[] = [];
   const patches: Patch[] = [];
 
-  if (input.placement === "none") {
-    return { frames, slots, patches };
-  }
-
   const emit = (face: SlotFace) => {
     const patch = facePatch(face);
 
@@ -371,7 +389,7 @@ export function resolvePillarHallSlots(
       bandId: null,
       bayId: null,
       patchId: patch.id,
-      uRange: [0, 1],
+      uEdges: arrisEdges([0, 1]),
       vRange: [0, 1],
       widthBottom: patch.dimensions.u,
       widthTop: patch.dimensions.u,
@@ -395,8 +413,8 @@ export function resolvePillarHallSlots(
     }
   };
 
-  for (const face of hallFaces(input.hall, input.rule)) {
-    if (placementReaches(input.placement, face.surface)) {
+  for (const face of hallFaces(input.hall, input.features)) {
+    if (face.feature.enabled) {
       emit(face);
     }
   }
@@ -416,8 +434,8 @@ interface SlotFace {
   readonly hierarchy: number;
   /** Stone behind the face, which bounds how deep an ornament may be cut. */
   readonly thickness: number;
-  /** Which placements reach this face. */
-  readonly surface: "elevation" | "crowning";
+  /** The feature whose settings this face answers to. */
+  readonly feature: SlotFeatureConfig;
   /**
    * The volume whose side this face is, when the builder draws it as part of
    * one. Null where the face is already a block of its own — a decorated front
@@ -487,7 +505,7 @@ export function decoratedFrontOf(
  */
 function memberFaces(
   member: PillarHallMemberRecord,
-  rule: SlotRule,
+  features: PillarHallSlotFeatures,
 ): SlotFace[] {
   const shared = {
     rect: member.rect,
@@ -495,9 +513,7 @@ function memberFaces(
     topY: member.topY,
     kind: "ribbon" as const,
     thickness: Math.min(rectWidth(member.rect), rectDepth(member.rect)),
-    surface: "crowning" as const,
     host: member.rect,
-    rule,
   };
 
   switch (member.kind) {
@@ -510,6 +526,12 @@ function memberFaces(
         orientation,
         part: "span",
         hierarchy: member.kind === "cornice" ? 20 : 10,
+        feature: member.kind === "cornice"
+          ? features.spanCornice
+          : features.span,
+        rule: slotRuleOf(
+          member.kind === "cornice" ? features.spanCornice : features.span,
+        ),
       }));
     case "support_plinth":
     case "base_frieze": {
@@ -527,7 +549,7 @@ function memberFaces(
           part: "base",
           hierarchy: 25,
           thickness: DECORATED_FRONT_DEPTH,
-          surface: "crowning" as const,
+          feature: features.basePanel,
           // The slab is laid proud as a block of its own, so its outward face
           // is already exactly the field.
           host: null,
@@ -543,7 +565,7 @@ function memberFaces(
 function roofFaces(
   roofId: string,
   roof: PillarHallRoofRecord,
-  rule: SlotRule,
+  feature: SlotFeatureConfig,
 ): SlotFace[] {
   return HORIZONTAL_ORIENTATIONS.map((orientation) => ({
     id: structurePath(roofId, ORIENTATION_SEGMENT[orientation]),
@@ -556,9 +578,9 @@ function roofFaces(
     part: "roof",
     hierarchy: 40,
     thickness: roof.thickness,
-    surface: "crowning" as const,
+    feature,
     host: roof.footprint,
-    rule,
+    rule: slotRuleOf(feature),
   }));
 }
 

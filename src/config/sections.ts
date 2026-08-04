@@ -63,6 +63,13 @@ export interface ViewConfig {
    * has to be right.
    */
   patchDebug: boolean;
+  /**
+   * Reddens every published engraving slot, whatever family is loaded.
+   *
+   * The slot table is otherwise invisible, and the only way to check that what
+   * was reserved is what got prepared is to see the two coincide.
+   */
+  slotDebug: boolean;
   materialScale: number;
 }
 
@@ -72,6 +79,7 @@ export const DEFAULT_VIEW_CONFIG: Readonly<ViewConfig> = {
   vertexNormals: false,
   greybox: false,
   patchDebug: false,
+  slotDebug: false,
   materialScale: 1,
 };
 
@@ -244,6 +252,18 @@ export const VIEW_CONTROLS: readonly ControlSpec<ViewConfig>[] = [
     name: "Patch debug",
     group: "View",
     scopes: ["view"],
+  }),
+  view.boolean({
+    key: "slotDebug",
+    label: "slot debug",
+    name: "Slot debug tint",
+    group: "View",
+    // Deliberately not the "view" scope. A slot is repainted while the geometry
+    // is built, because only the builder knows which quad answers to which
+    // slot — and `SECTIONS_BY_SCOPE.view` invalidates nothing, so a view-scoped
+    // toggle would never reach it. The flag still stays out of the geometry
+    // code: `collectFields` never reads `config.view`.
+    scopes: ["layout"],
   }),
   view.number({
     key: "materialScale",

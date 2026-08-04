@@ -117,6 +117,8 @@ export class MainScene {
   readonly scene = new THREE.Scene();
   private readonly composer = new StructureComposer();
   private readonly greyboxMaterial: THREE.MeshStandardMaterial;
+  /** Flat, and unmistakable. See `fallbackSurfaceMaterial`. */
+  private readonly slotDebugMaterial: THREE.MeshStandardMaterial;
   private readonly fallbackStoneMaterial: THREE.MeshStandardMaterial;
   private readonly fallbackIronMaterial: THREE.MeshStandardMaterial;
   private readonly fallbackOfferingMaterial: THREE.MeshStandardMaterial;
@@ -215,6 +217,14 @@ export class MainScene {
     // could flatter a shape. Only form reads through it.
     this.greyboxMaterial = new THREE.MeshStandardMaterial({
       color: 0xb4b4b4,
+      roughness: 1,
+      metalness: 0,
+    });
+    // A debug tint that can be mistaken for a material choice is not a debug
+    // tint, so this one is not a palette entry at all: it is flat red and no
+    // dressing can change it.
+    this.slotDebugMaterial = new THREE.MeshStandardMaterial({
+      color: 0xd42222,
       roughness: 1,
       metalness: 0,
     });
@@ -642,6 +652,7 @@ export class MainScene {
     this.patchOverlay?.dispose();
     this.patchOverlay = null;
     this.greyboxMaterial.dispose();
+    this.slotDebugMaterial.dispose();
     this.fallbackStoneMaterial.dispose();
     this.fallbackIronMaterial.dispose();
     this.fallbackOfferingMaterial.dispose();
@@ -778,6 +789,9 @@ export class MainScene {
     if (surface === "iron") {
       return this.fallbackIronMaterial;
     }
+    if (surface === "slotDebug") {
+      return this.slotDebugMaterial;
+    }
 
     return surface === "offering"
       ? this.fallbackOfferingMaterial
@@ -786,7 +800,10 @@ export class MainScene {
 
   private refreshSurfaceMaterials(): void {
     this.structure.material = this.greyboxEnabled
-      ? MATERIAL_SLOTS.map(() => this.greyboxMaterial)
+      // Greybox and the slot tint are the combination worth having: form on
+      // its own, with the reserved faces still calling out.
+      ? MATERIAL_SLOTS.map((slot) =>
+        slot === "slotDebug" ? this.slotDebugMaterial : this.greyboxMaterial)
       : MATERIAL_SLOTS.map((slot) => this.surfaceMaterial(slot));
     this.refreshOfferingPresentation();
   }

@@ -26,9 +26,10 @@ import {
   getStructure,
   listStructures,
 } from "../structure/registry";
-import type {
-  PropId,
-  StructureDefinition,
+import {
+  slotFeatureControls,
+  type PropId,
+  type StructureDefinition,
 } from "../structure/definition";
 
 /**
@@ -325,6 +326,18 @@ function collectFields(config: StructureConfig): HashField[] {
     requireRecord(config.layouts, definition.id, "layout"),
     definition.layoutControls,
   );
+
+  // Each slot feature's settings live in their own sub-object, addressed the
+  // same way `pillar.stone` is below.
+  const layout = requireRecord(config.layouts, definition.id, "layout");
+  for (const feature of definition.slotFeatures ?? []) {
+    addFields(
+      fields,
+      `${definition.id}.slots.${feature.id}`,
+      feature.select(layout),
+      slotFeatureControls(feature.label, feature.framed),
+    );
+  }
 
   for (const prop of definition.props) {
     switch (prop) {

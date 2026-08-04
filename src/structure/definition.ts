@@ -1,4 +1,4 @@
-import type { ControlSpec, RebuildScope } from "../config/control-spec";
+import { controlsFor, type ControlSpec, type RebuildScope } from "../config/control-spec";
 import type {
   MaterialSurfaceId,
   StructureMaterialPalette,
@@ -12,6 +12,7 @@ import type {
 import type { FireBowlConfig } from "../props/fire-bowl/config";
 import type { PillarConfig } from "../props/pillar/config";
 import type { StructureGraph } from "./kernel/graph";
+import type { SlotFeatureConfig } from "./kernel/slot";
 
 /**
  * Shared props a structure can opt into. The pane shows a prop's controls only
@@ -41,8 +42,94 @@ export interface StructureControlTab {
   readonly props?: readonly PropId[];
 }
 
+/**
+ * One slot-bearing feature of a structure, and where its settings live.
+ *
+ * Declared rather than inferred because the pane, the geometry code and the
+ * validator all have to agree on the same list, and a feature that reaches one
+ * of them but not the others is either an untabbed folder or a setting nobody
+ * can edit. `label` doubles as the control folder's title and the layout group
+ * a tab assigns, so a feature is tabbed exactly like any other group.
+ */
+export interface SlotFeatureSpec<TLayout extends object> {
+  readonly id: string;
+  readonly label: string;
+  /**
+   * Whether a border can be drawn around this feature's field.
+   *
+   * False where the border is already real geometry — a pier panel's raised
+   * rails, a decorated slab's proud face. Offering an inset there would be a
+   * setting that moves nothing, so the feature gets a switch and no more.
+   */
+  readonly framed?: boolean;
+  /** The feature's own settings, in place on the layout so edits land there. */
+  select(layout: TLayout): SlotFeatureConfig;
+}
+
+const slotControl = controlsFor<SlotFeatureConfig>();
+
+/**
+ * The controls every slot feature gets, generated per feature.
+ *
+ * Mirrors `MATERIAL_SURFACE_CONTROLS`: one table per repeated entity, grouped
+ * under that entity's own label and bound to its own sub-object, so the shape
+ * is authored once and every feature stays in step with it.
+ */
+export function slotFeatureControls(
+  label: string,
+  framed = true,
+): readonly ControlSpec<SlotFeatureConfig>[] {
+  const enabled = (feature: SlotFeatureConfig) => feature.enabled;
+  const shown = [
+    slotControl.boolean({
+      key: "enabled",
+      label: "enabled",
+      name: `${label} slots`,
+      group: label,
+      scopes: ["layout"],
+    }),
+    slotControl.number({
+      key: "borderWidth",
+      label: "border",
+      name: `${label} slot border`,
+      group: label,
+      min: 0,
+      max: 0.6,
+      step: 0.005,
+      scopes: ["layout"],
+      visibleWhen: enabled,
+    }),
+    slotControl.number({
+      key: "insetU",
+      label: "inset u",
+      name: `${label} slot horizontal inset`,
+      group: label,
+      min: 0,
+      max: 0.6,
+      step: 0.005,
+      scopes: ["layout"],
+      visibleWhen: enabled,
+    }),
+    slotControl.number({
+      key: "insetV",
+      label: "inset v",
+      name: `${label} slot vertical inset`,
+      group: label,
+      min: 0,
+      max: 0.6,
+      step: 0.005,
+      scopes: ["layout"],
+      visibleWhen: enabled,
+    }),
+  ];
+
+  return framed ? shown : shown.slice(0, 1);
+}
+
 export interface StructureBuildInput<TLayout extends object> {
   readonly layout: TLayout;
+  /** Repaint every published slot in the debug surface. A scene setting. */
+  readonly debugSlots: boolean;
   readonly stone: StoneConfig;
   readonly bevel: BevelConfig;
   readonly pillar: PillarConfig;
@@ -98,6 +185,8 @@ export interface StructureDefinition<TLayout extends object = object> {
   readonly defaultMaterialPalette?: Readonly<StructureMaterialPalette>;
   readonly materialSurfaces?: readonly MaterialSurfaceId[];
   readonly layoutControls: readonly ControlSpec<TLayout>[];
+  /** Slot-bearing features, each with its own settings folder. */
+  readonly slotFeatures?: readonly SlotFeatureSpec<TLayout>[];
   cloneLayout(source?: Readonly<TLayout>): TLayout;
   validateLayout(layout: TLayout): void;
   build(input: StructureBuildInput<TLayout>): StructureBuildResult;
@@ -132,9 +221,17 @@ function validateControlTabs<TLayout extends object>(
   );
   assertUnique(definition.props, `${definition.id}: props`);
 
-  const layoutGroups = new Set(
-    definition.layoutControls.map((control) => control.group),
+  assertUnique(
+    (definition.slotFeatures ?? []).map((feature) => feature.id),
+    `${definition.id}: slot feature ids`,
   );
+
+  // A feature's label is a layout group like any other, so the same bijection
+  // catches a features folder nobody put on a tab.
+  const layoutGroups = new Set([
+    ...definition.layoutControls.map((control) => control.group),
+    ...(definition.slotFeatures ?? []).map((feature) => feature.label),
+  ]);
   const assignedGroups = definition.controlTabs.flatMap(
     (tab) => [...(tab.layoutGroups ?? [])],
   );

@@ -26,9 +26,7 @@ import { ordinalSegment, structurePath } from "../kernel/ids";
 import {
   slotAnchor,
   slotRegion,
-  type SlotPlacement,
   type SlotRecord,
-  type SlotRule,
 } from "../kernel/slot";
 import {
   PATCH_ROLES,
@@ -78,6 +76,7 @@ import {
   bandFacadePatchId,
   corniceFasciaPatchId,
   resolveMassSlots,
+  type MassSlotFeatures,
 } from "./slots";
 
 /**
@@ -130,10 +129,13 @@ export interface StructureSpec {
   readonly facade: FacadeSpec;
   /** Roof assemblies resolved from the cells they cover. */
   readonly roofs: readonly SummitRoofSpec[];
-  /** How much of the structure is prepared as engravable fields. */
-  readonly slotPlacement: SlotPlacement;
-  /** The border drawn around every field this structure prepares. */
-  readonly slotRule: SlotRule;
+  /** The slot-bearing features of this structure, each authored on its own. */
+  readonly slots: MassSlotFeatures;
+  /**
+   * Course-aligned engravable strips per band elevation. Zero prepares the
+   * whole elevation as one field and leaves no stonework on it.
+   */
+  readonly slotBands: number;
 }
 
 interface SummitForecourt {
@@ -364,8 +366,7 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
     ? resolveCellSlots({
       cell: resolvedFacades.cell,
       patches: resolvedFacades.patches,
-      placement: spec.slotPlacement,
-      rule: spec.slotRule,
+      feature: spec.slots.summitWall,
     })
     : null;
   const facadedCell: ResolvedCell | null = cell && resolvedFacades && cellSlots
@@ -411,8 +412,8 @@ export function generateStructure(spec: StructureSpec): StructureGraph {
       direction: stair.record.direction,
       spanU: stair.spanU,
     })),
-    placement: spec.slotPlacement,
-    rule: spec.slotRule,
+    features: spec.slots,
+    slotBands: spec.slotBands,
   });
 
   let previousTopPatchId: string | null = null;

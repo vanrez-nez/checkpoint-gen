@@ -25,15 +25,14 @@ import {
   type PatchRole,
 } from "../kernel/patch";
 import {
-  NO_SLOT_RULE,
-  placementReaches,
+  arrisEdges,
   resolveFaceSlot,
   slotDepthBudget,
+  slotRuleOf,
   withSlotReservations,
   type FrameRecord,
-  type SlotPlacement,
+  type SlotFeatureConfig,
   type SlotRecord,
-  type SlotRule,
 } from "../kernel/slot";
 import { DiagnosticCollector } from "../kernel/validate";
 
@@ -44,8 +43,9 @@ export interface SummitRoofSpec {
   readonly projection: number;
   readonly corniceProjection: number;
   readonly corniceHeight: number;
-  readonly slotPlacement: SlotPlacement;
-  readonly slotRule: SlotRule;
+  /** Slot settings for the slab's own fascia and for the moulding above it. */
+  readonly fasciaSlots: SlotFeatureConfig;
+  readonly corniceSlots: SlotFeatureConfig;
 }
 
 export interface ResolvedRoof {
@@ -317,13 +317,10 @@ function resolveRoofSlots(
   const frames: FrameRecord[] = [];
   const slots: SlotRecord[] = [];
 
-  if (!placementReaches(spec.slotPlacement, "crowning")) {
-    return { frames, slots };
-  }
-
   const rings = [
     {
       role: "slab",
+      feature: spec.fasciaSlots,
       outline: slabFootprint,
       bottomY,
       topY: slabTopY,
@@ -335,6 +332,7 @@ function resolveRoofSlots(
     ...(cornice
       ? [{
         role: "cornice",
+        feature: spec.corniceSlots,
         outline: cornice.outline,
         bottomY: cornice.bottomY,
         topY: cornice.topY,
@@ -347,6 +345,12 @@ function resolveRoofSlots(
   ];
 
   for (const ring of rings) {
+    if (!ring.feature.enabled) {
+      continue;
+    }
+
+    const rule = slotRuleOf(ring.feature);
+
     for (const [index, orientation] of HORIZONTAL_ORIENTATIONS.entries()) {
       // The patch ids were pushed in this same order, one per orientation.
       const patchId = ring.patchIds[index];
@@ -374,7 +378,7 @@ function resolveRoofSlots(
         bandId: null,
         bayId: null,
         patchId,
-        uRange,
+        uEdges: arrisEdges(uRange),
         vRange: [0, 1],
         widthBottom: width,
         widthTop: width,
@@ -382,12 +386,9 @@ function resolveRoofSlots(
         hierarchy: ring.hierarchy,
         flow: "horizontal",
         continuity: "wrapping",
-        depthBudget: slotDepthBudget(ring.projection, spec.slotRule.recessDepth),
+        depthBudget: slotDepthBudget(ring.projection, rule.recessDepth),
         tags: ["roof", ring.role, "exterior", directionSegment(orientation)],
-        // A fascia is drawn as one quad per side and the roof is never split,
-        // so a border here would reserve a rectangle no face answers to. The
-        // fascia's own depth is the frame it already has.
-        rule: NO_SLOT_RULE,
+        rule,
       });
 
       if (!resolved) {

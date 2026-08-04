@@ -7,14 +7,16 @@ import type { CellRecord } from "../kernel/graph";
 import { structurePath } from "../kernel/ids";
 import type { Patch } from "../kernel/patch";
 import {
-  placementReaches,
+  arrisEdges,
   resolveFaceSlot,
   slotDepthBudget,
+  slotRuleOf,
   withSlotReservations,
+  withoutRange,
+  type FaceEdgeSource,
   type FrameRecord,
-  type SlotPlacement,
+  type SlotFeatureConfig,
   type SlotRecord,
-  type SlotRule,
 } from "../kernel/slot";
 import { compiledSurfaceFragments } from "../surface/features";
 
@@ -42,8 +44,7 @@ const WALL_SEGMENT: Readonly<Record<HorizontalOrientation, string>> = {
 export interface CellSlotInput {
   readonly cell: CellRecord;
   readonly patches: readonly Patch[];
-  readonly placement: SlotPlacement;
-  readonly rule: SlotRule;
+  readonly feature: SlotFeatureConfig;
 }
 
 export interface ResolvedCellSlots {
@@ -56,61 +57,90 @@ export function resolveCellSlots(input: CellSlotInput): ResolvedCellSlots {
   const frames: FrameRecord[] = [];
   const slots: SlotRecord[] = [];
 
-  if (!placementReaches(input.placement, "crowning")) {
+  if (!input.feature.enabled) {
     return { frames, slots, patches: input.patches };
   }
+
+  const rule = slotRuleOf(input.feature);
 
   const byId = new Map(input.patches.map((patch) => [patch.id, patch]));
 
   for (const wall of input.cell.walls) {
     const patch = byId.get(wall.outerPatchId);
 
-    if (!patch || compiledSurfaceFragments(patch).length > 0) {
+    if (!patch) {
       continue;
     }
 
-    const resolved = resolveFaceSlot({
-      id: structurePath(
-        input.cell.id,
-        `wall_${WALL_SEGMENT[wall.orientation]}_slot`,
-      ),
-      kind: "field",
-      part: "cell",
-      face: wall.orientation,
-      faceRole: patch.role,
-      bandId: null,
-      bayId: null,
-      patchId: patch.id,
-      // The corner blocks own the returns, so the panel this wall is drawn as
-      // runs only the interior's span. The patch spans the whole footprint
-      // edge, so the slot says which part of it the wall actually is.
-      uRange: drawnWallRange(
+    const compiled = compiledSurfaceFragments(patch);
+
+    // An entry is a hole in the wall, and stone either side of it is still an
+    // elevation. Anything else on the wall is a facade grammar, and that owns
+    // the composition — a field competing with it would read as a mistake.
+    if (compiled.some((entry) => entry.feature.operation !== "cut")) {
+      continue;
+    }
+
+    // The corner blocks own the returns, so the panel this wall is drawn as
+    // runs only the interior's span. The patch spans the whole footprint edge,
+    // so the slot says which part of it the wall actually is.
+    let spans: (readonly [FaceEdgeSource, FaceEdgeSource])[] = [
+      arrisEdges(drawnWallRange(
         wall.orientation,
         input.cell.footprint,
         input.cell.interior,
-      ),
-      vRange: [0, 1],
-      widthBottom: patch.dimensions.u,
-      widthTop: patch.dimensions.u,
-      faceHeight: patch.dimensions.v,
-      hierarchy: 10,
-      flow: patch.dimensions.u >= patch.dimensions.v ? "horizontal" : "vertical",
-      continuity: "per_face",
-      depthBudget: slotDepthBudget(
-        input.cell.wallThickness,
-        input.rule.recessDepth,
-      ),
-      tags: ["engraving", "exterior", "cell_wall", wall.orientation],
-      rule: input.rule,
-    });
+      )),
+    ];
 
-    if (!resolved) {
-      continue;
+    let head = 1;
+
+    for (const entry of compiled) {
+      for (const fragment of entry.fragments) {
+        spans = spans.flatMap((span) =>
+          withoutRange(span, [fragment.uMin, fragment.uMax]));
+        head = Math.min(head, fragment.vMax);
+      }
     }
-    if (resolved.frame) {
-      frames.push(resolved.frame);
+
+    for (const [index, span] of spans.entries()) {
+      const resolved = resolveFaceSlot({
+        id: structurePath(
+          input.cell.id,
+          spans.length > 1
+            ? `wall_${WALL_SEGMENT[wall.orientation]}_slot_${index + 1}`
+            : `wall_${WALL_SEGMENT[wall.orientation]}_slot`,
+        ),
+        kind: "field",
+        part: "cell",
+        face: wall.orientation,
+        faceRole: patch.role,
+        bandId: null,
+        bayId: null,
+        patchId: patch.id,
+        uEdges: span,
+        // Stone beside an entry stops at its head: `profileWallPanels` breaks
+        // the wall there, so the band above the opening is a panel of its own
+        // and a field reaching into it would belong to neither.
+        vRange: [0, head],
+        widthBottom: patch.dimensions.u,
+        widthTop: patch.dimensions.u,
+        faceHeight: patch.dimensions.v,
+        hierarchy: 10,
+        flow: patch.dimensions.u >= patch.dimensions.v ? "horizontal" : "vertical",
+        continuity: "per_face",
+        depthBudget: slotDepthBudget(input.cell.wallThickness, rule.recessDepth),
+        tags: ["engraving", "exterior", "cell_wall", wall.orientation],
+        rule,
+      });
+
+      if (!resolved) {
+        continue;
+      }
+      if (resolved.frame) {
+        frames.push(resolved.frame);
+      }
+      slots.push(resolved.slot);
     }
-    slots.push(resolved.slot);
   }
 
   return { frames, slots, patches: withSlotReservations(input.patches, slots) };
@@ -167,8 +197,8 @@ export interface PreparedCellField {
 export function preparedCellFields(
   cell: CellRecord,
   patches: ReadonlyMap<string, Patch>,
-): Map<HorizontalOrientation, PreparedCellField> {
-  const prepared = new Map<HorizontalOrientation, PreparedCellField>();
+): Map<HorizontalOrientation, PreparedCellField[]> {
+  const prepared = new Map<HorizontalOrientation, PreparedCellField[]>();
 
   for (const slot of cell.slots) {
     const patch = patches.get(slot.patchId);
@@ -189,10 +219,14 @@ export function preparedCellFields(
     const second = at(slot.inscribed.uMax);
     const height = cell.topY - cell.bottomY;
 
-    prepared.set(wall.orientation, {
+    const carried = prepared.get(wall.orientation) ?? [];
+    prepared.set(wall.orientation, carried);
+    carried.push({
       orientation: wall.orientation,
-      minU: Math.min(first, second),
-      maxU: Math.max(first, second),
+      // Kept in `u` order rather than sorted: `rectEdge` runs backwards along
+      // the axis on a rear or positive-side wall.
+      minU: first,
+      maxU: second,
       minV: cell.bottomY + slot.inscribed.vMin * height,
       maxV: cell.bottomY + slot.inscribed.vMax * height,
     });

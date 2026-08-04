@@ -18,13 +18,16 @@ import {
   DEFAULT_MASS_STONE_CONFIG,
   HEIGHT_CURVE_OPTIONS,
   MASS_LAYOUT_BASELINE,
+  MASS_SLOT_FEATURE_IDS,
   cloneMassLayout,
+  cloneMassSlots,
   heightCurveBezier,
   toHeightCurve,
   toMasonry,
   toStructureSpec,
   validateMassLayout,
   type MassLayoutConfig,
+  type MassSlotFeatureId,
 } from "../src/structure/families/mass/config";
 import {
   divideCourseRing,
@@ -82,6 +85,7 @@ import { createSeedSet, deriveSeed, subsystemSeed } from "../src/structure/kerne
 import {
   evaluateFrame,
   rectDepth,
+  rectEdge,
   rectWidth,
   type HorizontalOrientation,
 } from "../src/structure/kernel/frame";
@@ -104,11 +108,14 @@ import { compilePatchFeatures } from "../src/structure/surface/features";
 import { resolveFacadeBands, resolveFacadeBays } from "../src/structure/facade/layout";
 import {
   PILLAR_HALL_PRESETS,
+  PILLAR_HALL_SLOT_FEATURE_IDS,
   clonePillarHallLayout,
+  clonePillarHallSlots,
   resolvePillarHallGraph,
   toPillarHallMasonry,
   validatePillarHallLayout,
   type PillarHallLayoutConfig,
+  type PillarHallSlotFeatureId,
 } from "../src/structure/families/pillar-hall/config";
 import { DEFAULT_PILLAR_HALL_STONE_CONFIG } from "../src/structure/families/pillar-hall/config";
 import { PILLAR_HALL_ARCHETYPES } from "../src/structure/families/pillar-hall/types";
@@ -977,6 +984,51 @@ assert.equal(resolveFacadeBays(
 ), null);
 assert.equal(invalidFacadeDiagnostics.all[0]?.code, "facade.bays_not_bilateral");
 
+
+/**
+ * A layout with the named slot features switched on.
+ *
+ * Every feature defaults to off, so a test that wants engraving says which
+ * surfaces it means rather than reaching for one placement word that covered
+ * all of them.
+ */
+function withMassSlots(
+  layout: MassLayoutConfig,
+  ...ids: readonly MassSlotFeatureId[]
+): MassLayoutConfig {
+  const slots = cloneMassSlots(layout.slots);
+  for (const id of ids) {
+    slots[id] = { ...slots[id], enabled: true };
+  }
+  return { ...cloneMassLayout(layout), slots };
+}
+
+/** Every mass elevation, and everything crowning or enclosing it. */
+const ALL_MASS_SLOTS: readonly MassSlotFeatureId[] = [...MASS_SLOT_FEATURE_IDS];
+
+/** The principal wall faces alone. */
+const MASS_ELEVATION_SLOTS: readonly MassSlotFeatureId[] = [
+  "plinth",
+  "bandWall",
+];
+
+function withHallSlots(
+  layout: PillarHallLayoutConfig,
+  ...ids: readonly PillarHallSlotFeatureId[]
+): PillarHallLayoutConfig {
+  const slots = clonePillarHallSlots(layout.slots);
+  for (const id of ids) {
+    slots[id] = { ...slots[id], enabled: true };
+  }
+  return { ...clonePillarHallLayout(layout), slots };
+}
+
+const ALL_HALL_SLOTS: readonly PillarHallSlotFeatureId[] = [
+  ...PILLAR_HALL_SLOT_FEATURE_IDS,
+];
+
+const HALL_ELEVATION_SLOTS: readonly PillarHallSlotFeatureId[] = ["pierPanel"];
+
 // --- golden fixtures -------------------------------------------------------
 // Committed graphs, not committed meshes. A retuned proportion shows up as a
 // readable diff on the numbers that changed, which is the whole reason these are
@@ -1067,10 +1119,11 @@ const FIXTURES: readonly { readonly name: string; readonly layout: MassLayoutCon
       corniceHeight: 0.3,
       stoneworkEnabled: true,
       summitBuildingEnabled: true,
-      slotPlacement: "all",
     },
   },
-];
+].map((fixture) => fixture.name === "engraved-terraces"
+  ? { ...fixture, layout: withMassSlots(fixture.layout, ...ALL_MASS_SLOTS) }
+  : fixture);
 
 const graphs = new Map<string, StructureGraph>();
 
@@ -1102,10 +1155,10 @@ const HALL_FIXTURES: readonly {
   { name: "pillar-hall-open-pavilion", layout: clonePillarHallLayout(PILLAR_HALL_PRESETS.open_pavilion) },
   {
     name: "pillar-hall-engraved",
-    layout: {
-      ...clonePillarHallLayout(PILLAR_HALL_PRESETS.front_gallery),
-      slotPlacement: "all",
-    },
+    layout: withHallSlots(
+      clonePillarHallLayout(PILLAR_HALL_PRESETS.front_gallery),
+      ...ALL_HALL_SLOTS,
+    ),
   },
 ];
 
@@ -1165,27 +1218,85 @@ for (const fixture of HALL_FIXTURES) {
     `${fixture.name} exposed missing outward faces near ${backfaces.sample}.`,
   );
   assert.equal(hall.roof !== null, fixture.layout.archetype === "front_gallery");
+  // A row's architrave is one member, not one per bay, and it shares both end
+  // planes with the moulding above it. What the ends are is a composition
+  // decision — a free end projects, an end meeting another row stops flush — so
+  // what is asserted is that the beam covers every pier it lands on and that
+  // the two courses of the entablature agree with each other.
+  const expectedSpanDepth = Math.max(
+    fixture.layout.lintelDepth,
+    fixture.layout.pierWidth * 1.65,
+  );
   for (const row of hall.rows) {
     const horizontal = row.orientation === "front" || row.orientation === "rear";
-    const rowSupports = row.supportIds.map((id) => hall.supports.find((support) => support.id === id)!);
-    const supportCoordinates = rowSupports.map((support) => horizontal ? support.x : support.z);
-    const expectedEndExtent = (fixture.layout.lintelDepth + 0.24) * 0.5
-      + fixture.layout.spanEndProjection;
-    const expectedMin = Math.min(...supportCoordinates) - expectedEndExtent;
-    const expectedMax = Math.max(...supportCoordinates) + expectedEndExtent;
-    const cornice = hall.members.find((member) => member.id === `${row.id}/cornice`)!;
-    const lintels = row.bayIds.map((bayId) =>
-      hall.members.find((member) => member.id === `${bayId}/lintel`)!);
-    const corniceMin = horizontal ? cornice.rect.minX : cornice.rect.minZ;
-    const corniceMax = horizontal ? cornice.rect.maxX : cornice.rect.maxZ;
-    const lintelMin = Math.min(...lintels.map((member) =>
-      horizontal ? member.rect.minX : member.rect.minZ));
-    const lintelMax = Math.max(...lintels.map((member) =>
-      horizontal ? member.rect.maxX : member.rect.maxZ));
-    assert.ok(Math.abs(corniceMin - expectedMin) < 1e-9);
-    assert.ok(Math.abs(corniceMax - expectedMax) < 1e-9);
-    assert.ok(Math.abs(lintelMin - corniceMin) < 1e-9);
-    assert.ok(Math.abs(lintelMax - corniceMax) < 1e-9);
+    const cornice = hall.members.find(
+      (member) => member.id === `${row.id}/cornice`,
+    )!;
+    const lintel = hall.members.find(
+      (member) => member.id === `${row.id}/lintel`,
+    )!;
+
+    assert.ok(
+      row.bayIds.every((bayId) =>
+        !hall.members.some((member) => member.id === `${bayId}/lintel`)),
+      `${fixture.name}: a bay still owns a lintel of its own.`,
+    );
+
+    const along = (member: typeof lintel) => horizontal
+      ? [member.rect.minX, member.rect.maxX] as const
+      : [member.rect.minZ, member.rect.maxZ] as const;
+    const across = (member: typeof lintel) => horizontal
+      ? rectDepth(member.rect)
+      : rectWidth(member.rect);
+
+    assert.ok(Math.abs(along(lintel)[0] - along(cornice)[0]) < 1e-9);
+    assert.ok(Math.abs(along(lintel)[1] - along(cornice)[1]) < 1e-9);
+    // An architrave narrower than the capstone reads as set back behind the
+    // piers rather than carried by them.
+    assert.ok(
+      across(lintel) >= expectedSpanDepth - 1e-9,
+      `${fixture.name}: the ${row.orientation} span is narrower than its capstones.`,
+    );
+    assert.ok(
+      across(cornice) >= across(lintel) - 1e-9,
+      `${fixture.name}: the ${row.orientation} moulding does not oversail its beam.`,
+    );
+  }
+
+  // Every pier carries something. A row that stops at a corner does so because
+  // the row it meets there runs through, so the test is per pier rather than
+  // per row: no support may be left with nothing over it.
+  const lintels = hall.members.filter((member) => member.kind === "lintel");
+  for (const support of hall.supports) {
+    assert.ok(
+      lintels.some((member) =>
+        support.x >= member.rect.minX - 1e-9
+        && support.x <= member.rect.maxX + 1e-9
+        && support.z >= member.rect.minZ - 1e-9
+        && support.z <= member.rect.maxZ + 1e-9),
+      `${fixture.name}: pier "${support.id}" carries no span.`,
+    );
+  }
+
+  // Two rows meeting at one pier must not both claim the stone over it.
+  const spans = hall.members.filter(
+    (member) => member.kind === "lintel" || member.kind === "cornice",
+  );
+  for (let first = 0; first < spans.length; first += 1) {
+    for (let second = first + 1; second < spans.length; second += 1) {
+      const a = spans[first]!;
+      const b = spans[second]!;
+      const shares = a.rect.minX < b.rect.maxX - 1e-9
+        && a.rect.maxX > b.rect.minX + 1e-9
+        && a.rect.minZ < b.rect.maxZ - 1e-9
+        && a.rect.maxZ > b.rect.minZ + 1e-9
+        && a.bottomY < b.topY - 1e-9
+        && a.topY > b.bottomY + 1e-9;
+      assert.ok(
+        !shares,
+        `${fixture.name}: "${a.id}" and "${b.id}" occupy the same stone.`,
+      );
+    }
   }
   const summit = graph.masses[0]!.summit.placement!.rect;
   const occupiedRects = [
@@ -5498,16 +5609,16 @@ const ENGRAVED_CASES: readonly {
 
 for (const { label, layout } of ENGRAVED_CASES) {
   const squareSet = { ...DEFAULT_MASS_STONE_CONFIG, displacement: 0 };
-  const bare = generateStructure(toStructureSpec({
-    ...layout,
-    slotPlacement: "none",
-  }));
+  const bare = generateStructure(toStructureSpec(layout));
   assert.equal(allSlots(bare).length, 0, `${label}: slots are not inert when off.`);
 
-  for (const placement of ["elevations", "all"] as const) {
-    const engravedLayout: MassLayoutConfig = { ...layout, slotPlacement: placement };
+  for (const [name, ids] of [
+    ["elevations", MASS_ELEVATION_SLOTS],
+    ["all", ALL_MASS_SLOTS],
+  ] as const) {
+    const engravedLayout = withMassSlots(layout, ...ids);
     const graph = generateStructure(toStructureSpec(engravedLayout));
-    const scope = `${label} (${placement})`;
+    const scope = `${label} (${name})`;
     assertGraphInvariants(graph, scope);
     assertSlotInvariants(graph, scope);
     assert.ok(allSlots(graph).length > 0, `${scope}: prepared nothing.`);
@@ -5520,7 +5631,7 @@ for (const { label, layout } of ENGRAVED_CASES) {
     assert.equal(
       findCoincidentFaces(geometry).pairs,
       findCoincidentFaces(mergeParts(tessellateStructure(
-        generateStructure(toStructureSpec({ ...layout, slotPlacement: "none" })),
+        generateStructure(toStructureSpec(layout)),
         {
           masonry: toMasonry(layout, squareSet),
           seed: layout.seed,
@@ -5564,6 +5675,226 @@ for (const { label, layout } of ENGRAVED_CASES) {
   }
 }
 
+
+// A field's vertical edges must obey one of exactly two rules: an edge the face
+// gave it follows the stone's own arris, and an edge a stair cut is plumb. Both
+// were wrong before — the drawn field used the inscribed rectangle, so every
+// edge leaned the same way and neither rule held. Run across the batter range,
+// because at zero the two rules coincide and prove nothing, and above about 30°
+// the old border quad crossed itself.
+for (const batterAngle of [0, 12, 25, 35]) {
+  const layout = withMassSlots(
+    { ...cloneFrontStairLayout(), batterAngle },
+    ...ALL_MASS_SLOTS,
+  );
+  const graph = generateStructure(toStructureSpec(layout));
+  const patches = patchIndex(graph);
+  const bands = graph.masses[0]!.bands;
+  const scope = `engraved batter ${batterAngle}`;
+  let plumbEdges = 0;
+  let rakedEdges = 0;
+
+  for (const slot of graph.masses[0]!.slots) {
+    if (!slot.tags.includes("wall") || slot.face === "top" || slot.face === "bottom") {
+      continue;
+    }
+
+    const band = bands.find((candidate) => candidate.id === slot.bandId);
+    const patch = patches.get(slot.patchId);
+
+    if (!band || !patch) {
+      continue;
+    }
+
+    const edgeLength = (rect: typeof band.lower) => {
+      const edge = rectEdge(rect, slot.face as HorizontalOrientation);
+      return Math.hypot(edge.end.x - edge.start.x, edge.end.z - edge.start.z);
+    };
+    const widthBottom = edgeLength(band.lower);
+    const taper = edgeLength(band.upper) / widthBottom;
+    const frame = graph.masses[0]!.frames.find(
+      (candidate) => candidate.id === slot.frameId,
+    );
+    // The border is authored in metres, so it shifts an edge sideways without
+    // changing how it leans. Undo it to recover the edge's own fraction.
+    const shift = frame
+      ? (frame.insetU + frame.borderWidth) / widthBottom
+      : 0;
+    const [bottomLeft, bottomRight, topRight, topLeft] = slot.boundary;
+    const vSpan = topLeft!.v - bottomLeft!.v;
+
+    for (const [low, high, inward] of [
+      [bottomLeft!, topLeft!, -1],
+      [bottomRight!, topRight!, 1],
+    ] as const) {
+      const slope = vSpan <= 1e-9 ? 0 : (high.u - low.u) / vSpan;
+      const fraction = low.u - slope * low.v + inward * shift;
+      const raked = Math.abs(slope - fraction * (taper - 1));
+      const plumb = Math.abs(slope + (1 - taper) / 2);
+
+      assert.ok(
+        Math.min(raked, plumb) < 1e-9,
+        `${scope}: slot "${slot.id}" has an edge that neither follows the arris nor stands plumb.`,
+      );
+
+      if (plumb < raked) {
+        plumbEdges += 1;
+      } else {
+        rakedEdges += 1;
+      }
+    }
+  }
+
+  assert.ok(rakedEdges > 0, `${scope}: no field edge followed the stone.`);
+  // On a plumb wall the two rules are the same line, so there is nothing to
+  // tell apart. The distinction only has to hold where the wall leans.
+  if (batterAngle > 0) {
+    assert.ok(
+      plumbEdges > 0,
+      `${scope}: a stair crosses every elevation, so some edge must be plumb.`,
+    );
+  }
+
+  // The bowtie: above about 30° the old trailing border quad crossed itself and
+  // nothing noticed, because the suite stopped at 12.
+  const geometry = mergeParts(tessellateStructure(graph, {
+    masonry: toMasonry(layout, { ...DEFAULT_MASS_STONE_CONFIG, displacement: 0 }),
+    seed: layout.seed,
+    stairTilesPerStep: layout.stairTilesPerStep,
+    debugSlots: true,
+  }).parts, [MASS_SECTION]).geometry;
+  assert.equal(
+    findBackfaces(geometry, 48).backfaces,
+    0,
+    `${scope}: a prepared face left a hole.`,
+  );
+  assert.equal(
+    geometry.groups
+      .filter((group) => group.materialIndex === materialSlotIndex("slotDebug"))
+      .reduce((total, group) => total + group.count / 6, 0),
+    allSlots(graph).length,
+    `${scope}: published slots and prepared faces disagree.`,
+  );
+}
+
+
+// Slot bands interleave engraved strips with set stone on one elevation. The
+// two have to meet cleanly: a run's top course keeps the outline of its own
+// bed, so it stands proud of the strip above it and that ledge is real stone.
+// Suppressing it left a hole all the way round the building.
+{
+  const bandedLayout: MassLayoutConfig = {
+    ...cloneFrontStairLayout(),
+    bandCount: 3,
+    totalHeight: 8,
+    cornicePlacement: "none",
+    summitBuildingEnabled: false,
+    summitTreatment: "open_floor",
+    stairFrontEnabled: false,
+  };
+
+  for (const bands of [0, 1, 2, 4, 6]) {
+    for (const seed of [1, 7]) {
+      const layout = withMassSlots(
+        { ...bandedLayout, slotBands: bands, seed },
+        "bandWall",
+      );
+      const graph = generateStructure(toStructureSpec(layout));
+      const scope = `slot bands ${bands} seed ${seed}`;
+      const geometry = mergeParts(tessellateStructure(graph, {
+        masonry: toMasonry(layout, {
+          ...DEFAULT_MASS_STONE_CONFIG,
+          displacement: 0,
+        }),
+        seed: layout.seed,
+        stairTilesPerStep: layout.stairTilesPerStep,
+        debugSlots: true,
+      }).parts, [MASS_SECTION]).geometry;
+
+      assert.equal(
+        findCoincidentFaces(geometry).pairs,
+        0,
+        `${scope}: a strip and the coursing beside it are at the same depth.`,
+      );
+      // A banded elevation gains a ledge at every seam: a run's top course
+      // keeps its own bed's outline, so it stands proud of the strip above it.
+      // The ray sampler grazes those edge-on, so a stray hit is the probe and
+      // not a hole — a real gap lets rays in from every direction at once.
+      assert.ok(
+        findBackfaces(geometry, 48).backfaces <= 1,
+        `${scope}: the strip and run seam left a hole.`,
+      );
+      assert.equal(
+        geometry.groups
+          .filter((group) => group.materialIndex === materialSlotIndex("slotDebug"))
+          .reduce((total, group) => total + group.count / 6, 0),
+        allSlots(graph).length,
+        `${scope}: published slots and prepared faces disagree.`,
+      );
+
+      // Zero bands is one field over the whole elevation; more divides it.
+      const expected = bands === 0 ? 1 : bands;
+      const perFace = new Map<string, number>();
+      for (const slot of graph.masses[0]!.slots) {
+        const key = `${slot.patchId}`;
+        perFace.set(key, (perFace.get(key) ?? 0) + 1);
+      }
+      assert.ok(
+        [...perFace.values()].every((count) => count === expected),
+        `${scope}: an elevation did not carry ${expected} strip(s).`,
+      );
+    }
+  }
+}
+
+
+// The summit building's entries. A wall with a doorway is still an elevation:
+// the stone either side of it takes a field, and the wall above the head is a
+// panel of its own that deliberately takes none. A wall under a hierarchical
+// facade takes none at all — that grammar owns the composition.
+for (const [label, overrides, expected] of [
+  ["every approach", {}, { front: 2, rear: 2, sidePositiveU: 2, sideNegativeU: 2 }],
+  [
+    "one approach",
+    { stairRearEnabled: false, stairLeftEnabled: false, stairRightEnabled: false },
+    { front: 2, rear: 1, sidePositiveU: 1, sideNegativeU: 1 },
+  ],
+  ["hierarchical facade", { facadeStyle: "hierarchical" as const }, {}],
+] as const) {
+  const layout = withMassSlots(
+    { ...DEFAULT_MASS_LAYOUT, ...overrides },
+    "summitWall",
+  );
+  const graph = generateStructure(toStructureSpec(layout));
+  const cell = graph.cells[0];
+  const scope = `summit walls, ${label}`;
+  assert.ok(cell, `${scope}: no summit building resolved.`);
+
+  const perWall = new Map<string, number>();
+  for (const slot of cell!.slots) {
+    perWall.set(slot.face, (perWall.get(slot.face) ?? 0) + 1);
+  }
+  assert.deepEqual(
+    Object.fromEntries([...perWall].sort()),
+    Object.fromEntries(Object.entries(expected).sort()),
+    `${scope}: wrong number of fields per elevation.`,
+  );
+
+  const geometry = mergeParts(tessellateStructure(graph, {
+    masonry: toMasonry(layout, { ...DEFAULT_MASS_STONE_CONFIG, displacement: 0 }),
+    seed: layout.seed,
+    stairTilesPerStep: layout.stairTilesPerStep,
+    debugSlots: true,
+  }).parts, [MASS_SECTION]).geometry;
+  assert.equal(
+    geometry.groups
+      .filter((group) => group.materialIndex === materialSlotIndex("slotDebug"))
+      .reduce((total, group) => total + group.count / 6, 0),
+    cell!.slots.length,
+    `${scope}: published slots and prepared faces disagree.`,
+  );
+}
+
 // Preparing one band must not reach the bands above it. The bond belongs to the
 // whole stack, so a stretch drawn flat still has to spend the courses it would
 // have laid — otherwise ticking a checkbox reshuffles every quoin over it.
@@ -5582,14 +5913,10 @@ for (const { label, layout } of ENGRAVED_CASES) {
     stairLeftEnabled: false,
     stairRightEnabled: false,
   };
-  const plain = generateStructure(toStructureSpec({
-    ...bondLayout,
-    slotPlacement: "none",
-  }));
-  const prepared = generateStructure(toStructureSpec({
-    ...bondLayout,
-    slotPlacement: "elevations",
-  }));
+  const plain = generateStructure(toStructureSpec(bondLayout));
+  const prepared = generateStructure(toStructureSpec(
+    withMassSlots(bondLayout, ...MASS_ELEVATION_SLOTS),
+  ));
   const lowest = prepared.masses[0]!.bands[0]!;
   // Only the lowest band is prepared, so everything above it must be laid
   // exactly as it was — same stones, same corners, same elevations.
@@ -5649,8 +5976,8 @@ for (const { label, layout } of ENGRAVED_CASES) {
     summitBuildingEnabled: false,
     summitTreatment: "open_floor",
   };
-  const faceCount = (placement: MassLayoutConfig["slotPlacement"]) => tessellateStructure(
-    generateStructure(toStructureSpec({ ...gateLayout, slotPlacement: placement })),
+  const faceCount = (ids: readonly MassSlotFeatureId[]) => tessellateStructure(
+    generateStructure(toStructureSpec(withMassSlots(gateLayout, ...ids))),
     {
       masonry: toMasonry(gateLayout, DEFAULT_MASS_STONE_CONFIG),
       seed: gateLayout.seed,
@@ -5658,7 +5985,7 @@ for (const { label, layout } of ENGRAVED_CASES) {
     },
   ).faceCount;
   assert.ok(
-    faceCount("elevations") < faceCount("none") / 2,
+    faceCount(MASS_ELEVATION_SLOTS) < faceCount([]) / 2,
     "Preparing every elevation did not take the coursing off them.",
   );
 }
@@ -5667,13 +5994,16 @@ for (const { label, layout } of ENGRAVED_CASES) {
 // checked is that publishing patches for the first time left the mesh alone and
 // that every field is a face.
 for (const archetype of PILLAR_HALL_ARCHETYPES) {
-  for (const placement of ["elevations", "all"] as const) {
-    const layout = {
-      ...clonePillarHallLayout(PILLAR_HALL_PRESETS[archetype]),
-      slotPlacement: placement,
-    };
+  for (const [name, ids] of [
+    ["elevations", HALL_ELEVATION_SLOTS],
+    ["all", ALL_HALL_SLOTS],
+  ] as const) {
+    const layout = withHallSlots(
+      clonePillarHallLayout(PILLAR_HALL_PRESETS[archetype]),
+      ...ids,
+    );
     const graph = resolvePillarHallGraph(layout);
-    const scope = `engraved ${archetype} (${placement})`;
+    const scope = `engraved ${archetype} (${name})`;
     assertGraphInvariants(graph, scope);
     assertSlotInvariants(graph, scope);
     assert.ok(graph.pillarHalls[0]!.slots.length > 0, `${scope}: prepared nothing.`);
@@ -5716,7 +6046,7 @@ for (const archetype of PILLAR_HALL_ARCHETYPES) {
 
 // Resolution is arithmetic, so the same layout must publish the same table.
 {
-  const repeatable = { ...DEFAULT_MASS_LAYOUT, slotPlacement: "all" as const };
+  const repeatable = withMassSlots(DEFAULT_MASS_LAYOUT, ...ALL_MASS_SLOTS);
   assert.equal(
     serializeGraph(generateStructure(toStructureSpec(repeatable))),
     serializeGraph(generateStructure(toStructureSpec(repeatable))),

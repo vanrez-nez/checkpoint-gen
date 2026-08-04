@@ -4,7 +4,10 @@ import { defineStructure } from "../../definition";
 import { tessellateStructure } from "../../mass/tessellate";
 import {
   DEFAULT_STELA_LAYOUT,
+  STELA_FRAMED_SLOT_FEATURES,
   STELA_LAYOUT_CONTROLS,
+  STELA_SLOT_FEATURE_IDS,
+  STELA_SLOT_FEATURE_LABELS,
   cloneStelaLayout,
   resolveStelaGraph,
   toStelaBevel,
@@ -36,7 +39,15 @@ export const stelaStructure = defineStructure<StelaLayoutConfig>({
     {
       id: "details",
       label: "Details",
-      layoutGroups: ["Registers", "Ribbons", "Frames", "Bevels", "Slots", "Condition"],
+      layoutGroups: [
+        "Registers",
+        "Ribbons",
+        "Frames",
+        "Bevels",
+        "Slots",
+        "Condition",
+        ...STELA_SLOT_FEATURE_IDS.map((id) => STELA_SLOT_FEATURE_LABELS[id]),
+      ],
     },
     { id: "materials", label: "Materials", props: ["materialPalette"] },
   ],
@@ -48,23 +59,28 @@ export const stelaStructure = defineStructure<StelaLayoutConfig>({
     "stelaBody",
     "stelaField",
     "stelaCrown",
-    "slotDebug",
     "pedestal",
     "frieze",
     "cornice",
   ],
   layoutControls: STELA_LAYOUT_CONTROLS,
+  slotFeatures: STELA_SLOT_FEATURE_IDS.map((id) => ({
+    id,
+    label: STELA_SLOT_FEATURE_LABELS[id],
+    framed: STELA_FRAMED_SLOT_FEATURES[id],
+    select: (layout: StelaLayoutConfig) => layout.slots[id],
+  })),
   cloneLayout: cloneStelaLayout,
   validateLayout: validateStelaLayout,
 
-  build({ layout, sections }) {
+  build({ layout, debugSlots, sections }) {
     const graph = resolveStelaGraph(layout);
     const parts: GeometryPart[] = sections.has(STELA_SECTION)
       ? [...tessellateStructure(graph, {
         // The body is one stone by definition; only a built base takes courses.
         masonry: toStelaMasonry(layout),
         seed: layout.seed,
-        debugSlots: layout.debugSlots,
+        debugSlots,
         bevel: toStelaBevel(layout),
         section: STELA_SECTION,
         partId: "stela",

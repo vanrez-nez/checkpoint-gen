@@ -553,9 +553,9 @@ function resolveFrame(
     faceId: face.id,
     width: (bay.uRange[1] - bay.uRange[0]) * face.widthTop,
     height: band.height,
-    insetU: layout.frameInsetU,
-    insetV: layout.frameInsetV,
-    borderWidth: layout.frameBorderWidth,
+    insetU: layout.slots.bayField.insetU,
+    insetV: layout.slots.bayField.insetV,
+    borderWidth: layout.slots.bayField.borderWidth,
     recessDepth: layout.frameRecessDepth,
     returnProfile: "square",
   });
@@ -840,8 +840,12 @@ function resolveSlots(
   const pocketByFrame = new Map(pockets.map((pocket) => [pocket.frameId, pocket]));
   const bodyHeight = body.topY - body.bottomY;
   const toV = (y: number) => (y - body.bottomY) / bodyHeight;
+  const { slots: features } = layout;
 
   for (const bay of bays) {
+    if (!features.bayField.enabled) {
+      break;
+    }
     const band = bandById.get(bay.bandId);
     const face = faces.find((entry) => entry.id === bay.faceId);
     if (!band || !face) {
@@ -903,6 +907,9 @@ function resolveSlots(
 
   for (const band of bands.filter((entry) => entry.role !== "register")) {
     for (const face of faces) {
+      if (!features.bandRibbon.enabled) {
+        break;
+      }
       const vMin = toV(band.bottomY);
       const vMax = toV(band.topY);
       const boundary = faceBoundary(face.widthBottom, face.widthTop, 0, 1, vMin, vMax);
@@ -957,6 +964,9 @@ function resolveSlots(
       continue;
     }
     const vMin = toV(strip.bottomY);
+    if (!features.returnRibbon.enabled) {
+      break;
+    }
     const vMax = toV(strip.topY);
     const boundary = faceBoundary(face.widthBottom, face.widthTop, strip.uRange[0], strip.uRange[1], vMin, vMax);
     const inscribed = inscribedRect(boundary);
@@ -1001,7 +1011,7 @@ function resolveSlots(
     });
   }
 
-  if (crown?.exposesFace) {
+  if (crown?.exposesFace && features.crownFace.enabled) {
     const slotId = structurePath(id, "crown", "face_top");
     const width = rectWidth(crown.footprint);
     const depth = rectDepth(crown.footprint);
@@ -1039,7 +1049,11 @@ function resolveSlots(
   if (bearing) {
     const projection = (rectWidth(bearing.footprint) - rectWidth(body.lower)) / 2;
     const height = bearing.topY - bearing.bottomY;
-    if (projection >= MIN_RIBBON_WIDTH && height >= MIN_FIELD_EXTENT) {
+    if (
+      features.baseFace.enabled
+      && projection >= MIN_RIBBON_WIDTH
+      && height >= MIN_FIELD_EXTENT
+    ) {
       for (const face of faces) {
         const width = faceWidth(bearing.footprint, face.orientation);
         if (width < MIN_FIELD_EXTENT) {

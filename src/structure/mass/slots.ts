@@ -11,11 +11,13 @@ import {
 import type { ElevationBandRecord } from "../kernel/graph";
 import { structurePath } from "../kernel/ids";
 import {
-  placementReaches,
+  arrisEdges,
   resolveFaceSlot,
   slotDepthBudget,
+  slotRuleOf,
+  withoutRange,
   type FrameRecord,
-  type SlotPlacement,
+  type SlotFeatureConfig,
   type SlotRecord,
   type SlotRule,
 } from "../kernel/slot";
@@ -78,6 +80,22 @@ export function corniceFasciaPatchId(
   return structurePath(bandId, CORNICE_SEGMENT[orientation]);
 }
 
+/**
+ * The slot-bearing features of a mass, each with its own settings.
+ *
+ * One figure covering every surface was the wrong shape for this: a band wall
+ * wants a large field, a moulding wants a running strip, and the summit's
+ * fascias are narrower again. Each of these is authored on its own.
+ */
+export interface MassSlotFeatures {
+  readonly plinth: SlotFeatureConfig;
+  readonly bandWall: SlotFeatureConfig;
+  readonly bandCornice: SlotFeatureConfig;
+  readonly summitWall: SlotFeatureConfig;
+  readonly summitRoofFascia: SlotFeatureConfig;
+  readonly summitRoofCornice: SlotFeatureConfig;
+}
+
 export interface MassStairReserve {
   readonly direction: HorizontalOrientation;
   readonly spanU: readonly [number, number];
@@ -93,8 +111,47 @@ export interface MassSlotInput {
    */
   readonly detachedBands: readonly ElevationBandRecord[];
   readonly stairs: readonly MassStairReserve[];
-  readonly placement: SlotPlacement;
-  readonly rule: SlotRule;
+  readonly features: MassSlotFeatures;
+  /**
+   * How many engravable strips a band elevation carries. Zero prepares the
+   * whole face; anything more interleaves flat strips with set stone.
+   */
+  readonly slotBands: number;
+}
+
+/**
+ * How much of a banded elevation the engraving takes, leaving the rest as
+ * stone. Just under half: the strips have to read as let into the wall rather
+ * than as the wall itself.
+ */
+const SLOT_BAND_SHARE = 0.45;
+
+/**
+ * The `v` spans a stretch's fields occupy, in the slot's own domain.
+ *
+ * Zero bands is one field over the whole face. More divides it into strips
+ * separated by runs of set stone — and because the tessellator courses each run
+ * on its own, every strip edge lands on a bed joint and the coursing above and
+ * below still lines up round the building.
+ */
+function bandSpans(
+  bands: number,
+  from: number,
+  to: number,
+): (readonly [number, number])[] {
+  const total = to - from;
+
+  if (bands <= 0 || total <= EPS) {
+    return [[from, to]];
+  }
+
+  const strip = (total * SLOT_BAND_SHARE) / bands;
+  const run = (total * (1 - SLOT_BAND_SHARE)) / (bands + 1);
+
+  return Array.from({ length: bands }, (_, index) => {
+    const start = from + run * (index + 1) + strip * index;
+    return [start, start + strip] as const;
+  });
 }
 
 export function resolveMassSlots(
@@ -102,10 +159,6 @@ export function resolveMassSlots(
 ): { readonly frames: FrameRecord[]; readonly slots: SlotRecord[] } {
   const frames: FrameRecord[] = [];
   const slots: SlotRecord[] = [];
-
-  if (input.placement === "none") {
-    return { frames, slots };
-  }
 
   const climbed = input.bands.map((band) => ({ band, stairs: input.stairs }));
   const clear = input.detachedBands.map((band) => ({
@@ -119,14 +172,30 @@ export function resolveMassSlots(
     }
 
     for (const stretch of bandStretches(band)) {
-      const surface = stretch.label === "cornice" ? "crowning" : "elevation";
+      const feature = stretch.label === "cornice"
+        ? input.features.bandCornice
+        : band.index < 0
+          ? input.features.plinth
+          : input.features.bandWall;
 
-      if (!placementReaches(input.placement, surface)) {
+      if (!feature.enabled) {
         continue;
       }
 
+      // A moulding is already a strip, and a footing is too short to divide.
+      const bands = stretch.label === "wall" && band.index >= 0
+        ? input.slotBands
+        : 0;
+
       for (const orientation of HORIZONTAL_ORIENTATIONS) {
-        const found = stretchSlots(band, stretch, orientation, stairs, input.rule);
+        const found = stretchSlots(
+          band,
+          stretch,
+          orientation,
+          stairs,
+          slotRuleOf(feature),
+          bands,
+        );
         for (const resolved of found) {
           if (resolved.frame) {
             frames.push(resolved.frame);
@@ -152,6 +221,7 @@ function stretchSlots(
   orientation: HorizontalOrientation,
   stairs: readonly MassStairReserve[],
   rule: SlotRule,
+  bands: number,
 ): { readonly slot: SlotRecord; readonly frame: FrameRecord | null }[] {
   const cornice = stretch.label === "cornice";
   const patchId = cornice
@@ -176,10 +246,11 @@ function stretchSlots(
   }
 
   const reserved = stairs.find((stair) => stair.direction === orientation);
+  const whole = arrisEdges([0, 1]);
   const spans = cornice || !reserved
-    ? [[0, 1] as const]
+    ? [whole]
     : withoutRange(
-      [0, 1],
+      whole,
       stairReserveRange(band.lower, orientation, reserved.spanU),
     );
 
@@ -189,10 +260,21 @@ function stretchSlots(
     ? stretch.topY - stretch.bottomY
     : Math.min(rectWidth(band.lower), rectDepth(band.lower)) * 0.5;
 
-  return spans.flatMap((span, index) => {
+  const vStretchMin = domain.rise <= EPS
+    ? 0
+    : Math.max((stretch.bottomY - domain.bottomY) / domain.rise, 0);
+  const rows = bandSpans(bands, vStretchMin, vMax);
+
+  return spans.flatMap((span, index) => rows.flatMap((row, rowIndex) => {
+    const name = [
+      spans.length > 1 ? `slot_${index + 1}` : "slot",
+      rows.length > 1 ? `band_${rowIndex + 1}` : null,
+    ].filter((part): part is string => part !== null).join("_");
     const resolved = resolveFaceSlot({
-      id: structurePath(patchId, spans.length > 1 ? `slot_${index + 1}` : "slot"),
-      kind: cornice ? "ribbon" : bandSlotKind(band),
+      id: structurePath(patchId, name),
+      // A strip let into a wall is a running band, not a panel, and is judged
+      // on a ribbon's minimums rather than a field's.
+      kind: cornice || rows.length > 1 ? "ribbon" : bandSlotKind(band),
       part: bandPart(band),
       face: orientation,
       faceRole: cornice ? "cornice" : band.surfaceRole,
@@ -201,8 +283,8 @@ function stretchSlots(
       bandId: stretch.id,
       bayId: null,
       patchId,
-      uRange: span,
-      vRange: [0, vMax],
+      uEdges: span,
+      vRange: row,
       widthBottom,
       widthTop,
       faceHeight,
@@ -217,7 +299,7 @@ function stretchSlots(
     });
 
     return resolved ? [resolved] : [];
-  });
+  }));
 }
 
 /**
@@ -248,17 +330,57 @@ export function preparedFieldsOf(
   band: ElevationBandRecord,
   stretch: BandStretch,
   slots: readonly SlotRecord[],
+  frames: readonly FrameRecord[] = [],
 ): PreparedField[] {
   const domain = slotDomainOf(band, stretch);
 
   return slots
     .filter((slot) => slot.bandId === stretch.id && slot.face !== "top" && slot.face !== "bottom")
-    .map((slot) => ({
-      face: slot.face as HorizontalOrientation,
-      uRange: [slot.inscribed.uMin, slot.inscribed.uMax] as const,
-      bottomY: domain.bottomY + slot.inscribed.vMin * domain.rise,
-      topY: domain.bottomY + slot.inscribed.vMax * domain.rise,
-    }));
+    .map((slot) => {
+      // The outline, not the rectangle inside it: the four corners are the
+      // stone, and a battered face's field is a trapezoid.
+      const [bottomLeft, bottomRight, topRight, topLeft] = slot.boundary;
+      const orientation = slot.face as HorizontalOrientation;
+      // Whichever patch the slot names is the domain the boundary was measured
+      // in: a wall shares the band's facade patch and runs up the rake, while a
+      // moulding has a plumb patch of its own on its own outline.
+      const cornice = stretch.label === "cornice";
+      const base = rectEdge(cornice ? stretch.lower : band.lower, orientation);
+      const crown = rectEdge(cornice ? stretch.upper : band.upper, orientation);
+      const alongOf = (point: { readonly x: number; readonly z: number }) =>
+        orientation === "front" || orientation === "rear" ? point.x : point.z;
+      const a0 = alongOf(base.start);
+      const span = alongOf(base.end) - a0;
+      const rake = alongOf(crown.start) - a0;
+      const worldAt = (u: number, v: number) => a0 + span * u + rake * v;
+      // The border is drawn on the same flat stone as the field, so the strip
+      // laid flat is the field grown back by it.
+      const frame = frames.find((candidate) => candidate.id === slot.frameId);
+      const faceHeight = cornice
+        ? stretch.topY - stretch.bottomY
+        : facadeSlopeLength(band, orientation);
+      const margin = frame && faceHeight > EPS
+        ? (frame.insetV + frame.borderWidth) * domain.rise / faceHeight
+        : 0;
+      const bottomY = domain.bottomY + bottomLeft!.v * domain.rise;
+      const topY = domain.bottomY + topLeft!.v * domain.rise;
+
+      return {
+        face: orientation,
+        left: [
+          worldAt(bottomLeft!.u, bottomLeft!.v),
+          worldAt(topLeft!.u, topLeft!.v),
+        ] as const,
+        right: [
+          worldAt(bottomRight!.u, bottomRight!.v),
+          worldAt(topRight!.u, topRight!.v),
+        ] as const,
+        bottomY,
+        topY,
+        rowBottomY: Math.max(bottomY - margin, stretch.bottomY),
+        rowTopY: Math.min(topY + margin, stretch.topY),
+      };
+    });
 }
 
 /** A footing carries base ornament; everything above it carries a field. */
@@ -321,20 +443,4 @@ export function stairReserveRange(
   ];
 }
 
-/** `source` with `cover` removed, as the zero, one or two spans that remain. */
-function withoutRange(
-  source: readonly [number, number],
-  cover: readonly [number, number],
-): (readonly [number, number])[] {
-  const [from, to] = source;
-  const [coverFrom, coverTo] = cover;
 
-  if (coverTo <= from + EPS || coverFrom >= to - EPS) {
-    return [source];
-  }
-
-  return [
-    [from, Math.min(coverFrom, to)] as const,
-    [Math.max(coverTo, from), to] as const,
-  ].filter((span) => span[1] - span[0] > EPS);
-}

@@ -170,7 +170,7 @@ export function tessellateStructure(
   // so neither assembly leaves a coincident contact plane.
   for (const roof of graph.roofs) {
     builder.cullFaces((face) => faceIsCoveredByRoof(face, roof));
-    builder.withMaterial("roof", () => buildRoof(builder, roof));
+    builder.withMaterial("roof", () => buildRoof(builder, roof, patches));
   }
 
   // Connectors are read from the same graph and drawn with the same one
@@ -331,7 +331,7 @@ function preparedStretches(
 
   for (const band of bands) {
     for (const stretch of bandStretches(band)) {
-      const fields = preparedFieldsOf(band, stretch, mass.slots);
+      const fields = preparedFieldsOf(band, stretch, mass.slots, mass.frames);
 
       if (fields.length > 0) {
         prepared.set(stretch.id, fields);

@@ -69,6 +69,8 @@ const RUN_RING: readonly HorizontalOrientation[] = [
   "sideNegativeU",
 ];
 
+const EPS = 1e-9;
+
 /** A cornice is a run of long stones, not a facing of small ones. */
 const CORNICE_STONE_RATIO = 2.5;
 
@@ -212,29 +214,32 @@ export function buildMassShell(
       const segmentSeed = masonrySeed(seed, band.id, segment.label);
 
       const fields = preparedStretches?.get(segment.id);
+      // The bond belongs to the stack, so a segment always spends the courses
+      // it would have laid however it is drawn inside. Without this, preparing
+      // one band for engraving reshuffles the quoins of every band above it.
+      const spent = divideCourses(
+        segment.topY - segment.bottomY,
+        segment.rule,
+        masonrySeed(segmentSeed, "courses"),
+      ).length;
 
       if (fields) {
-        layBareStretch(builder, segment, {
+        layPreparedStretch(builder, segment, {
           isCrown,
           under: under ?? null,
           crownClaim,
           fields,
+          seed: segmentSeed,
+          courseIndex,
         });
-        // The bond belongs to the stack, so a stretch drawn flat still spends
-        // the courses it would have laid. Without this, preparing one band for
-        // engraving reshuffles the quoins of every band above it.
-        courseIndex += divideCourses(
-          segment.topY - segment.bottomY,
-          segment.rule,
-          masonrySeed(segmentSeed, "courses"),
-        ).length;
+        courseIndex += spent;
         continue;
       }
 
       builder.withMaterial(
         segment.label === "cornice" ? "cornice" : "stone",
         () => {
-          courseIndex += layCourses(builder, segment, {
+          layCourses(builder, segment, {
             seed: segmentSeed,
             courseIndex,
             crowned: !isCrown,
@@ -242,6 +247,7 @@ export function buildMassShell(
           });
         },
       );
+      courseIndex += spent;
     }
   }
 }
@@ -265,15 +271,148 @@ function segmentsOf(band: ElevationBandRecord, rule: MasonryRule): Segment[] {
 /**
  * One engravable field on one face of a stretch, where it will be drawn.
  *
- * `uRange` is the face's own normalised span; the elevations are world. Fields
- * on one face never overlap — the resolver splits around a stair rather than
- * publishing two claims on the same stone.
+ * Each vertical edge is given as `u` at the field's own bottom and top, which
+ * is enough to place it at any height because every edge on a face is affine in
+ * `v`. Two world-anchored samples rather than a domain slope on purpose: a
+ * field is published against the band's height and drawn against the stretch's,
+ * and those differ on a corniced band.
+ *
+ * Fields on one face never overlap — the resolver splits around a stair rather
+ * than publishing two claims on the same stone.
  */
 export interface PreparedField {
   readonly face: HorizontalOrientation;
-  readonly uRange: readonly [number, number];
+  /**
+   * The field's two vertical edges, as world positions along the face at the
+   * field's own bottom and top: X on a front or rear face, Z otherwise.
+   *
+   * World rather than a normalised `u` on purpose. A field is measured against
+   * the whole band and may be drawn on one slice of it, and on a leaning wall
+   * those two have different widths — a fraction of one is not a fraction of
+   * the other, and the field would slide.
+   */
+  readonly left: readonly [number, number];
+  readonly right: readonly [number, number];
   readonly bottomY: number;
   readonly topY: number;
+  /**
+   * The strip of stone this field was cut from, which is what gets laid flat.
+   *
+   * The field retreats inside it by the border, and the border is drawn as part
+   * of the same flat face — so the elevation is divided by the strip, never by
+   * the field. Equal to the field's own span where there is no border.
+   */
+  readonly rowBottomY: number;
+  readonly rowTopY: number;
+}
+
+/**
+ * How close two elevations have to be before they are the same bed. Below a
+ * millimetre nothing reads as a course, so anything closer is rounding.
+ */
+const LEVEL_TOLERANCE = 1e-4;
+
+interface PreparedStretchOptions extends BareStretchOptions {
+  readonly seed: number;
+  readonly courseIndex: number;
+}
+
+/**
+ * A stretch that carries engraving, drawn as flat strips and set stone.
+ *
+ * A field takes the whole stretch when nothing else was asked for; otherwise
+ * the elevation alternates. The coursing is divided run by run rather than once
+ * for the stretch, so a strip's edges are bed joints by construction and the
+ * courses above one still line up round the building.
+ */
+function layPreparedStretch(
+  builder: SolidBuilder,
+  segment: BandStretch & { readonly rule: MasonryRule },
+  options: PreparedStretchOptions,
+): void {
+  const height = segment.topY - segment.bottomY;
+  // Merged with a tolerance, not by identity: a strip that fills its stretch
+  // arrives a rounding error away from the stretch's own ends, and a run a
+  // rounding error tall is a seam with two faces in it.
+  const levels: number[] = [];
+  for (const y of [
+    segment.bottomY,
+    segment.topY,
+    ...options.fields!.flatMap((field) => [field.rowBottomY, field.rowTopY]),
+  ].sort((a, b) => a - b)) {
+    if (
+      y < segment.bottomY - LEVEL_TOLERANCE
+      || y > segment.topY + LEVEL_TOLERANCE
+    ) {
+      continue;
+    }
+    if (levels.length === 0 || y - levels[levels.length - 1]! > LEVEL_TOLERANCE) {
+      levels.push(y);
+    }
+  }
+
+  if (levels.length <= 2) {
+    layBareStretch(builder, segment, options);
+    return;
+  }
+
+  const outlineAt = (y: number) =>
+    lerpRect(segment.lower, segment.upper, height <= EPS ? 0 : (y - segment.bottomY) / height);
+  let courseIndex = options.courseIndex;
+
+  for (let index = 0; index < levels.length - 1; index += 1) {
+    const bottomY = levels[index]!;
+    const topY = levels[index + 1]!;
+
+    if (topY - bottomY <= EPS) {
+      continue;
+    }
+
+    const isLast = index === levels.length - 2;
+    const slice: BandStretch & { readonly rule: MasonryRule } = {
+      ...segment,
+      bottomY,
+      topY,
+      lower: outlineAt(bottomY),
+      upper: outlineAt(topY),
+      // Only the bottom slice can oversail what the stretch sits on.
+      overhang: index === 0 ? segment.overhang : 0,
+    };
+    const carried = options.fields!.filter(
+      (field) =>
+        field.rowBottomY <= bottomY + EPS && field.rowTopY >= topY - EPS,
+    );
+
+    if (carried.length > 0) {
+      layBareStretch(builder, slice, {
+        isCrown: isLast && options.isCrown,
+        under: isLast ? options.under : null,
+        crownClaim: options.crownClaim,
+        fields: carried,
+      });
+      courseIndex += divideCourses(
+        topY - bottomY,
+        slice.rule,
+        masonrySeed(options.seed, `slice_${index}`),
+      ).length;
+      continue;
+    }
+
+    builder.withMaterial(
+      segment.label === "cornice" ? "cornice" : "stone",
+      () => {
+        courseIndex += layCourses(builder, slice, {
+          seed: masonrySeed(options.seed, `slice_${index}`),
+          courseIndex,
+          // A run's top course keeps the outline of its own bed, so it stands
+          // proud of the strip that sits on it. That ledge is real stone in
+          // daylight: suppressing it left a hole all the way round.
+          crowned: false,
+          under: isLast ? options.under : outlineAt(topY),
+        });
+      },
+    );
+  }
 }
 
 export interface BareStretchOptions {
@@ -389,12 +528,12 @@ export function addFramedFace(
     base.end.z - base.start.z,
   );
 
-  if (baseLength <= 1e-9) {
+  if (baseLength <= EPS) {
     return;
   }
 
   const rise = stretch.topY - stretch.bottomY;
-  const toV = (y: number) => rise <= 1e-9 ? 0 : (y - stretch.bottomY) / rise;
+  const toV = (y: number) => rise <= EPS ? 0 : (y - stretch.bottomY) / rise;
   // Where the face's own right edge sits, in the domain measured at the base.
   const crownLength = Math.hypot(
     crown.end.x - crown.start.x,
@@ -416,13 +555,19 @@ export function addFramedFace(
     vMin: number,
     vMax: number,
   ) => {
-    if (vMax - vMin <= 1e-9 || uTo(vMin) - uFrom(vMin) <= 1e-9) {
+    // Both ends, not just the bottom: a converging pair that is open at one
+    // height and closed at the other would otherwise be drawn as a bowtie.
+    const low = uTo(vMin) - uFrom(vMin);
+    const high = uTo(vMax) - uFrom(vMax);
+
+    if (vMax - vMin <= EPS || (low <= EPS && high <= EPS)) {
       return;
     }
+
     const ring = [
       point(uFrom(vMin), vMin),
-      point(uTo(vMin), vMin),
-      point(uTo(vMax), vMax),
+      point(Math.max(uTo(vMin), uFrom(vMin)), vMin),
+      point(Math.max(uTo(vMax), uFrom(vMax)), vMax),
       point(uFrom(vMax), vMax),
     ];
     // A degenerate plan ring, as `addHorizontalRing` uses for a flat cap: the
@@ -436,27 +581,75 @@ export function addFramedFace(
     );
   };
 
-  const sorted = [...fields].sort((a, b) => a.uRange[0] - b.uRange[0]);
-  const constant = (value: number) => () => value;
-  let cursor = 0;
+  // World along-coordinates back into this face's own domain. A point at
+  // `(u, v)` sits at `a0 + span·u + rake·v`, so `u` follows by inverting it.
+  const alongOf = (point: { readonly x: number; readonly z: number }) =>
+    orientation === "front" || orientation === "rear" ? point.x : point.z;
+  const a0 = alongOf(base.start);
+  const span = alongOf(base.end) - a0;
+  const rake = alongOf(crown.start) - a0;
 
-  for (const field of sorted) {
-    const [uMin, uMax] = field.uRange;
-    const vMin = toV(field.bottomY);
-    const vMax = toV(field.topY);
-
-    // Everything left of this field, full height.
-    quad(constant(cursor), constant(uMin), 0, 1);
-    // The border above and below it, then the field itself.
-    quad(constant(uMin), constant(uMax), 0, vMin);
-    quad(constant(uMin), constant(uMax), vMin, vMax);
-    quad(constant(uMin), constant(uMax), vMax, 1);
-    cursor = uMax;
+  if (Math.abs(span) <= EPS) {
+    return;
   }
 
-  // The remainder runs to the face's own edge, which rakes in on a battered
-  // stretch and is vertical on a plumb one.
-  quad(constant(cursor), edgeU, 0, 1);
+  // A field's edges are affine in `v`, so two samples at its own elevations
+  // place it at any height on the stretch.
+  const lineOf = (
+    samples: readonly [number, number],
+    vMin: number,
+    vMax: number,
+  ) => {
+    const slope = vMax - vMin <= EPS ? 0 : (samples[1] - samples[0]) / (vMax - vMin);
+    return (v: number) => {
+      const along = samples[0] + slope * (v - vMin);
+      return (along - a0 - rake * v) / span;
+    };
+  };
+  const prepared = fields.map((field) => {
+    const vMin = toV(field.bottomY);
+    const vMax = toV(field.topY);
+    return {
+      vMin,
+      vMax,
+      left: lineOf(field.left, vMin, vMax),
+      right: lineOf(field.right, vMin, vMax),
+    };
+  });
+
+  // Slice the face at every elevation a field starts or stops at, then sweep
+  // each slice left to right. A slice-then-sweep rather than one sweep because
+  // fields stack as well as sit side by side, and a face carrying banded work
+  // has both at once.
+  const levels = [
+    ...new Set([0, 1, ...prepared.flatMap((field) => [field.vMin, field.vMax])]),
+  ]
+    .filter((v) => v >= -EPS && v <= 1 + EPS)
+    .sort((a, b) => a - b);
+
+  for (let index = 0; index < levels.length - 1; index += 1) {
+    const vMin = levels[index]!;
+    const vMax = levels[index + 1]!;
+
+    if (vMax - vMin <= EPS) {
+      continue;
+    }
+
+    const active = prepared
+      .filter((field) => field.vMin <= vMin + EPS && field.vMax >= vMax - EPS)
+      .sort((a, b) => a.left(vMin) - b.left(vMin));
+    let cursor: (v: number) => number = () => 0;
+
+    for (const field of active) {
+      quad(cursor, field.left, vMin, vMax);
+      quad(field.left, field.right, vMin, vMax);
+      cursor = field.right;
+    }
+
+    // The remainder runs to the face's own edge, which rakes in on a battered
+    // stretch and is vertical on a plumb one.
+    quad(cursor, edgeU, vMin, vMax);
+  }
 }
 
 /**

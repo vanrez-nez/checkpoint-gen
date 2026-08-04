@@ -78,6 +78,7 @@ export class StructureComposer {
       bevel,
       pillar: config.pillar,
       fireBowl: config.fireBowl,
+      debugSlots: config.view.slotDebug,
       sections: requested,
     });
 

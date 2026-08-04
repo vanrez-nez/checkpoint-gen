@@ -1,3 +1,4 @@
+import type { SlotFeatureConfig } from "../../kernel/slot";
 import {
   controlsFor,
   validateControls,
@@ -59,13 +60,12 @@ export interface StelaLayoutConfig {
   ribbonWidth: number;
 
   frameStyle: StelaFrameStyle;
-  frameBorderWidth: number;
   frameRecessDepth: number;
-  frameInsetU: number;
-  frameInsetV: number;
 
   maxRelief: number;
-  debugSlots: boolean;
+
+  /** Engravable fields, authored per feature. */
+  slots: StelaSlotFeatures;
 
   bevelEnabled: boolean;
   bevelAmount: number;
@@ -77,6 +77,84 @@ export interface StelaLayoutConfig {
   truncation: number;
 
   seed: number;
+}
+
+/**
+ * The slot-bearing features of a stela.
+ *
+ * Only the register field is framed — the family cuts a real pocket for it, and
+ * `frameStyle` and `frameRecessDepth` describe that recess. A ribbon, a crown
+ * top and a base face carry ornament directly on the stone they already are, so
+ * there is nothing to inset them from.
+ */
+export interface StelaSlotFeatures {
+  readonly bayField: SlotFeatureConfig;
+  readonly bandRibbon: SlotFeatureConfig;
+  readonly returnRibbon: SlotFeatureConfig;
+  readonly crownFace: SlotFeatureConfig;
+  readonly baseFace: SlotFeatureConfig;
+}
+
+export const STELA_SLOT_FEATURE_IDS = [
+  "bayField",
+  "bandRibbon",
+  "returnRibbon",
+  "crownFace",
+  "baseFace",
+] as const;
+
+export type StelaSlotFeatureId = (typeof STELA_SLOT_FEATURE_IDS)[number];
+
+export const STELA_SLOT_FEATURE_LABELS: Readonly<
+  Record<StelaSlotFeatureId, string>
+> = {
+  bayField: "Register slots",
+  bandRibbon: "Band ribbon slots",
+  returnRibbon: "Return ribbon slots",
+  crownFace: "Crown slots",
+  baseFace: "Base slots",
+};
+
+/** Only the register field is framed; the rest take a switch and no border. */
+export const STELA_FRAMED_SLOT_FEATURES: Readonly<
+  Record<StelaSlotFeatureId, boolean>
+> = {
+  bayField: true,
+  bandRibbon: false,
+  returnRibbon: false,
+  crownFace: false,
+  baseFace: false,
+};
+
+/**
+ * A stela's slots are the family's product rather than an addition to it, so
+ * every feature ships switched on. Turning one off is a composition decision.
+ */
+function stelaSlots(
+  borderWidth: number,
+  inset: number,
+): StelaSlotFeatures {
+  const plain = { enabled: true, borderWidth: 0, insetU: 0, insetV: 0 };
+
+  return {
+    bayField: { enabled: true, borderWidth, insetU: inset, insetV: inset },
+    bandRibbon: { ...plain },
+    returnRibbon: { ...plain },
+    crownFace: { ...plain },
+    baseFace: { ...plain },
+  };
+}
+
+export function cloneStelaSlots(
+  source: Readonly<StelaSlotFeatures>,
+): StelaSlotFeatures {
+  return {
+    bayField: { ...source.bayField },
+    bandRibbon: { ...source.bandRibbon },
+    returnRibbon: { ...source.returnRibbon },
+    crownFace: { ...source.crownFace },
+    baseFace: { ...source.baseFace },
+  };
 }
 
 export const STELA_PRESETS: Readonly<
@@ -110,12 +188,9 @@ export const STELA_PRESETS: Readonly<
     returnRibbons: false,
     ribbonWidth: 0.12,
     frameStyle: "recessed_field",
-    frameBorderWidth: 0.07,
     frameRecessDepth: 0.03,
-    frameInsetU: 0.09,
-    frameInsetV: 0.09,
+    slots: stelaSlots(0.07, 0.09),
     maxRelief: 0.06,
-    debugSlots: false,
     bevelEnabled: true,
     bevelAmount: 0.02,
     bevelSegments: 3,
@@ -153,12 +228,9 @@ export const STELA_PRESETS: Readonly<
     returnRibbons: true,
     ribbonWidth: 0.12,
     frameStyle: "recessed_field",
-    frameBorderWidth: 0.075,
     frameRecessDepth: 0.035,
-    frameInsetU: 0.05,
-    frameInsetV: 0.05,
+    slots: stelaSlots(0.075, 0.05),
     maxRelief: 0.05,
-    debugSlots: false,
     bevelEnabled: true,
     bevelAmount: 0.016,
     bevelSegments: 3,
@@ -196,12 +268,9 @@ export const STELA_PRESETS: Readonly<
     returnRibbons: false,
     ribbonWidth: 0.12,
     frameStyle: "recessed_field",
-    frameBorderWidth: 0.055,
     frameRecessDepth: 0.028,
-    frameInsetU: 0.03,
-    frameInsetV: 0.03,
+    slots: stelaSlots(0.055, 0.03),
     maxRelief: 0.04,
-    debugSlots: false,
     bevelEnabled: true,
     bevelAmount: 0.014,
     bevelSegments: 3,
@@ -322,13 +391,9 @@ export const STELA_LAYOUT_CONTROLS: readonly ControlSpec<StelaLayoutConfig>[] = 
   control.number({ key: "ribbonWidth", label: "width", name: "Return ribbon width", group: "Ribbons", min: 0.04, max: 0.8, step: 0.005, scopes: ["layout"], visibleWhen: (layout) => layout.returnRibbons }),
 
   control.list({ key: "frameStyle", label: "style", name: "Frame style", group: "Frames", options: FRAME_OPTIONS, scopes: ["layout"] }),
-  control.number({ key: "frameBorderWidth", label: "border", name: "Frame border width", group: "Frames", min: 0.01, max: 0.4, step: 0.005, scopes: ["layout"], visibleWhen: framed }),
   control.number({ key: "frameRecessDepth", label: "recess", name: "Field recess depth", group: "Frames", min: 0.005, max: 0.2, step: 0.005, scopes: ["layout"], visibleWhen: framed }),
-  control.number({ key: "frameInsetU", label: "inset u", name: "Frame horizontal inset", group: "Frames", min: 0, max: 0.5, step: 0.005, scopes: ["layout"], visibleWhen: framed }),
-  control.number({ key: "frameInsetV", label: "inset v", name: "Frame vertical inset", group: "Frames", min: 0, max: 0.5, step: 0.005, scopes: ["layout"], visibleWhen: framed }),
 
   control.number({ key: "maxRelief", label: "max relief", name: "Slot relief cap", group: "Slots", min: 0.005, max: 0.3, step: 0.005, scopes: ["layout"] }),
-  control.boolean({ key: "debugSlots", label: "tint slots", name: "Tint published slots", group: "Slots", scopes: ["layout"] }),
 
   control.boolean({ key: "bevelEnabled", label: "enabled", name: "Bevelled arrises", group: "Bevels", scopes: ["layout"] }),
   control.number({ key: "bevelAmount", label: "amount", name: "Bevel amount", group: "Bevels", min: 0.002, max: 0.15, step: 0.002, scopes: ["layout"], visibleWhen: (layout) => layout.bevelEnabled }),
@@ -405,7 +470,10 @@ export function toStelaMasonry(layout: StelaLayoutConfig): MasonryRule | null {
 export function cloneStelaLayout(
   source: Readonly<StelaLayoutConfig> = DEFAULT_STELA_LAYOUT,
 ): StelaLayoutConfig {
-  return { ...source };
+  // Every feature is copied rather than shared: the archetype control assigns a
+  // preset straight onto the live layout, and a shallow spread would leave the
+  // pane writing into the module-level preset.
+  return { ...source, slots: cloneStelaSlots(source.slots) };
 }
 
 export function validateStelaLayout(layout: StelaLayoutConfig): void {
