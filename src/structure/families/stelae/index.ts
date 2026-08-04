@@ -8,6 +8,7 @@ import {
   cloneStelaLayout,
   resolveStelaGraph,
   toStelaBevel,
+  toStelaMasonry,
   validateStelaLayout,
   type StelaLayoutConfig,
 } from "./config";
@@ -60,8 +61,8 @@ export const stelaStructure = defineStructure<StelaLayoutConfig>({
     const graph = resolveStelaGraph(layout);
     const parts: GeometryPart[] = sections.has(STELA_SECTION)
       ? [...tessellateStructure(graph, {
-        // The body is one stone by definition, so no masonry is laid over it.
-        masonry: null,
+        // The body is one stone by definition; only a built base takes courses.
+        masonry: toStelaMasonry(layout),
         seed: layout.seed,
         debugSlots: layout.debugSlots,
         bevel: toStelaBevel(layout),

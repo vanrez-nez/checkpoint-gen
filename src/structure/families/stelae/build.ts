@@ -21,6 +21,9 @@ import {
   type BevelRule,
   type PlanOutline,
 } from "./bevel";
+import type { ElevationBandRecord } from "../../kernel/graph";
+import type { MasonryRule } from "../../kernel/masonry";
+import { buildMassShell } from "../../mass/shell";
 import { bodyRectAt } from "./resolve";
 import type {
   StelaAppliqueRecord,
@@ -62,6 +65,9 @@ export interface StelaBuildOptions {
   readonly patches?: ReadonlyMap<string, Patch>;
   /** Rounds the vertical arrises; null leaves every corner hard. */
   readonly bevel?: BevelRule | null;
+  /** Courses the base out of set stones; null leaves it carved. */
+  readonly masonry?: MasonryRule | null;
+  readonly seed?: number;
 }
 
 /**
@@ -103,8 +109,52 @@ export function buildStela(
   options: StelaBuildOptions = {},
 ): void {
   const bevel = options.bevel ?? null;
+  const masonry = options.masonry ?? null;
   const reference = referencePerimeter(stela);
-  const trunk = stela.trunk;
+
+  // A built base and a carved one are alternatives, not layers. The mass system
+  // already makes exactly this choice between its shell and its bare bands, and
+  // taking the same branch here is what keeps a faced base from being drawn
+  // twice — once as courses and once as the slab underneath them.
+  const coursed = masonry !== null && stela.base !== null;
+  if (coursed && stela.base) {
+    const base = stela.base;
+    buildMassShell(builder, baseBands(base), {
+      rule: masonry,
+      seed: options.seed ?? 1,
+    });
+
+    // The shell dresses its own stones, so the base would otherwise arrive in
+    // the shared masonry slot and lose the surface the family names for it.
+    // Reclassifying afterwards keeps one construction grammar and one material
+    // owner, rather than a second shell that differs only in its dressing.
+    // Read the centroid, not every corner. Set stones are displaced by design,
+    // so a stone on the top course sits a millimetre proud of the plane its
+    // course nominally ends at; an exact bound leaves those few faces behind in
+    // the shared masonry slot, dressed as a different stone from the course
+    // they belong to.
+    const ceiling = base.topY + Math.max(masonry.displacement, masonry.gap) * 2;
+    builder.assignFaceMaterial((face) => {
+      const y = face.reduce((sum, point) => sum + point.y, 0) / face.length;
+      return y <= ceiling && y >= base.bottomY - 1e-6;
+    }, "pedestal");
+
+    // The shell paves the crown of its top course, because for a mass that
+    // crown is a terrace someone stands on. Here the body stands on it, so the
+    // paving under its footprint is stone nothing can ever see. The body's own
+    // bed is not drawn either, which makes this contact interior on both sides
+    // rather than a hole.
+    builder.cullFaces((face) => face.every((point) =>
+      Math.abs(point.y - base.topY) <= 1e-6
+      && point.x >= stela.body.lower.minX - 1e-6
+      && point.x <= stela.body.lower.maxX + 1e-6
+      && point.z >= stela.body.lower.minZ - 1e-6
+      && point.z <= stela.body.lower.maxZ + 1e-6));
+  }
+
+  const trunk = coursed
+    ? stela.trunk.filter((element) => element.part !== "base")
+    : stela.trunk;
   const from = trunk[0]?.bottomY ?? 0;
   const to = trunk[trunk.length - 1]?.topY ?? 1;
   const shade = (bottomY: number, topY: number) => shadingOver(bottomY, topY, from, to);
@@ -190,6 +240,32 @@ function arcLengths(outline: PlanOutline, reference: number): number[] {
   const perimeter = raw[raw.length - 1]!;
   const scale = perimeter > EPS ? reference / perimeter : 1;
   return raw.map((value) => value * scale);
+}
+
+/**
+ * Base courses as elevation bands.
+ *
+ * `buildMassShell` reads an outline at two elevations and little else about a
+ * band, and a plinth course is a prism — the same outline twice. Adapting to the
+ * record it already takes reuses the whole construction grammar: coursing,
+ * stone division, staggered joints and interlocking corners, all of it already
+ * proven against the mass fixtures rather than written again here.
+ */
+function baseBands(base: NonNullable<StelaRecord["base"]>): ElevationBandRecord[] {
+  return base.courses.map((course, index) => ({
+    id: course.id,
+    index,
+    bottomY: course.bottomY,
+    topY: course.topY,
+    rise: course.topY - course.bottomY,
+    lower: course.footprint,
+    upper: course.footprint,
+    wallProfile: "vertical",
+    surfaceRole: "base_plinth",
+    upperTransition: "walkable_terrace",
+    walkable: true,
+    cornice: null,
+  }));
 }
 
 /**
@@ -609,8 +685,8 @@ function addApplique(
     // is the contact with the body face.
     {
       sides: [false, true, true, true],
-      top: applique.capEnds,
-      bottom: applique.capEnds,
+      top: applique.capTop,
+      bottom: applique.capBottom,
     },
     shade(applique.bottomY, applique.topY),
   );
@@ -621,7 +697,7 @@ function appliqueRing(
   applique: StelaAppliqueRecord,
   y: number,
 ): Point2[] {
-  const rect = bodyRectAt(stela.body, y);
+  const rect = applique.host ?? bodyRectAt(stela.body, y);
   const edge = rectEdge(rect, applique.face);
   const start = faceParam(edge, applique.uRange[0]);
   const end = faceParam(edge, applique.uRange[1]);

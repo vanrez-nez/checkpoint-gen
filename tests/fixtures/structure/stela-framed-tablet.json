@@ -3187,7 +3187,9 @@
           "bottomY": 0.64,
           "topY": 3.76,
           "depth": 0.025,
-          "capEnds": false,
+          "capBottom": false,
+          "capTop": false,
+          "host": null,
           "materialRole": "frieze"
         },
         {
@@ -3202,7 +3204,9 @@
           "bottomY": 0.64,
           "topY": 3.76,
           "depth": 0.025,
-          "capEnds": false,
+          "capBottom": false,
+          "capTop": false,
+          "host": null,
           "materialRole": "frieze"
         }
       ],

@@ -40,6 +40,7 @@ export const STELA_BASE_TREATMENTS = [
   "simple_plinth",
   "double_plinth",
   "stepped_pedestal",
+  "stepped_apron",
   "socket_block",
   "projecting_footing",
   "battered_footing",
@@ -54,6 +55,7 @@ export const IMPLEMENTED_STELA_BASE_TREATMENTS: readonly StelaBaseTreatment[] = 
   "simple_plinth",
   "double_plinth",
   "stepped_pedestal",
+  "stepped_apron",
   "socket_block",
 ];
 
@@ -465,7 +467,7 @@ export interface StelaTrunkRecord {
  */
 export interface StelaAppliqueRecord {
   readonly id: string;
-  readonly kind: "ribbon_strip";
+  readonly kind: "ribbon_strip" | "apron_rib";
   readonly face: HorizontalOrientation;
   readonly bandId: string;
   readonly uRange: readonly [number, number];
@@ -473,11 +475,19 @@ export interface StelaAppliqueRecord {
   readonly topY: number;
   readonly depth: number;
   /**
-   * False when the ends butt against something at the same depth — the rails
-   * that close a frame, or the projecting bands a vertical ribbon runs between.
-   * Closing them there would leave two coplanar faces at one depth.
+   * Whether each end is an exposed edge or a contact. A ribbon between two
+   * projecting bands closes neither; a rib standing on a tier closes its top,
+   * because the narrower tier above steps away and leaves it open, and not its
+   * bottom, where it sits on the ring below.
    */
-  readonly capEnds: boolean;
+  readonly capBottom: boolean;
+  readonly capTop: boolean;
+  /**
+   * Outline this sits on, when that is not the body — a base course, say. The
+   * body's own outline varies with height, so a ribbon on it derives its host
+   * per elevation; a rib on a prismatic tier states it once.
+   */
+  readonly host: Rect | null;
   readonly materialRole: MaterialSlot;
 }
 

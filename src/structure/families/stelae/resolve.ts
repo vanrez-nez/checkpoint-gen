@@ -94,6 +94,29 @@ const BASE_PROFILES: Readonly<
   ],
 };
 
+/** Widest and narrowest course of a stepped apron, as ratios of body width. */
+const APRON_FOOT_RATIO = 2.4;
+const APRON_NECK_RATIO = 1.12;
+
+/**
+ * A receding stepped plinth, generated rather than tabulated.
+ *
+ * The other treatments are authored stacks of two or three named courses, which
+ * is why they sit in a table. An apron is the one whose whole character is how
+ * many times it steps, so its course count is a control and its profile follows
+ * from it: equal rises, widths receding evenly from foot to neck.
+ */
+function apronProfile(
+  tiers: number,
+): readonly { readonly heightRatio: number; readonly widthRatio: number }[] {
+  const count = Math.max(Math.round(tiers), 2);
+  return Array.from({ length: count }, (_, index) => ({
+    heightRatio: 1 / count,
+    widthRatio: APRON_FOOT_RATIO
+      - (APRON_FOOT_RATIO - APRON_NECK_RATIO) * (index / (count - 1)),
+  }));
+}
+
 const CAPITAL_PROFILE: readonly {
   readonly heightRatio: number;
   readonly widthRatio: number;
@@ -311,7 +334,9 @@ function resolveBase(
   if (layout.baseTreatment === "none") {
     return null;
   }
-  const profile = BASE_PROFILES[layout.baseTreatment];
+  const profile = layout.baseTreatment === "stepped_apron"
+    ? apronProfile(layout.baseTierCount)
+    : BASE_PROFILES[layout.baseTreatment];
   if (!profile) {
     throw new RangeError(
       `No course profile for base treatment "${layout.baseTreatment}". (stela.base_profile_missing)`,
@@ -780,7 +805,9 @@ function resolveAppliques(
       depth: layout.ribbonProjection,
       // It runs between the projecting return bands at the same depth, so both
       // ends are a contact rather than an exposed edge.
-      capEnds: false,
+      capBottom: false,
+      capTop: false,
+      host: null,
       materialRole: "frieze",
     });
   }

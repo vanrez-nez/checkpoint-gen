@@ -57,6 +57,7 @@ import {
   cloneStelaLayout,
   resolveStelaGraph,
   toStelaBevel,
+  toStelaMasonry,
   validateStelaLayout,
   type StelaLayoutConfig,
 } from "../src/structure/families/stelae/config";
@@ -1350,8 +1351,11 @@ for (const fixture of STELA_FIXTURES) {
     `${fixture.name}: a return face was given a field bay.`,
   );
 
+  // Build exactly what the family's own `build()` does. Tessellating with
+  // `masonry: null` while the app passes a rule meant this suite went green on
+  // geometry nobody ships — the blind spot that let a built base land unchecked.
   const geometry = mergeParts(tessellateStructure(graph, {
-    masonry: null,
+    masonry: toStelaMasonry(fixture.layout),
     seed: fixture.layout.seed,
     bevel: toStelaBevel(fixture.layout),
   }).parts, [MASS_SECTION]).geometry;
@@ -1383,6 +1387,7 @@ for (const fixture of STELA_FIXTURES) {
     masonry: null,
     seed: fixture.layout.seed,
     bevel: toStelaBevel(fixture.layout),
+    masonry: toStelaMasonry(fixture.layout),
     debugSlots: true,
   }).parts, [MASS_SECTION]).geometry;
   assert.equal(

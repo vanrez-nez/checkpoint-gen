@@ -8,6 +8,11 @@ import { createSeedSet } from "../../kernel/seed";
 import { resolveStela } from "./resolve";
 import type { BevelRule } from "./bevel";
 import {
+  IMPLEMENTED_CORNER_RULES,
+  type CornerRule,
+  type MasonryRule,
+} from "../../kernel/masonry";
+import {
   STELA_ARCHETYPES,
   type StelaArchetype,
   type StelaBaseTreatment,
@@ -31,6 +36,13 @@ export interface StelaLayoutConfig {
 
   baseTreatment: StelaBaseTreatment;
   baseHeight: number;
+  baseTierCount: number;
+
+  stoneworkEnabled: boolean;
+  courseHeight: number;
+  stoneWidth: number;
+  stoneDepth: number;
+  cornerRule: CornerRule;
 
   crownTreatment: StelaCrownTreatment;
   crownHeight: number;
@@ -80,6 +92,12 @@ export const STELA_PRESETS: Readonly<
     taperRatio: 0.9,
     baseTreatment: "simple_plinth",
     baseHeight: 0.3,
+    baseTierCount: 5,
+    stoneworkEnabled: false,
+    courseHeight: 0.16,
+    stoneWidth: 0.34,
+    stoneDepth: 0.2,
+    cornerRule: "alternating_interlock",
     crownTreatment: "rounded",
     crownHeight: 0.55,
     registerCount: 1,
@@ -117,6 +135,12 @@ export const STELA_PRESETS: Readonly<
     taperRatio: 0.95,
     baseTreatment: "stepped_pedestal",
     baseHeight: 0.5,
+    baseTierCount: 5,
+    stoneworkEnabled: false,
+    courseHeight: 0.16,
+    stoneWidth: 0.34,
+    stoneDepth: 0.2,
+    cornerRule: "alternating_interlock",
     crownTreatment: "stepped_cap",
     crownHeight: 0.22,
     registerCount: 3,
@@ -154,6 +178,12 @@ export const STELA_PRESETS: Readonly<
     taperRatio: 0.94,
     baseTreatment: "socket_block",
     baseHeight: 0.5,
+    baseTierCount: 5,
+    stoneworkEnabled: false,
+    courseHeight: 0.16,
+    stoneWidth: 0.34,
+    stoneDepth: 0.2,
+    cornerRule: "alternating_interlock",
     crownTreatment: "capital_and_capstone",
     crownHeight: 0.7,
     registerCount: 4,
@@ -209,6 +239,7 @@ const BASE_OPTIONS: Readonly<Record<string, StelaBaseTreatment>> = {
   "Simple plinth": "simple_plinth",
   "Double plinth": "double_plinth",
   "Stepped pedestal": "stepped_pedestal",
+  "Stepped apron": "stepped_apron",
   "Socket block": "socket_block",
 };
 
@@ -232,6 +263,11 @@ const FRAME_OPTIONS: Readonly<Record<string, StelaFrameStyle>> = {
 const GROUND_OPTIONS: Readonly<Record<string, StelaGroundContact>> = {
   Flush: "flush",
   Sunk: "sunk",
+};
+
+const CORNER_RULE_OPTIONS: Readonly<Record<string, CornerRule>> = {
+  Interlocking: "alternating_interlock",
+  Butted: "butted",
 };
 
 const STAGE_OPTIONS: Readonly<Record<string, StelaConditionStage>> = {
@@ -264,6 +300,12 @@ export const STELA_LAYOUT_CONTROLS: readonly ControlSpec<StelaLayoutConfig>[] = 
 
   control.list({ key: "baseTreatment", label: "treatment", name: "Base treatment", group: "Base", options: BASE_OPTIONS, scopes: ["layout"] }),
   control.number({ key: "baseHeight", label: "height", name: "Base height", group: "Base", min: 0.05, max: 2.5, step: 0.01, scopes: ["layout"], visibleWhen: (layout) => layout.baseTreatment !== "none" }),
+  control.number({ key: "baseTierCount", label: "tiers", name: "Apron tier count", group: "Base", min: 2, max: 9, step: 1, integer: true, scopes: ["layout"], visibleWhen: apron }),
+  control.boolean({ key: "stoneworkEnabled", label: "stonework", name: "Base stonework", group: "Base", scopes: ["layout"], visibleWhen: (layout) => layout.baseTreatment !== "none" }),
+  control.number({ key: "courseHeight", label: "course", name: "Course height", group: "Base", min: 0.05, max: 0.6, step: 0.005, scopes: ["layout"], visibleWhen: built }),
+  control.number({ key: "stoneWidth", label: "stone", name: "Stone width", group: "Base", min: 0.1, max: 1.2, step: 0.01, scopes: ["layout"], visibleWhen: built }),
+  control.number({ key: "stoneDepth", label: "stone depth", name: "Stone depth", group: "Base", min: 0.08, max: 0.6, step: 0.01, scopes: ["layout"], visibleWhen: built }),
+  control.list({ key: "cornerRule", label: "corners", name: "Corner rule", group: "Base", options: CORNER_RULE_OPTIONS, scopes: ["layout"], visibleWhen: built }),
 
   control.list({ key: "crownTreatment", label: "treatment", name: "Crown treatment", group: "Crown", options: CROWN_OPTIONS, scopes: ["layout"] }),
   control.number({ key: "crownHeight", label: "height", name: "Crown height", group: "Crown", min: 0, max: 2, step: 0.01, scopes: ["layout"] }),
@@ -300,6 +342,15 @@ export const STELA_LAYOUT_CONTROLS: readonly ControlSpec<StelaLayoutConfig>[] = 
   control.number({ key: "seed", label: "layout seed", name: "Stela seed", group: "Variation", min: 0, max: 9999, step: 1, integer: true, scopes: ["layout"] }),
 ];
 
+/** Stonework only makes sense where there is a base to build out of stones. */
+function built(layout: StelaLayoutConfig): boolean {
+  return layout.stoneworkEnabled && layout.baseTreatment !== "none";
+}
+
+function apron(layout: StelaLayoutConfig): boolean {
+  return layout.baseTreatment === "stepped_apron";
+}
+
 function framed(layout: StelaLayoutConfig): boolean {
   return layout.frameStyle !== "none";
 }
@@ -316,6 +367,39 @@ export function toStelaBevel(layout: StelaLayoutConfig): BevelRule | null {
   return layout.bevelEnabled && layout.bevelAmount > 0
     ? { amount: layout.bevelAmount, segments: layout.bevelSegments }
     : null;
+}
+
+/**
+ * Stonework for the base, and never for the body.
+ *
+ * A stela is one carved stone, so course lines across it would contradict the
+ * form. Its plinth is the one part that may be built rather than carved, which
+ * is the family's only departure from the shared construction grammar. Like the
+ * bevel, none of this reaches the graph.
+ */
+export function toStelaMasonry(layout: StelaLayoutConfig): MasonryRule | null {
+  if (!layout.stoneworkEnabled || layout.baseTreatment === "none") {
+    return null;
+  }
+  return {
+    pattern: "mixed_ashlar",
+    cornerRule: IMPLEMENTED_CORNER_RULES.includes(layout.cornerRule)
+      ? layout.cornerRule
+      : "butted",
+    courseHeight: layout.courseHeight,
+    stoneWidth: layout.stoneWidth,
+    // Facing depth is clamped against the body's thinner plan axis. A mass is
+    // metres through and can take any bed depth an author asks for; a stela's
+    // plinth is centimetres, and two facings at the authored depth would meet
+    // in the middle and bury the core between them.
+    depth: Math.min(
+      layout.stoneDepth,
+      Math.min(layout.bodyWidth, layout.bodyThickness) * 0.3,
+    ),
+    sizeVariation: 0.16,
+    gap: layout.stoneWidth * 0.022,
+    displacement: 0.01,
+  };
 }
 
 export function cloneStelaLayout(

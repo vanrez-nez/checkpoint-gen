@@ -141,7 +141,7 @@ export function tessellateStructure(
   // A stela stands on the ground rather than on anything the graph owns, so it
   // neither culls nor is culled by the surfaces above.
   for (const stela of graph.stelae) {
-    buildStela(builder, stela, { debugSlots, patches, bevel });
+    buildStela(builder, stela, { debugSlots, patches, bevel, masonry, seed });
   }
 
   // The roof owns the room ceiling and projected soffits. Remove only the
