@@ -1,11 +1,12 @@
 # Procedural Architectural System
 
-## A Surface-First Grammar for Platforms, Pyramids, Summit Buildings, and Pillar Halls
+## A Surface-First Grammar for Platforms, Pyramids, Summit Buildings, Pillar Halls, and Stelae
 
 **Document status:** System specification  
 **Primary domain:** Rectilinear monumental and ceremonial architecture  
 **Core abstraction:** Semantic rectangular patches assembled into masses, cells, family-owned structures, and attachments
 **Intended uses:** Procedural modeling, game environments, architectural variation, reusable asset generation, level-design tooling, and data-driven content pipelines
+**Family specifications:** `stelae-system.md` — free-standing carved monoliths and their ornament slot contract
 
 ---
 
@@ -1531,6 +1532,11 @@ stone ring
 drain outlet
 ```
 
+`stela` is the one entry above that is also a resolved structure family with its
+own composition rules; see `stelae-system.md`. Its appearance here refers to
+placing an already resolved stela at a host anchor, not to generating one from
+attachment parameters.
+
 Decorative:
 
 ```text
@@ -2845,6 +2851,11 @@ Cell
 Pillar Hall
   → family-owned rows, stepped piers, bays, and lintels
   → screens, front galleries, open-front pavilions
+
+Stela
+  → free-standing ground, base, body, frame, and crown stack
+  → tablets, banded columns, markers, ruined monoliths
+  → addressable ornament slots for later geometry or texture
 
 Support profile
   → stacked cross-sections
