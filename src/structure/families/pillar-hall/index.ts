@@ -70,6 +70,17 @@ export const pillarHallStructure = defineStructure<PillarHallLayoutConfig>({
     id,
     label: PILLAR_HALL_SLOT_FEATURE_LABELS[id],
     framed: PILLAR_HALL_FRAMED_SLOT_FEATURES[id],
+    // A decorated base belongs to the Linear Screen and a roof to the Front
+    // Gallery; neither resolves anywhere else, so neither is offered there.
+    visibleWhen: (layout: PillarHallLayoutConfig) => {
+      if (id === "basePanel") {
+        return layout.archetype === "linear_screen";
+      }
+      if (id === "roofFascia") {
+        return layout.archetype === "front_gallery";
+      }
+      return true;
+    },
     select: (layout: PillarHallLayoutConfig) => layout.slots[id],
   })),
   cloneLayout: clonePillarHallLayout,

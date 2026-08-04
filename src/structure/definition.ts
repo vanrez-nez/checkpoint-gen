@@ -62,6 +62,14 @@ export interface SlotFeatureSpec<TLayout extends object> {
    * setting that moves nothing, so the feature gets a switch and no more.
    */
   readonly framed?: boolean;
+  /**
+   * Whether this layout can resolve the feature at all.
+   *
+   * An archetype that never builds a roof has no fascia to engrave, and a
+   * settings folder that governs nothing is worse than no folder: it reads as a
+   * switch that is broken rather than one that does not apply.
+   */
+  visibleWhen?(layout: TLayout): boolean;
   /** The feature's own settings, in place on the layout so edits land there. */
   select(layout: TLayout): SlotFeatureConfig;
 }

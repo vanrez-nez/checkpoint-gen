@@ -115,6 +115,22 @@ export const massStructure = defineStructure<MassLayoutConfig>({
   slotFeatures: MASS_SLOT_FEATURE_IDS.map((id) => ({
     id,
     label: MASS_SLOT_FEATURE_LABELS[id],
+    // A surface the composition never builds has nothing to engrave.
+    visibleWhen: (layout: MassLayoutConfig) => {
+      switch (id) {
+        case "plinth":
+          return layout.baseTreatment !== "none";
+        case "bandCornice":
+          return layout.cornicePlacement !== "none";
+        case "summitWall":
+          return layout.summitBuildingEnabled;
+        case "summitRoofFascia":
+        case "summitRoofCornice":
+          return layout.summitBuildingEnabled && layout.summitRoofEnabled;
+        default:
+          return true;
+      }
+    },
     select: (layout: MassLayoutConfig) => layout.slots[id],
   })),
   cloneLayout: cloneMassLayout,

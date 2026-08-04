@@ -1249,8 +1249,14 @@ for (const fixture of HALL_FIXTURES) {
       ? rectDepth(member.rect)
       : rectWidth(member.rect);
 
-    assert.ok(Math.abs(along(lintel)[0] - along(cornice)[0]) < 1e-9);
-    assert.ok(Math.abs(along(lintel)[1] - along(cornice)[1]) < 1e-9);
+    // The moulding runs no further than the beam it crowns. They finish on one
+    // plane at a free end; at a corner the deeper moulding stops further back,
+    // because each member laps against its own counterpart.
+    assert.ok(
+      along(cornice)[0] >= along(lintel)[0] - 1e-9
+        && along(cornice)[1] <= along(lintel)[1] + 1e-9,
+      `${fixture.name}: the ${row.orientation} moulding overruns its beam.`,
+    );
     // An architrave narrower than the capstone reads as set back behind the
     // piers rather than carried by them.
     assert.ok(
@@ -1276,6 +1282,36 @@ for (const fixture of HALL_FIXTURES) {
         && support.z <= member.rect.maxZ + 1e-9),
       `${fixture.name}: pier "${support.id}" carries no span.`,
     );
+  }
+
+  // Two rows meeting at one pier lap: each member stops flush against the one
+  // it meets, with no gap and no overlap. Using one figure for both left the
+  // beam short of the corner by half the moulding's projection while the
+  // moulding met, so the entablature broke exactly where it should turn.
+  for (const first of hall.rows) {
+    for (const second of hall.rows) {
+      if (first.id >= second.id) {
+        continue;
+      }
+      const shared = first.supportIds.some(
+        (id) => second.supportIds.includes(id),
+      );
+      if (!shared) {
+        continue;
+      }
+
+      for (const kind of ["lintel", "cornice"] as const) {
+        const a = hall.members.find((m) => m.id === `${first.id}/${kind}`)!;
+        const b = hall.members.find((m) => m.id === `${second.id}/${kind}`)!;
+        const gapX = Math.max(0, a.rect.minX - b.rect.maxX, b.rect.minX - a.rect.maxX);
+        const gapZ = Math.max(0, a.rect.minZ - b.rect.maxZ, b.rect.minZ - a.rect.maxZ);
+        assert.ok(
+          Math.max(gapX, gapZ) < 1e-9,
+          `${fixture.name}: the ${kind}s of two rows meeting at a pier leave a `
+          + `${Math.max(gapX, gapZ).toFixed(3)} m gap.`,
+        );
+      }
+    }
   }
 
   // Two rows meeting at one pier must not both claim the stone over it.

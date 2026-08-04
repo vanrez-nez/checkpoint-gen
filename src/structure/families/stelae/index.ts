@@ -68,6 +68,15 @@ export const stelaStructure = defineStructure<StelaLayoutConfig>({
     id,
     label: STELA_SLOT_FEATURE_LABELS[id],
     framed: STELA_FRAMED_SLOT_FEATURES[id],
+    visibleWhen: (layout: StelaLayoutConfig) => {
+      if (id === "returnRibbon") {
+        return layout.returnRibbons;
+      }
+      if (id === "baseFace") {
+        return layout.baseTreatment !== "none";
+      }
+      return true;
+    },
     select: (layout: StelaLayoutConfig) => layout.slots[id],
   })),
   cloneLayout: cloneStelaLayout,

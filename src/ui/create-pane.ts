@@ -336,7 +336,11 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
         const { visibleWhen } = control.spec;
         visibility.addBlade(
           control.binding,
-          () => visibleWhen === undefined || visibleWhen(target),
+          // Two gates: whether this layout resolves the feature at all, and
+          // whether the feature's own settings are in play. `autoHideFolders`
+          // then takes the whole folder away when neither holds.
+          () => (feature.visibleWhen?.(layout) ?? true)
+            && (visibleWhen === undefined || visibleWhen(target)),
           control.onShow,
         );
       }
