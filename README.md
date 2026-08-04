@@ -1,12 +1,14 @@
 # Checkpoint Gen
 
 A low-poly procedural structure generator for Three.js. A *structure* composes
-reusable props and generators into a single merged geometry. Three are registered:
+reusable props and generators into a single merged geometry. Four are registered:
 the **circular** checkpoint, a seeded one-to-eight-way stone crossing with a
-three-tier center whose entries use polar coordinates; and **mass**, which
+three-tier center whose entries use polar coordinates; **mass**, which
 resolves a footprint and an elevation profile into semantic patches and draws
-them as plain solids; and **Pillar Hall**, an inspired pier-and-lintel family
-with Linear Screen, Front Gallery, and open-front Pavilion archetypes.
+them as plain solids; **Pillar Hall**, an inspired pier-and-lintel family
+with Linear Screen, Front Gallery, and open-front Pavilion archetypes; and
+**Stela**, free-standing carved monoliths whose real product is an addressable
+slot table for ornament that arrives later.
 
 ## Structures
 
@@ -299,12 +301,90 @@ stonework lives entirely in the tessellator; the suite asserts that turning it o
 leaves the serialized graph byte-identical, that the faced and bare builds occupy
 exactly the same extents, and that facing costs no more geometry than it saves.
 
+### Stelae
+
+The stela family builds free-standing carved monoliths — tablets, banded columns
+and markers — and its product is not really the silhouette. It is the **slot
+table**: named, addressable rectangles with a plane, a metric extent and a depth
+budget, which a later ornament system fills with geometry or with a texture cut
+to fit. Content changes far more often than form and arrives from a different
+pipeline, so the form system publishes a contract and stays out of it. See
+`docs/stelae-system.md`.
+
+Two decisions carry most of the weight. The first is that **a slot publishes two
+outlines**. A face patch's frame is a parallelogram — the same frame every
+battered facade here uses — so a slot holding a constant fraction of a narrowing
+face is a trapezoid in that domain, not a rectangle. `boundary` gives its four
+real corners for a consumer that can follow the taper; `inscribed` gives the
+largest axis-aligned rectangle for one that needs a rectangle. Publishing only
+the first would make a texture mapper overrun the stone; publishing only the
+second would quietly shrink every field on a tapered body.
+
+The second is that **damage never deletes the slot table**. Slots are emitted
+before condition runs and annotated after, so a truncated stela addresses exactly
+the slots its intact twin does, by the same ids, with `condition`, `inscribed`
+and `depth_budget` changed. The alternative — dropping lost slots — renumbers the
+composition every time a condition slider moves, which would break ornament
+authored against it. That ordering is a phase ordering, not a convention, and the
+suite compares the two graphs slot for slot.
+
+The solid is a linear stack of concentric boxes plus **appliques** laid over its
+faces, and keeping those two apart is what removes the need for a general contact
+solver: a stacked element can only be covered by its immediate neighbour, and an
+applique never emits the face it presses against. A ribbon running a face end to
+end is subtracted from that face rather than laid over it — the buried-face probe
+samples a quad at its centroid, and a surface nothing can ever see is a defect
+whether or not anyone notices.
+
+**A frame is neither.** It is a recess cut into a band, so the border is stone
+that was never cut away — one continuous piece, with nothing at its corners to
+mitre. Four rails laid on the face would be four solids meeting at four corners,
+each shading over its own height, and every corner would show the seam. Cutting
+it instead needs no boolean: the band's plan is partitioned by every pocket edge,
+so each cell is a whole box that is either kept or removed, and every face is
+decided by asking whether its neighbouring cell survived. Ribbon edges join that
+partition too, so a cell is never half-hidden behind one.
+
+The recess is also what makes a slot visible in the mesh. The pocket floor and
+walls are the only geometry inside a slot's outline, which is what the **tint
+slots** debug toggle repaints — a check by eye that what was reserved is what got
+carved. It reclassifies faces and changes no topology, and the suite asserts
+exactly that.
+
+**Bevels are a surface treatment, not a proportion.** Like masonry, they never
+reach the graph: the resolver states rectangles and the tessellator turns each
+one into the polygon it actually draws, so an arris adjustment cannot invalidate
+the topology it was applied to — the suite asserts the serialized graph is
+byte-identical with bevels on and off. One segment gives a flat chamfer, more
+give a faceted quarter-round, and everything is drawn through that one polygon
+path so an unbevelled stela is simply its four-sided case.
+
+Bevels also forced a fix in the shared box projection. Each face takes its UVs
+from whichever world axis its normal points most strongly along, and a face that
+does not square up to that axis is foreshortened by the cosine between them — a
+facet turned 45 degrees covers only 71% of the axis it projects onto, so its
+texture stretched by 1.41 across it. Dividing that cosine back out restores the
+world scale at every angle and is exactly 1 on a face that already squares up,
+including a battered one, so nothing outside the bevels changed. The suite
+measures one UV unit per metre of run at four face angles.
+
+Rounded crowns are **lofted, not stacked**: each course rises from the arc width
+at its foot to the width at its head, so consecutive courses share an outline.
+Constant-width courses each finish in a horizontal ledge, and a crown built that
+way reads as a staircase however fine the steps are.
+
+The body is one stone by definition, so no masonry is laid over it. A base may be
+built rather than carved, and that is the family's one departure from the shared
+construction grammar.
+
 ## Composition
 
 `StructureComposer` merges every part into **one indexed geometry** with one
 coalesced draw group per used semantic material slot, rendered as a single mesh.
 The stable slots are masonry, trim, stairs, stair walls, summit walls, interior
-floors, roof, pillars, and iron. Every emitted face owns one `surfaceMaterial` vertex value; culling
+floors, roof, pillars, iron, the Pillar Hall's indexed pedestal, pier, pier panel
+and lintel, and the stela's body, frame and crown. The array index *is* the draw
+group index, so the list is append-only. Every emitted face owns one `surfaceMaterial` vertex value; culling
 and merging preserve it, then the merger buckets whole triangles into the
 corresponding indexed group. The same attribute is ready for a future
 texture-array shader without changing generator topology. Parts are authored in

@@ -60,6 +60,12 @@ export interface BlockFaces {
    * order matches `sides`; omitted entries inherit the builder's active slot.
    */
   readonly materials?: BlockFaceMaterials;
+  /**
+   * Real distance along the surface at this block's authored edge 0, start and
+   * end. Given it, that side's `u` runs the surface rather than a world axis,
+   * so a run of facets around a bevelled corner stays continuous.
+   */
+  readonly uvSpan?: readonly [number, number];
 }
 
 export interface BlockFaceMaterials {
@@ -92,6 +98,8 @@ export class SolidBuilder implements GeometryBuffers {
   readonly ambientOcclusion: number[] = [];
   readonly bakedShadow: number[] = [];
   readonly surfaceMaterials: number[] = [];
+  /** Authored UVs; NaN wherever the caller left the projection to decide. */
+  readonly uvs: number[] = [];
   private activeMaterial: MaterialSlot = "stone";
   /** Blocks laid, whichever of their faces turned out to be visible. */
   blockCount = 0;
@@ -162,6 +170,7 @@ export class SolidBuilder implements GeometryBuffers {
     const ambientOcclusion: number[] = [];
     const bakedShadow: number[] = [];
     const surfaceMaterials: number[] = [];
+    const uvs: number[] = [];
     const indices: number[] = [];
     const blockFaces: number[] = [];
     let removed = 0;
@@ -189,6 +198,10 @@ export class SolidBuilder implements GeometryBuffers {
         surfaceMaterials.push(
           this.surfaceMaterials[vertex] ?? materialSlotIndex("stone"),
         );
+        uvs.push(
+          this.uvs[vertex * 2] ?? Number.NaN,
+          this.uvs[vertex * 2 + 1] ?? Number.NaN,
+        );
       }
 
       indices.push(
@@ -201,6 +214,7 @@ export class SolidBuilder implements GeometryBuffers {
     replaceContents(this.ambientOcclusion, ambientOcclusion);
     replaceContents(this.bakedShadow, bakedShadow);
     replaceContents(this.surfaceMaterials, surfaceMaterials);
+    replaceContents(this.uvs, uvs);
     replaceContents(this.indices, indices);
     replaceContents(this.blockFaces, blockFaces);
 
@@ -255,11 +269,30 @@ export class SolidBuilder implements GeometryBuffers {
       const low = sideShading(shading, "bottom");
       const high = sideShading(shading, "top");
 
+      // Winding may have been reversed on entry, so the authored span runs the
+      // authored direction: swap it when this edge is walking the other way.
+      const span = faces.uvSpan;
+      const forward = !flip;
+      const uv = span
+        ? {
+          start: forward ? span[0] : span[1],
+          end: forward ? span[1] : span[0],
+        }
+        : null;
+
       this.addFace(
         [bottomCurrent, bottomNext, topNext, topCurrent],
         [low.ao, low.ao, high.ao, high.ao],
         [low.shadow, low.shadow, high.shadow, high.shadow],
         faces.materials?.sides?.[authoredEdge(edge)],
+        uv
+          ? [
+            [uv.start, bottomCurrent.y],
+            [uv.end, bottomNext.y],
+            [uv.end, topNext.y],
+            [uv.start, topCurrent.y],
+          ]
+          : undefined,
       );
     }
 
@@ -311,6 +344,7 @@ export class SolidBuilder implements GeometryBuffers {
     ao: readonly number[],
     shadow: readonly number[],
     material?: MaterialSlot,
+    uvs?: readonly (readonly [number, number])[],
   ): void {
     const start = this.vertexCount();
 
@@ -328,6 +362,7 @@ export class SolidBuilder implements GeometryBuffers {
         ao[index] ?? 1,
         shadow[index] ?? 1,
         material,
+        uvs?.[index],
       );
     }
 
@@ -349,11 +384,13 @@ export class SolidBuilder implements GeometryBuffers {
     ambientOcclusion: number,
     bakedShadow: number,
     material?: MaterialSlot,
+    uv?: readonly [number, number],
   ): void {
     this.positions.push(x, y, z);
     this.ambientOcclusion.push(ambientOcclusion);
     this.bakedShadow.push(bakedShadow);
     this.surfaceMaterials.push(materialSlotIndex(material ?? this.activeMaterial));
+    this.uvs.push(uv?.[0] ?? Number.NaN, uv?.[1] ?? Number.NaN);
   }
 
   private faceCorners(start: number): Vertex3[] {

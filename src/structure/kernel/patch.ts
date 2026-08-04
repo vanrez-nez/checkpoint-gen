@@ -101,6 +101,12 @@ export const PATCH_ROLES = {
   stairFlight: "stair_flight",
   /** The outer face of a stair side treatment — a parapet's public elevation. */
   stairSide: "stair_side",
+  /** One vertical face of a free-standing stela body. */
+  stelaFace: "stela_face",
+  /** One vertical face of a stela's base courses. */
+  stelaBaseFace: "stela_base_face",
+  /** The usable plane a stela crown exposes, when its treatment has one. */
+  stelaCrownTop: "stela_crown_top",
 } as const;
 
 /**

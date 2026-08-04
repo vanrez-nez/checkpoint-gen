@@ -53,6 +53,15 @@ import {
 } from "../src/structure/kernel/curve";
 import { massStructure } from "../src/structure/families/mass";
 import {
+  STELA_PRESETS,
+  cloneStelaLayout,
+  resolveStelaGraph,
+  toStelaBevel,
+  validateStelaLayout,
+  type StelaLayoutConfig,
+} from "../src/structure/families/stelae/config";
+import { resolveStela } from "../src/structure/families/stelae/resolve";
+import {
   patchIndex,
   serializeGraph,
   StructureGraphBuilder,
@@ -1270,6 +1279,204 @@ for (const [label, layout, expectedPanelCount] of [
   assert.equal(findBuriedFaces(geometry).faces, 0, `${label} emitted buried faces.`);
   assert.equal(findBackfaces(geometry, 48).backfaces, 0, `${label} emitted backfaces.`);
 }
+
+// --- Stela family ----------------------------------------------------------
+// The family resolves form and slots and deliberately not content, so what is
+// checked here is the slot contract rather than the silhouette: every slot
+// addresses a live region, keeps a usable rectangle inside its own outline, and
+// survives damage as an annotated record rather than disappearing from the table.
+const STELA_FIXTURES: readonly {
+  readonly name: string;
+  readonly layout: StelaLayoutConfig;
+}[] = [
+  { name: "stela-tablet", layout: cloneStelaLayout(STELA_PRESETS.tablet) },
+  { name: "stela-framed-tablet", layout: cloneStelaLayout(STELA_PRESETS.framed_tablet) },
+  { name: "stela-banded-column", layout: cloneStelaLayout(STELA_PRESETS.banded_column) },
+  {
+    name: "stela-weathered-tablet",
+    layout: {
+      ...cloneStelaLayout(STELA_PRESETS.tablet),
+      conditionStage: "weathered",
+      groundContact: "sunk",
+      // Deep enough to take the plinth's face slots below the ground line, but
+      // not the band above it: the fixture is worth more when it shows a slot
+      // omitted, a slot kept and a slot clipped in one graph.
+      burialDepth: 0.18,
+      truncation: 0.22,
+    },
+  },
+];
+
+for (const fixture of STELA_FIXTURES) {
+  assert.doesNotThrow(
+    () => validateStelaLayout(fixture.layout),
+    `${fixture.name}: fixture layout must satisfy the control table.`,
+  );
+  const graph = resolveStelaGraph(fixture.layout);
+  const stela = graph.stelae[0]!;
+  assert.equal(stela.archetype, fixture.layout.archetype);
+  assert.deepEqual(
+    graph.diagnostics.filter((entry) => entry.severity === "error"),
+    [],
+    `${fixture.name}: resolved with errors.`,
+  );
+  assertGraphInvariants(graph, fixture.name);
+  assertMatchesFixture(fixture.name, graph);
+
+  // Bands fill the body exactly. A rounding error here shows up as a seam.
+  const bandTotal = stela.bands.reduce((sum, band) => sum + band.height, 0);
+  assert.ok(
+    Math.abs(bandTotal - (stela.body.topY - stela.body.bottomY)) < 1e-9,
+    `${fixture.name}: bands do not sum to the body height.`,
+  );
+  assert.equal(
+    stela.bands.filter((band) => band.role === "register").length,
+    fixture.layout.registerCount,
+  );
+  assert.ok(
+    !stela.base || (
+      stela.base.footprint.minX <= stela.body.lower.minX + 1e-9
+      && stela.base.footprint.maxX >= stela.body.lower.maxX - 1e-9
+    ),
+    `${fixture.name}: the base does not contain the body.`,
+  );
+  // A return face carries ribbons and refuses fields; that is what the role is for.
+  const returnFaceIds = new Set(
+    stela.faces.filter((face) => face.role === "return").map((face) => face.id),
+  );
+  assert.equal(
+    stela.bays.some((bay) => returnFaceIds.has(bay.faceId)),
+    false,
+    `${fixture.name}: a return face was given a field bay.`,
+  );
+
+  const geometry = mergeParts(tessellateStructure(graph, {
+    masonry: null,
+    seed: fixture.layout.seed,
+    bevel: toStelaBevel(fixture.layout),
+  }).parts, [MASS_SECTION]).geometry;
+  const emitted = new Set(geometry.groups.map((group) => group.materialIndex));
+  for (const slot of ["stelaBody", "stelaField", "pedestal", "frieze"] as const) {
+    assert.ok(
+      emitted.has(materialSlotIndex(slot)),
+      `${fixture.name} emitted no ${slot} group.`,
+    );
+  }
+  const coincidence = findCoincidentFaces(geometry);
+  assert.equal(
+    coincidence.pairs,
+    0,
+    `${fixture.name} emitted coincident faces: ${coincidence.sample}; ${coincidence.planes.join(", ")}.`,
+  );
+  const buried = findBuriedFaces(geometry);
+  assert.equal(buried.faces, 0, `${fixture.name} emitted buried faces: ${buried.sample}.`);
+  const backfaces = findBackfaces(geometry, 48);
+  assert.equal(
+    backfaces.backfaces,
+    0,
+    `${fixture.name} exposed missing outward faces near ${backfaces.sample}.`,
+  );
+
+  // The slot tint reclassifies faces and must change nothing else. A debug view
+  // that quietly alters the mesh is a debug view that lies about the mesh.
+  const tinted = mergeParts(tessellateStructure(graph, {
+    masonry: null,
+    seed: fixture.layout.seed,
+    bevel: toStelaBevel(fixture.layout),
+    debugSlots: true,
+  }).parts, [MASS_SECTION]).geometry;
+  assert.equal(
+    tinted.getAttribute("position").count,
+    geometry.getAttribute("position").count,
+    `${fixture.name}: tinting slots changed the vertex count.`,
+  );
+  assert.equal(
+    tinted.getIndex()?.count,
+    geometry.getIndex()?.count,
+    `${fixture.name}: tinting slots changed the triangle count.`,
+  );
+  assert.ok(
+    new Set(tinted.groups.map((group) => group.materialIndex))
+      .has(materialSlotIndex("slotDebug")),
+    `${fixture.name}: tinting slots painted nothing.`,
+  );
+}
+
+// A bevel is a surface treatment, exactly as masonry is: it changes what gets
+// drawn and never what was resolved. If it reached the graph, every arris
+// adjustment would invalidate the topology it was applied to.
+for (const key of ["tablet", "framed_tablet", "banded_column"] as const) {
+  const bevelled = cloneStelaLayout(STELA_PRESETS[key]);
+  assert.equal(
+    serializeGraph(resolveStelaGraph(bevelled)),
+    serializeGraph(resolveStelaGraph({
+      ...bevelled,
+      bevelEnabled: false,
+      bevelAmount: 0.09,
+      bevelSegments: 6,
+    })),
+    `${key}: bevelling changed the resolved graph.`,
+  );
+}
+
+// Damage never deletes the slot table. The broken tablet addresses exactly the
+// slots its intact twin does, by the same ids; only their condition, surviving
+// rectangle and depth budget differ. Without this, every condition change would
+// silently renumber the composition an ornament system was authored against.
+const intactTablet = resolveStelaGraph(cloneStelaLayout(STELA_PRESETS.tablet)).stelae[0]!;
+const brokenTablet = resolveStelaGraph({
+  ...cloneStelaLayout(STELA_PRESETS.tablet),
+  truncation: 0.3,
+}).stelae[0]!;
+assert.deepEqual(
+  brokenTablet.slots.map((slot) => slot.id),
+  intactTablet.slots.map((slot) => slot.id),
+  "Damage must annotate the slot table, never delete from it.",
+);
+assert.ok(intactTablet.slots.every((slot) => slot.condition === "intact"));
+assert.ok(brokenTablet.slots.some((slot) => slot.condition === "partial"));
+assert.equal(brokenTablet.crown, null);
+assert.ok(brokenTablet.trunk.length < intactTablet.trunk.length);
+for (const broken of brokenTablet.slots) {
+  const whole = intactTablet.slots.find((slot) => slot.id === broken.id)!;
+  assert.ok(
+    broken.inscribed.vMax <= whole.inscribed.vMax + 1e-9,
+    `${broken.id} grew under damage.`,
+  );
+}
+
+// Authored vocabulary without a reader is a named error, never a silent
+// fallback to whatever neighbour happens to be implemented. There are two
+// guards and both matter: the control table never offers it, and the resolver
+// refuses it again for anything assembled in code rather than in the pane.
+for (const [field, layout] of [
+  ["crown_treatment", { crownTreatment: "gabled" as const }],
+  ["base_treatment", { baseTreatment: "rubble_packing" as const }],
+  ["ground_contact", { groundContact: "socketed" as const }],
+] as const) {
+  const unreadable = { ...cloneStelaLayout(STELA_PRESETS.tablet), ...layout };
+  assert.throws(
+    () => resolveStela("stela_structure", unreadable),
+    new RegExp(`stela\\.${field}_unimplemented`),
+    `${field} must report a named error rather than falling back.`,
+  );
+  assert.throws(
+    () => resolveStelaGraph(unreadable),
+    /must be one of/,
+    `${field} must not be selectable from the control table.`,
+  );
+}
+
+// A register count the body cannot carry is an error, not a silent omission:
+// the author asked for registers and would otherwise get none.
+assert.throws(
+  () => resolveStelaGraph({
+    ...cloneStelaLayout(STELA_PRESETS.banded_column),
+    bodyHeight: 1.2,
+    registerCount: 8,
+  }),
+  /stela\.(register_density|band_allocation_mismatch)/,
+);
 
 // --- determinism -----------------------------------------------------------
 // No Math.random, no clock: the same inputs must produce the same graph, every
@@ -5212,7 +5419,12 @@ function normalizedXRange(
 
 function assertGraphInvariants(graph: StructureGraph, label: string): void {
   assert.equal(graph.units, "meters");
-  assert.ok(graph.masses.length > 0, `${label}: no mass was generated.`);
+  // A stela stands on the ground rather than on a mass, so a graph is complete
+  // with either a mass or a free-standing family record in it.
+  assert.ok(
+    graph.masses.length > 0 || graph.stelae.length > 0,
+    `${label}: no mass or free-standing structure was generated.`,
+  );
 
   const byId = patchIndex(graph);
   assert.equal(byId.size, graph.patches.length, `${label}: duplicate patch id.`);
@@ -5346,6 +5558,74 @@ function assertGraphInvariants(graph: StructureGraph, label: string): void {
     }
     assert.ok(graph.masses.some((mass) => mass.id === hall.platformMassId));
     assert.ok(byId.has(hall.supportPatchId));
+  }
+
+  assert.equal(
+    new Set(graph.stelae.map((stela) => stela.id)).size,
+    graph.stelae.length,
+    `${label}: duplicate stela id.`,
+  );
+  for (const stela of graph.stelae) {
+    assert.ok(isValidId(stela.id), `${label}: stela id "${stela.id}" is invalid.`);
+    assert.ok(stela.bands.length > 0 && stela.trunk.length > 0);
+
+    // The stack is contiguous. A gap between two courses is a hole nothing
+    // downstream can close, because nothing downstream knows it was meant to.
+    for (const [index, element] of stela.trunk.entries()) {
+      assert.ok(element.topY > element.bottomY, `${label}: ${element.id} has no rise.`);
+      const previous = stela.trunk[index - 1];
+      if (previous) {
+        assert.ok(
+          Math.abs(element.bottomY - previous.topY) < 1e-9,
+          `${label}: ${element.id} leaves a gap above ${previous.id}.`,
+        );
+      }
+    }
+
+    for (const slot of stela.slots) {
+      assert.ok(isValidId(slot.id), `${label}: slot id "${slot.id}" is invalid.`);
+      const patch = byId.get(slot.patchId);
+      assert.ok(patch, `${label}: slot ${slot.id} names missing patch ${slot.patchId}.`);
+      assert.ok(
+        patch.regions.some((region) => region.id === slot.regionId),
+        `${label}: slot ${slot.id} has no published region.`,
+      );
+      assert.ok(
+        patch.anchors.some(
+          (anchor) => anchor.id === slot.anchorId && anchor.kind === "ornament",
+        ),
+        `${label}: slot ${slot.id} has no ornament anchor.`,
+      );
+
+      // The inscribed rectangle is what a texture consumer uses, so it has to
+      // sit inside the real outline rather than beside it.
+      const us = slot.boundary.map((point) => point.u);
+      const vs = slot.boundary.map((point) => point.v);
+      assert.ok(
+        slot.inscribed.uMin >= Math.min(...us) - 1e-9
+        && slot.inscribed.uMax <= Math.max(...us) + 1e-9
+        && slot.inscribed.vMin >= Math.min(...vs) - 1e-9
+        && slot.inscribed.vMax <= Math.max(...vs) + 1e-9,
+        `${label}: slot ${slot.id} escapes its own boundary.`,
+      );
+      assert.ok(
+        slot.inscribed.uMax > slot.inscribed.uMin
+        && slot.inscribed.vMax > slot.inscribed.vMin,
+        `${label}: slot ${slot.id} has no usable rectangle.`,
+      );
+
+      // Opposed faces split their axis, so a fully carved pair still leaves a
+      // core rather than meeting in the middle of the stone.
+      if (slot.part === "body") {
+        const axis = slot.face === "front" || slot.face === "rear"
+          ? rectDepth(stela.body.lower)
+          : rectWidth(stela.body.lower);
+        assert.ok(
+          slot.depthBudget.recess * 2 <= axis - stela.body.minCoreThickness + 1e-9,
+          `${label}: slot ${slot.id} exhausts the body core.`,
+        );
+      }
+    }
   }
 
   assert.equal(

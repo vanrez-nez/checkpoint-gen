@@ -54,27 +54,39 @@ Reused unchanged:
 | **Patch** | Every face, crown surface and base surface resolves to a patch with a local frame, named edges and adjacency. |
 | **Region** | An ornament slot is published as a patch region with an empty operation list — the kernel's existing "reservation only" state. |
 | **Anchor** | Every slot also publishes a placement anchor of kind `ornament`, at the region centre, facing the region's orientation. |
-| **Edge** | Frame rails, crown returns and base copings are edge treatments, not separate entities. |
+| **Edge** | Crown returns and base copings are edge treatments, not separate entities. |
 | **Band and bay** | Faces subdivide exactly as facade walls do: bands stack along `v`, bays divide along `u`, fixed dimensions allocate before weighted remainder. |
 | **Masonry rule** | Applies to a constructed base only. See §6.2. |
 | **Seed subsystems** | `massing` shapes the stack, `facade` shapes the bands and bays, `condition` shapes damage, `construction` shapes a coursed base. |
 | **Diagnostics** | Every constraint in §12 reports a named `stela.*` code rather than clamping silently. |
 
-Owned by the family:
+Owned by the family, in the graph's `stelae` container:
 
 ```text
 StelaRecord
 StelaGroundRecord
 StelaBaseRecord
+StelaBaseCourseRecord
 StelaBodyRecord
 StelaFaceRecord
 StelaBandRecord
 StelaBayRecord
 StelaFrameRecord
 StelaCrownRecord
-OrnamentSlotRecord
+StelaSlotRecord
 StelaDamageRecord
+StelaTrunkRecord
+StelaAppliqueRecord
 ```
+
+The last two are the solid: `StelaTrunkRecord` is one element of the stacked
+mass, and `StelaAppliqueRecord` is something laid over a face rather than
+stacked in it. They are separated because the distinction decides contact
+ownership. A trunk element can only be covered by the neighbour above or below
+it, which is why the geometry reader needs no general solver; an applique never
+emits the face it is pressed against, which is why a ribbon lies on a face
+instead of replacing it. Frames are neither: a frame is a recess cut into a
+trunk element, so it produces no record of its own beyond the pocket.
 
 The rule that governs the direction of every relationship here is the project's
 standing one: **tessellation, materials, condition and any later ornament system
@@ -98,7 +110,7 @@ between them.
 | **Register** | A band of role `register` — a tall body division intended to carry a field. |
 | **Ribbon** | A narrow linear band of ornament, horizontal or vertical, beside the main planes. |
 | **Bay** | A vertical division of a band, spanning a `u` interval. |
-| **Frame** | Raised or recessed border work that bounds a field and makes it read as a field. |
+| **Frame** | The recess that bounds a field. Its border is uncut band stone, not an applied moulding. |
 | **Field** | The large planar area inside a frame — the main ornament plane. |
 | **Slot** | A resolved, addressable rectangle reserved for ornament, with a plane, an extent and a depth budget. |
 | **Depth budget** | How far ornament may project from, or cut into, a slot without breaking the form. |
@@ -135,8 +147,8 @@ tablet
   no ribbons, light frame or none
 
 framed_tablet
-  broad thin body with a heavy raised border on the primary face
-  stepped pedestal base, flat crown with a shallow projecting cap
+  broad thin body with a heavy recessed field on each primary face
+  stepped pedestal base, stepped cap crown
   three stacked registers, one framed field each
   one full-height vertical ribbon on each narrow return
 
@@ -218,8 +230,11 @@ riser           44% base height, 1.30 x body width
 neck            22% base height, 1.12 x body width
 ```
 
-`socket_block` is a single course whose top face carries a recess the body sits
-into; the recess depth is real, and the body's visible height is reduced by it.
+`socket_block` is a broad low block under a narrower collar whose top plane is
+the body's bottom. There is no literal recess: a socket cut into the top course
+would put the body's lowest faces inside another solid, and neither surface
+could then be honestly drawn or omitted. The treatment reads as a seated body
+by proportion rather than by burying one.
 
 **Masonry applies to the base and never to the body.** The body is one stone by
 definition, so course lines across it would contradict the form. A base is the
@@ -264,9 +279,29 @@ the real side edges of a tapered face. A rectangle in the parametric domain is
 therefore a trapezoid in world space, and a consumer that treats the domain
 rectangle as a real rectangle will overrun the stone near the top.
 
-`edge_treatment` shapes the vertical arris where two faces meet. A chamfered or
-rounded edge consumes `edge_size` from both adjoining faces before bands and
-bays are allocated. The chamfer strip itself is not a slot in this slice.
+`edge_treatment` is the *semantic* arris: a chamfer wide enough to change the
+proportions, consuming `edge_size` from both adjoining faces before bands and
+bays are allocated. Only `square` has a reader.
+
+That is a different thing from the **bevel**, which is a surface treatment and
+never reaches the graph — exactly as masonry never does. A bevel rounds the four
+vertical arrises of every element in the stack at draw time, from a single flat
+chamfer to a faceted quarter-round, and the suite asserts that turning it on
+leaves the serialized semantics byte-identical. Proportions are the resolver's
+business; how sharp the stone reads is not.
+
+A bevel facet is also the first surface in this project that does not square up
+to a world axis, which exposed a foreshortening in the shared box projection:
+a face turned 45 degrees covers only 71% of the axis it projects onto, and its
+texture stretched across it by the reciprocal. The projection now divides that
+cosine back out, which is exactly 1 on an axis-aligned or battered face and so
+changes nothing that existed before the bevels did.
+
+Two consequences follow. Every outline is drawn through the same polygon path,
+so an unbevelled stela is the four-sided case of the code that draws a bevelled
+one and there is no second path to fall out of step with. And the bevel joins
+the plan partition of a framed band, so its four corner cells are exactly the
+arris and hand their outer faces to the outline that replaces them.
 
 ### 6.4 Crown
 
@@ -286,19 +321,36 @@ t_shaped
 tenon
 ```
 
-| Member | Profile | Exposes `crown_face` |
-|---|---|---|
-| `flat` | Horizontal cut at the body's top plane. | yes, the top surface |
-| `rounded` | Semicircular or segmental arc across the body width. | no |
-| `pointed` | Two straight rakes meeting on the centreline. | no |
-| `gabled` | Rakes meeting a short horizontal ridge. | yes, the ridge |
-| `stepped_cap` | Two or three receding horizontal courses. | yes, the top course |
-| `corbel_cap` | A single projecting slab with a stepped underside. | yes |
-| `flared_cap` | A slab whose sides splay outward with height. | yes |
-| `capital_and_capstone` | A three-part stack; see below. | yes, the capstone top |
-| `notched` | Flat with a rectangular notch cut on the centreline. | yes, both shoulders |
-| `t_shaped` | Flat with shoulders projecting past the body width. | yes |
-| `tenon` | Flat with a reduced projecting boss, for insertion elsewhere. | no |
+| Member | Profile | Exposes `crown_face` | Reader |
+|---|---|---|---|
+| `flat` | Horizontal cut at the body's top plane. | yes, the top surface | yes |
+| `rounded` | Lofted arc across the body width. | no | yes |
+| `smooth` | Lofted dome, rounding both plan axes. | no | yes |
+| `pointed` | Two straight rakes meeting on the centreline. | no | no |
+| `gabled` | Rakes meeting a short horizontal ridge. | yes, the ridge | no |
+| `stepped_cap` | Three receding horizontal courses. | yes, the top course | yes |
+| `corbel_cap` | A single projecting slab with a stepped underside. | yes | yes |
+| `flared_cap` | A slab whose sides splay outward with height. | yes | yes |
+| `capital_and_capstone` | A three-part stack; see below. | yes, the capstone top | yes |
+| `notched` | Flat with a rectangular notch cut on the centreline. | yes, both shoulders | no |
+| `t_shaped` | Flat with shoulders projecting past the body width. | yes | yes |
+| `tenon` | Flat with a reduced projecting boss, for insertion elsewhere. | no | yes |
+
+`rounded` and `smooth` are **lofted, not stacked**. Each course rises from the
+arc width at its foot to the arc width at its head, so consecutive courses share
+an outline and the surface is continuous. Courses of constant width would each
+finish in a horizontal ledge and the crown would read as a staircase — which is
+what a stack of prisms actually is, however fine you make it.
+
+They are faceted, and the document says so rather than implying a curve the
+geometry does not have: nine courses for `rounded`, fourteen for `smooth`, with
+no vertex-normal averaging anywhere in this project. A curve here is a curve by
+having facets small enough not to read as facets.
+
+The difference between them is which axes turn. `rounded` narrows only the
+width, so a rounded tablet top keeps its thickness. `smooth` narrows both plan
+axes and is a dome. `pointed` and `gabled` need raking planes, which would be a
+second kind of geometry beside the block, so they stay a named error.
 
 `capital_and_capstone` resolves as a proportional stack against the body's
 resolved top width:
@@ -391,23 +443,25 @@ stops.
 StelaFrame:
   style: none | raised_border | recessed_field | double_border | corner_blocks | banded_border
   border_width: number
-  border_depth: number
+  recess_depth: number
   inset_u: number
   inset_v: number
   return: square | stepped | sloped
   scope: per_face | per_register | per_slot
 ```
 
-Frames are built as four raised rails that leave the face behind them visible,
-rather than as a cut into the face. The centre is then genuinely recessed
-relative to its own border without the face being duplicated or subtracted, and
-the rails carry their own material slot. This is the same construction the
-Pillar Hall uses for its pier panels, and it is chosen for the same reason: a
-raised border and a cut recess look alike in a render and behave very
-differently under damage, materials and level of detail.
+**A frame is a recess, not an applied moulding.** The border is the part of the
+band that was never cut away. That is the whole reason it reads as one
+continuous piece of stone and the reason its corners need no mitre, no weld and
+no seam: there is nothing there to join. Four rails laid on a surface would be
+four separate solids meeting at four corners, each with its own shading ramp
+over its own height, and every corner would show it.
 
-`return` shapes the transition from rail to field. `sloped` is the angled return
-visible on heavy tablet borders; it is a surface of the frame, not a slot.
+The recess also makes the field addressable in the mesh. The pocket floor and
+its four walls are the only geometry inside a slot's outline, so the field can
+be dressed independently of the border it sits in, and a debug pass can repaint
+exactly what a slot reserved. Neither is possible when the field is just the
+uncut face behind some rails.
 
 Rules:
 
@@ -416,14 +470,12 @@ Rules:
 - A frame whose borders would consume its field is **omitted**, and the band
   keeps its unframed rectangle. This is a normal omission, not a validation
   error.
-- `banded_border` makes the four rails themselves addressable, emitting one
-  `ribbon` slot per rail. This is how a border carries a running motif.
-- `corner_blocks` reserves square corners at a higher priority than the rails,
-  so a corner motif is never split across two rails.
+- `recess_depth` is bounded by the recess budget of §9.4, so two opposed framed
+  faces still leave a core.
+- Damage clips a recess with the band it is cut into. A pocket surviving above
+  a break would carve a face into stone the break already took away.
 - `scope` decides how many frames a face gets: one around the whole face, one
   per register, or one per resolved slot.
-
----
 
 ## 9. Ornament slots
 
@@ -442,7 +494,7 @@ base_face
 - **`field`** — a large planar area on a `primary` or `secondary` face, inside a
   frame when one resolves. The main ornament plane.
 - **`ribbon`** — a narrow linear strip, running horizontally or vertically, at a
-  base, along a frame rail, between registers, or down a return. Narrow enough
+  base, along a frame border, between registers, or down a return. Narrow enough
   that its content is a repeating or running motif rather than a composition.
 - **`cartouche`** — a small framed unit inside a field, for a motif repeated on a
   grid. Emitted only when a field's bay rule asks for it.
@@ -454,19 +506,18 @@ base_face
 
 ```yaml
 OrnamentSlot:
-  id: structure/stela_01/face_front/register_02/field
+  id: stela_01/register_02/face_front/bay_01/field
   kind: field | ribbon | cartouche | crown_face | base_face
   part: base | body | crown
   face: front | rear | side_positive_u | side_negative_u | top
   face_role: primary | secondary | return | none
   band_id: string
-  bay_id: string
+  bay_id: string | none
   frame_id: string | none
   patch_id: string
   region_id: string
   anchor_id: string
-  plane: LocalFrame
-  boundary: {u_min, u_max, v_min, v_max}
+  boundary: [{u, v}]
   inscribed: {u_min, u_max, v_min, v_max}
   extent: {u_bottom, u_top, v}
   aspect: number
@@ -478,6 +529,12 @@ OrnamentSlot:
   tags: [string]
 ```
 
+The runtime record uses the graph's casing throughout: `camelCase` keys, and
+`camelCase` orientation values (`sidePositiveU`), matching every other family.
+The snake_case above is spec notation, as it is everywhere in this document.
+The slot's world placement is read from its patch's frame rather than copied
+into the record, so a slot cannot drift from the surface it names.
+
 ### 9.3 What a slot is, and what it is not
 
 **A slot is a rectangle, a frame reference and a depth budget, and nothing
@@ -486,13 +543,18 @@ belongs in it. Two consumers with nothing in common — a geometry ornament
 generator and a texture atlas mapper — must both be able to work from this
 record alone.
 
-That requirement produces the record's two boundaries. `boundary` is the slot's
-rectangle in the face's parametric domain, which on a tapered face is a
-trapezoid in world space. `inscribed` is the largest world-axis-aligned
-rectangle that fits inside it, expressed in the same domain coordinates. A
-geometry consumer that can follow a taper uses `boundary`; a texture consumer
-that needs a rectangle uses `inscribed`. Neither has to re-derive the taper, and
+That requirement produces the record's two boundaries. A face patch's frame is a
+parallelogram — the same frame every battered facade in this project uses — so a
+slot that keeps a constant fraction of a narrowing face is a **trapezoid** in
+that domain, not a rectangle. `boundary` publishes its four real corners.
+`inscribed` is the largest axis-aligned rectangle inside them. A geometry
+consumer that can follow the taper uses `boundary`; a texture consumer that
+needs a rectangle uses `inscribed`. Neither has to re-derive the taper, and
 neither can accidentally overrun the stone.
+
+The published patch region carries `inscribed`, because a region is a rectangle.
+That is the conservative half of the pair on purpose: a rule that only reads the
+graph's regions can never place something off the face.
 
 `extent` reports metres: `u_bottom` and `u_top` are the real widths at the
 slot's bottom and top edges, equal on an untapered face, and `v` is the real
@@ -662,9 +724,19 @@ re-resolving it, and the same authored composition can be shown intact and
 ruined side by side with the slot ids matching. If damage were allowed to remove
 slots, every condition change would silently renumber the composition.
 
-Damage is driven by the `condition` seed alone. A change to that seed must leave
-the ground, base, body and crown massing byte-identical — the anti-regression
-rule the Mass family already asserts, applied here from the start.
+Two events have readers, and they are the two that change resolved geometry:
+`truncated_body` cuts the body at a fraction of its height and takes the crown
+with it, and `partial_burial` lowers the stack into the ground. The rest are
+surface and material work. They stay in the vocabulary and stay unselectable,
+because a `crack_network` that quietly did nothing would be worse than one that
+says it has no reader.
+
+A stage supplies ranges rather than geometry, so selecting `weathered` is
+recorded and drives later surface work; it is `truncation` and `burial_depth`
+that move stone. Damage is driven by the `condition` seed alone. A change to
+that seed must leave the ground, base, body and crown massing byte-identical —
+the anti-regression rule the Mass family already asserts, applied here from the
+start.
 
 ---
 
@@ -687,26 +759,33 @@ Each failure reports a named diagnostic:
 
 ```text
 stela.base_smaller_than_body
-stela.crown_unsupported
 stela.band_allocation_mismatch
-stela.bay_allocation_mismatch
-stela.taper_inverted
-stela.slot_overlap
-stela.slot_outside_face
-stela.wrapping_band_not_closed
-stela.burial_exceeds_height
-stela.core_thickness_exhausted
 stela.register_density
-stela.field_on_return_face
+stela.taper_inverted
+stela.burial_exceeds_height
+stela.base_profile_missing
 ```
+
+Plus one per vocabulary with an unimplemented member selected, of the form
+`stela.<field>_unimplemented`.
+
+The remaining constraints in the list above are structural rather than checked:
+a return face is never offered a field bay, bays are allocated from one weighted
+table and cannot fail to sum, a wrapping band resolves one `v` interval and
+applies it to every face, and the recess budget is derived from the core rule
+rather than compared against it. A constraint that cannot be violated by
+construction does not need a diagnostic; one that can, has one.
 
 Invalid combinations produce recoverable named errors and leave the last valid
 composition active. Omissions — a frame too small to resolve, a slot below
-minimum extent, a base too shallow for a face slot — are not errors and are not
+minimum extent, a base course below the ground line — are not errors and are not
 reported as such.
 
-The topology fixtures require zero coincident faces, zero buried faces, and no
+The fixtures require zero coincident faces, zero buried faces, and no
 outward-facing holes for every archetype, matching the Pillar Hall requirement.
+The buried-face probe samples a face at its centroid, which is why a ribbon
+running the full height of a face is subtracted from that face rather than laid
+over it: a quad nothing can ever see is a defect whether or not it is visible.
 
 ---
 
@@ -717,13 +796,22 @@ that table is the draw-group index:
 
 ```text
 stelaBody
-stelaFrame
 stelaField
 stelaCrown
+slotDebug
 ```
 
-Reused shared surfaces: `stone` for a constructed base's masonry, `pedestal` for
-base members, `cornice` for projecting crown caps, `trim` for edge treatments.
+`stelaField` dresses the recess surfaces — the pocket floor and its walls — and
+`stelaBody` dresses everything around them. There is no frame material, because
+there is no frame object: the border is body stone that was never cut.
+
+`slotDebug` is not a material choice. It is what every published slot is
+repainted in when the debug tint is on, so it is set to the loudest document in
+the palette at the noisiest tiling; a debug tint that could be mistaken for a
+dressing decision would be useless.
+
+Reused shared surfaces: `pedestal` for base courses, `frieze` for ribbon bands
+and return ribbons, `cornice` for projecting crown caps.
 
 The graph owns a `stelae` container holding the family records listed in §2. It
 has no schema-version marker, in keeping with every other container. The Mass
@@ -731,7 +819,7 @@ and Pillar Hall families contain no stela controls and no stela geometry branch,
 and this family contains no platform, cell or pillar controls.
 
 Contact ownership is resolved per exposed rectangle, as in the Pillar Hall: a
-frame rail or a crown member may cover only part of a larger face, so the
+ribbon or a crown member may cover only part of a larger face, so the
 covered sub-rectangle is removed while the remaining face is retained. A
 centroid hit is never allowed to erase a whole quad.
 
@@ -758,10 +846,9 @@ stela:
   base:
     treatment: socket_block
     height: 0.55
-    projection_ratio: 1.38
-    socket_depth: 0.12
-    masonry: none
-    faces: {slots: true, band_role: base_return}
+    courses:
+      - {index: 0, height_ratio: 0.72, width_ratio: 1.50}
+      - {index: 1, height_ratio: 0.28, width_ratio: 1.18}
 
   body:
     cross_section: square
@@ -770,8 +857,8 @@ stela:
     height: 3.60
     taper: tapered
     taper_ratio: 0.94
-    edge_treatment: chamfered
-    edge_size: 0.035
+    edge_treatment: square
+    # Derived from the thinner plan axis, never authored.
     min_core_thickness: 0.30
 
   crown:
@@ -805,7 +892,7 @@ stela:
     ribbon: [{id: run, role: ribbon, weight: 1, hierarchy: 1}]
 
   frame:
-    style: raised_border
+    style: recessed_field
     border_width: 0.055
     border_depth: 0.022
     inset_u: 0.03
@@ -918,9 +1005,9 @@ only annotate it.
 
 ### 16.1 Framed tablet
 
-**Intent:** A broad tablet whose heavy raised border and stacked registers do the
-composing, so ornament fills three clearly bounded fields rather than one open
-plane.
+**Intent:** A broad tablet whose sunken registers do the composing, so ornament
+fills three clearly bounded fields rather than one open plane, and the border
+between them is unbroken stone.
 
 ```text
 Ground:
@@ -933,35 +1020,40 @@ Base:
 
 Body:
   tablet cross-section
-  thin relative to width, no taper
+  thin relative to width, battered so only the width narrows
   square edges
 
 Bands:
   base return
   three weighted registers
-  thin margin bands between registers
   crown return
 
 Frame:
-  raised border, sloped return
+  recessed field
   scope per register
 
 Crown:
-  flat with a shallow projecting cap
+  stepped cap
 
-Slots:
-  three fields on the front face, one per register
-  one full-height vertical ribbon on each return
-  one base face slot on the pedestal riser
+Slots (21):
+  six fields, three on the primary face and three on the secondary
+  eight horizontal ribbons, four on each projecting return band
+  two vertical ribbons, one down each narrow return
+  one crown face on the cap
+  four base faces on the pedestal's tallest course
 ```
 
 Key constraints:
 
 - Reserve border width on all four sides of each register before the field is
   measured.
-- Keep the return ribbons narrower than the minimum field extent, so a return
-  can never be mistaken for a primary face.
-- Cap field relief at the border depth, so no field overtops its own frame.
+- Keep the return ribbons narrow enough that a return can never be mistaken for
+  a primary face; a return that could hold a field means the body should be
+  `rectangular`, not `tablet`.
+- Cap field relief at the recess depth, so no ornament rises past the border
+  plane and stops the frame reading as a frame.
+- A ribbon that is drawn is a ribbon that is published. Stone shaped to carry
+  ornament and not addressable is the one failure this family exists to prevent.
 
 ### 16.2 Banded column
 
@@ -973,12 +1065,12 @@ Ground:
   sunk contact, shallow burial
 
 Base:
-  socket block, body seated in a real recess
+  socket block, broad course under a narrower collar
 
 Body:
   square cross-section
-  slight taper
-  chamfered vertical edges
+  slight taper on both plan axes
+  square vertical edges
 
 Bands:
   base return
@@ -987,16 +1079,17 @@ Bands:
   crown return
 
 Frame:
-  raised border, scope per register
+  recessed field, scope per register
 
 Crown:
   capital and capstone
   crown face exposed on the capstone top
 
-Slots:
+Slots (41):
   sixteen fields, four per face
-  three wrapping ribbon runs, each closing around four faces
-  one crown face slot
+  twenty ribbons, five wrapping bands closing around four faces each
+  one crown face on the capstone
+  four base faces on the collar, the lowest course being buried
 ```
 
 Key constraints:
@@ -1018,29 +1111,30 @@ Archetype:
   tablet, unchanged
 
 Ground:
-  partial burial reaching the first register
+  sunk contact, burial past the plinth's exposed face
 
 Condition:
   stage weathered
-  truncated body at the crown
-  spalled face across the upper primary field
-  corner loss on both upper arrises
-  crack network on the rear face
+  truncated body, taking the crown with it
 
-Slots:
-  crown face slot present, condition lost
-  upper field present, condition partial, inscribed rectangle narrowed
-  lower field present, condition intact
-  buried base face slot omitted
+Slots (6):
+  two fields, condition partial, inscribed rectangles clipped at the break
+  four ribbons on the base return band, condition intact
+  the four base faces omitted, their course being below the ground line
 ```
 
 Key constraints:
 
-- The slot ids are identical to the intact form's. Only `condition`, `inscribed`
-  and `depth_budget` differ.
-- The buried base slot is omitted at Phase 11 because it falls below the ground
-  plane, not marked `lost` at Phase 14 — omission and loss are different states
-  and mean different things to a consumer.
+- Change only `truncation` and the slot table is identical: same ids, same
+  order, same count. Only `condition`, `inscribed`, `extent` and `depth_budget`
+  differ. That is what lets an ornament system author against the intact form
+  and still place correctly on the ruined one.
+- Change `burial_depth` and the table does get shorter, because the buried slots
+  are omitted at Phase 11 rather than lost at Phase 14. Omission and loss are
+  different states and mean different things to a consumer: one never existed to
+  be filled, the other did and no longer can be. Burial is a property of the
+  ground the monument stands in, resolved before slots exist; truncation is
+  damage to a monument whose slots are already on the table.
 - Regenerating with a different `condition` seed must leave the massing graph
   byte-identical.
 
@@ -1048,31 +1142,55 @@ Key constraints:
 
 ## 17. Current implementation status
 
-**Nothing in this document is implemented.** There is no `stelae` container on
-the graph, no family folder, no registry entry, no control tab and no fixture.
-This specification is authored ahead of its code, as the Pillar Hall vocabulary
-and the surface operation vocabulary were.
+**Current implementation status:** the three archetypes in §5 resolve
+completely, under `src/structure/families/stelae/`, registered as a selectable
+family. The stack, band and bay allocation, frames, the slot table with both its
+boundaries and its depth budgets, the two executable damage events, patch,
+region and anchor publication, and four golden fixtures are all in place.
 
-When it is implemented, the project's standing discipline applies without
-exception: every vocabulary in this document ships as a `FOO` / `IMPLEMENTED_FOO`
-pair, and a named-but-unbuilt member produces a coded error rather than falling
-back to a neighbour. A `corbel_cap` that quietly resolves as a `stepped_cap`
-would mean a composition authored today silently changes meaning the day the
-real reader lands, which is precisely the failure this rule exists to prevent.
+The project's standing discipline applies without exception: every vocabulary in
+this document ships as a `FOO` / `IMPLEMENTED_FOO` pair, and a named-but-unbuilt
+member produces a coded error rather than falling back to a neighbour. A
+`corbel_cap` that quietly resolved as a `stepped_cap` would mean a composition
+authored today silently changes meaning the day the real reader lands, which is
+precisely the failure this rule exists to prevent.
 
-A first implementation slice should resolve the three archetypes in §5
-completely rather than resolving all of §6 partially. The Pillar Hall precedent
-is the right one: prove the composition on concrete presets, and let the
-vocabulary that no preset exercises stay a named error until a preset needs it.
+Authored but unread today:
+
+```text
+ground contact    mounded, socketed
+base treatment    flush_ground, projecting_footing, battered_footing,
+                  buried_base, rubble_packing
+crown treatment   pointed, gabled, notched
+edge treatment    chamfered, rounded
+frame style       raised_border, double_border, corner_blocks, banded_border
+frame return      stepped, sloped
+band role         frieze, margin
+bay role          cartouche, margin, corner_reserve
+damage type       every member except truncated_body and partial_burial
+condition stage   maintained, abandoned, excavated, partially_reconstructed
+```
+
+Each reports a coded `stela.<field>_unimplemented` error, and the control tables
+offer only the members with readers, so an unread name cannot be reached from
+the pane at all. Both guards are asserted, because they fail differently: the
+control table protects the editor, and the resolver protects everything
+assembled in code.
+
+The first slice followed the Pillar Hall precedent deliberately — resolve three
+concrete compositions completely rather than all of §6 partially, and let the
+vocabulary no preset exercises stay a named error until a preset needs it.
 
 Deliberately left as future research, and not to be generalized into the core
 until a second concrete family proves the abstraction:
 
-- curved, stepped and polygonal body plans;
+- curved, stepped and polygonal body plans, and chamfered arrises;
 - stela groups, rows, alignments and plaza arrangements;
 - socket-and-tenon assembly between a stela and a host platform or terrace,
   including placement from a host `PatchAnchor`;
-- chamfer strips as addressable slots;
+- masonry over a constructed base. The body is one stone and takes none, and no
+  preset yet wants a pedestal built rather than carved;
+- surface-scale damage: spalling, crack networks, edge and corner loss;
 - ornament content generation of any kind, whether geometry or texture;
 - a shared slot abstraction across families. Slots here are stela slots. If the
   Pillar Hall's pier panels and a stela's fields turn out to want the same

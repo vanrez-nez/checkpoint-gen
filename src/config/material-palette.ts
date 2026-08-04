@@ -14,6 +14,7 @@ export const MATERIAL_DOCUMENT_IDS = [
   "flamed-basalt",
   "lichen-stone",
   "hammered-iron",
+  "uv-checker",
 ] as const;
 
 export type MaterialDocumentId = (typeof MATERIAL_DOCUMENT_IDS)[number];
@@ -58,6 +59,7 @@ export const MATERIAL_DOCUMENT_OPTIONS: Readonly<
   "Flamed basalt": "flamed-basalt",
   "Lichen stone": "lichen-stone",
   "Hammered iron": "hammered-iron",
+  "UV checker (debug)": "uv-checker",
 };
 
 /**
@@ -90,6 +92,10 @@ export const MATERIAL_SURFACE_LABELS: Readonly<
   pier: "Pillar Hall piers",
   pierPanel: "Pillar Hall pier panels",
   lintel: "Pillar Hall lintels",
+  stelaBody: "Stela bodies",
+  stelaField: "Stela recessed fields",
+  stelaCrown: "Stela crowns",
+  slotDebug: "Slot debug tint",
   offering: "Offering",
 };
 
@@ -127,6 +133,10 @@ export const DEFAULT_STRUCTURE_MATERIAL_PALETTE: Readonly<
   pier: surface("stone"),
   pierPanel: surface("stone"),
   lintel: surface("stone"),
+  stelaBody: surface("stone"),
+  stelaField: surface("stone"),
+  stelaCrown: surface("stone"),
+  slotDebug: surface("lichen-stone"),
   offering: surface("stone"),
 };
 
@@ -191,6 +201,26 @@ export const DEFAULT_PILLAR_HALL_MATERIAL_PALETTE: Readonly<
   frieze: surface("flamed-basalt", 0.45),
   cornice: surface("dark-volcanic-stone", 0.5),
   roof: surface("lichen-stone", 0.45),
+};
+
+/**
+ * A stela is one carved stone, so its dressing is deliberately close-grained:
+ * a monolith is read at arm's length, not across a plaza, and the grain that
+ * suits a terrace wall reads as noise on a tablet face.
+ */
+export const DEFAULT_STELA_MATERIAL_PALETTE: Readonly<
+  StructureMaterialPalette
+> = {
+  ...DEFAULT_STRUCTURE_MATERIAL_PALETTE,
+  stelaBody: surface("eroded-rock", 1.4),
+  stelaField: surface("flamed-basalt", 1.6),
+  stelaCrown: surface("eroded-rock", 1.4),
+  pedestal: surface("dark-volcanic-stone", 1.1),
+  frieze: surface("flamed-basalt", 1.6),
+  cornice: surface("dark-volcanic-stone", 1.3),
+  // Deliberately the loudest thing in the palette at the noisiest tiling: a
+  // debug tint that can be mistaken for a material choice is not a debug tint.
+  slotDebug: surface("lichen-stone", 4),
 };
 
 const control = controlsFor<MaterialSurfaceConfig>();

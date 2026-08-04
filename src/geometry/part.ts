@@ -26,6 +26,10 @@ export const MATERIAL_SLOTS = [
   "pier",
   "pierPanel",
   "lintel",
+  "stelaBody",
+  "stelaField",
+  "stelaCrown",
+  "slotDebug",
 ] as const;
 
 export type MaterialSlot = (typeof MATERIAL_SLOTS)[number];

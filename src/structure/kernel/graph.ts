@@ -4,6 +4,7 @@ import { resolvedSeeds, type SeedSet, type SeedSubsystem } from "./seed";
 import type { Diagnostic } from "./validate";
 import type { FacadeRecord } from "../facade/types";
 import type { PillarHallRecord } from "../families/pillar-hall/types";
+import type { StelaRecord } from "../families/stelae/types";
 import {
   compilePatchFeatures,
   compiledCutWorldBounds,
@@ -16,9 +17,9 @@ import {
  *
  * This is the artefact every later phase reads and no later phase mutates. The
  * schema is authored ahead of the systems that fill it: containers for cells,
- * Pillar Halls, roofs, attachments and damage exist from the start, so adding those
- * systems fills known positions rather than reshaping the graph. Connectors,
- * cells, facades and roofs are the first containers now populated.
+ * Pillar Halls, stelae, roofs, attachments and damage exist from the start, so
+ * adding those systems fills known positions rather than reshaping the graph.
+ * Attachments and damage are the two still waiting for theirs.
  */
 /**
  * Placeholder element type for a subsystem that has not been implemented yet.
@@ -314,6 +315,7 @@ export interface StructureGraph {
   readonly cells: readonly CellRecord[];
   readonly facades: readonly FacadeRecord[];
   readonly pillarHalls: readonly PillarHallRecord[];
+  readonly stelae: readonly StelaRecord[];
   readonly roofs: readonly RoofRecord[];
   readonly attachments: readonly ReservedEntity[];
   readonly damage: readonly ReservedEntity[];
@@ -336,6 +338,7 @@ export class StructureGraphBuilder {
   private readonly cells: CellRecord[] = [];
   private readonly facades: FacadeRecord[] = [];
   private readonly pillarHalls: PillarHallRecord[] = [];
+  private readonly stelae: StelaRecord[] = [];
   private readonly roofs: RoofRecord[] = [];
 
   constructor(
@@ -381,6 +384,10 @@ export class StructureGraphBuilder {
 
   addPillarHall(hall: PillarHallRecord): void {
     this.pillarHalls.push(hall);
+  }
+
+  addStela(stela: StelaRecord): void {
+    this.stelae.push(stela);
   }
 
   addRoof(roof: RoofRecord): void {
@@ -429,6 +436,7 @@ export class StructureGraphBuilder {
       cells: this.cells,
       facades: this.facades,
       pillarHalls: this.pillarHalls,
+      stelae: this.stelae,
       roofs: this.roofs,
       attachments: [],
       damage: [],

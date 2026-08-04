@@ -131,6 +131,36 @@ export function insetRect(rect: Rect, setbacks: Setbacks): Rect {
   };
 }
 
+/**
+ * `source` with `cover` removed, as up to four rectangles.
+ *
+ * This is how a horizontal crown works out what its neighbour left visible. It
+ * subtracts rather than tests a centroid on purpose: a member may cover the
+ * middle of a larger surface, and erasing the whole quad for that would delete
+ * two exposed ends nobody asked to lose.
+ */
+export function subtractRect(source: Rect, cover: Rect): Rect[] {
+  const overlap = {
+    minX: Math.max(source.minX, cover.minX),
+    maxX: Math.min(source.maxX, cover.maxX),
+    minZ: Math.max(source.minZ, cover.minZ),
+    maxZ: Math.min(source.maxZ, cover.maxZ),
+  };
+
+  if (rectWidth(overlap) <= RECT_EPS || rectDepth(overlap) <= RECT_EPS) {
+    return [source];
+  }
+
+  return [
+    { minX: source.minX, maxX: overlap.minX, minZ: source.minZ, maxZ: source.maxZ },
+    { minX: overlap.maxX, maxX: source.maxX, minZ: source.minZ, maxZ: source.maxZ },
+    { minX: overlap.minX, maxX: overlap.maxX, minZ: source.minZ, maxZ: overlap.minZ },
+    { minX: overlap.minX, maxX: overlap.maxX, minZ: overlap.maxZ, maxZ: source.maxZ },
+  ].filter((rect) => rectWidth(rect) > RECT_EPS && rectDepth(rect) > RECT_EPS);
+}
+
+const RECT_EPS = 1e-9;
+
 export function uniformSetbacks(value: number): Setbacks {
   return {
     front: value,

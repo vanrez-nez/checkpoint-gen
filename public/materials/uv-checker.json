@@ -1,0 +1,39 @@
+{
+  "version": 2,
+  "metadata": {
+    "title": "UV Checker",
+    "notes": "Diagnostic. Reads the uv channel rather than object space, so it shows the authored parameterization exactly as it is: squares read square where the scale is right, stretch where it is not, and break at any seam. Kept bright and unlit-looking on purpose so it survives a dim scene."
+  },
+  "nodes": [
+    { "id": "coord", "type": "tex-coordinate", "params": {} },
+    {
+      "id": "coarse",
+      "type": "checker",
+      "params": { "color1": "#ffffff", "color2": "#ff1fa0", "scale": 2 }
+    },
+    {
+      "id": "fine",
+      "type": "checker",
+      "params": { "color1": "#ffffff", "color2": "#1fd0ff", "scale": 8 }
+    },
+    {
+      "id": "mix",
+      "type": "blend",
+      "params": { "mode": "multiply", "factor": 0.5 }
+    },
+    {
+      "id": "pr",
+      "type": "principled-bsdf",
+      "params": { "roughness": 0.95, "metallic": 0 }
+    },
+    { "id": "out", "type": "material-output", "params": {} }
+  ],
+  "edges": [
+    { "fromNode": "coord", "fromOutput": "uv", "toNode": "coarse", "toInput": "coord" },
+    { "fromNode": "coord", "fromOutput": "uv", "toNode": "fine", "toInput": "coord" },
+    { "fromNode": "coarse", "fromOutput": "color", "toNode": "mix", "toInput": "a" },
+    { "fromNode": "fine", "fromOutput": "color", "toNode": "mix", "toInput": "b" },
+    { "fromNode": "mix", "fromOutput": "color", "toNode": "pr", "toInput": "baseColor" },
+    { "fromNode": "pr", "fromOutput": "bsdf", "toNode": "out", "toInput": "surface" }
+  ]
+}

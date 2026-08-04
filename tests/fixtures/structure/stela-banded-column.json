@@ -1,0 +1,5386 @@
+{
+  "id": "stela_structure",
+  "units": "meters",
+  "seeds": {
+    "massing": 3634353080,
+    "plan": 3304288346,
+    "facade": 158410769,
+    "construction": 3841935953,
+    "material": 1375545456,
+    "condition": 3078902332
+  },
+  "site": {
+    "upAxis": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+    },
+    "frontAxis": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+    },
+    "groundY": 0
+  },
+  "masses": [],
+  "patches": [
+    {
+      "id": "stela_structure/stela_01/ground_interface",
+      "role": "ground_interface",
+      "frame": {
+        "origin": {
+          "x": -0.6,
+          "y": 0,
+          "z": -0.6
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "normal": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "uLength": 1.2,
+        "vLength": 1.2
+      },
+      "dimensions": {
+        "u": 1.2,
+        "v": 1.2,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "stela_structure/stela_01/ground_interface/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "stela_structure/stela_01/ground_interface/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "stela_structure/stela_01/ground_interface/edge_v_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "stela_structure/stela_01/ground_interface/edge_v_max",
+          "orientation": "front",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "stela_structure/stela_01/base/face_front",
+        "stela_structure/stela_01/base/face_rear",
+        "stela_structure/stela_01/base/face_side_negative_u",
+        "stela_structure/stela_01/base/face_side_positive_u",
+        "stela_structure/stela_01/crown/top",
+        "stela_structure/stela_01/face_front",
+        "stela_structure/stela_01/face_rear",
+        "stela_structure/stela_01/face_side_negative_u",
+        "stela_structure/stela_01/face_side_positive_u"
+      ],
+      "regions": [],
+      "features": [],
+      "anchors": [],
+      "tags": [
+        "stela",
+        "ground"
+      ]
+    },
+    {
+      "id": "stela_structure/stela_01/face_front",
+      "role": "stela_face",
+      "frame": {
+        "origin": {
+          "x": -0.4,
+          "y": 0.38,
+          "z": 0.4
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0.007058,
+          "y": 0.99995,
+          "z": -0.007058
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "uLength": 0.8,
+        "vLength": 3.400169
+      },
+      "dimensions": {
+        "u": 0.8,
+        "v": 3.400169,
+        "thickness": 0
+      },
+      "evaluator": "battered",
+      "edges": {
+        "uMin": {
+          "id": "stela_structure/stela_01/face_front/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "stela_structure/stela_01/face_front/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "stela_structure/stela_01/face_front/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "stela_structure/stela_01/face_front/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "stela_structure/stela_01/ground_interface"
+      ],
+      "regions": [
+        {
+          "id": "stela_structure/stela_01/register_01/face_front/bay_01/field/region",
+          "uRange": [
+            0.105828,
+            0.882236
+          ],
+          "vRange": [
+            0.066176,
+            0.214706
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_front/bay_01/field/region",
+          "uRange": [
+            0.1043,
+            0.869382
+          ],
+          "vRange": [
+            0.305882,
+            0.454412
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_front/bay_01/field/region",
+          "uRange": [
+            0.102772,
+            0.856528
+          ],
+          "vRange": [
+            0.545588,
+            0.694118
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_front/bay_01/field/region",
+          "uRange": [
+            0.101244,
+            0.843674
+          ],
+          "vRange": [
+            0.785294,
+            0.933824
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/base_return_01/front/ribbon/region",
+          "uRange": [
+            0,
+            0.997529
+          ],
+          "vRange": [
+            0,
+            0.041176
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_01/front/ribbon/region",
+          "uRange": [
+            0,
+            0.983147
+          ],
+          "vRange": [
+            0.239706,
+            0.280882
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_02/front/ribbon/region",
+          "uRange": [
+            0,
+            0.968765
+          ],
+          "vRange": [
+            0.479412,
+            0.520588
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_03/front/ribbon/region",
+          "uRange": [
+            0,
+            0.954382
+          ],
+          "vRange": [
+            0.719118,
+            0.760294
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/crown_return_01/front/ribbon/region",
+          "uRange": [
+            0,
+            0.94
+          ],
+          "vRange": [
+            0.958824,
+            1
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        }
+      ],
+      "features": [],
+      "anchors": [
+        {
+          "id": "stela_structure/stela_01/register_01/face_front/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.494032,
+          "v": 0.140441,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_01/face_front/bay_01/field/region",
+          "orientation": "front"
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_front/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.486841,
+          "v": 0.380147,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_02/face_front/bay_01/field/region",
+          "orientation": "front"
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_front/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.47965,
+          "v": 0.619853,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_03/face_front/bay_01/field/region",
+          "orientation": "front"
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_front/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.472459,
+          "v": 0.859559,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_04/face_front/bay_01/field/region",
+          "orientation": "front"
+        },
+        {
+          "id": "stela_structure/stela_01/base_return_01/front/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.498765,
+          "v": 0.020588,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/base_return_01/front/ribbon/region",
+          "orientation": "front"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_01/front/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.491574,
+          "v": 0.260294,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/ribbon_01/front/ribbon/region",
+          "orientation": "front"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_02/front/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.484382,
+          "v": 0.5,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/ribbon_02/front/ribbon/region",
+          "orientation": "front"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_03/front/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.477191,
+          "v": 0.739706,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/ribbon_03/front/ribbon/region",
+          "orientation": "front"
+        },
+        {
+          "id": "stela_structure/stela_01/crown_return_01/front/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.47,
+          "v": 0.979412,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/crown_return_01/front/ribbon/region",
+          "orientation": "front"
+        }
+      ],
+      "tags": [
+        "stela",
+        "body",
+        "primary"
+      ]
+    },
+    {
+      "id": "stela_structure/stela_01/face_rear",
+      "role": "stela_face",
+      "frame": {
+        "origin": {
+          "x": 0.4,
+          "y": 0.38,
+          "z": -0.4
+        },
+        "uAxis": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": -0.007058,
+          "y": 0.99995,
+          "z": 0.007058
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "uLength": 0.8,
+        "vLength": 3.400169
+      },
+      "dimensions": {
+        "u": 0.8,
+        "v": 3.400169,
+        "thickness": 0
+      },
+      "evaluator": "battered",
+      "edges": {
+        "uMin": {
+          "id": "stela_structure/stela_01/face_rear/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "stela_structure/stela_01/face_rear/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "stela_structure/stela_01/face_rear/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "stela_structure/stela_01/face_rear/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "stela_structure/stela_01/ground_interface"
+      ],
+      "regions": [
+        {
+          "id": "stela_structure/stela_01/register_01/face_rear/bay_01/field/region",
+          "uRange": [
+            0.105828,
+            0.882236
+          ],
+          "vRange": [
+            0.066176,
+            0.214706
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_rear/bay_01/field/region",
+          "uRange": [
+            0.1043,
+            0.869382
+          ],
+          "vRange": [
+            0.305882,
+            0.454412
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_rear/bay_01/field/region",
+          "uRange": [
+            0.102772,
+            0.856528
+          ],
+          "vRange": [
+            0.545588,
+            0.694118
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_rear/bay_01/field/region",
+          "uRange": [
+            0.101244,
+            0.843674
+          ],
+          "vRange": [
+            0.785294,
+            0.933824
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/base_return_01/rear/ribbon/region",
+          "uRange": [
+            0,
+            0.997529
+          ],
+          "vRange": [
+            0,
+            0.041176
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_01/rear/ribbon/region",
+          "uRange": [
+            0,
+            0.983147
+          ],
+          "vRange": [
+            0.239706,
+            0.280882
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_02/rear/ribbon/region",
+          "uRange": [
+            0,
+            0.968765
+          ],
+          "vRange": [
+            0.479412,
+            0.520588
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_03/rear/ribbon/region",
+          "uRange": [
+            0,
+            0.954382
+          ],
+          "vRange": [
+            0.719118,
+            0.760294
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/crown_return_01/rear/ribbon/region",
+          "uRange": [
+            0,
+            0.94
+          ],
+          "vRange": [
+            0.958824,
+            1
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        }
+      ],
+      "features": [],
+      "anchors": [
+        {
+          "id": "stela_structure/stela_01/register_01/face_rear/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.494032,
+          "v": 0.140441,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_01/face_rear/bay_01/field/region",
+          "orientation": "rear"
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_rear/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.486841,
+          "v": 0.380147,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_02/face_rear/bay_01/field/region",
+          "orientation": "rear"
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_rear/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.47965,
+          "v": 0.619853,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_03/face_rear/bay_01/field/region",
+          "orientation": "rear"
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_rear/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.472459,
+          "v": 0.859559,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_04/face_rear/bay_01/field/region",
+          "orientation": "rear"
+        },
+        {
+          "id": "stela_structure/stela_01/base_return_01/rear/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.498765,
+          "v": 0.020588,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/base_return_01/rear/ribbon/region",
+          "orientation": "rear"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_01/rear/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.491574,
+          "v": 0.260294,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/ribbon_01/rear/ribbon/region",
+          "orientation": "rear"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_02/rear/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.484382,
+          "v": 0.5,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/ribbon_02/rear/ribbon/region",
+          "orientation": "rear"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_03/rear/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.477191,
+          "v": 0.739706,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/ribbon_03/rear/ribbon/region",
+          "orientation": "rear"
+        },
+        {
+          "id": "stela_structure/stela_01/crown_return_01/rear/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.47,
+          "v": 0.979412,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/crown_return_01/rear/ribbon/region",
+          "orientation": "rear"
+        }
+      ],
+      "tags": [
+        "stela",
+        "body",
+        "primary"
+      ]
+    },
+    {
+      "id": "stela_structure/stela_01/face_side_positive_u",
+      "role": "stela_face",
+      "frame": {
+        "origin": {
+          "x": 0.4,
+          "y": 0.38,
+          "z": 0.4
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "vAxis": {
+          "x": -0.007058,
+          "y": 0.99995,
+          "z": -0.007058
+        },
+        "normal": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 0.8,
+        "vLength": 3.400169
+      },
+      "dimensions": {
+        "u": 0.8,
+        "v": 3.400169,
+        "thickness": 0
+      },
+      "evaluator": "battered",
+      "edges": {
+        "uMin": {
+          "id": "stela_structure/stela_01/face_side_positive_u/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "stela_structure/stela_01/face_side_positive_u/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "stela_structure/stela_01/face_side_positive_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "stela_structure/stela_01/face_side_positive_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "stela_structure/stela_01/ground_interface"
+      ],
+      "regions": [
+        {
+          "id": "stela_structure/stela_01/register_01/face_side_positive_u/bay_01/field/region",
+          "uRange": [
+            0.105828,
+            0.882236
+          ],
+          "vRange": [
+            0.066176,
+            0.214706
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_side_positive_u/bay_01/field/region",
+          "uRange": [
+            0.1043,
+            0.869382
+          ],
+          "vRange": [
+            0.305882,
+            0.454412
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_side_positive_u/bay_01/field/region",
+          "uRange": [
+            0.102772,
+            0.856528
+          ],
+          "vRange": [
+            0.545588,
+            0.694118
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_side_positive_u/bay_01/field/region",
+          "uRange": [
+            0.101244,
+            0.843674
+          ],
+          "vRange": [
+            0.785294,
+            0.933824
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/base_return_01/side_positive_u/ribbon/region",
+          "uRange": [
+            0,
+            0.997529
+          ],
+          "vRange": [
+            0,
+            0.041176
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_01/side_positive_u/ribbon/region",
+          "uRange": [
+            0,
+            0.983147
+          ],
+          "vRange": [
+            0.239706,
+            0.280882
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_02/side_positive_u/ribbon/region",
+          "uRange": [
+            0,
+            0.968765
+          ],
+          "vRange": [
+            0.479412,
+            0.520588
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_03/side_positive_u/ribbon/region",
+          "uRange": [
+            0,
+            0.954382
+          ],
+          "vRange": [
+            0.719118,
+            0.760294
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/crown_return_01/side_positive_u/ribbon/region",
+          "uRange": [
+            0,
+            0.94
+          ],
+          "vRange": [
+            0.958824,
+            1
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        }
+      ],
+      "features": [],
+      "anchors": [
+        {
+          "id": "stela_structure/stela_01/register_01/face_side_positive_u/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.494032,
+          "v": 0.140441,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_01/face_side_positive_u/bay_01/field/region",
+          "orientation": "sidePositiveU"
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_side_positive_u/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.486841,
+          "v": 0.380147,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_02/face_side_positive_u/bay_01/field/region",
+          "orientation": "sidePositiveU"
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_side_positive_u/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.47965,
+          "v": 0.619853,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_03/face_side_positive_u/bay_01/field/region",
+          "orientation": "sidePositiveU"
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_side_positive_u/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.472459,
+          "v": 0.859559,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_04/face_side_positive_u/bay_01/field/region",
+          "orientation": "sidePositiveU"
+        },
+        {
+          "id": "stela_structure/stela_01/base_return_01/side_positive_u/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.498765,
+          "v": 0.020588,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/base_return_01/side_positive_u/ribbon/region",
+          "orientation": "sidePositiveU"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_01/side_positive_u/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.491574,
+          "v": 0.260294,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/ribbon_01/side_positive_u/ribbon/region",
+          "orientation": "sidePositiveU"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_02/side_positive_u/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.484382,
+          "v": 0.5,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/ribbon_02/side_positive_u/ribbon/region",
+          "orientation": "sidePositiveU"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_03/side_positive_u/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.477191,
+          "v": 0.739706,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/ribbon_03/side_positive_u/ribbon/region",
+          "orientation": "sidePositiveU"
+        },
+        {
+          "id": "stela_structure/stela_01/crown_return_01/side_positive_u/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.47,
+          "v": 0.979412,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/crown_return_01/side_positive_u/ribbon/region",
+          "orientation": "sidePositiveU"
+        }
+      ],
+      "tags": [
+        "stela",
+        "body",
+        "primary"
+      ]
+    },
+    {
+      "id": "stela_structure/stela_01/face_side_negative_u",
+      "role": "stela_face",
+      "frame": {
+        "origin": {
+          "x": -0.4,
+          "y": 0.38,
+          "z": -0.4
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "vAxis": {
+          "x": 0.007058,
+          "y": 0.99995,
+          "z": 0.007058
+        },
+        "normal": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 0.8,
+        "vLength": 3.400169
+      },
+      "dimensions": {
+        "u": 0.8,
+        "v": 3.400169,
+        "thickness": 0
+      },
+      "evaluator": "battered",
+      "edges": {
+        "uMin": {
+          "id": "stela_structure/stela_01/face_side_negative_u/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "stela_structure/stela_01/face_side_negative_u/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "stela_structure/stela_01/face_side_negative_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "stela_structure/stela_01/face_side_negative_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "stela_structure/stela_01/ground_interface"
+      ],
+      "regions": [
+        {
+          "id": "stela_structure/stela_01/register_01/face_side_negative_u/bay_01/field/region",
+          "uRange": [
+            0.105828,
+            0.882236
+          ],
+          "vRange": [
+            0.066176,
+            0.214706
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_side_negative_u/bay_01/field/region",
+          "uRange": [
+            0.1043,
+            0.869382
+          ],
+          "vRange": [
+            0.305882,
+            0.454412
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_side_negative_u/bay_01/field/region",
+          "uRange": [
+            0.102772,
+            0.856528
+          ],
+          "vRange": [
+            0.545588,
+            0.694118
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_side_negative_u/bay_01/field/region",
+          "uRange": [
+            0.101244,
+            0.843674
+          ],
+          "vRange": [
+            0.785294,
+            0.933824
+          ],
+          "priority": 3,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "field",
+            "primary",
+            "field",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/base_return_01/side_negative_u/ribbon/region",
+          "uRange": [
+            0,
+            0.997529
+          ],
+          "vRange": [
+            0,
+            0.041176
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_01/side_negative_u/ribbon/region",
+          "uRange": [
+            0,
+            0.983147
+          ],
+          "vRange": [
+            0.239706,
+            0.280882
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_02/side_negative_u/ribbon/region",
+          "uRange": [
+            0,
+            0.968765
+          ],
+          "vRange": [
+            0.479412,
+            0.520588
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_03/side_negative_u/ribbon/region",
+          "uRange": [
+            0,
+            0.954382
+          ],
+          "vRange": [
+            0.719118,
+            0.760294
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/crown_return_01/side_negative_u/ribbon/region",
+          "uRange": [
+            0,
+            0.94
+          ],
+          "vRange": [
+            0.958824,
+            1
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping",
+            "ribbon",
+            "condition_intact"
+          ]
+        }
+      ],
+      "features": [],
+      "anchors": [
+        {
+          "id": "stela_structure/stela_01/register_01/face_side_negative_u/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.494032,
+          "v": 0.140441,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_01/face_side_negative_u/bay_01/field/region",
+          "orientation": "sideNegativeU"
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_side_negative_u/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.486841,
+          "v": 0.380147,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_02/face_side_negative_u/bay_01/field/region",
+          "orientation": "sideNegativeU"
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_side_negative_u/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.47965,
+          "v": 0.619853,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_03/face_side_negative_u/bay_01/field/region",
+          "orientation": "sideNegativeU"
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_side_negative_u/bay_01/field/anchor",
+          "kind": "ornament",
+          "u": 0.472459,
+          "v": 0.859559,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/register_04/face_side_negative_u/bay_01/field/region",
+          "orientation": "sideNegativeU"
+        },
+        {
+          "id": "stela_structure/stela_01/base_return_01/side_negative_u/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.498765,
+          "v": 0.020588,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/base_return_01/side_negative_u/ribbon/region",
+          "orientation": "sideNegativeU"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_01/side_negative_u/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.491574,
+          "v": 0.260294,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/ribbon_01/side_negative_u/ribbon/region",
+          "orientation": "sideNegativeU"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_02/side_negative_u/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.484382,
+          "v": 0.5,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/ribbon_02/side_negative_u/ribbon/region",
+          "orientation": "sideNegativeU"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_03/side_negative_u/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.477191,
+          "v": 0.739706,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/ribbon_03/side_negative_u/ribbon/region",
+          "orientation": "sideNegativeU"
+        },
+        {
+          "id": "stela_structure/stela_01/crown_return_01/side_negative_u/ribbon/anchor",
+          "kind": "ornament",
+          "u": 0.47,
+          "v": 0.979412,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/crown_return_01/side_negative_u/ribbon/region",
+          "orientation": "sideNegativeU"
+        }
+      ],
+      "tags": [
+        "stela",
+        "body",
+        "primary"
+      ]
+    },
+    {
+      "id": "stela_structure/stela_01/crown/top",
+      "role": "stela_crown_top",
+      "frame": {
+        "origin": {
+          "x": -0.53392,
+          "y": 4.48,
+          "z": -0.53392
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "normal": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "uLength": 1.06784,
+        "vLength": 1.06784
+      },
+      "dimensions": {
+        "u": 1.06784,
+        "v": 1.06784,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "stela_structure/stela_01/crown/top/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "stela_structure/stela_01/crown/top/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "stela_structure/stela_01/crown/top/edge_v_min",
+          "orientation": "rear",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "stela_structure/stela_01/crown/top/edge_v_max",
+          "orientation": "front",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "stela_structure/stela_01/ground_interface"
+      ],
+      "regions": [
+        {
+          "id": "stela_structure/stela_01/crown/face_top/region",
+          "uRange": [
+            0,
+            1
+          ],
+          "vRange": [
+            0,
+            1
+          ],
+          "priority": 2,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "crown",
+            "crown_face",
+            "condition_intact"
+          ]
+        }
+      ],
+      "features": [],
+      "anchors": [
+        {
+          "id": "stela_structure/stela_01/crown/face_top/anchor",
+          "kind": "ornament",
+          "u": 0.5,
+          "v": 0.5,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/crown/face_top/region",
+          "orientation": "top"
+        }
+      ],
+      "tags": [
+        "stela",
+        "crown"
+      ]
+    },
+    {
+      "id": "stela_structure/stela_01/base/face_front",
+      "role": "stela_base_face",
+      "frame": {
+        "origin": {
+          "x": -0.472,
+          "y": 0.24,
+          "z": 0.472
+        },
+        "uAxis": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "uLength": 0.944,
+        "vLength": 0.14
+      },
+      "dimensions": {
+        "u": 0.944,
+        "v": 0.14,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "stela_structure/stela_01/base/face_front/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "stela_structure/stela_01/base/face_front/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "stela_structure/stela_01/base/face_front/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "stela_structure/stela_01/base/face_front/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "stela_structure/stela_01/ground_interface"
+      ],
+      "regions": [
+        {
+          "id": "stela_structure/stela_01/base/front/face/region",
+          "uRange": [
+            0,
+            1
+          ],
+          "vRange": [
+            0,
+            1
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "base",
+            "base_face",
+            "condition_intact"
+          ]
+        }
+      ],
+      "features": [],
+      "anchors": [
+        {
+          "id": "stela_structure/stela_01/base/front/face/anchor",
+          "kind": "ornament",
+          "u": 0.5,
+          "v": 0.5,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/base/front/face/region",
+          "orientation": "front"
+        }
+      ],
+      "tags": [
+        "stela",
+        "base"
+      ]
+    },
+    {
+      "id": "stela_structure/stela_01/base/face_rear",
+      "role": "stela_base_face",
+      "frame": {
+        "origin": {
+          "x": 0.472,
+          "y": 0.24,
+          "z": -0.472
+        },
+        "uAxis": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "uLength": 0.944,
+        "vLength": 0.14
+      },
+      "dimensions": {
+        "u": 0.944,
+        "v": 0.14,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "stela_structure/stela_01/base/face_rear/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "stela_structure/stela_01/base/face_rear/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "stela_structure/stela_01/base/face_rear/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "stela_structure/stela_01/base/face_rear/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "stela_structure/stela_01/ground_interface"
+      ],
+      "regions": [
+        {
+          "id": "stela_structure/stela_01/base/rear/face/region",
+          "uRange": [
+            0,
+            1
+          ],
+          "vRange": [
+            0,
+            1
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "base",
+            "base_face",
+            "condition_intact"
+          ]
+        }
+      ],
+      "features": [],
+      "anchors": [
+        {
+          "id": "stela_structure/stela_01/base/rear/face/anchor",
+          "kind": "ornament",
+          "u": 0.5,
+          "v": 0.5,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/base/rear/face/region",
+          "orientation": "rear"
+        }
+      ],
+      "tags": [
+        "stela",
+        "base"
+      ]
+    },
+    {
+      "id": "stela_structure/stela_01/base/face_side_positive_u",
+      "role": "stela_base_face",
+      "frame": {
+        "origin": {
+          "x": 0.472,
+          "y": 0.24,
+          "z": 0.472
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": -1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 0.944,
+        "vLength": 0.14
+      },
+      "dimensions": {
+        "u": 0.944,
+        "v": 0.14,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "stela_structure/stela_01/base/face_side_positive_u/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "stela_structure/stela_01/base/face_side_positive_u/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "stela_structure/stela_01/base/face_side_positive_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "stela_structure/stela_01/base/face_side_positive_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "stela_structure/stela_01/ground_interface"
+      ],
+      "regions": [
+        {
+          "id": "stela_structure/stela_01/base/side_positive_u/face/region",
+          "uRange": [
+            0,
+            1
+          ],
+          "vRange": [
+            0,
+            1
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "base",
+            "base_face",
+            "condition_intact"
+          ]
+        }
+      ],
+      "features": [],
+      "anchors": [
+        {
+          "id": "stela_structure/stela_01/base/side_positive_u/face/anchor",
+          "kind": "ornament",
+          "u": 0.5,
+          "v": 0.5,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/base/side_positive_u/face/region",
+          "orientation": "sidePositiveU"
+        }
+      ],
+      "tags": [
+        "stela",
+        "base"
+      ]
+    },
+    {
+      "id": "stela_structure/stela_01/base/face_side_negative_u",
+      "role": "stela_base_face",
+      "frame": {
+        "origin": {
+          "x": -0.472,
+          "y": 0.24,
+          "z": -0.472
+        },
+        "uAxis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "vAxis": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "normal": {
+          "x": -1,
+          "y": 0,
+          "z": 0
+        },
+        "uLength": 0.944,
+        "vLength": 0.14
+      },
+      "dimensions": {
+        "u": 0.944,
+        "v": 0.14,
+        "thickness": 0
+      },
+      "evaluator": "planar",
+      "edges": {
+        "uMin": {
+          "id": "stela_structure/stela_01/base/face_side_negative_u/edge_u_min",
+          "orientation": "sideNegativeU",
+          "treatment": null
+        },
+        "uMax": {
+          "id": "stela_structure/stela_01/base/face_side_negative_u/edge_u_max",
+          "orientation": "sidePositiveU",
+          "treatment": null
+        },
+        "vMin": {
+          "id": "stela_structure/stela_01/base/face_side_negative_u/edge_v_min",
+          "orientation": "bottom",
+          "treatment": null
+        },
+        "vMax": {
+          "id": "stela_structure/stela_01/base/face_side_negative_u/edge_v_max",
+          "orientation": "top",
+          "treatment": null
+        }
+      },
+      "adjacency": [
+        "stela_structure/stela_01/ground_interface"
+      ],
+      "regions": [
+        {
+          "id": "stela_structure/stela_01/base/side_negative_u/face/region",
+          "uRange": [
+            0,
+            1
+          ],
+          "vRange": [
+            0,
+            1
+          ],
+          "priority": 1,
+          "allowedOperations": [],
+          "exclusions": [],
+          "tags": [
+            "stela",
+            "base",
+            "base_face",
+            "condition_intact"
+          ]
+        }
+      ],
+      "features": [],
+      "anchors": [
+        {
+          "id": "stela_structure/stela_01/base/side_negative_u/face/anchor",
+          "kind": "ornament",
+          "u": 0.5,
+          "v": 0.5,
+          "d": 0,
+          "regionId": "stela_structure/stela_01/base/side_negative_u/face/region",
+          "orientation": "sideNegativeU"
+        }
+      ],
+      "tags": [
+        "stela",
+        "base"
+      ]
+    }
+  ],
+  "connectors": [],
+  "cells": [],
+  "facades": [],
+  "pillarHalls": [],
+  "stelae": [
+    {
+      "id": "stela_structure/stela_01",
+      "kind": "stela",
+      "archetype": "banded_column",
+      "ground": {
+        "contact": "sunk",
+        "burialDepth": 0.12,
+        "groundY": 0
+      },
+      "base": {
+        "treatment": "socket_block",
+        "footprint": {
+          "minX": -0.6,
+          "maxX": 0.6,
+          "minZ": -0.6,
+          "maxZ": 0.6
+        },
+        "bottomY": -0.12,
+        "topY": 0.38,
+        "courses": [
+          {
+            "id": "stela_structure/stela_01/base/course_01",
+            "index": 0,
+            "footprint": {
+              "minX": -0.6,
+              "maxX": 0.6,
+              "minZ": -0.6,
+              "maxZ": 0.6
+            },
+            "bottomY": -0.12,
+            "topY": 0.24
+          },
+          {
+            "id": "stela_structure/stela_01/base/course_02",
+            "index": 1,
+            "footprint": {
+              "minX": -0.472,
+              "maxX": 0.472,
+              "minZ": -0.472,
+              "maxZ": 0.472
+            },
+            "bottomY": 0.24,
+            "topY": 0.38
+          }
+        ]
+      },
+      "body": {
+        "crossSection": "square",
+        "taper": "tapered",
+        "taperRatio": 0.94,
+        "edgeTreatment": "square",
+        "lower": {
+          "minX": -0.4,
+          "maxX": 0.4,
+          "minZ": -0.4,
+          "maxZ": 0.4
+        },
+        "upper": {
+          "minX": -0.376,
+          "maxX": 0.376,
+          "minZ": -0.376,
+          "maxZ": 0.376
+        },
+        "bottomY": 0.38,
+        "topY": 3.78,
+        "minCoreThickness": 0.28
+      },
+      "crown": {
+        "treatment": "capital_and_capstone",
+        "footprint": {
+          "minX": -0.53392,
+          "maxX": 0.53392,
+          "minZ": -0.53392,
+          "maxZ": 0.53392
+        },
+        "bottomY": 3.78,
+        "topY": 4.48,
+        "exposesFace": true
+      },
+      "faces": [
+        {
+          "id": "stela_structure/stela_01/face_front",
+          "orientation": "front",
+          "role": "primary",
+          "patchId": "stela_structure/stela_01/face_front",
+          "widthBottom": 0.8,
+          "widthTop": 0.752
+        },
+        {
+          "id": "stela_structure/stela_01/face_rear",
+          "orientation": "rear",
+          "role": "primary",
+          "patchId": "stela_structure/stela_01/face_rear",
+          "widthBottom": 0.8,
+          "widthTop": 0.752
+        },
+        {
+          "id": "stela_structure/stela_01/face_side_positive_u",
+          "orientation": "sidePositiveU",
+          "role": "primary",
+          "patchId": "stela_structure/stela_01/face_side_positive_u",
+          "widthBottom": 0.8,
+          "widthTop": 0.752
+        },
+        {
+          "id": "stela_structure/stela_01/face_side_negative_u",
+          "orientation": "sideNegativeU",
+          "role": "primary",
+          "patchId": "stela_structure/stela_01/face_side_negative_u",
+          "widthBottom": 0.8,
+          "widthTop": 0.752
+        }
+      ],
+      "bands": [
+        {
+          "id": "stela_structure/stela_01/base_return_01",
+          "index": 0,
+          "role": "base_return",
+          "continuity": "wrapping",
+          "bottomY": 0.38,
+          "topY": 0.52,
+          "height": 0.14,
+          "projection": 0.035,
+          "materialRole": "frieze",
+          "condition": "intact"
+        },
+        {
+          "id": "stela_structure/stela_01/register_01",
+          "index": 1,
+          "role": "register",
+          "continuity": "per_face",
+          "bottomY": 0.52,
+          "topY": 1.195,
+          "height": 0.675,
+          "projection": 0,
+          "materialRole": "stelaBody",
+          "condition": "intact"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_01",
+          "index": 2,
+          "role": "ribbon",
+          "continuity": "wrapping",
+          "bottomY": 1.195,
+          "topY": 1.335,
+          "height": 0.14,
+          "projection": 0.035,
+          "materialRole": "frieze",
+          "condition": "intact"
+        },
+        {
+          "id": "stela_structure/stela_01/register_02",
+          "index": 3,
+          "role": "register",
+          "continuity": "per_face",
+          "bottomY": 1.335,
+          "topY": 2.01,
+          "height": 0.675,
+          "projection": 0,
+          "materialRole": "stelaBody",
+          "condition": "intact"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_02",
+          "index": 4,
+          "role": "ribbon",
+          "continuity": "wrapping",
+          "bottomY": 2.01,
+          "topY": 2.15,
+          "height": 0.14,
+          "projection": 0.035,
+          "materialRole": "frieze",
+          "condition": "intact"
+        },
+        {
+          "id": "stela_structure/stela_01/register_03",
+          "index": 5,
+          "role": "register",
+          "continuity": "per_face",
+          "bottomY": 2.15,
+          "topY": 2.825,
+          "height": 0.675,
+          "projection": 0,
+          "materialRole": "stelaBody",
+          "condition": "intact"
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_03",
+          "index": 6,
+          "role": "ribbon",
+          "continuity": "wrapping",
+          "bottomY": 2.825,
+          "topY": 2.965,
+          "height": 0.14,
+          "projection": 0.035,
+          "materialRole": "frieze",
+          "condition": "intact"
+        },
+        {
+          "id": "stela_structure/stela_01/register_04",
+          "index": 7,
+          "role": "register",
+          "continuity": "per_face",
+          "bottomY": 2.965,
+          "topY": 3.64,
+          "height": 0.675,
+          "projection": 0,
+          "materialRole": "stelaBody",
+          "condition": "intact"
+        },
+        {
+          "id": "stela_structure/stela_01/crown_return_01",
+          "index": 8,
+          "role": "crown_return",
+          "continuity": "wrapping",
+          "bottomY": 3.64,
+          "topY": 3.78,
+          "height": 0.14,
+          "projection": 0.035,
+          "materialRole": "frieze",
+          "condition": "intact"
+        }
+      ],
+      "bays": [
+        {
+          "id": "stela_structure/stela_01/register_01/face_front/bay_01",
+          "bandId": "stela_structure/stela_01/register_01",
+          "faceId": "stela_structure/stela_01/face_front",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_01/face_rear/bay_01",
+          "bandId": "stela_structure/stela_01/register_01",
+          "faceId": "stela_structure/stela_01/face_rear",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_01/face_side_positive_u/bay_01",
+          "bandId": "stela_structure/stela_01/register_01",
+          "faceId": "stela_structure/stela_01/face_side_positive_u",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_01/face_side_negative_u/bay_01",
+          "bandId": "stela_structure/stela_01/register_01",
+          "faceId": "stela_structure/stela_01/face_side_negative_u",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_front/bay_01",
+          "bandId": "stela_structure/stela_01/register_02",
+          "faceId": "stela_structure/stela_01/face_front",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_rear/bay_01",
+          "bandId": "stela_structure/stela_01/register_02",
+          "faceId": "stela_structure/stela_01/face_rear",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_side_positive_u/bay_01",
+          "bandId": "stela_structure/stela_01/register_02",
+          "faceId": "stela_structure/stela_01/face_side_positive_u",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_side_negative_u/bay_01",
+          "bandId": "stela_structure/stela_01/register_02",
+          "faceId": "stela_structure/stela_01/face_side_negative_u",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_front/bay_01",
+          "bandId": "stela_structure/stela_01/register_03",
+          "faceId": "stela_structure/stela_01/face_front",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_rear/bay_01",
+          "bandId": "stela_structure/stela_01/register_03",
+          "faceId": "stela_structure/stela_01/face_rear",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_side_positive_u/bay_01",
+          "bandId": "stela_structure/stela_01/register_03",
+          "faceId": "stela_structure/stela_01/face_side_positive_u",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_side_negative_u/bay_01",
+          "bandId": "stela_structure/stela_01/register_03",
+          "faceId": "stela_structure/stela_01/face_side_negative_u",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_front/bay_01",
+          "bandId": "stela_structure/stela_01/register_04",
+          "faceId": "stela_structure/stela_01/face_front",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_rear/bay_01",
+          "bandId": "stela_structure/stela_01/register_04",
+          "faceId": "stela_structure/stela_01/face_rear",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_side_positive_u/bay_01",
+          "bandId": "stela_structure/stela_01/register_04",
+          "faceId": "stela_structure/stela_01/face_side_positive_u",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_side_negative_u/bay_01",
+          "bandId": "stela_structure/stela_01/register_04",
+          "faceId": "stela_structure/stela_01/face_side_negative_u",
+          "index": 0,
+          "role": "field",
+          "uRange": [
+            0,
+            1
+          ],
+          "hierarchy": 3
+        }
+      ],
+      "frames": [
+        {
+          "id": "stela_structure/stela_01/register_01/face_front/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_01",
+          "bayId": "stela_structure/stela_01/register_01/face_front/bay_01",
+          "faceId": "stela_structure/stela_01/face_front",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_01/face_rear/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_01",
+          "bayId": "stela_structure/stela_01/register_01/face_rear/bay_01",
+          "faceId": "stela_structure/stela_01/face_rear",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_01/face_side_positive_u/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_01",
+          "bayId": "stela_structure/stela_01/register_01/face_side_positive_u/bay_01",
+          "faceId": "stela_structure/stela_01/face_side_positive_u",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_01/face_side_negative_u/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_01",
+          "bayId": "stela_structure/stela_01/register_01/face_side_negative_u/bay_01",
+          "faceId": "stela_structure/stela_01/face_side_negative_u",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_front/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_02",
+          "bayId": "stela_structure/stela_01/register_02/face_front/bay_01",
+          "faceId": "stela_structure/stela_01/face_front",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_rear/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_02",
+          "bayId": "stela_structure/stela_01/register_02/face_rear/bay_01",
+          "faceId": "stela_structure/stela_01/face_rear",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_side_positive_u/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_02",
+          "bayId": "stela_structure/stela_01/register_02/face_side_positive_u/bay_01",
+          "faceId": "stela_structure/stela_01/face_side_positive_u",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_side_negative_u/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_02",
+          "bayId": "stela_structure/stela_01/register_02/face_side_negative_u/bay_01",
+          "faceId": "stela_structure/stela_01/face_side_negative_u",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_front/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_03",
+          "bayId": "stela_structure/stela_01/register_03/face_front/bay_01",
+          "faceId": "stela_structure/stela_01/face_front",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_rear/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_03",
+          "bayId": "stela_structure/stela_01/register_03/face_rear/bay_01",
+          "faceId": "stela_structure/stela_01/face_rear",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_side_positive_u/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_03",
+          "bayId": "stela_structure/stela_01/register_03/face_side_positive_u/bay_01",
+          "faceId": "stela_structure/stela_01/face_side_positive_u",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_side_negative_u/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_03",
+          "bayId": "stela_structure/stela_01/register_03/face_side_negative_u/bay_01",
+          "faceId": "stela_structure/stela_01/face_side_negative_u",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_front/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_04",
+          "bayId": "stela_structure/stela_01/register_04/face_front/bay_01",
+          "faceId": "stela_structure/stela_01/face_front",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_rear/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_04",
+          "bayId": "stela_structure/stela_01/register_04/face_rear/bay_01",
+          "faceId": "stela_structure/stela_01/face_rear",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_side_positive_u/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_04",
+          "bayId": "stela_structure/stela_01/register_04/face_side_positive_u/bay_01",
+          "faceId": "stela_structure/stela_01/face_side_positive_u",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_side_negative_u/bay_01/frame",
+          "style": "recessed_field",
+          "bandId": "stela_structure/stela_01/register_04",
+          "bayId": "stela_structure/stela_01/register_04/face_side_negative_u/bay_01",
+          "faceId": "stela_structure/stela_01/face_side_negative_u",
+          "borderWidth": 0.055,
+          "recessDepth": 0.028,
+          "insetU": 0.03,
+          "insetV": 0.03,
+          "returnProfile": "square"
+        }
+      ],
+      "slots": [
+        {
+          "id": "stela_structure/stela_01/register_01/face_front/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "front",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_01",
+          "bayId": "stela_structure/stela_01/register_01/face_front/bay_01",
+          "frameId": "stela_structure/stela_01/register_01/face_front/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_front",
+          "regionId": "stela_structure/stela_01/register_01/face_front/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_01/face_front/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.105828,
+              "v": 0.066176
+            },
+            {
+              "u": 0.890201,
+              "v": 0.066176
+            },
+            {
+              "u": 0.882236,
+              "v": 0.214706
+            },
+            {
+              "u": 0.104881,
+              "v": 0.214706
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.105828,
+            "uMax": 0.882236,
+            "vMin": 0.066176,
+            "vMax": 0.214706
+          },
+          "extent": {
+            "uBottom": 0.627499,
+            "uTop": 0.621884,
+            "v": 0.505
+          },
+          "aspect": 1.229954,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.256629
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_01/face_rear/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "rear",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_01",
+          "bayId": "stela_structure/stela_01/register_01/face_rear/bay_01",
+          "frameId": "stela_structure/stela_01/register_01/face_rear/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_rear",
+          "regionId": "stela_structure/stela_01/register_01/face_rear/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_01/face_rear/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.105828,
+              "v": 0.066176
+            },
+            {
+              "u": 0.890201,
+              "v": 0.066176
+            },
+            {
+              "u": 0.882236,
+              "v": 0.214706
+            },
+            {
+              "u": 0.104881,
+              "v": 0.214706
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.105828,
+            "uMax": 0.882236,
+            "vMin": 0.066176,
+            "vMax": 0.214706
+          },
+          "extent": {
+            "uBottom": 0.627499,
+            "uTop": 0.621884,
+            "v": 0.505
+          },
+          "aspect": 1.229954,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.256629
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_01/face_side_positive_u/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "sidePositiveU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_01",
+          "bayId": "stela_structure/stela_01/register_01/face_side_positive_u/bay_01",
+          "frameId": "stela_structure/stela_01/register_01/face_side_positive_u/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_side_positive_u",
+          "regionId": "stela_structure/stela_01/register_01/face_side_positive_u/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_01/face_side_positive_u/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.105828,
+              "v": 0.066176
+            },
+            {
+              "u": 0.890201,
+              "v": 0.066176
+            },
+            {
+              "u": 0.882236,
+              "v": 0.214706
+            },
+            {
+              "u": 0.104881,
+              "v": 0.214706
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.105828,
+            "uMax": 0.882236,
+            "vMin": 0.066176,
+            "vMax": 0.214706
+          },
+          "extent": {
+            "uBottom": 0.627499,
+            "uTop": 0.621884,
+            "v": 0.505
+          },
+          "aspect": 1.229954,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.256629
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_01/face_side_negative_u/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "sideNegativeU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_01",
+          "bayId": "stela_structure/stela_01/register_01/face_side_negative_u/bay_01",
+          "frameId": "stela_structure/stela_01/register_01/face_side_negative_u/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_side_negative_u",
+          "regionId": "stela_structure/stela_01/register_01/face_side_negative_u/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_01/face_side_negative_u/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.105828,
+              "v": 0.066176
+            },
+            {
+              "u": 0.890201,
+              "v": 0.066176
+            },
+            {
+              "u": 0.882236,
+              "v": 0.214706
+            },
+            {
+              "u": 0.104881,
+              "v": 0.214706
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.105828,
+            "uMax": 0.882236,
+            "vMin": 0.066176,
+            "vMax": 0.214706
+          },
+          "extent": {
+            "uBottom": 0.627499,
+            "uTop": 0.621884,
+            "v": 0.505
+          },
+          "aspect": 1.229954,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.256629
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_front/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "front",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_02",
+          "bayId": "stela_structure/stela_01/register_02/face_front/bay_01",
+          "frameId": "stela_structure/stela_01/register_02/face_front/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_front",
+          "regionId": "stela_structure/stela_01/register_02/face_front/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_02/face_front/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.1043,
+              "v": 0.305882
+            },
+            {
+              "u": 0.877347,
+              "v": 0.305882
+            },
+            {
+              "u": 0.869382,
+              "v": 0.454412
+            },
+            {
+              "u": 0.103353,
+              "v": 0.454412
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.1043,
+            "uMax": 0.869382,
+            "vMin": 0.305882,
+            "vMax": 0.454412
+          },
+          "extent": {
+            "uBottom": 0.618438,
+            "uTop": 0.612823,
+            "v": 0.505
+          },
+          "aspect": 1.212011,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.250876
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_rear/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "rear",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_02",
+          "bayId": "stela_structure/stela_01/register_02/face_rear/bay_01",
+          "frameId": "stela_structure/stela_01/register_02/face_rear/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_rear",
+          "regionId": "stela_structure/stela_01/register_02/face_rear/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_02/face_rear/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.1043,
+              "v": 0.305882
+            },
+            {
+              "u": 0.877347,
+              "v": 0.305882
+            },
+            {
+              "u": 0.869382,
+              "v": 0.454412
+            },
+            {
+              "u": 0.103353,
+              "v": 0.454412
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.1043,
+            "uMax": 0.869382,
+            "vMin": 0.305882,
+            "vMax": 0.454412
+          },
+          "extent": {
+            "uBottom": 0.618438,
+            "uTop": 0.612823,
+            "v": 0.505
+          },
+          "aspect": 1.212011,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.250876
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_side_positive_u/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "sidePositiveU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_02",
+          "bayId": "stela_structure/stela_01/register_02/face_side_positive_u/bay_01",
+          "frameId": "stela_structure/stela_01/register_02/face_side_positive_u/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_side_positive_u",
+          "regionId": "stela_structure/stela_01/register_02/face_side_positive_u/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_02/face_side_positive_u/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.1043,
+              "v": 0.305882
+            },
+            {
+              "u": 0.877347,
+              "v": 0.305882
+            },
+            {
+              "u": 0.869382,
+              "v": 0.454412
+            },
+            {
+              "u": 0.103353,
+              "v": 0.454412
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.1043,
+            "uMax": 0.869382,
+            "vMin": 0.305882,
+            "vMax": 0.454412
+          },
+          "extent": {
+            "uBottom": 0.618438,
+            "uTop": 0.612823,
+            "v": 0.505
+          },
+          "aspect": 1.212011,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.250876
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/face_side_negative_u/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "sideNegativeU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_02",
+          "bayId": "stela_structure/stela_01/register_02/face_side_negative_u/bay_01",
+          "frameId": "stela_structure/stela_01/register_02/face_side_negative_u/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_side_negative_u",
+          "regionId": "stela_structure/stela_01/register_02/face_side_negative_u/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_02/face_side_negative_u/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.1043,
+              "v": 0.305882
+            },
+            {
+              "u": 0.877347,
+              "v": 0.305882
+            },
+            {
+              "u": 0.869382,
+              "v": 0.454412
+            },
+            {
+              "u": 0.103353,
+              "v": 0.454412
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.1043,
+            "uMax": 0.869382,
+            "vMin": 0.305882,
+            "vMax": 0.454412
+          },
+          "extent": {
+            "uBottom": 0.618438,
+            "uTop": 0.612823,
+            "v": 0.505
+          },
+          "aspect": 1.212011,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.250876
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_front/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "front",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_03",
+          "bayId": "stela_structure/stela_01/register_03/face_front/bay_01",
+          "frameId": "stela_structure/stela_01/register_03/face_front/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_front",
+          "regionId": "stela_structure/stela_01/register_03/face_front/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_03/face_front/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.102772,
+              "v": 0.545588
+            },
+            {
+              "u": 0.864493,
+              "v": 0.545588
+            },
+            {
+              "u": 0.856528,
+              "v": 0.694118
+            },
+            {
+              "u": 0.101825,
+              "v": 0.694118
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.102772,
+            "uMax": 0.856528,
+            "vMin": 0.545588,
+            "vMax": 0.694118
+          },
+          "extent": {
+            "uBottom": 0.609377,
+            "uTop": 0.603762,
+            "v": 0.505
+          },
+          "aspect": 1.194069,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.245124
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_rear/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "rear",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_03",
+          "bayId": "stela_structure/stela_01/register_03/face_rear/bay_01",
+          "frameId": "stela_structure/stela_01/register_03/face_rear/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_rear",
+          "regionId": "stela_structure/stela_01/register_03/face_rear/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_03/face_rear/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.102772,
+              "v": 0.545588
+            },
+            {
+              "u": 0.864493,
+              "v": 0.545588
+            },
+            {
+              "u": 0.856528,
+              "v": 0.694118
+            },
+            {
+              "u": 0.101825,
+              "v": 0.694118
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.102772,
+            "uMax": 0.856528,
+            "vMin": 0.545588,
+            "vMax": 0.694118
+          },
+          "extent": {
+            "uBottom": 0.609377,
+            "uTop": 0.603762,
+            "v": 0.505
+          },
+          "aspect": 1.194069,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.245124
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_side_positive_u/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "sidePositiveU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_03",
+          "bayId": "stela_structure/stela_01/register_03/face_side_positive_u/bay_01",
+          "frameId": "stela_structure/stela_01/register_03/face_side_positive_u/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_side_positive_u",
+          "regionId": "stela_structure/stela_01/register_03/face_side_positive_u/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_03/face_side_positive_u/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.102772,
+              "v": 0.545588
+            },
+            {
+              "u": 0.864493,
+              "v": 0.545588
+            },
+            {
+              "u": 0.856528,
+              "v": 0.694118
+            },
+            {
+              "u": 0.101825,
+              "v": 0.694118
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.102772,
+            "uMax": 0.856528,
+            "vMin": 0.545588,
+            "vMax": 0.694118
+          },
+          "extent": {
+            "uBottom": 0.609377,
+            "uTop": 0.603762,
+            "v": 0.505
+          },
+          "aspect": 1.194069,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.245124
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/face_side_negative_u/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "sideNegativeU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_03",
+          "bayId": "stela_structure/stela_01/register_03/face_side_negative_u/bay_01",
+          "frameId": "stela_structure/stela_01/register_03/face_side_negative_u/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_side_negative_u",
+          "regionId": "stela_structure/stela_01/register_03/face_side_negative_u/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_03/face_side_negative_u/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.102772,
+              "v": 0.545588
+            },
+            {
+              "u": 0.864493,
+              "v": 0.545588
+            },
+            {
+              "u": 0.856528,
+              "v": 0.694118
+            },
+            {
+              "u": 0.101825,
+              "v": 0.694118
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.102772,
+            "uMax": 0.856528,
+            "vMin": 0.545588,
+            "vMax": 0.694118
+          },
+          "extent": {
+            "uBottom": 0.609377,
+            "uTop": 0.603762,
+            "v": 0.505
+          },
+          "aspect": 1.194069,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.245124
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_front/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "front",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_04",
+          "bayId": "stela_structure/stela_01/register_04/face_front/bay_01",
+          "frameId": "stela_structure/stela_01/register_04/face_front/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_front",
+          "regionId": "stela_structure/stela_01/register_04/face_front/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_04/face_front/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.101244,
+              "v": 0.785294
+            },
+            {
+              "u": 0.851639,
+              "v": 0.785294
+            },
+            {
+              "u": 0.843674,
+              "v": 0.933824
+            },
+            {
+              "u": 0.100297,
+              "v": 0.933824
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.101244,
+            "uMax": 0.843674,
+            "vMin": 0.785294,
+            "vMax": 0.933824
+          },
+          "extent": {
+            "uBottom": 0.600316,
+            "uTop": 0.594701,
+            "v": 0.505
+          },
+          "aspect": 1.176127,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.239371
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_rear/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "rear",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_04",
+          "bayId": "stela_structure/stela_01/register_04/face_rear/bay_01",
+          "frameId": "stela_structure/stela_01/register_04/face_rear/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_rear",
+          "regionId": "stela_structure/stela_01/register_04/face_rear/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_04/face_rear/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.101244,
+              "v": 0.785294
+            },
+            {
+              "u": 0.851639,
+              "v": 0.785294
+            },
+            {
+              "u": 0.843674,
+              "v": 0.933824
+            },
+            {
+              "u": 0.100297,
+              "v": 0.933824
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.101244,
+            "uMax": 0.843674,
+            "vMin": 0.785294,
+            "vMax": 0.933824
+          },
+          "extent": {
+            "uBottom": 0.600316,
+            "uTop": 0.594701,
+            "v": 0.505
+          },
+          "aspect": 1.176127,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.239371
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_side_positive_u/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "sidePositiveU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_04",
+          "bayId": "stela_structure/stela_01/register_04/face_side_positive_u/bay_01",
+          "frameId": "stela_structure/stela_01/register_04/face_side_positive_u/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_side_positive_u",
+          "regionId": "stela_structure/stela_01/register_04/face_side_positive_u/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_04/face_side_positive_u/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.101244,
+              "v": 0.785294
+            },
+            {
+              "u": 0.851639,
+              "v": 0.785294
+            },
+            {
+              "u": 0.843674,
+              "v": 0.933824
+            },
+            {
+              "u": 0.100297,
+              "v": 0.933824
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.101244,
+            "uMax": 0.843674,
+            "vMin": 0.785294,
+            "vMax": 0.933824
+          },
+          "extent": {
+            "uBottom": 0.600316,
+            "uTop": 0.594701,
+            "v": 0.505
+          },
+          "aspect": 1.176127,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.239371
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/face_side_negative_u/bay_01/field",
+          "kind": "field",
+          "part": "body",
+          "face": "sideNegativeU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/register_04",
+          "bayId": "stela_structure/stela_01/register_04/face_side_negative_u/bay_01",
+          "frameId": "stela_structure/stela_01/register_04/face_side_negative_u/bay_01/frame",
+          "patchId": "stela_structure/stela_01/face_side_negative_u",
+          "regionId": "stela_structure/stela_01/register_04/face_side_negative_u/bay_01/field/region",
+          "anchorId": "stela_structure/stela_01/register_04/face_side_negative_u/bay_01/field/anchor",
+          "boundary": [
+            {
+              "u": 0.101244,
+              "v": 0.785294
+            },
+            {
+              "u": 0.851639,
+              "v": 0.785294
+            },
+            {
+              "u": 0.843674,
+              "v": 0.933824
+            },
+            {
+              "u": 0.100297,
+              "v": 0.933824
+            }
+          ],
+          "inscribed": {
+            "uMin": 0.101244,
+            "uMax": 0.843674,
+            "vMin": 0.785294,
+            "vMax": 0.933824
+          },
+          "extent": {
+            "uBottom": 0.600316,
+            "uTop": 0.594701,
+            "v": 0.505
+          },
+          "aspect": 1.176127,
+          "depthBudget": {
+            "relief": 0.028,
+            "recess": 0.239371
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 3,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "field",
+            "primary"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/base_return_01/front/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "front",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/base_return_01",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_front",
+          "regionId": "stela_structure/stela_01/base_return_01/front/ribbon/region",
+          "anchorId": "stela_structure/stela_01/base_return_01/front/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0
+            },
+            {
+              "u": 1,
+              "v": 0
+            },
+            {
+              "u": 0.997529,
+              "v": 0.041176
+            },
+            {
+              "u": 0,
+              "v": 0.041176
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.997529,
+            "vMin": 0,
+            "vMax": 0.041176
+          },
+          "extent": {
+            "uBottom": 0.8,
+            "uTop": 0.798024,
+            "v": 0.14
+          },
+          "aspect": 5.700168,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.259506
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/base_return_01/rear/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "rear",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/base_return_01",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_rear",
+          "regionId": "stela_structure/stela_01/base_return_01/rear/ribbon/region",
+          "anchorId": "stela_structure/stela_01/base_return_01/rear/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0
+            },
+            {
+              "u": 1,
+              "v": 0
+            },
+            {
+              "u": 0.997529,
+              "v": 0.041176
+            },
+            {
+              "u": 0,
+              "v": 0.041176
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.997529,
+            "vMin": 0,
+            "vMax": 0.041176
+          },
+          "extent": {
+            "uBottom": 0.8,
+            "uTop": 0.798024,
+            "v": 0.14
+          },
+          "aspect": 5.700168,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.259506
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/base_return_01/side_positive_u/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "sidePositiveU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/base_return_01",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_side_positive_u",
+          "regionId": "stela_structure/stela_01/base_return_01/side_positive_u/ribbon/region",
+          "anchorId": "stela_structure/stela_01/base_return_01/side_positive_u/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0
+            },
+            {
+              "u": 1,
+              "v": 0
+            },
+            {
+              "u": 0.997529,
+              "v": 0.041176
+            },
+            {
+              "u": 0,
+              "v": 0.041176
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.997529,
+            "vMin": 0,
+            "vMax": 0.041176
+          },
+          "extent": {
+            "uBottom": 0.8,
+            "uTop": 0.798024,
+            "v": 0.14
+          },
+          "aspect": 5.700168,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.259506
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/base_return_01/side_negative_u/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "sideNegativeU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/base_return_01",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_side_negative_u",
+          "regionId": "stela_structure/stela_01/base_return_01/side_negative_u/ribbon/region",
+          "anchorId": "stela_structure/stela_01/base_return_01/side_negative_u/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0
+            },
+            {
+              "u": 1,
+              "v": 0
+            },
+            {
+              "u": 0.997529,
+              "v": 0.041176
+            },
+            {
+              "u": 0,
+              "v": 0.041176
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.997529,
+            "vMin": 0,
+            "vMax": 0.041176
+          },
+          "extent": {
+            "uBottom": 0.8,
+            "uTop": 0.798024,
+            "v": 0.14
+          },
+          "aspect": 5.700168,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.259506
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_01/front/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "front",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/ribbon_01",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_front",
+          "regionId": "stela_structure/stela_01/ribbon_01/front/ribbon/region",
+          "anchorId": "stela_structure/stela_01/ribbon_01/front/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.239706
+            },
+            {
+              "u": 0.985618,
+              "v": 0.239706
+            },
+            {
+              "u": 0.983147,
+              "v": 0.280882
+            },
+            {
+              "u": 0,
+              "v": 0.280882
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.983147,
+            "vMin": 0.239706,
+            "vMax": 0.280882
+          },
+          "extent": {
+            "uBottom": 0.788494,
+            "uTop": 0.786518,
+            "v": 0.14
+          },
+          "aspect": 5.617983,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.253753
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_01/rear/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "rear",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/ribbon_01",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_rear",
+          "regionId": "stela_structure/stela_01/ribbon_01/rear/ribbon/region",
+          "anchorId": "stela_structure/stela_01/ribbon_01/rear/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.239706
+            },
+            {
+              "u": 0.985618,
+              "v": 0.239706
+            },
+            {
+              "u": 0.983147,
+              "v": 0.280882
+            },
+            {
+              "u": 0,
+              "v": 0.280882
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.983147,
+            "vMin": 0.239706,
+            "vMax": 0.280882
+          },
+          "extent": {
+            "uBottom": 0.788494,
+            "uTop": 0.786518,
+            "v": 0.14
+          },
+          "aspect": 5.617983,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.253753
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_01/side_positive_u/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "sidePositiveU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/ribbon_01",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_side_positive_u",
+          "regionId": "stela_structure/stela_01/ribbon_01/side_positive_u/ribbon/region",
+          "anchorId": "stela_structure/stela_01/ribbon_01/side_positive_u/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.239706
+            },
+            {
+              "u": 0.985618,
+              "v": 0.239706
+            },
+            {
+              "u": 0.983147,
+              "v": 0.280882
+            },
+            {
+              "u": 0,
+              "v": 0.280882
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.983147,
+            "vMin": 0.239706,
+            "vMax": 0.280882
+          },
+          "extent": {
+            "uBottom": 0.788494,
+            "uTop": 0.786518,
+            "v": 0.14
+          },
+          "aspect": 5.617983,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.253753
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_01/side_negative_u/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "sideNegativeU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/ribbon_01",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_side_negative_u",
+          "regionId": "stela_structure/stela_01/ribbon_01/side_negative_u/ribbon/region",
+          "anchorId": "stela_structure/stela_01/ribbon_01/side_negative_u/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.239706
+            },
+            {
+              "u": 0.985618,
+              "v": 0.239706
+            },
+            {
+              "u": 0.983147,
+              "v": 0.280882
+            },
+            {
+              "u": 0,
+              "v": 0.280882
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.983147,
+            "vMin": 0.239706,
+            "vMax": 0.280882
+          },
+          "extent": {
+            "uBottom": 0.788494,
+            "uTop": 0.786518,
+            "v": 0.14
+          },
+          "aspect": 5.617983,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.253753
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_02/front/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "front",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/ribbon_02",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_front",
+          "regionId": "stela_structure/stela_01/ribbon_02/front/ribbon/region",
+          "anchorId": "stela_structure/stela_01/ribbon_02/front/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.479412
+            },
+            {
+              "u": 0.971235,
+              "v": 0.479412
+            },
+            {
+              "u": 0.968765,
+              "v": 0.520588
+            },
+            {
+              "u": 0,
+              "v": 0.520588
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.968765,
+            "vMin": 0.479412,
+            "vMax": 0.520588
+          },
+          "extent": {
+            "uBottom": 0.776988,
+            "uTop": 0.775012,
+            "v": 0.14
+          },
+          "aspect": 5.535798,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.248
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_02/rear/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "rear",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/ribbon_02",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_rear",
+          "regionId": "stela_structure/stela_01/ribbon_02/rear/ribbon/region",
+          "anchorId": "stela_structure/stela_01/ribbon_02/rear/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.479412
+            },
+            {
+              "u": 0.971235,
+              "v": 0.479412
+            },
+            {
+              "u": 0.968765,
+              "v": 0.520588
+            },
+            {
+              "u": 0,
+              "v": 0.520588
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.968765,
+            "vMin": 0.479412,
+            "vMax": 0.520588
+          },
+          "extent": {
+            "uBottom": 0.776988,
+            "uTop": 0.775012,
+            "v": 0.14
+          },
+          "aspect": 5.535798,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.248
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_02/side_positive_u/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "sidePositiveU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/ribbon_02",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_side_positive_u",
+          "regionId": "stela_structure/stela_01/ribbon_02/side_positive_u/ribbon/region",
+          "anchorId": "stela_structure/stela_01/ribbon_02/side_positive_u/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.479412
+            },
+            {
+              "u": 0.971235,
+              "v": 0.479412
+            },
+            {
+              "u": 0.968765,
+              "v": 0.520588
+            },
+            {
+              "u": 0,
+              "v": 0.520588
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.968765,
+            "vMin": 0.479412,
+            "vMax": 0.520588
+          },
+          "extent": {
+            "uBottom": 0.776988,
+            "uTop": 0.775012,
+            "v": 0.14
+          },
+          "aspect": 5.535798,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.248
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_02/side_negative_u/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "sideNegativeU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/ribbon_02",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_side_negative_u",
+          "regionId": "stela_structure/stela_01/ribbon_02/side_negative_u/ribbon/region",
+          "anchorId": "stela_structure/stela_01/ribbon_02/side_negative_u/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.479412
+            },
+            {
+              "u": 0.971235,
+              "v": 0.479412
+            },
+            {
+              "u": 0.968765,
+              "v": 0.520588
+            },
+            {
+              "u": 0,
+              "v": 0.520588
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.968765,
+            "vMin": 0.479412,
+            "vMax": 0.520588
+          },
+          "extent": {
+            "uBottom": 0.776988,
+            "uTop": 0.775012,
+            "v": 0.14
+          },
+          "aspect": 5.535798,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.248
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_03/front/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "front",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/ribbon_03",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_front",
+          "regionId": "stela_structure/stela_01/ribbon_03/front/ribbon/region",
+          "anchorId": "stela_structure/stela_01/ribbon_03/front/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.719118
+            },
+            {
+              "u": 0.956853,
+              "v": 0.719118
+            },
+            {
+              "u": 0.954382,
+              "v": 0.760294
+            },
+            {
+              "u": 0,
+              "v": 0.760294
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.954382,
+            "vMin": 0.719118,
+            "vMax": 0.760294
+          },
+          "extent": {
+            "uBottom": 0.765482,
+            "uTop": 0.763506,
+            "v": 0.14
+          },
+          "aspect": 5.453613,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.242247
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_03/rear/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "rear",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/ribbon_03",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_rear",
+          "regionId": "stela_structure/stela_01/ribbon_03/rear/ribbon/region",
+          "anchorId": "stela_structure/stela_01/ribbon_03/rear/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.719118
+            },
+            {
+              "u": 0.956853,
+              "v": 0.719118
+            },
+            {
+              "u": 0.954382,
+              "v": 0.760294
+            },
+            {
+              "u": 0,
+              "v": 0.760294
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.954382,
+            "vMin": 0.719118,
+            "vMax": 0.760294
+          },
+          "extent": {
+            "uBottom": 0.765482,
+            "uTop": 0.763506,
+            "v": 0.14
+          },
+          "aspect": 5.453613,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.242247
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_03/side_positive_u/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "sidePositiveU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/ribbon_03",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_side_positive_u",
+          "regionId": "stela_structure/stela_01/ribbon_03/side_positive_u/ribbon/region",
+          "anchorId": "stela_structure/stela_01/ribbon_03/side_positive_u/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.719118
+            },
+            {
+              "u": 0.956853,
+              "v": 0.719118
+            },
+            {
+              "u": 0.954382,
+              "v": 0.760294
+            },
+            {
+              "u": 0,
+              "v": 0.760294
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.954382,
+            "vMin": 0.719118,
+            "vMax": 0.760294
+          },
+          "extent": {
+            "uBottom": 0.765482,
+            "uTop": 0.763506,
+            "v": 0.14
+          },
+          "aspect": 5.453613,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.242247
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_03/side_negative_u/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "sideNegativeU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/ribbon_03",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_side_negative_u",
+          "regionId": "stela_structure/stela_01/ribbon_03/side_negative_u/ribbon/region",
+          "anchorId": "stela_structure/stela_01/ribbon_03/side_negative_u/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.719118
+            },
+            {
+              "u": 0.956853,
+              "v": 0.719118
+            },
+            {
+              "u": 0.954382,
+              "v": 0.760294
+            },
+            {
+              "u": 0,
+              "v": 0.760294
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.954382,
+            "vMin": 0.719118,
+            "vMax": 0.760294
+          },
+          "extent": {
+            "uBottom": 0.765482,
+            "uTop": 0.763506,
+            "v": 0.14
+          },
+          "aspect": 5.453613,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.242247
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/crown_return_01/front/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "front",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/crown_return_01",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_front",
+          "regionId": "stela_structure/stela_01/crown_return_01/front/ribbon/region",
+          "anchorId": "stela_structure/stela_01/crown_return_01/front/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.958824
+            },
+            {
+              "u": 0.942471,
+              "v": 0.958824
+            },
+            {
+              "u": 0.94,
+              "v": 1
+            },
+            {
+              "u": 0,
+              "v": 1
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.94,
+            "vMin": 0.958824,
+            "vMax": 1
+          },
+          "extent": {
+            "uBottom": 0.753976,
+            "uTop": 0.752,
+            "v": 0.14
+          },
+          "aspect": 5.371429,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.236494
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/crown_return_01/rear/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "rear",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/crown_return_01",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_rear",
+          "regionId": "stela_structure/stela_01/crown_return_01/rear/ribbon/region",
+          "anchorId": "stela_structure/stela_01/crown_return_01/rear/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.958824
+            },
+            {
+              "u": 0.942471,
+              "v": 0.958824
+            },
+            {
+              "u": 0.94,
+              "v": 1
+            },
+            {
+              "u": 0,
+              "v": 1
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.94,
+            "vMin": 0.958824,
+            "vMax": 1
+          },
+          "extent": {
+            "uBottom": 0.753976,
+            "uTop": 0.752,
+            "v": 0.14
+          },
+          "aspect": 5.371429,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.236494
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/crown_return_01/side_positive_u/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "sidePositiveU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/crown_return_01",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_side_positive_u",
+          "regionId": "stela_structure/stela_01/crown_return_01/side_positive_u/ribbon/region",
+          "anchorId": "stela_structure/stela_01/crown_return_01/side_positive_u/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.958824
+            },
+            {
+              "u": 0.942471,
+              "v": 0.958824
+            },
+            {
+              "u": 0.94,
+              "v": 1
+            },
+            {
+              "u": 0,
+              "v": 1
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.94,
+            "vMin": 0.958824,
+            "vMax": 1
+          },
+          "extent": {
+            "uBottom": 0.753976,
+            "uTop": 0.752,
+            "v": 0.14
+          },
+          "aspect": 5.371429,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.236494
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/crown_return_01/side_negative_u/ribbon",
+          "kind": "ribbon",
+          "part": "body",
+          "face": "sideNegativeU",
+          "faceRole": "primary",
+          "bandId": "stela_structure/stela_01/crown_return_01",
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/face_side_negative_u",
+          "regionId": "stela_structure/stela_01/crown_return_01/side_negative_u/ribbon/region",
+          "anchorId": "stela_structure/stela_01/crown_return_01/side_negative_u/ribbon/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0.958824
+            },
+            {
+              "u": 0.942471,
+              "v": 0.958824
+            },
+            {
+              "u": 0.94,
+              "v": 1
+            },
+            {
+              "u": 0,
+              "v": 1
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 0.94,
+            "vMin": 0.958824,
+            "vMax": 1
+          },
+          "extent": {
+            "uBottom": 0.753976,
+            "uTop": 0.752,
+            "v": 0.14
+          },
+          "aspect": 5.371429,
+          "depthBudget": {
+            "relief": 0.035,
+            "recess": 0.236494
+          },
+          "flow": "horizontal",
+          "continuity": "wrapping",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "ribbon",
+            "wrapping"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/crown/face_top",
+          "kind": "crown_face",
+          "part": "crown",
+          "face": "top",
+          "faceRole": "none",
+          "bandId": null,
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/crown/top",
+          "regionId": "stela_structure/stela_01/crown/face_top/region",
+          "anchorId": "stela_structure/stela_01/crown/face_top/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0
+            },
+            {
+              "u": 1,
+              "v": 0
+            },
+            {
+              "u": 1,
+              "v": 1
+            },
+            {
+              "u": 0,
+              "v": 1
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 1,
+            "vMin": 0,
+            "vMax": 1
+          },
+          "extent": {
+            "uBottom": 1.06784,
+            "uTop": 1.06784,
+            "v": 1.06784
+          },
+          "aspect": 1,
+          "depthBudget": {
+            "relief": 0.04,
+            "recess": 0.21
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 2,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "crown"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/base/front/face",
+          "kind": "base_face",
+          "part": "base",
+          "face": "front",
+          "faceRole": "none",
+          "bandId": null,
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/base/face_front",
+          "regionId": "stela_structure/stela_01/base/front/face/region",
+          "anchorId": "stela_structure/stela_01/base/front/face/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0
+            },
+            {
+              "u": 1,
+              "v": 0
+            },
+            {
+              "u": 1,
+              "v": 1
+            },
+            {
+              "u": 0,
+              "v": 1
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 1,
+            "vMin": 0,
+            "vMax": 1
+          },
+          "extent": {
+            "uBottom": 0.944,
+            "uTop": 0.944,
+            "v": 0.14
+          },
+          "aspect": 6.742857,
+          "depthBudget": {
+            "relief": 0.04,
+            "recess": 0.036
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "base"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/base/rear/face",
+          "kind": "base_face",
+          "part": "base",
+          "face": "rear",
+          "faceRole": "none",
+          "bandId": null,
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/base/face_rear",
+          "regionId": "stela_structure/stela_01/base/rear/face/region",
+          "anchorId": "stela_structure/stela_01/base/rear/face/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0
+            },
+            {
+              "u": 1,
+              "v": 0
+            },
+            {
+              "u": 1,
+              "v": 1
+            },
+            {
+              "u": 0,
+              "v": 1
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 1,
+            "vMin": 0,
+            "vMax": 1
+          },
+          "extent": {
+            "uBottom": 0.944,
+            "uTop": 0.944,
+            "v": 0.14
+          },
+          "aspect": 6.742857,
+          "depthBudget": {
+            "relief": 0.04,
+            "recess": 0.036
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "base"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/base/side_positive_u/face",
+          "kind": "base_face",
+          "part": "base",
+          "face": "sidePositiveU",
+          "faceRole": "none",
+          "bandId": null,
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/base/face_side_positive_u",
+          "regionId": "stela_structure/stela_01/base/side_positive_u/face/region",
+          "anchorId": "stela_structure/stela_01/base/side_positive_u/face/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0
+            },
+            {
+              "u": 1,
+              "v": 0
+            },
+            {
+              "u": 1,
+              "v": 1
+            },
+            {
+              "u": 0,
+              "v": 1
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 1,
+            "vMin": 0,
+            "vMax": 1
+          },
+          "extent": {
+            "uBottom": 0.944,
+            "uTop": 0.944,
+            "v": 0.14
+          },
+          "aspect": 6.742857,
+          "depthBudget": {
+            "relief": 0.04,
+            "recess": 0.036
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "base"
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/base/side_negative_u/face",
+          "kind": "base_face",
+          "part": "base",
+          "face": "sideNegativeU",
+          "faceRole": "none",
+          "bandId": null,
+          "bayId": null,
+          "frameId": null,
+          "patchId": "stela_structure/stela_01/base/face_side_negative_u",
+          "regionId": "stela_structure/stela_01/base/side_negative_u/face/region",
+          "anchorId": "stela_structure/stela_01/base/side_negative_u/face/anchor",
+          "boundary": [
+            {
+              "u": 0,
+              "v": 0
+            },
+            {
+              "u": 1,
+              "v": 0
+            },
+            {
+              "u": 1,
+              "v": 1
+            },
+            {
+              "u": 0,
+              "v": 1
+            }
+          ],
+          "inscribed": {
+            "uMin": 0,
+            "uMax": 1,
+            "vMin": 0,
+            "vMax": 1
+          },
+          "extent": {
+            "uBottom": 0.944,
+            "uTop": 0.944,
+            "v": 0.14
+          },
+          "aspect": 6.742857,
+          "depthBudget": {
+            "relief": 0.04,
+            "recess": 0.036
+          },
+          "flow": "none",
+          "continuity": "per_face",
+          "hierarchy": 1,
+          "condition": "intact",
+          "tags": [
+            "stela",
+            "base"
+          ]
+        }
+      ],
+      "damage": [
+        {
+          "id": "stela_structure/stela_01/damage_burial",
+          "type": "partial_burial",
+          "severity": 0.035294,
+          "y": 0
+        }
+      ],
+      "conditionStage": "new",
+      "trunk": [
+        {
+          "id": "stela_structure/stela_01/base/course_01/solid",
+          "kind": "base_course",
+          "part": "base",
+          "bandId": null,
+          "lower": {
+            "minX": -0.6,
+            "maxX": 0.6,
+            "minZ": -0.6,
+            "maxZ": 0.6
+          },
+          "upper": {
+            "minX": -0.6,
+            "maxX": 0.6,
+            "minZ": -0.6,
+            "maxZ": 0.6
+          },
+          "bottomY": -0.12,
+          "topY": 0.24,
+          "materialRole": "pedestal",
+          "pockets": []
+        },
+        {
+          "id": "stela_structure/stela_01/base/course_02/solid",
+          "kind": "base_course",
+          "part": "base",
+          "bandId": null,
+          "lower": {
+            "minX": -0.472,
+            "maxX": 0.472,
+            "minZ": -0.472,
+            "maxZ": 0.472
+          },
+          "upper": {
+            "minX": -0.472,
+            "maxX": 0.472,
+            "minZ": -0.472,
+            "maxZ": 0.472
+          },
+          "bottomY": 0.24,
+          "topY": 0.38,
+          "materialRole": "pedestal",
+          "pockets": []
+        },
+        {
+          "id": "stela_structure/stela_01/base_return_01/solid",
+          "kind": "band",
+          "part": "body",
+          "bandId": "stela_structure/stela_01/base_return_01",
+          "lower": {
+            "minX": -0.435,
+            "maxX": 0.435,
+            "minZ": -0.435,
+            "maxZ": 0.435
+          },
+          "upper": {
+            "minX": -0.434012,
+            "maxX": 0.434012,
+            "minZ": -0.434012,
+            "maxZ": 0.434012
+          },
+          "bottomY": 0.38,
+          "topY": 0.52,
+          "materialRole": "frieze",
+          "pockets": []
+        },
+        {
+          "id": "stela_structure/stela_01/register_01/solid",
+          "kind": "band",
+          "part": "body",
+          "bandId": "stela_structure/stela_01/register_01",
+          "lower": {
+            "minX": -0.399012,
+            "maxX": 0.399012,
+            "minZ": -0.399012,
+            "maxZ": 0.399012
+          },
+          "upper": {
+            "minX": -0.394247,
+            "maxX": 0.394247,
+            "minZ": -0.394247,
+            "maxZ": 0.394247
+          },
+          "bottomY": 0.52,
+          "topY": 1.195,
+          "materialRole": "stelaBody",
+          "pockets": [
+            {
+              "id": "stela_structure/stela_01/register_01/face_front/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_01/face_front/bay_01/frame",
+              "face": "front",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 0.605,
+              "topY": 1.11,
+              "depth": 0.028
+            },
+            {
+              "id": "stela_structure/stela_01/register_01/face_rear/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_01/face_rear/bay_01/frame",
+              "face": "rear",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 0.605,
+              "topY": 1.11,
+              "depth": 0.028
+            },
+            {
+              "id": "stela_structure/stela_01/register_01/face_side_positive_u/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_01/face_side_positive_u/bay_01/frame",
+              "face": "sidePositiveU",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 0.605,
+              "topY": 1.11,
+              "depth": 0.028
+            },
+            {
+              "id": "stela_structure/stela_01/register_01/face_side_negative_u/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_01/face_side_negative_u/bay_01/frame",
+              "face": "sideNegativeU",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 0.605,
+              "topY": 1.11,
+              "depth": 0.028
+            }
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_01/solid",
+          "kind": "band",
+          "part": "body",
+          "bandId": "stela_structure/stela_01/ribbon_01",
+          "lower": {
+            "minX": -0.429247,
+            "maxX": 0.429247,
+            "minZ": -0.429247,
+            "maxZ": 0.429247
+          },
+          "upper": {
+            "minX": -0.428259,
+            "maxX": 0.428259,
+            "minZ": -0.428259,
+            "maxZ": 0.428259
+          },
+          "bottomY": 1.195,
+          "topY": 1.335,
+          "materialRole": "frieze",
+          "pockets": []
+        },
+        {
+          "id": "stela_structure/stela_01/register_02/solid",
+          "kind": "band",
+          "part": "body",
+          "bandId": "stela_structure/stela_01/register_02",
+          "lower": {
+            "minX": -0.393259,
+            "maxX": 0.393259,
+            "minZ": -0.393259,
+            "maxZ": 0.393259
+          },
+          "upper": {
+            "minX": -0.388494,
+            "maxX": 0.388494,
+            "minZ": -0.388494,
+            "maxZ": 0.388494
+          },
+          "bottomY": 1.335,
+          "topY": 2.01,
+          "materialRole": "stelaBody",
+          "pockets": [
+            {
+              "id": "stela_structure/stela_01/register_02/face_front/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_02/face_front/bay_01/frame",
+              "face": "front",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 1.42,
+              "topY": 1.925,
+              "depth": 0.028
+            },
+            {
+              "id": "stela_structure/stela_01/register_02/face_rear/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_02/face_rear/bay_01/frame",
+              "face": "rear",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 1.42,
+              "topY": 1.925,
+              "depth": 0.028
+            },
+            {
+              "id": "stela_structure/stela_01/register_02/face_side_positive_u/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_02/face_side_positive_u/bay_01/frame",
+              "face": "sidePositiveU",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 1.42,
+              "topY": 1.925,
+              "depth": 0.028
+            },
+            {
+              "id": "stela_structure/stela_01/register_02/face_side_negative_u/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_02/face_side_negative_u/bay_01/frame",
+              "face": "sideNegativeU",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 1.42,
+              "topY": 1.925,
+              "depth": 0.028
+            }
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_02/solid",
+          "kind": "band",
+          "part": "body",
+          "bandId": "stela_structure/stela_01/ribbon_02",
+          "lower": {
+            "minX": -0.423494,
+            "maxX": 0.423494,
+            "minZ": -0.423494,
+            "maxZ": 0.423494
+          },
+          "upper": {
+            "minX": -0.422506,
+            "maxX": 0.422506,
+            "minZ": -0.422506,
+            "maxZ": 0.422506
+          },
+          "bottomY": 2.01,
+          "topY": 2.15,
+          "materialRole": "frieze",
+          "pockets": []
+        },
+        {
+          "id": "stela_structure/stela_01/register_03/solid",
+          "kind": "band",
+          "part": "body",
+          "bandId": "stela_structure/stela_01/register_03",
+          "lower": {
+            "minX": -0.387506,
+            "maxX": 0.387506,
+            "minZ": -0.387506,
+            "maxZ": 0.387506
+          },
+          "upper": {
+            "minX": -0.382741,
+            "maxX": 0.382741,
+            "minZ": -0.382741,
+            "maxZ": 0.382741
+          },
+          "bottomY": 2.15,
+          "topY": 2.825,
+          "materialRole": "stelaBody",
+          "pockets": [
+            {
+              "id": "stela_structure/stela_01/register_03/face_front/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_03/face_front/bay_01/frame",
+              "face": "front",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 2.235,
+              "topY": 2.74,
+              "depth": 0.028
+            },
+            {
+              "id": "stela_structure/stela_01/register_03/face_rear/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_03/face_rear/bay_01/frame",
+              "face": "rear",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 2.235,
+              "topY": 2.74,
+              "depth": 0.028
+            },
+            {
+              "id": "stela_structure/stela_01/register_03/face_side_positive_u/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_03/face_side_positive_u/bay_01/frame",
+              "face": "sidePositiveU",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 2.235,
+              "topY": 2.74,
+              "depth": 0.028
+            },
+            {
+              "id": "stela_structure/stela_01/register_03/face_side_negative_u/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_03/face_side_negative_u/bay_01/frame",
+              "face": "sideNegativeU",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 2.235,
+              "topY": 2.74,
+              "depth": 0.028
+            }
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/ribbon_03/solid",
+          "kind": "band",
+          "part": "body",
+          "bandId": "stela_structure/stela_01/ribbon_03",
+          "lower": {
+            "minX": -0.417741,
+            "maxX": 0.417741,
+            "minZ": -0.417741,
+            "maxZ": 0.417741
+          },
+          "upper": {
+            "minX": -0.416753,
+            "maxX": 0.416753,
+            "minZ": -0.416753,
+            "maxZ": 0.416753
+          },
+          "bottomY": 2.825,
+          "topY": 2.965,
+          "materialRole": "frieze",
+          "pockets": []
+        },
+        {
+          "id": "stela_structure/stela_01/register_04/solid",
+          "kind": "band",
+          "part": "body",
+          "bandId": "stela_structure/stela_01/register_04",
+          "lower": {
+            "minX": -0.381753,
+            "maxX": 0.381753,
+            "minZ": -0.381753,
+            "maxZ": 0.381753
+          },
+          "upper": {
+            "minX": -0.376988,
+            "maxX": 0.376988,
+            "minZ": -0.376988,
+            "maxZ": 0.376988
+          },
+          "bottomY": 2.965,
+          "topY": 3.64,
+          "materialRole": "stelaBody",
+          "pockets": [
+            {
+              "id": "stela_structure/stela_01/register_04/face_front/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_04/face_front/bay_01/frame",
+              "face": "front",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 3.05,
+              "topY": 3.555,
+              "depth": 0.028
+            },
+            {
+              "id": "stela_structure/stela_01/register_04/face_rear/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_04/face_rear/bay_01/frame",
+              "face": "rear",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 3.05,
+              "topY": 3.555,
+              "depth": 0.028
+            },
+            {
+              "id": "stela_structure/stela_01/register_04/face_side_positive_u/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_04/face_side_positive_u/bay_01/frame",
+              "face": "sidePositiveU",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 3.05,
+              "topY": 3.555,
+              "depth": 0.028
+            },
+            {
+              "id": "stela_structure/stela_01/register_04/face_side_negative_u/bay_01/frame/pocket",
+              "frameId": "stela_structure/stela_01/register_04/face_side_negative_u/bay_01/frame",
+              "face": "sideNegativeU",
+              "uRange": [
+                0.10625,
+                0.89375
+              ],
+              "bottomY": 3.05,
+              "topY": 3.555,
+              "depth": 0.028
+            }
+          ]
+        },
+        {
+          "id": "stela_structure/stela_01/crown_return_01/solid",
+          "kind": "band",
+          "part": "body",
+          "bandId": "stela_structure/stela_01/crown_return_01",
+          "lower": {
+            "minX": -0.411988,
+            "maxX": 0.411988,
+            "minZ": -0.411988,
+            "maxZ": 0.411988
+          },
+          "upper": {
+            "minX": -0.411,
+            "maxX": 0.411,
+            "minZ": -0.411,
+            "maxZ": 0.411
+          },
+          "bottomY": 3.64,
+          "topY": 3.78,
+          "materialRole": "frieze",
+          "pockets": []
+        },
+        {
+          "id": "stela_structure/stela_01/crown/course_01",
+          "kind": "crown_course",
+          "part": "crown",
+          "bandId": null,
+          "lower": {
+            "minX": -0.376,
+            "maxX": 0.376,
+            "minZ": -0.376,
+            "maxZ": 0.376
+          },
+          "upper": {
+            "minX": -0.376,
+            "maxX": 0.376,
+            "minZ": -0.376,
+            "maxZ": 0.376
+          },
+          "bottomY": 3.78,
+          "topY": 3.906,
+          "materialRole": "stelaCrown",
+          "pockets": []
+        },
+        {
+          "id": "stela_structure/stela_01/crown/course_02",
+          "kind": "crown_course",
+          "part": "crown",
+          "bandId": null,
+          "lower": {
+            "minX": -0.46624,
+            "maxX": 0.46624,
+            "minZ": -0.46624,
+            "maxZ": 0.46624
+          },
+          "upper": {
+            "minX": -0.46624,
+            "maxX": 0.46624,
+            "minZ": -0.46624,
+            "maxZ": 0.46624
+          },
+          "bottomY": 3.906,
+          "topY": 4.27,
+          "materialRole": "stelaCrown",
+          "pockets": []
+        },
+        {
+          "id": "stela_structure/stela_01/crown/course_03",
+          "kind": "crown_course",
+          "part": "crown",
+          "bandId": null,
+          "lower": {
+            "minX": -0.53392,
+            "maxX": 0.53392,
+            "minZ": -0.53392,
+            "maxZ": 0.53392
+          },
+          "upper": {
+            "minX": -0.53392,
+            "maxX": 0.53392,
+            "minZ": -0.53392,
+            "maxZ": 0.53392
+          },
+          "bottomY": 4.27,
+          "topY": 4.48,
+          "materialRole": "cornice",
+          "pockets": []
+        }
+      ],
+      "appliques": [],
+      "patchIds": [
+        "stela_structure/stela_01/ground_interface",
+        "stela_structure/stela_01/face_front",
+        "stela_structure/stela_01/face_rear",
+        "stela_structure/stela_01/face_side_positive_u",
+        "stela_structure/stela_01/face_side_negative_u",
+        "stela_structure/stela_01/crown/top",
+        "stela_structure/stela_01/base/face_front",
+        "stela_structure/stela_01/base/face_rear",
+        "stela_structure/stela_01/base/face_side_positive_u",
+        "stela_structure/stela_01/base/face_side_negative_u"
+      ]
+    }
+  ],
+  "roofs": [],
+  "attachments": [],
+  "damage": [],
+  "diagnostics": []
+}

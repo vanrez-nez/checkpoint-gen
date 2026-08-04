@@ -27,6 +27,16 @@ export interface GeometryBuffers {
   readonly bakedShadow: readonly number[];
   /** One semantic material-slot index per vertex. */
   readonly surfaceMaterials?: readonly number[];
+  /**
+   * Two authored UVs per vertex, or NaN where the emitter had nothing to say.
+   *
+   * Box projection cannot be continuous around a corner: it reads a world axis,
+   * and which axis it reads changes. A hard arris hides that seam; a bevel
+   * replaces the arris with facets and puts the seam on surfaces you can see.
+   * An emitter that knows the real distance along its own surface says so here,
+   * and every vertex it leaves alone still falls through to the projection.
+   */
+  readonly uvs?: readonly number[];
 }
 
 export interface FinalizedGeometry {
@@ -113,6 +123,15 @@ export function finalizeGeometry(
   geometry.setIndex(buffers.indices as number[]);
   geometry.computeVertexNormals();
   const baseUvs = createBoxProjectedUvs(geometry);
+  const authored = buffers.uvs;
+  if (authored) {
+    for (let index = 0; index < baseUvs.length; index += 1) {
+      const value = authored[index];
+      if (value !== undefined && Number.isFinite(value)) {
+        baseUvs[index] = value;
+      }
+    }
+  }
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(baseUvs.slice(), 2));
   geometry.userData.baseUvs = baseUvs;
   geometry.computeBoundingBox();
@@ -130,7 +149,17 @@ export function finalizeGeometry(
  * normal points most strongly along. Tops, sides and bevels therefore sample the
  * baked maps at a consistent world scale without triplanar blending, at the cost
  * of a visible seam wherever a face turns past 45 degrees.
+ *
+ * Projecting a face that does not face its axis squarely foreshortens it: a
+ * bevel facet turned 45 degrees between two axes covers only 71% of the axis it
+ * projects onto, so its texture is stretched across it by the reciprocal. The
+ * horizontal span is divided back out by that cosine, which restores the world
+ * scale on every angled face and is exactly 1 — and so changes nothing — on a
+ * face that already squares up to its axis, including a battered one.
  */
+/** Keeps a face that is edge-on to its own axis from scaling to infinity. */
+const FORESHORTEN_FLOOR = 0.2;
+
 export function createBoxProjectedUvs(geometry: THREE.BufferGeometry): Float32Array {
   const positions = geometry.getAttribute("position");
   const normals = geometry.getAttribute("normal");
@@ -149,14 +178,20 @@ export function createBoxProjectedUvs(geometry: THREE.BufferGeometry): Float32Ar
     let u: number;
     let v: number;
 
+    // How much of the normal lies in the horizontal plane. A wall leaning back
+    // is not foreshortened along its length, only up its face, so the cosine
+    // that matters here is measured within that plane rather than against the
+    // axis outright.
+    const horizontal = Math.hypot(normalX, normalZ);
+
     if (absoluteY >= absoluteX && absoluteY >= absoluteZ) {
       u = x;
       v = z;
     } else if (absoluteX >= absoluteZ) {
-      u = normalX < 0 ? z : -z;
+      u = (normalX < 0 ? z : -z) * (horizontal / Math.max(absoluteX, FORESHORTEN_FLOOR));
       v = y;
     } else {
-      u = normalZ < 0 ? -x : x;
+      u = (normalZ < 0 ? -x : x) * (horizontal / Math.max(absoluteZ, FORESHORTEN_FLOOR));
       v = y;
     }
 

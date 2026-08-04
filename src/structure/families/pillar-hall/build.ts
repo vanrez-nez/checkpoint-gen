@@ -1,5 +1,12 @@
 import type { SolidBuilder, Vertex3 } from "../../../geometry/solid-builder";
-import { rectCorners, rectDepth, rectWidth, type HorizontalOrientation, type Rect } from "../../kernel/frame";
+import {
+  rectCorners,
+  rectDepth,
+  rectWidth,
+  subtractRect,
+  type HorizontalOrientation,
+  type Rect,
+} from "../../kernel/frame";
 import type { MasonryRule } from "../../kernel/masonry";
 import type { PillarHallMemberRecord, PillarHallRecord, PillarPanelRecord } from "./types";
 
@@ -401,25 +408,6 @@ function addExposedHorizontal(
       },
     );
   }
-}
-
-function subtractRect(source: Rect, cover: Rect): Rect[] {
-  const overlap = {
-    minX: Math.max(source.minX, cover.minX),
-    maxX: Math.min(source.maxX, cover.maxX),
-    minZ: Math.max(source.minZ, cover.minZ),
-    maxZ: Math.min(source.maxZ, cover.maxZ),
-  };
-  if (rectWidth(overlap) <= EPS || rectDepth(overlap) <= EPS) {
-    return [source];
-  }
-
-  return [
-    { minX: source.minX, maxX: overlap.minX, minZ: source.minZ, maxZ: source.maxZ },
-    { minX: overlap.maxX, maxX: source.maxX, minZ: source.minZ, maxZ: source.maxZ },
-    { minX: overlap.minX, maxX: overlap.maxX, minZ: source.minZ, maxZ: overlap.minZ },
-    { minX: overlap.minX, maxX: overlap.maxX, minZ: overlap.maxZ, maxZ: source.maxZ },
-  ].filter((rect) => rectWidth(rect) > EPS && rectDepth(rect) > EPS);
 }
 
 interface HallVolume {

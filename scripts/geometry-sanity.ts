@@ -83,7 +83,7 @@ import {
   type PartSection,
 } from "../src/geometry/part";
 import { mergeParts } from "../src/geometry/merge-parts";
-import { finalizeGeometry } from "../src/geometry/finalize";
+import { createBoxProjectedUvs, finalizeGeometry } from "../src/geometry/finalize";
 import { SolidBuilder } from "../src/geometry/solid-builder";
 import {
   DEFAULT_FIRE_BOWL_CONFIG,
@@ -645,6 +645,34 @@ for (
 
 // --- offering --------------------------------------------------------------
 const offeringGeometry = new THREE.BoxGeometry(2, 4, 1);
+// Box projection must hold its world scale whatever way a face turns. A face
+// that does not square up to the axis it projects onto is foreshortened by the
+// cosine between them, and without dividing that back out a bevel facet at 45
+// degrees stretches its texture by 1.41 across itself.
+for (const [label, normal, run] of [
+  ["axis-aligned side", [1, 0, 0], [0, 0, 1]],
+  ["battered side", [1, 0.25, 0], [0, 0, 1]],
+  ["45 degree facet", [1, 0, 1], [-Math.SQRT1_2, 0, Math.SQRT1_2]],
+  ["30 degree facet", [Math.cos(Math.PI / 6), 0, Math.sin(Math.PI / 6)], [-0.5, 0, Math.cos(Math.PI / 6)]],
+] as const) {
+  const probe = new THREE.BufferGeometry();
+  probe.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute([0, 0, 0, run[0], run[1], run[2]], 3),
+  );
+  const unit = new THREE.Vector3(normal[0], normal[1], normal[2]).normalize();
+  probe.setAttribute(
+    "normal",
+    new THREE.Float32BufferAttribute([unit.x, unit.y, unit.z, unit.x, unit.y, unit.z], 3),
+  );
+  const uvs = createBoxProjectedUvs(probe);
+  const span = Math.hypot(uvs[2]! - uvs[0]!, uvs[3]! - uvs[1]!);
+  assert.ok(
+    Math.abs(span - 1) < 1e-6,
+    `${label}: one metre of face should span one UV unit, got ${span.toFixed(4)}.`,
+  );
+}
+
 offeringGeometry.deleteAttribute("uv");
 prepareOfferingGeometry(offeringGeometry);
 assert.equal(offeringGeometry.getAttribute("uv").count, offeringGeometry.getAttribute("position").count);

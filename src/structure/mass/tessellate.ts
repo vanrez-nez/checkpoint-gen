@@ -27,6 +27,8 @@ import {
 import { buildRoof, faceIsCoveredByRoof } from "../roof/build";
 import { compiledSurfaceFragments } from "../surface/features";
 import { buildPillarHall } from "../families/pillar-hall/build";
+import { buildStela } from "../families/stelae/build";
+import type { BevelRule } from "../families/stelae/bevel";
 
 /**
  * Turns a resolved structure graph into render geometry.
@@ -64,6 +66,10 @@ export interface TessellationOptions {
   /** Family-owned cache section and part id; Mass remains the default reader. */
   readonly section?: string;
   readonly partId?: string;
+  /** Repaint every published ornament slot in the debug surface. */
+  readonly debugSlots?: boolean;
+  /** Rounds stela arrises; null or absent leaves every corner hard. */
+  readonly bevel?: BevelRule | null;
 }
 
 export function tessellateStructure(
@@ -77,6 +83,8 @@ export function tessellateStructure(
     stairTilesPerStep = 5,
     section = MASS_SECTION,
     partId = "mass",
+    debugSlots = false,
+    bevel = null,
   } = options;
   const patches = patchIndex(graph);
 
@@ -128,6 +136,12 @@ export function tessellateStructure(
 
   for (const hall of graph.pillarHalls) {
     buildPillarHall(builder, hall, masonry, seed);
+  }
+
+  // A stela stands on the ground rather than on anything the graph owns, so it
+  // neither culls nor is culled by the surfaces above.
+  for (const stela of graph.stelae) {
+    buildStela(builder, stela, { debugSlots, patches, bevel });
   }
 
   // The roof owns the room ceiling and projected soffits. Remove only the
