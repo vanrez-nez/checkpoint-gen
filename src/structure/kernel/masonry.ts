@@ -271,8 +271,8 @@ export function divideCourseRing(
 
 /**
  * How far the quoin at each corner reaches back along its run and forward onto
- * the next, or null where the runs are too short to spare them and the course
- * falls back to butted corners.
+ * the next, or null where the runs are too short to form two distinct legs and
+ * the course must fall back to butted corners.
  *
  * The long leg alternates with `(courseIndex + corner)`, so on one course the
  * front and rear run through the corners while the sides tuck in, and on the
@@ -288,12 +288,26 @@ function resolveQuoins(
     return null;
   }
 
-  const long = rule.stoneWidth;
   // The short leg of a quoin is not a separate size: it is the same stone seen
   // end-on from the wall round the corner, so it is exactly as wide as the stone
   // is deep. Choosing it independently is how the two legs came to overlap
   // whenever the stones were deeper than that guess.
   const short = rule.depth;
+  // A monument base can be narrower than two target stretchers plus another
+  // full target stone. Keep the shared bond in that compact case by shortening
+  // every quoin equally, leaving at least one block-depth of ordinary run
+  // between the corners. Using one fitted length around the whole loop keeps a
+  // quoin the same size when its long leg swaps elevations on the next course.
+  const minimumInfill = Math.min(rule.stoneWidth * MIN_FREE_RUN, short);
+  const fittedLong = (Math.min(...runLengths) - minimumInfill) * 0.5;
+  const long = Math.min(rule.stoneWidth, fittedLong);
+
+  // If the fitted long leg is no longer longer than the end-on return, there is
+  // no interlock to show. The butted rule is the honest compact fallback.
+  if (long <= short + 1e-9) {
+    return null;
+  }
+
   const quoins = [0, 1, 2, 3].map((corner) => {
     const runsThrough = (courseIndex + corner) % 2 === 0;
     return {
@@ -302,12 +316,13 @@ function resolveQuoins(
     };
   });
 
-  // Every run has to keep a stone of its own between the two quoins, or the
-  // course is nothing but corners and the wall loses its bond.
+  // Every run keeps an ordinary stone between the two quoins. On a compact
+  // pedestal it may be shorter than the authored target, but never thinner
+  // than the quoin's end-on return.
   const spare = runLengths.every((length, run) => {
     const atStart = quoins[(run + 3) % 4]?.wrap ?? 0;
     const atEnd = quoins[run]?.reach ?? 0;
-    return length - atStart - atEnd >= rule.stoneWidth * MIN_FREE_RUN;
+    return length - atStart - atEnd >= minimumInfill - 1e-9;
   });
 
   return spare ? quoins : null;
@@ -324,5 +339,5 @@ export function masonrySeed(seed: number, ...path: readonly string[]): number {
 
 /** Bed heights vary at this fraction of the size variation stones do. */
 const COURSE_HEIGHT_VARIATION = 0.45;
-/** However the corners fall, a run keeps at least this much stone between them. */
+/** Target free run between quoins, before compact work clamps it to block depth. */
 const MIN_FREE_RUN = 1.2;

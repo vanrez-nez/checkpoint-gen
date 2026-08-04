@@ -100,6 +100,10 @@ export function buildMassShell(
   options: ShellOptions,
 ): void {
   const { rule, seed } = options;
+  // A bond belongs to the whole stack, not to each semantic band. Restarting
+  // this at every terrace made the first course of every band run through the
+  // same elevations, so a stepped pedestal never alternated at its arrises.
+  let courseIndex = 0;
 
   for (let index = 0; index < bands.length; index += 1) {
     const band = bands[index];
@@ -118,13 +122,16 @@ export function buildMassShell(
     for (const segment of segments) {
       builder.withMaterial(
         segment.label === "cornice" ? "cornice" : "stone",
-        () => layCourses(builder, segment, {
-          seed: masonrySeed(seed, band.id, segment.label),
-          crowned: segment !== crown,
-          // What stands on this band, so the courses know how much of their top is
-          // open to the sky. Null means nothing does and the whole crown is floor.
-          under: segment === crown ? (bands[index + 1]?.lower ?? null) : undefined,
-        }),
+        () => {
+          courseIndex += layCourses(builder, segment, {
+            seed: masonrySeed(seed, band.id, segment.label),
+            courseIndex,
+            crowned: segment !== crown,
+            // What stands on this band, so the courses know how much of their top is
+            // open to the sky. Null means nothing does and the whole crown is floor.
+            under: segment === crown ? (bands[index + 1]?.lower ?? null) : undefined,
+          });
+        },
       );
     }
   }
@@ -186,6 +193,8 @@ function segmentsOf(band: ElevationBandRecord, rule: MasonryRule): Segment[] {
 
 interface CourseOptions {
   readonly seed: number;
+  /** Course number in the complete shell, used to continue the corner bond. */
+  readonly courseIndex: number;
   /**
    * Whether a moulding sits directly on this segment's top course.
    *
@@ -213,11 +222,11 @@ function layCourses(
   builder: SolidBuilder,
   segment: Segment,
   options: CourseOptions,
-): void {
+): number {
   const height = segment.topY - segment.bottomY;
 
   if (height <= 0) {
-    return;
+    return 0;
   }
 
   const courses = divideCourses(
@@ -226,6 +235,7 @@ function layCourses(
     masonrySeed(options.seed, "courses"),
   );
   for (const course of courses) {
+    const courseIndex = options.courseIndex + course.index;
     const isFirst = course.index === 0;
     const isLast = course.index === courses.length - 1;
     const isExposedCrown = options.under !== undefined && isLast;
@@ -288,7 +298,7 @@ function layCourses(
         : 0,
       showTop: !(options.crowned && isLast),
       seed: masonrySeed(options.seed, `course_${course.index}`),
-      courseIndex: course.index,
+      courseIndex,
     });
 
 
@@ -317,9 +327,11 @@ function layCourses(
       bottomInset: needsJointUnderside ? jointUndersideInset : 0,
       outline: insetRect(outline, uniformSetbacks(depth + segment.rule.gap)),
       seed: masonrySeed(options.seed, `inward_${course.index}`),
-      courseIndex: course.index,
+      courseIndex,
     });
   }
+
+  return courses.length;
 }
 
 interface RingOptions {
