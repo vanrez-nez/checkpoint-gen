@@ -85,6 +85,9 @@ import {
 import { mergeParts } from "../src/geometry/merge-parts";
 import { createBoxProjectedUvs, finalizeGeometry } from "../src/geometry/finalize";
 import { SolidBuilder } from "../src/geometry/solid-builder";
+import { TriangleBvh } from "../src/geometry/bvh";
+import { subdivideLongEdges } from "../src/geometry/subdivide";
+import { bakeSunVisibility } from "../src/geometry/sun-bake";
 import {
   DEFAULT_FIRE_BOWL_CONFIG,
   FIRE_BOWL_CONTROLS,
@@ -2316,6 +2319,136 @@ offeringGeometry.dispose();
 offeringBaseGeometry.dispose();
 offeringUpperGeometry.dispose();
 
+// The sun bake: a hierarchy that answers occlusion, a refinement that gives
+// flat faces somewhere to record it, and the trace that fills it in.
+
+const bvhQuad = TriangleBvh.build(Float32Array.from([
+  -1, 1, -1, 1, 1, -1, 1, 1, 1,
+  -1, 1, -1, 1, 1, 1, -1, 1, 1,
+]));
+
+assert.ok(
+  bvhQuad.occludes(0, 0, 0, 0, 1, 0, 10),
+  "A quad directly overhead must block a ray cast straight up.",
+);
+assert.ok(
+  !bvhQuad.occludes(0, 0, 0, 0, -1, 0, 10),
+  "A quad overhead must not block a ray cast straight down.",
+);
+assert.ok(
+  !bvhQuad.occludes(5, 0, 5, 0, 1, 0, 10),
+  "A ray rising outside the quad's footprint must pass.",
+);
+assert.ok(
+  !bvhQuad.occludes(0, 0, 0, 0, 1, 0, 0.5),
+  "An occluder past maxDistance must not register.",
+);
+assert.ok(
+  !TriangleBvh.build(new Float32Array(0)).occludes(0, 0, 0, 0, 1, 0, 10),
+  "An empty hierarchy must occlude nothing rather than throw.",
+);
+
+const coarseFloor = buildTestQuad(8);
+const refined = subdivideLongEdges(coarseFloor.geometry, 0.75);
+
+assert.ok(
+  refined.addedVertices > 0 && refined.geometry !== coarseFloor.geometry,
+  "An 8-unit quad must be refined at a 0.75 edge bound.",
+);
+assert.equal(
+  longestEdgeOf(refined.geometry) <= 0.75 + 1e-6,
+  true,
+  "Every edge must satisfy the bound once refinement settles.",
+);
+
+for (const name of ["position", "normal", "uv", "vertexAo", "color", "surfaceMaterial"]) {
+  assert.equal(
+    refined.geometry.getAttribute(name)?.count,
+    refined.geometry.getAttribute("position")?.count,
+    `Attribute "${name}" must keep one entry per vertex through subdivision.`,
+  );
+}
+
+for (const base of ["baseUvs", "vertexAoBase", "bakedShadowBase"]) {
+  const values = refined.geometry.userData[base] as Float32Array;
+  const expected = refined.geometry.getAttribute("position")!.count
+    * (base === "baseUvs" ? 2 : 1);
+  assert.equal(
+    values.length,
+    expected,
+    `userData.${base} must be interpolated alongside the attributes.`,
+  );
+}
+
+assert.equal(
+  refined.geometry.groups.reduce((total, group) => total + group.count, 0),
+  refined.geometry.getIndex()?.count,
+  "Draw groups must still cover every index after regrouping.",
+);
+
+// A geometry already inside the bound is handed back untouched, so the dense
+// stonework never pays for a copy it does not need.
+const fineFloor = buildTestQuad(0.5);
+assert.equal(
+  subdivideLongEdges(fineFloor.geometry, 0.75).geometry,
+  fineFloor.geometry,
+  "A geometry already within the bound must be returned as-is.",
+);
+
+// A roof directly above the floor, with the sun straight overhead: the floor
+// must come back dark and the roof lit.
+const shelteredFloor = buildTestQuad(4);
+// Wider than the floor on purpose: a ray leaving a floor corner that lies
+// exactly on the roof's boundary edge is a genuine coin-flip for any
+// ray-triangle test, and the assertion below is about occlusion, not about
+// which way that coin lands.
+const roof = buildTestQuad(6, 3);
+const bakeReport = bakeSunVisibility(
+  [{ geometry: shelteredFloor.geometry }, { geometry: roof.geometry }],
+  { direction: new THREE.Vector3(0, 1, 0) },
+  () => 0,
+);
+
+const floorVisibility = shelteredFloor.geometry.userData.sunVisibilityBase as Float32Array;
+const roofVisibility = roof.geometry.userData.sunVisibilityBase as Float32Array;
+
+assert.equal(
+  floorVisibility.every((value) => value === 0),
+  true,
+  "A floor under a roof must bake fully occluded.",
+);
+assert.equal(
+  roofVisibility.every((value) => value === 1),
+  true,
+  "The roof itself must bake fully lit.",
+);
+assert.equal(
+  bakeReport.vertices,
+  floorVisibility.length + roofVisibility.length,
+  "The report must account for every vertex it wrote.",
+);
+
+// Facing away from the sun is darkness the normal already states, and the
+// bake must say so without needing an occluder to prove it.
+const litFloor = buildTestQuad(4);
+bakeSunVisibility(
+  [{ geometry: litFloor.geometry }],
+  { direction: new THREE.Vector3(0, -1, 0) },
+  () => 0,
+);
+assert.equal(
+  (litFloor.geometry.userData.sunVisibilityBase as Float32Array).every((value) => value === 0),
+  true,
+  "An upward face lit from below must bake dark on orientation alone.",
+);
+
+coarseFloor.geometry.dispose();
+refined.geometry.dispose();
+fineFloor.geometry.dispose();
+shelteredFloor.geometry.dispose();
+roof.geometry.dispose();
+litFloor.geometry.dispose();
+
 console.log(
   `Geometry sanity passed: ${pillar.stoneCount} stones per default pillar, `
   + `${allPlacements.length} default placements, `
@@ -2810,4 +2943,47 @@ function groupMinimumY(geometry: THREE.BufferGeometry, materialIndex: number): n
   }
 
   return minimum;
+}
+
+/**
+ * An upward-facing quad of the given span, centred on the origin at height `y`.
+ *
+ * Deliberately the coarsest thing the pipeline can emit — two triangles, four
+ * vertices — because that is exactly the case the sun bake exists to handle.
+ */
+function buildTestQuad(span: number, y = 0) {
+  const half = span / 2;
+
+  return finalizeGeometry({
+    positions: [
+      -half, y, -half,
+      half, y, -half,
+      half, y, half,
+      -half, y, half,
+    ],
+    indices: [0, 2, 1, 0, 3, 2],
+    ambientOcclusion: [1, 1, 1, 1],
+    bakedShadow: [1, 1, 1, 1],
+  });
+}
+
+function longestEdgeOf(geometry: THREE.BufferGeometry): number {
+  const position = geometry.getAttribute("position") as THREE.BufferAttribute;
+  const index = geometry.getIndex();
+
+  assert.ok(index, "Edge measurement needs an indexed geometry.");
+
+  const first = new THREE.Vector3();
+  const second = new THREE.Vector3();
+  let longest = 0;
+
+  for (let offset = 0; offset < index.count; offset += 3) {
+    for (let edge = 0; edge < 3; edge += 1) {
+      first.fromBufferAttribute(position, index.getX(offset + edge));
+      second.fromBufferAttribute(position, index.getX(offset + (edge + 1) % 3));
+      longest = Math.max(longest, first.distanceTo(second));
+    }
+  }
+
+  return longest;
 }

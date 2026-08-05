@@ -108,6 +108,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     statRow(mirrors.structure, "vertices", "vertices"),
     statRow(mirrors.structure, "triangles", "triangles"),
     statRow(mirrors.structure, "generationMs", "generation (ms)"),
+    statRow(mirrors.structure, "sunBakeMs", "sun bake (ms)"),
     statRow(mirrors.validation, "status", "status"),
   ]) {
     pane.addBinding(row.target as Record<string, number | string>, row.key, {
@@ -626,6 +627,7 @@ function applyStats(
   mirrors.structure.vertices = primary.vertexCount;
   mirrors.structure.triangles = primary.triangleCount;
   mirrors.structure.generationMs = Math.round(stats.generationMs * 100) / 100;
+  mirrors.structure.sunBakeMs = Math.round(stats.sunBakeMs * 100) / 100;
   mirrors.pillars.parts = section("pillars").partCount;
   mirrors.pillars.stones = section("pillars").stoneCount;
   mirrors.pillars.vertices = section("pillars").vertexCount;

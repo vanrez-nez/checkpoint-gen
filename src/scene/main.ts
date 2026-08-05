@@ -22,6 +22,8 @@ import {
   migrateMaterialDocument,
   type MaterialGraphDocument,
 } from "material-designer-runtime";
+import { subdivideLongEdges } from "../geometry/subdivide";
+import { SunBakeScene, type SunBakeTarget } from "../geometry/sun-bake";
 import { StructureComposer } from "../structure/composer";
 import { createPatchOverlay, type PatchOverlay } from "../structure/kernel/debug-overlay";
 import type { StructureGraph } from "../structure/kernel/graph";
@@ -62,8 +64,53 @@ import {
 } from "../props/offering/config";
 
 const MATERIAL_OUTPUT_RESOLUTION = 512;
+/**
+ * Longest edge a face may keep before the sun bake subdivides it.
+ *
+ * Sized against the stonework rather than the structure: a course is 0.86 tall
+ * and a stone 1.65 long, so this leaves the masonry untouched and refines only
+ * the plain faces — roofs, pads, plaza slabs — that carry too few vertices to
+ * describe a shadow crossing them.
+ */
+const SUN_BAKE_MAX_EDGE = 1.5;
+
+/** Half-angle of the sun's disc. Wider than the real sun, to soften contacts. */
+const SUN_BAKE_SOFTNESS = 0.035;
+
+/**
+ * Rays per lit vertex.
+ *
+ * Cost is the product of this and the vertex count that `SUN_BAKE_MAX_EDGE`
+ * implies, and both bite hard: refining to 0.75 with eight rays took nine
+ * seconds on this mass, which is not a slider. Halving the bound quarters the
+ * vertices it adds, so the edge bound is the dial to reach for first.
+ */
+const SUN_BAKE_SAMPLES = 4;
+
+/**
+ * The unit direction from the structure toward the sun.
+ *
+ * Single source of truth on purpose: the light's placement and the bake's ray
+ * direction must agree exactly, and deriving them from the same azimuth and
+ * elevation twice is how they stop agreeing.
+ */
+function sunDirectionOf(config: IlluminationConfig): THREE.Vector3 {
+  const azimuth = THREE.MathUtils.degToRad(config.keyAzimuth);
+  const elevation = THREE.MathUtils.degToRad(config.keyElevation);
+  const horizontal = Math.cos(elevation);
+
+  return new THREE.Vector3(
+    Math.cos(azimuth) * horizontal,
+    Math.sin(elevation),
+    Math.sin(azimuth) * horizontal,
+  );
+}
+
 const CSM_CASCADES = 3;
-const CSM_MAX_FAR = 80;
+// Sized to the structure, not to the horizon. Every cascade is fit to a slice of
+// this range, so an oversized far plane spreads the same 1024 texels over more
+// world and drives the shadow-map texel footprint — and with it the acne — up.
+const CSM_MAX_FAR = 50;
 const CSM_LIGHT_MARGIN = 20;
 const SHADOW_MAP_SIZE = 1024;
 const MAX_FIRE_FLAMES = 16;
@@ -92,6 +139,8 @@ export interface CompositionStats {
   sections: Readonly<Record<PartSection, PartStats>>;
   totals: PartStats;
   generationMs: number;
+  /** Time spent tracing the sun into the vertex channel, separate from generation. */
+  sunBakeMs: number;
   flames: FlameStats;
   glowLightCount: number;
   offering: OfferingStats;
@@ -175,6 +224,16 @@ export class MainScene {
   private materialScale: number;
   private ambientOcclusionStrength: number;
   private crackShadowStrength: number;
+  private sunShadowStrength: number;
+  private sunBakeMs = 0;
+  /**
+   * The direction the current bake was taken from. Re-baking is far too
+   * expensive to do for a colour or intensity change, so the sun's *angle* is
+   * the only illumination input that invalidates it.
+   */
+  private readonly bakedSunDirection = new THREE.Vector3(NaN, NaN, NaN);
+  /** Discarded whenever the geometry it was built over is replaced. */
+  private sunBakeScene: SunBakeScene | null = null;
   private fireTime = 0;
   private wireframeVisible = false;
 
@@ -185,6 +244,7 @@ export class MainScene {
     this.materialScale = config.view.materialScale;
     this.ambientOcclusionStrength = config.illumination.ambientOcclusion;
     this.crackShadowStrength = config.illumination.crackShadow;
+    this.sunShadowStrength = config.illumination.sunShadow;
     this.scene.background = new THREE.Color(0x171714);
     this.fireBatch = new VertexConeFireBatch(
       config.fire.radialSegments,
@@ -277,24 +337,40 @@ export class MainScene {
     this.sectionStats = composition.sections;
     this.totalStats = composition.totals;
     this.generationMs = composition.generationMs;
-    this.applyGeometryAttributes(composition.geometry);
+    const initialGeometry = this.prepareStructureGeometry(
+      composition.geometry,
+      config.illumination,
+    );
+    this.applyGeometryAttributes(initialGeometry);
     // Every semantic slot remains addressable even when the current structure
     // does not emit it. This keeps group indices stable across structure types.
     this.structure = new THREE.Mesh(
-      composition.geometry,
+      initialGeometry,
       MATERIAL_SLOTS.map((slot) => this.fallbackSurfaceMaterial(slot)),
     );
     this.structure.name = "Structure";
     this.structure.castShadow = true;
+    // Still a receiver: the fire glow lights stay realtime, because they
+    // flicker and their casters move. Only the sun's contribution is baked.
     this.structure.receiveShadow = true;
     this.scene.add(this.structure, this.fireBatch.object);
     this.applyFireEffects(config.fire);
 
     this.sunLight = new THREE.DirectionalLight();
-    this.sunLight.castShadow = true;
+    // The sun's occlusion is baked per structure, so it casts nothing at
+    // runtime. This is what retires the WebGPU shadow acne rather than biasing
+    // around it: there is no depth comparison left to go wrong. The cascade
+    // node below stays wired so re-enabling this is a one-line change, and the
+    // bias values it carries only mean anything if that happens.
+    this.sunLight.castShadow = false;
     this.sunLight.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
     this.sunLight.shadow.bias = -0.0001;
-    this.sunLight.shadow.normalBias = 0.01;
+    // A shadow-map texel spans ~0.03 world units on the middle cascade, and a
+    // sun low enough to rake the roofs climbs about 0.07 units of depth across
+    // one of them. Anything less than that self-shadows every texel row and the
+    // flat faces band. CSM scales `bias` per cascade but not this, so it is
+    // sized for the widest cascade rather than the nearest.
+    this.sunLight.shadow.normalBias = 0.08;
     this.sunShadow = new CSMShadowNode(this.sunLight, {
       cascades: options.sunShadowCascades ?? CSM_CASCADES,
       maxFar: CSM_MAX_FAR,
@@ -458,8 +534,12 @@ export class MainScene {
   ): CompositionStats {
     const composition = this.composer.build(config, sections);
     const previousGeometry = this.structure.geometry;
-    this.applyGeometryAttributes(composition.geometry);
-    this.structure.geometry = composition.geometry;
+    const geometry = this.prepareStructureGeometry(
+      composition.geometry,
+      config.illumination,
+    );
+    this.applyGeometryAttributes(geometry);
+    this.structure.geometry = geometry;
     this.anchors = composition.anchors;
     this.graph = composition.graph;
     this.sectionStats = composition.sections;
@@ -492,6 +572,7 @@ export class MainScene {
       sections: this.sectionStats,
       totals: this.totalStats,
       generationMs: this.generationMs,
+      sunBakeMs: this.sunBakeMs,
       flames: {
         count: flames.flameCount,
         vertexCount: flames.vertexCount,
@@ -588,14 +669,7 @@ export class MainScene {
     this.sunLight.color.set(config.keyColor);
     this.sunLight.intensity = config.keyIntensity;
 
-    const azimuth = THREE.MathUtils.degToRad(config.keyAzimuth);
-    const elevation = THREE.MathUtils.degToRad(config.keyElevation);
-    const horizontalDistance = Math.cos(elevation) * 10;
-    this.sunLight.position.set(
-      Math.cos(azimuth) * horizontalDistance,
-      Math.sin(elevation) * 10,
-      Math.sin(azimuth) * horizontalDistance,
-    );
+    this.sunLight.position.copy(sunDirectionOf(config)).multiplyScalar(10);
 
     this.hemisphereLight.color.set(config.skyColor);
     this.hemisphereLight.groundColor.set(config.groundColor);
@@ -606,6 +680,17 @@ export class MainScene {
       1,
     );
     this.crackShadowStrength = THREE.MathUtils.clamp(config.crackShadow, 0, 1);
+    this.sunShadowStrength = THREE.MathUtils.clamp(config.sunShadow, 0, 1);
+
+    // Only the sun's *angle* invalidates a bake. Colour, intensity and the
+    // strength sliders all re-derive from the base arrays, which is the whole
+    // reason those arrays are kept separate from the live attribute.
+    const direction = sunDirectionOf(config);
+
+    if (direction.distanceToSquared(this.bakedSunDirection) > 1e-12) {
+      this.bakeSun(this.structure.geometry, config);
+    }
+
     this.applyAmbientOcclusion(this.structure.geometry);
     this.applyBakedShadow(this.structure.geometry);
 
@@ -699,16 +784,89 @@ export class MainScene {
       return;
     }
 
+    // The sun term rides the same vertex-colour channel as the crack shadow
+    // rather than claiming a third attribute. That is not a shortcut: the
+    // material graph runtime binds exactly `vertexAo` and vertex colour, so a
+    // separate attribute would need every material document rewired to read
+    // it. Both remain independently tunable because each keeps its own base
+    // array — the attribute is only ever the product of the two.
+    const sun = geometry.userData.sunVisibilityBase as Float32Array | undefined;
+    const sunIsUsable = sun !== undefined && sun.length === base.length;
+
     for (let index = 0; index < base.length; index += 1) {
-      const shade = THREE.MathUtils.lerp(
+      const crack = THREE.MathUtils.lerp(
         1,
         base[index] ?? 1,
         this.crackShadowStrength,
       );
+      const daylight = sunIsUsable
+        ? THREE.MathUtils.lerp(1, sun[index] ?? 1, this.sunShadowStrength)
+        : 1;
+      const shade = crack * daylight;
       attribute.setXYZ(index, shade, shade, shade);
     }
 
     attribute.needsUpdate = true;
+  }
+
+  /**
+   * Refines the composed geometry where it is too coarse to hold a baked
+   * sample, then bakes the sun into it.
+   *
+   * Subdivision happens here rather than in the composer because the structure
+   * kernel states its invariants in stones and faces; inflating its face count
+   * for a lighting decision would quietly change what those invariants assert.
+   */
+  private prepareStructureGeometry(
+    source: THREE.BufferGeometry,
+    illumination: IlluminationConfig,
+  ): THREE.BufferGeometry {
+    const refined = subdivideLongEdges(source, SUN_BAKE_MAX_EDGE);
+
+    if (refined.geometry !== source) {
+      source.dispose();
+    }
+
+    this.sunBakeScene = null;
+    this.bakeSun(refined.geometry, illumination);
+    return refined.geometry;
+  }
+
+  /**
+   * Casts the structure and every loaded offering at the sun in one pass.
+   *
+   * They go together because they occlude each other: an offering standing on
+   * the summit is both caster and receiver, and baking them separately would
+   * light each one straight through the other.
+   */
+  private bakeSun(
+    structureGeometry: THREE.BufferGeometry,
+    illumination: IlluminationConfig,
+  ): void {
+    const direction = sunDirectionOf(illumination);
+
+    // The hierarchy outlives a sun move: flattening the triangles and building
+    // it is about as expensive as the tracing, and neither depends on where the
+    // sun is. Only a geometry change invalidates it.
+    if (!this.sunBakeScene) {
+      const targets: SunBakeTarget[] = [{ geometry: structureGeometry }];
+
+      for (const mesh of this.offeringMeshes) {
+        mesh.updateWorldMatrix(true, false);
+        targets.push({ geometry: mesh.geometry, matrixWorld: mesh.matrixWorld });
+      }
+
+      this.sunBakeScene = SunBakeScene.from(targets);
+    }
+
+    const report = this.sunBakeScene.bake({
+      direction,
+      softness: SUN_BAKE_SOFTNESS,
+      samples: SUN_BAKE_SAMPLES,
+    });
+
+    this.sunBakeMs = report.milliseconds;
+    this.bakedSunDirection.copy(direction);
   }
 
   /**

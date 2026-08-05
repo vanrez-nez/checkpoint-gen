@@ -94,6 +94,8 @@ export interface IlluminationConfig {
   ambientIntensity: number;
   ambientOcclusion: number;
   crackShadow: number;
+  /** Weight of the baked sun occlusion. The sun casts no realtime shadow. */
+  sunShadow: number;
 }
 
 export const DEFAULT_ILLUMINATION_CONFIG: Readonly<IlluminationConfig> = {
@@ -106,6 +108,7 @@ export const DEFAULT_ILLUMINATION_CONFIG: Readonly<IlluminationConfig> = {
   ambientIntensity: 0.23,
   ambientOcclusion: 0.75,
   crackShadow: 1,
+  sunShadow: 1,
 };
 
 /**
@@ -332,6 +335,16 @@ export const ILLUMINATION_CONTROLS: readonly ControlSpec<IlluminationConfig>[] =
     key: "crackShadow",
     label: "crack shadow",
     name: "Crack shadow",
+    group: "Illumination",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    scopes: ["illumination"],
+  }),
+  illumination.number({
+    key: "sunShadow",
+    label: "sun shadow",
+    name: "Baked sun shadow",
     group: "Illumination",
     min: 0,
     max: 1,
