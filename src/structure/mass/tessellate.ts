@@ -113,17 +113,19 @@ export function tessellateStructure(
       }
       : null;
 
+    const prepared = preparedStretches(mass, bands);
+
     if (masonry) {
       buildMassShell(builder, bands, {
         rule: masonry,
         seed,
-        preparedStretches: preparedStretches(mass, bands),
+        preparedStretches: prepared,
         crownClaim,
       });
       continue;
     }
 
-    layBareMass(builder, bands, crownClaim);
+    layBareMass(builder, bands, crownClaim, prepared);
   }
 
   // The cell walls own their contact area on the supporting summit surface.
@@ -355,6 +357,7 @@ function layBareMass(
   builder: SolidBuilder,
   bands: readonly ElevationBandRecord[],
   crownClaim: CrownClaim | null,
+  prepared: ReadonlyMap<string, readonly PreparedField[]>,
 ): void {
   for (let index = 0; index < bands.length; index += 1) {
     const band = bands[index];
@@ -367,10 +370,14 @@ function layBareMass(
     const under = bands[index + 1]?.lower ?? null;
 
     for (const [part, stretch] of stretches.entries()) {
+      // A bare elevation is already a plane, so nothing has to be gated — but
+      // the field still needs edges of its own, or the border it was measured
+      // with is a number no face answers to.
       layBareStretch(builder, stretch, {
         isCrown: part === stretches.length - 1,
         under,
         crownClaim,
+        fields: prepared.get(stretch.id),
       });
     }
   }

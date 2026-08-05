@@ -404,11 +404,16 @@ function layPreparedStretch(
         courseIndex += layCourses(builder, slice, {
           seed: masonrySeed(options.seed, `slice_${index}`),
           courseIndex,
-          // A run's top course keeps the outline of its own bed, so it stands
-          // proud of the strip that sits on it. That ledge is real stone in
-          // daylight: suppressing it left a hole all the way round.
-          crowned: false,
-          under: isLast ? options.under : outlineAt(topY),
+          // An interior run's top course keeps the outline of its own bed, so
+          // it stands proud of the strip sitting on it, and that ledge is real
+          // stone in daylight — suppressing it left a hole all the way round.
+          // The last run is different: it is the stretch's own top, and what
+          // covers it is whatever covered the stretch. A moulding's soffit
+          // reaches back over it, so it shows nothing at all there.
+          crowned: isLast ? !options.isCrown : false,
+          under: isLast
+            ? (options.isCrown ? options.under : undefined)
+            : outlineAt(topY),
         });
       },
     );

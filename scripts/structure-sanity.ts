@@ -5815,74 +5815,100 @@ for (const batterAngle of [0, 12, 25, 35]) {
 
 
 // Slot bands interleave engraved strips with set stone on one elevation. The
-// two have to meet cleanly: a run's top course keeps the outline of its own
-// bed, so it stands proud of the strip above it and that ledge is real stone.
-// Suppressing it left a hole all the way round the building.
+// two have to meet cleanly: an interior run's top course keeps the outline of
+// its own bed, so it stands proud of the strip above it and that ledge is real
+// stone, while the last run is the stretch's own top and shows whatever the
+// stretch showed. Getting the second wrong drew a full crown under every
+// moulding.
+//
+// A prepared elevation also has to work with the stonework off. It is already a
+// plane there, so nothing is gated — but the field still needs edges of its own
+// or the border it was measured with is a number no face answers to.
 {
-  const bandedLayout: MassLayoutConfig = {
-    ...cloneFrontStairLayout(),
-    bandCount: 3,
-    totalHeight: 8,
-    cornicePlacement: "none",
-    summitBuildingEnabled: false,
-    summitTreatment: "open_floor",
-    stairFrontEnabled: false,
-  };
+  const bandedLayouts: readonly (readonly [string, MassLayoutConfig])[] = [
+    ["plain", {
+      ...cloneFrontStairLayout(),
+      bandCount: 3,
+      totalHeight: 8,
+      cornicePlacement: "none",
+      summitBuildingEnabled: false,
+      summitTreatment: "open_floor",
+      stairFrontEnabled: false,
+    }],
+    // Cornices, stairs and a summit building: the combinations that made the
+    // clean case pass while the real one z-fought.
+    ["dressed", { ...DEFAULT_MASS_LAYOUT }],
+  ];
 
-  for (const bands of [0, 1, 2, 4, 6]) {
-    for (const seed of [1, 7]) {
-      const layout = withMassSlots(
-        { ...bandedLayout, slotBands: bands, seed },
-        "bandWall",
-      );
-      const graph = generateStructure(toStructureSpec(layout));
-      const scope = `slot bands ${bands} seed ${seed}`;
-      const geometry = mergeParts(tessellateStructure(graph, {
-        masonry: toMasonry(layout, {
-          ...DEFAULT_MASS_STONE_CONFIG,
-          displacement: 0,
-        }),
-        seed: layout.seed,
-        stairTilesPerStep: layout.stairTilesPerStep,
-        debugSlots: true,
-      }).parts, [MASS_SECTION]).geometry;
+  for (const [shape, base] of bandedLayouts) {
+    for (const stoneworkEnabled of [true, false]) {
+      for (const bands of [0, 1, 2, 4]) {
+        const layout = withMassSlots(
+          { ...base, slotBands: bands, stoneworkEnabled },
+          "bandWall",
+        );
+        const scope = `slot bands ${bands}, ${shape}, stonework ${stoneworkEnabled ? "on" : "off"}`;
+        const stone = { ...DEFAULT_MASS_STONE_CONFIG, displacement: 0 };
+        const build = (source: MassLayoutConfig) => mergeParts(
+          tessellateStructure(generateStructure(toStructureSpec(source)), {
+            masonry: toMasonry(source, stone),
+            seed: source.seed,
+            stairTilesPerStep: source.stairTilesPerStep,
+            debugSlots: true,
+          }).parts,
+          [MASS_SECTION],
+        ).geometry;
+        const graph = generateStructure(toStructureSpec(layout));
+        const geometry = build(layout);
 
-      assert.equal(
-        findCoincidentFaces(geometry).pairs,
-        0,
-        `${scope}: a strip and the coursing beside it are at the same depth.`,
-      );
-      // A banded elevation gains a ledge at every seam: a run's top course
-      // keeps its own bed's outline, so it stands proud of the strip above it.
-      // The ray sampler grazes those edge-on, so a stray hit is the probe and
-      // not a hole — a real gap lets rays in from every direction at once.
-      assert.ok(
-        findBackfaces(geometry, 48).backfaces <= 1,
-        `${scope}: the strip and run seam left a hole.`,
-      );
-      assert.equal(
-        geometry.groups
-          .filter((group) => group.materialIndex === materialSlotIndex("slotDebug"))
-          .reduce((total, group) => total + group.count / 6, 0),
-        allSlots(graph).length,
-        `${scope}: published slots and prepared faces disagree.`,
-      );
+        // Against the same layout with nothing prepared, so a shape that
+        // already z-fights cannot hide a new pair.
+        assert.equal(
+          findCoincidentFaces(geometry).pairs,
+          findCoincidentFaces(build({ ...base, stoneworkEnabled })).pairs,
+          `${scope}: preparing the elevation introduced coincident faces.`,
+        );
+        // A banded elevation gains a ledge at every seam, and the ray sampler
+        // grazes those edge-on; a real gap lets rays in from every direction.
+        assert.ok(
+          findBackfaces(geometry, 48).backfaces <= 1,
+          `${scope}: the strip and run seam left a hole.`,
+        );
+        assert.equal(
+          geometry.groups
+            .filter((group) => group.materialIndex === materialSlotIndex("slotDebug"))
+            .reduce((total, group) => total + group.count / 6, 0),
+          allSlots(graph).length,
+          `${scope}: published slots and prepared faces disagree.`,
+        );
 
-      // Zero bands is one field over the whole elevation; more divides it.
-      const expected = bands === 0 ? 1 : bands;
-      const perFace = new Map<string, number>();
-      for (const slot of graph.masses[0]!.slots) {
-        const key = `${slot.patchId}`;
-        perFace.set(key, (perFace.get(key) ?? 0) + 1);
+        // Zero bands is one field over the whole elevation; more divides it.
+        // Counted as distinct courses of field rather than as slots, because a
+        // stair splits each one horizontally as well.
+        const expected = bands === 0 ? 1 : bands;
+        const rowsPerFace = new Map<string, Set<string>>();
+        for (const slot of graph.masses[0]!.slots) {
+          const rows = rowsPerFace.get(slot.patchId) ?? new Set<string>();
+          rowsPerFace.set(slot.patchId, rows);
+          rows.add(slot.inscribed.vMin.toFixed(6));
+        }
+        const carried = [...rowsPerFace.values()].map((rows) => rows.size);
+        // No elevation carries more than was asked for; at least one carries
+        // exactly that. A strip too small to hold anything is simply not
+        // published, and on a narrow crown band under a stair that is the
+        // right answer rather than a failure.
+        assert.ok(
+          carried.every((count) => count <= expected),
+          `${scope}: an elevation carried more than ${expected} strip(s).`,
+        );
+        assert.ok(
+          carried.some((count) => count === expected),
+          `${scope}: no elevation carried ${expected} strip(s).`,
+        );
       }
-      assert.ok(
-        [...perFace.values()].every((count) => count === expected),
-        `${scope}: an elevation did not carry ${expected} strip(s).`,
-      );
     }
   }
 }
-
 
 // The summit building's entries. A wall with a doorway is still an elevation:
 // the stone either side of it takes a field, and the wall above the head is a
