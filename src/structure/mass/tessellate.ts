@@ -12,6 +12,7 @@ import { patchIndex } from "../kernel/graph";
 import type { MasonryRule } from "../kernel/masonry";
 import {
   DEFAULT_DETAIL_LEVEL,
+  DETAIL_PROFILES,
   reduceBevel,
   reduceMasonry,
   reduceStairTiles,
@@ -208,6 +209,7 @@ export function tessellateStructure(
         masonry,
         seed,
         tilesPerStep: stairTilesPerStep,
+        ramp: DETAIL_PROFILES[detail].ramps,
       });
     });
   }

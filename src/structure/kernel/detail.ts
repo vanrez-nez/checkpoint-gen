@@ -51,6 +51,14 @@ export interface DetailProfile {
   /** False lays bare blocks instead of stonework. */
   readonly stonework: boolean;
   /**
+   * True lays a flight as one continuous incline instead of steps.
+   *
+   * Belongs with the masonry reduction rather than beside it: a tread is the
+   * stair's stone, and a level that has stopped laying stones has no business
+   * still cutting risers.
+   */
+  readonly ramps: boolean;
+  /**
    * How much coarser this level's faces are, dimensionless.
    *
    * The scene multiplies its own world-unit edge bound by this before
@@ -83,6 +91,7 @@ export const DETAIL_PROFILES: Readonly<Record<DetailLevel, DetailProfile>> = {
     bevelSegments: Number.POSITIVE_INFINITY,
     stairTileScale: 1,
     stonework: true,
+    ramps: false,
     edgeScale: 1,
     maxRowsPerTier: Number.POSITIVE_INFINITY,
     fragmentationScale: 1,
@@ -97,6 +106,7 @@ export const DETAIL_PROFILES: Readonly<Record<DetailLevel, DetailProfile>> = {
     bevelSegments: 1,
     stairTileScale: 0.4,
     stonework: true,
+    ramps: false,
     edgeScale: 2,
     maxRowsPerTier: 2,
     fragmentationScale: 0.5,
@@ -109,6 +119,7 @@ export const DETAIL_PROFILES: Readonly<Record<DetailLevel, DetailProfile>> = {
     bevelSegments: 0,
     stairTileScale: 0.2,
     stonework: false,
+    ramps: true,
     edgeScale: 4,
     maxRowsPerTier: 1,
     fragmentationScale: 0,

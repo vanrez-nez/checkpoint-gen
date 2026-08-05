@@ -7252,14 +7252,21 @@ function assertAllNormalsFace(
 // structure generated with less spent on it — so the semantic layer must not
 // move, the geometry must stay watertight, and the cost must actually fall.
 
-// `bare` has to land exactly on the path the greybox assertions above already
-// prove, or the level is a new code path wearing a proven one's name.
-const bareByLevel = tessellateStructure(shellGraph, {
+// The bare level's *masonry* has to land exactly on the path the greybox
+// assertions above already prove, or it is a new code path wearing a proven
+// one's name. Compared over a graph with its connectors removed, because the
+// stairs are the one part bare deliberately does build differently — it ramps
+// them, which is asserted separately below.
+const shellGraphWithoutStairs = { ...shellGraph, connectors: [] };
+const bareByLevel = tessellateStructure(shellGraphWithoutStairs, {
   masonry: shellRule,
   seed: 1,
   detail: "bare",
 });
-const bareByNull = tessellateStructure(shellGraph, { masonry: null, seed: 1 });
+const bareByNull = tessellateStructure(shellGraphWithoutStairs, {
+  masonry: null,
+  seed: 1,
+});
 assert.deepEqual(
   Array.from(bareByLevel.parts[0]!.geometry.getIndex()!.array),
   Array.from(bareByNull.parts[0]!.geometry.getIndex()!.array),
@@ -7330,6 +7337,45 @@ for (const { level, result } of byLevel) {
   assert.ok(
     (result.parts[0]?.stoneCount ?? 0) > 0,
     `Detail "${level}" reported no blocks at all.`,
+  );
+}
+
+// A ramp is a stair with the risers taken out, and the test for it is that no
+// horizontal tread survives. At full detail a flight presents a run of upward
+// faces, one per step; at bare every face on the flight's top should be raked,
+// because a single inclined plane is what replaced them.
+const flightGraph = { ...shellGraph, masses: [] };
+
+if (flightGraph.connectors.length > 0) {
+  const upwardFaceCounts = (["full", "bare"] as const).map((level) => {
+    const flight = tessellateStructure(flightGraph, {
+      masonry: shellRule,
+      seed: 1,
+      detail: level,
+    });
+    const geometry = flight.parts[0]!.geometry;
+    const normals = geometry.getAttribute("normal");
+    let flat = 0;
+
+    for (let vertex = 0; vertex < normals.count; vertex += 1) {
+      if (normals.getY(vertex) > 0.999) {
+        flat += 1;
+      }
+    }
+
+    return flat;
+  });
+
+  assert.ok(
+    upwardFaceCounts[0]! > 0,
+    "The stepped flight must present level treads to begin with, or the ramp "
+    + "assertion below proves nothing.",
+  );
+  assert.equal(
+    upwardFaceCounts[1],
+    0,
+    `The bare flight still presents ${upwardFaceCounts[1]} level tread vertices. `
+    + "A ramp has no horizontal surface on it.",
   );
 }
 

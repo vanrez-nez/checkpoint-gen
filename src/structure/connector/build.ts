@@ -46,6 +46,16 @@ export interface StairBuildOptions {
   readonly seed: number;
   /** Exact number of masonry tiles across every tread. */
   readonly tilesPerStep: number;
+  /**
+   * Lays the flight as a continuous incline instead of steps.
+   *
+   * A tread is the smallest thing a stair is made of, and at a massing level it
+   * is below the size anything is being judged at — a flight of twenty steps
+   * spends twenty risers describing a slope that one plane states. The rake is
+   * the same one the steps climb, so the silhouette from any distance is
+   * unchanged; what goes is the serration on it.
+   */
+  readonly ramp: boolean;
 }
 
 const EPS = 1e-9;
@@ -71,7 +81,13 @@ export function buildStair(
   const steps = stairSteps(record);
   const profile = facadeProfile(bands, record);
   const hasParapet = record.parapet !== null;
-  const steppedParapet = record.sideTreatment === "stepped_parapet"
+  // A ramp carries its flanking walls the way the sloped treatment already
+  // does. Leaving them stepped would put a serrated balustrade beside a smooth
+  // incline, which reads as a fault rather than as a simplification — and the
+  // sloped path is the one this structure already uses for exactly this shape,
+  // so nothing new has to be drawn to get it.
+  const rakeParapets = options.ramp && record.parapet !== null;
+  const steppedParapet = !rakeParapets && record.sideTreatment === "stepped_parapet"
     ? record.parapet
     : null;
 
@@ -83,7 +99,11 @@ export function buildStair(
       ? backExposure(profile, record)
       : null;
 
-    layFlightSlice(builder, record, steps, step, bottomY, options, hasParapet, back);
+    if (options.ramp) {
+      layRampSlice(builder, record, step, bottomY, hasParapet, back);
+    } else {
+      layFlightSlice(builder, record, steps, step, bottomY, options, hasParapet, back);
+    }
 
     if (steppedParapet) {
       // The flight is what the caller set the stair material for; its flanking
@@ -108,7 +128,7 @@ export function buildStair(
     });
   }
 
-  if (record.sideTreatment === "sloped_parapet" && record.parapet) {
+  if ((record.sideTreatment === "sloped_parapet" || rakeParapets) && record.parapet) {
     builder.withMaterial("parapet", () => {
       laySlopedParapets(builder, record, steps, profile);
     });
@@ -350,6 +370,77 @@ function laySpan(
       faces,
     );
   }
+}
+
+/**
+ * One slice of a flight laid as a ramp rather than as a step.
+ *
+ * The top is raked from the slice's inner edge down to its outer one, falling
+ * exactly one riser across one tread. Consecutive slices therefore meet at the
+ * shared v with the same elevation on both sides, and the flight reads as a
+ * single unbroken incline rather than as facets that happen to line up.
+ *
+ * The underside is deliberately left alone. It still follows `sliceBottom`, so
+ * burial against the mass profile and back exposure at the head mean exactly
+ * what they mean for the stepped path, and the ramp cannot float off a face the
+ * steps sat on.
+ *
+ * The foot slice's outer edge lands on the ground it starts from, which makes
+ * its front face zero-height — it is not emitted, and the flanking faces there
+ * are the triangles a wedge meeting grade actually has.
+ */
+function layRampSlice(
+  builder: SolidBuilder,
+  record: StairConnectorRecord,
+  step: StairStep,
+  bottomY: number,
+  hasParapet: boolean,
+  back: { readonly lo: number; readonly hi: number } | null,
+): void {
+  const flightRect = localFlightRect(record);
+  const frontTop = Math.max(step.topY - record.riser, bottomY);
+
+  // Conservative on purpose: the back is shown only where the exposed interval
+  // covers the whole slice. A stepped flight cuts itself at the interval's
+  // edges to show exactly the open part, which a raked top cannot do without
+  // splitting the rake as well. Under-showing leaves a face out of a massing
+  // study; over-showing puts one inside the mass, which is the worse of the two.
+  const exposedBack = back !== null
+    && bottomY >= back.lo - EPS
+    && step.topY <= back.hi + EPS;
+
+  builder.addBlock(
+    {
+      bottom: rakedRing(
+        record,
+        flightRect.minX,
+        flightRect.maxX,
+        step.vBack,
+        step.vFront,
+        bottomY,
+        bottomY,
+      ),
+      top: rakedRing(
+        record,
+        flightRect.minX,
+        flightRect.maxX,
+        step.vBack,
+        step.vFront,
+        step.topY,
+        frontTop,
+      ),
+    },
+    {
+      sides: [
+        frontTop > bottomY + EPS,
+        !hasParapet,
+        exposedBack,
+        !hasParapet,
+      ],
+      top: true,
+      bottom: false,
+    },
+  );
 }
 
 /**
