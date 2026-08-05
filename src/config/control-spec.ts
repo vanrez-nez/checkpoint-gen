@@ -15,6 +15,15 @@ export type RebuildScope =
   | "fire"
   | "offering"
   | "material"
+  /**
+   * A slot's engraving changed.
+   *
+   * Its own scope rather than a share of `material`, because that one re-runs
+   * the whole palette — revalidating it and re-resolving every document load —
+   * and dragging a margin should not do that. It rebuilds decals and nothing
+   * else.
+   */
+  | "engraving"
   | "illumination"
   | "view"
   /**

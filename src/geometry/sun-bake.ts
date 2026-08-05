@@ -95,6 +95,28 @@ export class SunBakeScene {
   ): SunBakeReport {
     return traceSun(this.targets, this.bvh, this.reach, this.occluderCount, options, now);
   }
+
+  /**
+   * Lights geometry that was not part of this scene, through this scene's
+   * occluders.
+   *
+   * For receivers that must be shaded by the structure without joining it as
+   * casters — an engraved decal lying a few millimetres proud of the wall it
+   * belongs to is the case this exists for. Adding one as an ordinary target
+   * would put it in the hierarchy, and every ray leaving the stone beneath it
+   * would strike it within a centimetre of travel: the wall would go black
+   * under its own ornament.
+   *
+   * A sibling of `bake` rather than a parameter on it, because that method's
+   * second argument is already its clock.
+   */
+  bakeTargets(
+    targets: readonly SunBakeTarget[],
+    options: SunBakeOptions,
+    now: () => number = () => performance.now(),
+  ): SunBakeReport {
+    return traceSun(targets, this.bvh, this.reach, this.occluderCount, options, now);
+  }
 }
 
 /**

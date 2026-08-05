@@ -1,11 +1,12 @@
 import { controlsFor, validateControls, type ControlSpec } from "../../../config/control-spec";
 import type { StoneConfig } from "../../../config/sections";
+import type { MaterialSurfaceId } from "../../../config/material-palette";
 import type { StairSpec } from "../../connector/stair";
 import { LINEAR_BEZIER, bezierCurve } from "../../kernel/curve";
 import type { StructureGraph } from "../../kernel/graph";
 import { IMPLEMENTED_CORNER_RULES, type CornerRule, type MasonryRule } from "../../kernel/masonry";
 import { createSeedSet } from "../../kernel/seed";
-import { DISABLED_SLOT_FEATURE } from "../../kernel/slot";
+import { DISABLED_SLOT_FEATURE, type SlotRecord } from "../../kernel/slot";
 
 import { generateStructure, type StructureSpec } from "../../mass/generate";
 import { createRectangleFootprint } from "../../mass/footprint";
@@ -64,6 +65,39 @@ export const PILLAR_HALL_SLOT_FEATURE_LABELS: Readonly<
   spanCornice: "Span cornice slots",
   basePanel: "Base panel slots",
   roofFascia: "Roof fascia slots",
+};
+
+/**
+ * Which dressed surface each feature's slots are cut into. A decal is carved
+ * from the same material document as the face carrying it, and this is the
+ * table that says which face that is.
+ */
+export const PILLAR_HALL_SLOT_FEATURE_SURFACES: Readonly<
+  Record<PillarHallSlotFeatureId, MaterialSurfaceId>
+> = {
+  pierPanel: "pierPanel",
+  span: "lintel",
+  spanCornice: "cornice",
+  basePanel: "pedestal",
+  roofFascia: "roof",
+};
+
+/**
+ * How each feature recognises the slots it resolved.
+ *
+ * A pier panel and a decorated base slab are both published under the panel
+ * role, because both are a field framed by proud stone; the member carrying
+ * them is what separates them, and a pier's own sections are named for the
+ * pier rather than for the base.
+ */
+export const PILLAR_HALL_SLOT_FEATURE_MATCHERS: Readonly<
+  Record<PillarHallSlotFeatureId, (slot: SlotRecord) => boolean>
+> = {
+  pierPanel: (slot) => slot.faceRole === "pier_panel" && slot.part !== "base",
+  span: (slot) => slot.faceRole === "lintel",
+  spanCornice: (slot) => slot.faceRole === "cornice",
+  basePanel: (slot) => slot.faceRole === "pier_panel" && slot.part === "base",
+  roofFascia: (slot) => slot.faceRole === "roof_edge",
 };
 
 /**

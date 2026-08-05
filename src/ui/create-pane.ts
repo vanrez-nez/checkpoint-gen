@@ -35,6 +35,7 @@ import {
   createBevelControls,
   createStoneControls,
 } from "../config/sections";
+import { engravingControls } from "../engravings/config";
 import { FIRE_CONTROLS } from "../props/fire/config";
 import { FIRE_BOWL_CONTROLS } from "../props/fire-bowl/config";
 import { OFFERING_CONTROLS } from "../props/offering/config";
@@ -271,6 +272,16 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
         );
       }
     }
+    // Rebuilding decals is also part of a geometry rebuild — the slot table is
+    // republished by it — so `MainScene.rebuild` does that itself. This arm is
+    // only for a change to the choices, which touches no geometry at all.
+    if (scopes.includes("engraving")) {
+      const definition = activeStructure();
+      scene.setStructureEngravings(
+        config.engravings[definition.id] ?? {},
+        definition,
+      );
+    }
     if (scopes.includes("view")) {
       scene.setWireframe(config.view.wireframe);
       scene.setWireframeWidth(config.view.wireframeWidth);
@@ -349,6 +360,37 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
           // then takes the whole folder away when neither holds.
           () => (feature.visibleWhen?.(layout) ?? true)
             && (visibleWhen === undefined || visibleWhen(target)),
+          control.onShow,
+        );
+      }
+
+      // The engraving choice shares the feature's folder rather than opening
+      // one of its own: what a field is and what is carved into it are one
+      // decision, and splitting them across two trees would mean keeping two
+      // lists of features in step by hand.
+      const assignment = config.engravings[definition.id]?.[feature.id];
+
+      if (!assignment) {
+        continue;
+      }
+
+      const engravingBound = bindControls(
+        page,
+        assignment,
+        engravingControls(feature.label),
+        dispatch,
+        folders,
+      );
+
+      for (const control of engravingBound) {
+        const { visibleWhen } = control.spec;
+        visibility.addBlade(
+          control.binding,
+          // A third gate on top of the two above: nothing can be engraved on a
+          // feature whose slots are switched off.
+          () => (feature.visibleWhen?.(layout) ?? true)
+            && target.enabled
+            && (visibleWhen === undefined || visibleWhen(assignment)),
           control.onShow,
         );
       }

@@ -13,7 +13,7 @@ import type { DetailLevel } from "./kernel/detail";
 import type { FireBowlConfig } from "../props/fire-bowl/config";
 import type { PillarConfig } from "../props/pillar/config";
 import type { StructureGraph } from "./kernel/graph";
-import type { SlotFeatureConfig } from "./kernel/slot";
+import type { SlotFeatureConfig, SlotRecord } from "./kernel/slot";
 
 /**
  * Shared props a structure can opt into. The pane shows a prop's controls only
@@ -63,6 +63,32 @@ export interface SlotFeatureSpec<TLayout extends object> {
    * setting that moves nothing, so the feature gets a switch and no more.
    */
   readonly framed?: boolean;
+  /**
+   * The dressed surface the stone under this feature's slots belongs to.
+   *
+   * An engraving is carved into the stone it lies on, so it has to be dressed
+   * from that stone's own material document; one that picks its own reads as a
+   * sticker rather than as carving. Only the family knows which surface it
+   * assigned to the face it prepared — `faceRole` is vocabulary, and two
+   * families are free to dress the same role differently — so the answer is
+   * declared here beside the feature rather than inferred from the slot.
+   */
+  readonly surface: MaterialSurfaceId;
+  /**
+   * Whether a resolved slot came from this feature.
+   *
+   * A `SlotRecord` names the face it was cut from, not the feature that asked
+   * for it — deliberately, because the kernel's vocabulary is about stone and a
+   * feature is about authoring. So the family that resolved the slots is asked
+   * to recognise its own, which is knowledge it already has: every resolver
+   * above branches on exactly this to pick which settings to apply.
+   *
+   * A predicate that claims nothing leaves that feature unengraved, and one
+   * that claims another feature's slots engraves them twice. `npm test` asserts
+   * that every published slot is claimed by at most one feature, so neither
+   * stays quiet for long.
+   */
+  matches(slot: SlotRecord): boolean;
   /**
    * Whether this layout can resolve the feature at all.
    *
@@ -241,6 +267,21 @@ function validateControlTabs<TLayout extends object>(
     (definition.slotFeatures ?? []).map((feature) => feature.id),
     `${definition.id}: slot feature ids`,
   );
+
+  // A feature that engraves a surface this structure never dresses would put
+  // its decals on whichever material the fallback happened to be, which reads
+  // as a texturing bug rather than as the declaration error it is. Catching it
+  // here makes it a module-load failure, and so a test failure.
+  const dressed = new Set(definition.materialSurfaces ?? ["stone"]);
+
+  for (const feature of definition.slotFeatures ?? []) {
+    if (!dressed.has(feature.surface)) {
+      throw new Error(
+        `${definition.id}: slot feature "${feature.id}" engraves the `
+        + `"${feature.surface}" surface, which this structure does not dress.`,
+      );
+    }
+  }
 
   // A feature's label is a layout group like any other, so the same bijection
   // catches a features folder nobody put on a tab.

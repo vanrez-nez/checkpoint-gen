@@ -1,9 +1,10 @@
-import type { SlotFeatureConfig } from "../../kernel/slot";
+import type { SlotFeatureConfig, SlotRecord } from "../../kernel/slot";
 import {
   controlsFor,
   validateControls,
   type ControlSpec,
 } from "../../../config/control-spec";
+import type { MaterialSurfaceId } from "../../../config/material-palette";
 import { StructureGraphBuilder, type StructureGraph } from "../../kernel/graph";
 import { createSeedSet } from "../../kernel/seed";
 import { resolveStela } from "./resolve";
@@ -113,6 +114,41 @@ export const STELA_SLOT_FEATURE_LABELS: Readonly<
   returnRibbon: "Return ribbon slots",
   crownFace: "Crown slots",
   baseFace: "Base slots",
+};
+
+/**
+ * Which dressed surface each feature's slots are cut into. A decal is carved
+ * from the same material document as the face carrying it, and this is the
+ * table that says which face that is. Both ribbons run over the monolith
+ * itself rather than over a member of their own, so both name the body.
+ */
+export const STELA_SLOT_FEATURE_SURFACES: Readonly<
+  Record<StelaSlotFeatureId, MaterialSurfaceId>
+> = {
+  bayField: "stelaField",
+  bandRibbon: "stelaBody",
+  returnRibbon: "stelaBody",
+  crownFace: "stelaCrown",
+  baseFace: "pedestal",
+};
+
+/**
+ * How each feature recognises the slots it resolved.
+ *
+ * A stela's slot kinds are almost a partition on their own. The exception is
+ * the two ribbons, which are the same kind on the same part and differ only in
+ * where they run: one wraps the monolith and one returns down a single face.
+ * Both already say which in their tags, because that distinction is what a
+ * reader following a band round the stone needs.
+ */
+export const STELA_SLOT_FEATURE_MATCHERS: Readonly<
+  Record<StelaSlotFeatureId, (slot: SlotRecord) => boolean>
+> = {
+  bayField: (slot) => slot.kind === "field" && slot.part === "body",
+  bandRibbon: (slot) => slot.kind === "ribbon" && slot.tags.includes("wrapping"),
+  returnRibbon: (slot) => slot.kind === "ribbon" && slot.tags.includes("return"),
+  crownFace: (slot) => slot.kind === "crown_face",
+  baseFace: (slot) => slot.kind === "base_face",
 };
 
 /** Only the register field is framed; the rest take a switch and no border. */

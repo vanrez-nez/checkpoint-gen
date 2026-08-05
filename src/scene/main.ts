@@ -22,6 +22,14 @@ import {
   migrateMaterialDocument,
   type MaterialGraphDocument,
 } from "material-designer-runtime";
+import { buildEngravingDecalBatches } from "../engravings/build";
+import type { StructureEngravings } from "../engravings/config";
+import {
+  buildEngravingDecalMaterial,
+  disposeEngravingDecalMaterial,
+} from "../engravings/decal-material";
+import { EngravingMapCache } from "../engravings/map-cache";
+import { MoistureNoiseTextureResource } from "../engravings/moisture-noise";
 import { subdivideLongEdges } from "../geometry/subdivide";
 import { SunBakeScene, type SunBakeTarget } from "../geometry/sun-bake";
 import { StructureComposer } from "../structure/composer";
@@ -31,6 +39,7 @@ import {
   type DetailLevel,
 } from "../structure/kernel/detail";
 import { createPatchOverlay, type PatchOverlay } from "../structure/kernel/debug-overlay";
+import type { SlotFeatureSpec, StructureDefinition } from "../structure/definition";
 import type { StructureGraph } from "../structure/kernel/graph";
 import type { Diagnostic } from "../structure/kernel/validate";
 import type { StructureConfig } from "../config/structure-config";
@@ -199,6 +208,28 @@ export class MainScene {
   private readonly offeringMeshes: THREE.Mesh[] = [];
   private vertexNormalsVisible = false;
   private greyboxEnabled = false;
+  /**
+   * Engraved decals, and everything they are derived from.
+   *
+   * They hang off a group of their own rather than joining the merged mesh
+   * because they are dressing: a decal is built from the published slot table
+   * and disposed on the next rebuild, and nothing about the structure's own
+   * geometry, its material slots or its baked channels has to know they exist.
+   */
+  private readonly engravingRoot = new THREE.Group();
+  private readonly engravingMaps = new EngravingMapCache();
+  private readonly moistureNoise = new MoistureNoiseTextureResource();
+  private engravingMeshes: THREE.Mesh[] = [];
+  private activeEngravings: StructureEngravings = {};
+  private activeSlotFeatures: readonly SlotFeatureSpec<object>[] = [];
+  /**
+   * Which decal build is current.
+   *
+   * Map derivation runs on a worker and takes up to a second or two, so a user
+   * dragging through a dropdown can start several builds before the first
+   * lands. Only the newest may reach the scene.
+   */
+  private engravingBuildToken = 0;
   private patchDebugVisible = false;
   private patchOverlay: PatchOverlay | null = null;
   private graph: StructureGraph | null = null;
@@ -338,6 +369,11 @@ export class MainScene {
     this.activeMaterialSurfaces = new Set(
       definition.materialSurfaces ?? ["stone"],
     );
+    // Seeded here so a structure restored from a geometry code comes up
+    // engraved rather than waiting for the first control change. The decals
+    // themselves are built once the first material document has loaded.
+    this.activeEngravings = config.engravings[definition.id] ?? {};
+    this.activeSlotFeatures = definition.slotFeatures ?? [];
 
     const composition = this.composer.build(config);
     this.anchors = composition.anchors;
@@ -363,7 +399,8 @@ export class MainScene {
     // Still a receiver: the fire glow lights stay realtime, because they
     // flicker and their casters move. Only the sun's contribution is baked.
     this.structure.receiveShadow = true;
-    this.scene.add(this.structure, this.fireBatch.object);
+    this.engravingRoot.name = "Engraving decals";
+    this.scene.add(this.structure, this.engravingRoot, this.fireBatch.object);
     this.applyFireEffects(config.fire);
 
     this.sunLight = new THREE.DirectionalLight();
@@ -450,6 +487,11 @@ export class MainScene {
       }
     });
     this.refreshSurfaceMaterials();
+    // Unconditionally, not only when a document had to be fetched: switching a
+    // surface to a document already in the cache loads nothing, so the rebuild
+    // hook on the loader never fires and the decals would keep wearing the
+    // stone they were built against.
+    this.rebuildEngravingDecals();
   }
 
   async loadOffering(modelUrl: string, decoderPath: string): Promise<void> {
@@ -566,9 +608,36 @@ export class MainScene {
     this.updateOfferingTransform();
     this.refreshOfferingPresentation();
     this.applyFireEffects(config.fire);
+    // Re-read here rather than only on an engraving change, because switching
+    // structure type comes through this path and brings a different family's
+    // features with it.
+    const engraved = getStructure(config.typeId);
+    this.activeEngravings = config.engravings[engraved.id] ?? {};
+    this.activeSlotFeatures = engraved.slotFeatures ?? [];
+    // The slot table is republished by every build, so the decals standing on
+    // it are stale the moment the graph is replaced. Rebuilt asynchronously,
+    // because deriving an engraving's maps takes far longer than a frame and
+    // `rebuild` is read for its stats the moment it returns.
+    this.rebuildEngravingDecals();
     previousGeometry.dispose();
 
     return this.getStats();
+  }
+
+  /**
+   * Changes which engraving each slot-bearing feature carries.
+   *
+   * Geometry is untouched: a decal is derived from the published slot table,
+   * so choosing a different motif costs a quad and a node graph rather than a
+   * regeneration.
+   */
+  setStructureEngravings(
+    engravings: StructureEngravings,
+    definition: StructureDefinition,
+  ): void {
+    this.activeEngravings = engravings;
+    this.activeSlotFeatures = definition.slotFeatures ?? [];
+    this.rebuildEngravingDecals();
   }
 
   /** Retunes flames and glow lights without touching geometry. */
@@ -634,6 +703,7 @@ export class MainScene {
   setWireframe(enabled: boolean): void {
     this.wireframeVisible = enabled;
     this.structure.visible = !enabled;
+    this.refreshEngravingVisibility();
     this.fireBatch.setSceneVisible(!enabled);
     this.refreshOfferingPresentation();
 
@@ -711,6 +781,11 @@ export class MainScene {
       this.applyAmbientOcclusion(mesh.geometry);
       this.applyBakedShadow(mesh.geometry);
     }
+
+    // Decals follow the sun with the stone. Their own bake is cheap enough to
+    // redo unconditionally, and skipping it would leave an engraving lit from
+    // an angle the wall around it has already moved off.
+    this.bakeEngravingShading();
   }
 
   update(deltaTime: number): void {
@@ -758,6 +833,10 @@ export class MainScene {
     this.structure.geometry.dispose();
     this.invalidateWireframe();
     this.wireframeMaterial.dispose();
+    this.disposeEngravingDecals();
+    // Terminates the map worker and releases every derived texture it uploaded.
+    this.engravingMaps.dispose();
+    this.moistureNoise.dispose();
     this.disposeVertexNormalsHelper();
     this.composer.dispose();
     this.sunShadow.dispose();
@@ -935,6 +1014,13 @@ export class MainScene {
   private refreshTextureScales(): void {
     this.applySurfaceTextureScales(this.structure.geometry);
 
+    // A decal reads the material channels at its host's own density, or the
+    // stone would change grain across the edge of the engraving.
+    for (const mesh of this.engravingMeshes) {
+      const surface = mesh.userData.engravingSurface as MaterialSurfaceId;
+      this.applyTextureScale(mesh.geometry, () => this.textureScaleFor(surface));
+    }
+
     const offeringScale = this.textureScaleFor("offering");
 
     for (const mesh of this.offeringMeshes) {
@@ -984,7 +1070,193 @@ export class MainScene {
       ? MATERIAL_SLOTS.map((slot) =>
         slot === "slotDebug" ? this.slotDebugMaterial : this.greyboxMaterial)
       : MATERIAL_SLOTS.map((slot) => this.surfaceMaterial(slot));
+    this.refreshEngravingVisibility();
     this.refreshOfferingPresentation();
+  }
+
+  /**
+   * Rebuilds every engraved decal from the current graph and assignments.
+   *
+   * Placement is synchronous and cheap — it reads the slot table and produces
+   * quads — while deriving an engraving's maps is neither, so the two are split
+   * either side of one await. A build that finishes after a newer one started
+   * throws its geometry away rather than displacing it.
+   */
+  private async refreshEngravingDecals(): Promise<void> {
+    const token = ++this.engravingBuildToken;
+    const batches = buildEngravingDecalBatches(
+      this.graph,
+      this.activeSlotFeatures,
+      this.activeEngravings,
+    );
+
+    if (batches.length === 0) {
+      return;
+    }
+
+    const textures = await Promise.allSettled(
+      batches.map((batch) => this.engravingMaps.ensure(batch.layer)),
+    );
+
+    if (token !== this.engravingBuildToken) {
+      for (const batch of batches) {
+        batch.geometry.dispose();
+      }
+
+      return;
+    }
+
+    batches.forEach((batch, index) => {
+      const derived = textures[index];
+
+      if (derived?.status !== "fulfilled") {
+        console.error(
+          `Engraving "${batch.layer.id}" could not be derived; `
+          + "its slots stay bare.",
+          derived?.status === "rejected" ? derived.reason : undefined,
+        );
+        batch.geometry.dispose();
+        return;
+      }
+
+      const runtime = this.structureMaterialRuntimes.get(
+        this.activeMaterialPalette[batch.hostSurface].document,
+      );
+
+      if (!runtime) {
+        // The host's document has not finished loading. Its `onRebuilt` hook
+        // brings the decals back the moment it does, so this is a wait rather
+        // than a failure.
+        batch.geometry.dispose();
+        return;
+      }
+
+      const mesh = new THREE.Mesh(
+        batch.geometry,
+        buildEngravingDecalMaterial({
+          runtime,
+          textures: derived.value,
+          moistureNoise: this.moistureNoise.get(),
+          aoIntensity: this.engravingSetting(batch.hostSurface, "aoIntensity"),
+          normalStrength: this.engravingSetting(batch.hostSurface, "normalStrength"),
+          moistureLevel: batch.layer.moisture,
+          aspect: batch.layer.width / batch.layer.height,
+        }),
+      );
+      mesh.name = `Engraving ${batch.layer.id} on ${batch.hostSurface}`;
+      mesh.userData.engravingSurface = batch.hostSurface;
+      // A quad standing six millimetres proud of its own host must not cast a
+      // realtime shadow onto it: that reads as a hairline seam round the decal
+      // under a raking sun. It still receives, and its sun term is baked.
+      mesh.castShadow = false;
+      mesh.receiveShadow = true;
+      // The opaque sort is by bounding-sphere distance, which says nothing
+      // useful between one decal batch and the whole structure.
+      mesh.renderOrder = 1;
+      this.applyTextureScale(
+        batch.geometry,
+        () => this.textureScaleFor(batch.hostSurface),
+      );
+      this.engravingMeshes.push(mesh);
+      this.engravingRoot.add(mesh);
+    });
+
+    this.bakeEngravingShading();
+    this.refreshEngravingVisibility();
+  }
+
+  /**
+   * Lights the decals with the same sun that lit the stone under them.
+   *
+   * Without this a decal is a bright patch on a wall the sun never reached, and
+   * a shadow crossing an engraved elevation stops dead at the engraving. They
+   * are traced through the structure's existing hierarchy as receivers only —
+   * see `SunBakeScene.bakeTargets` for why they must not join it as casters.
+   */
+  private bakeEngravingShading(): void {
+    if (this.engravingMeshes.length === 0) {
+      return;
+    }
+
+    const targets: SunBakeTarget[] = this.engravingMeshes.map((mesh) => ({
+      geometry: mesh.geometry,
+    }));
+
+    // Four vertices a quad against a hierarchy that already exists, so this is
+    // a rounding error beside the structure's own bake.
+    this.sunBakeScene?.bakeTargets(targets, {
+      direction: this.bakedSunDirection,
+      softness: SUN_BAKE_SOFTNESS,
+      samples: SUN_BAKE_SAMPLES,
+    });
+
+    for (const mesh of this.engravingMeshes) {
+      this.applyAmbientOcclusion(mesh.geometry);
+      this.applyBakedShadow(mesh.geometry);
+    }
+  }
+
+  /**
+   * One assignment's shading strength, for the features on a given surface.
+   *
+   * Decals are batched by engraving and host surface rather than by feature, so
+   * two features sharing both share a mesh and therefore a material. They agree
+   * on everything the material needs except these two numbers, and the stronger
+   * reading is the one that was asked for.
+   */
+  private engravingSetting(
+    surface: MaterialSurfaceId,
+    key: "aoIntensity" | "normalStrength",
+  ): number {
+    let strongest = 0;
+
+    for (const feature of this.activeSlotFeatures) {
+      if (feature.surface !== surface) {
+        continue;
+      }
+
+      strongest = Math.max(
+        strongest,
+        this.activeEngravings[feature.id]?.[key] ?? 0,
+      );
+    }
+
+    return strongest;
+  }
+
+  /**
+   * Drops every decal and starts building them again.
+   *
+   * The single entry point for all four reasons a decal can go stale: the graph
+   * was rebuilt, the choices changed, the palette changed, or a material
+   * document finished baking and handed back new channel textures. Cheap to
+   * call repeatedly — the derived maps are cached, and the build token makes
+   * overlapping calls resolve to the newest.
+   */
+  private rebuildEngravingDecals(): void {
+    this.disposeEngravingDecals();
+    void this.refreshEngravingDecals();
+  }
+
+  /**
+   * Greybox exists so massing can be judged on silhouette and proportion, and
+   * an engraving is the most flattering thing that could be on a surface — a
+   * greybox that keeps it is not a greybox. The slot debug tint is the
+   * opposite: watching a decal land inside the reddened quad is exactly the
+   * check that tint exists for, so it stays.
+   */
+  private refreshEngravingVisibility(): void {
+    this.engravingRoot.visible = !this.greyboxEnabled && !this.wireframeVisible;
+  }
+
+  private disposeEngravingDecals(): void {
+    for (const mesh of this.engravingMeshes) {
+      mesh.removeFromParent();
+      mesh.geometry.dispose();
+      disposeEngravingDecalMaterial(mesh.material as THREE.Material);
+    }
+
+    this.engravingMeshes = [];
   }
 
   private rebuildPatchOverlay(): void {
@@ -1086,6 +1358,10 @@ export class MainScene {
     material.needsUpdate = true;
     this.structureSurfaceMaterials.set(id, material);
     this.refreshSurfaceMaterials();
+    // A rebake hands back new channel textures, and a TSL `texture()` node
+    // captured the old objects. Decal materials read those channels directly,
+    // so they have to be composed again against the new ones.
+    this.rebuildEngravingDecals();
   }
 
   private ensureWireframe(): Wireframe {

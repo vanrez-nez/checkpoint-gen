@@ -7,6 +7,8 @@ import {
   applyStructureHash,
   encodeStructureHash,
 } from "./config/structure-hash";
+import { setEngravingCatalog } from "./engravings/catalog";
+import { loadEngravingCatalog } from "./engravings/document";
 import { MainScene } from "./scene/main";
 import { createControlPane } from "./ui/create-pane";
 import { getStructure } from "./structure/registry";
@@ -112,6 +114,19 @@ await mainScene.loadStructureMaterialPalette(
   activePalette,
   activeDefinition.materialSurfaces ?? ["stone"],
 );
+
+// Before the pane is built, because the engraving dropdowns are populated from
+// what the project actually carries. A failure here leaves an empty catalog and
+// every slot offering nothing but "None", which is a state the user can see and
+// the console explains — the alternative is a pane that cannot be built at all.
+try {
+  setEngravingCatalog(await loadEngravingCatalog());
+} catch (error) {
+  console.error(
+    "The engraving catalog failed to load; slots stay bare.",
+    error,
+  );
+}
 
 try {
   await mainScene.loadOffering(

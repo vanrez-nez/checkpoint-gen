@@ -9,6 +9,8 @@ import {
   PILLAR_HALL_LAYOUT_CONTROLS,
   PILLAR_HALL_SLOT_FEATURE_IDS,
   PILLAR_HALL_SLOT_FEATURE_LABELS,
+  PILLAR_HALL_SLOT_FEATURE_MATCHERS,
+  PILLAR_HALL_SLOT_FEATURE_SURFACES,
   clonePillarHallLayout,
   resolvePillarHallGraph,
   toPillarHallMasonry,
@@ -69,6 +71,8 @@ export const pillarHallStructure = defineStructure<PillarHallLayoutConfig>({
   slotFeatures: PILLAR_HALL_SLOT_FEATURE_IDS.map((id) => ({
     id,
     label: PILLAR_HALL_SLOT_FEATURE_LABELS[id],
+    surface: PILLAR_HALL_SLOT_FEATURE_SURFACES[id],
+    matches: PILLAR_HALL_SLOT_FEATURE_MATCHERS[id],
     framed: PILLAR_HALL_FRAMED_SLOT_FEATURES[id],
     // A decorated base belongs to the Linear Screen and a roof to the Front
     // Gallery; neither resolves anywhere else, so neither is offered there.

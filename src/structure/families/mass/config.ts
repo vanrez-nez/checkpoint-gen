@@ -4,6 +4,7 @@ import {
   type BezierValue,
   type ControlSpec,
 } from "../../../config/control-spec";
+import type { MaterialSurfaceId } from "../../../config/material-palette";
 import type { StoneConfig } from "../../../config/sections";
 import {
   IMPLEMENTED_CORNER_RULES,
@@ -11,6 +12,7 @@ import {
   type MasonryRule,
 } from "../../kernel/masonry";
 import type { StructureGraph } from "../../kernel/graph";
+import type { SlotRecord } from "../../kernel/slot";
 import {
   CURVE_SHAPES,
   LINEAR_BEZIER,
@@ -183,6 +185,49 @@ export const MASS_SLOT_FEATURE_LABELS: Readonly<
   summitWall: "Summit wall slots",
   summitRoofFascia: "Roof fascia slots",
   summitRoofCornice: "Roof cornice slots",
+};
+
+/**
+ * Which dressed surface each feature's slots are cut into.
+ *
+ * Read off the tessellator rather than guessed at: an elevation stretch is laid
+ * as `cornice` when it is labelled one and as `stone` otherwise, a summit cell
+ * is laid as `summit`, and a roof as `roof` with its own moulding handed back
+ * to `cornice`. An engraving has to be carved from the same stone as the face
+ * carrying it, so this is what a decal's material is resolved through.
+ */
+export const MASS_SLOT_FEATURE_SURFACES: Readonly<
+  Record<MassSlotFeatureId, MaterialSurfaceId>
+> = {
+  plinth: "stone",
+  bandWall: "stone",
+  bandCornice: "cornice",
+  summitWall: "summit",
+  summitRoofFascia: "roof",
+  summitRoofCornice: "cornice",
+};
+
+/**
+ * How each feature recognises the slots it resolved.
+ *
+ * A mass publishes its slots from three resolvers, and between them `part` and
+ * `faceRole` already say everything a feature needs: an elevation slot is
+ * `base` below the first band and `body` or `crown` above it, a moulding is
+ * whichever of those carries the `cornice` role, a summit cell wall is `cell`,
+ * and the roof's two rings are `roof` split by slab against cornice.
+ */
+export const MASS_SLOT_FEATURE_MATCHERS: Readonly<
+  Record<MassSlotFeatureId, (slot: SlotRecord) => boolean>
+> = {
+  plinth: (slot) => slot.part === "base" && slot.faceRole !== "cornice",
+  bandWall: (slot) =>
+    (slot.part === "body" || slot.part === "crown") && slot.faceRole !== "cornice",
+  // Guarded against the roof's own moulding, which shares the role and is told
+  // apart by the member carrying it.
+  bandCornice: (slot) => slot.faceRole === "cornice" && slot.part !== "roof",
+  summitWall: (slot) => slot.part === "cell",
+  summitRoofFascia: (slot) => slot.part === "roof" && slot.faceRole === "slab",
+  summitRoofCornice: (slot) => slot.part === "roof" && slot.faceRole === "cornice",
 };
 
 /** Nothing is prepared until it is asked for; the borders are a starting point. */

@@ -1,3 +1,8 @@
+import {
+  cloneStructureEngravings,
+  validateStructureEngravings,
+  type StructureEngravings,
+} from "../engravings/config";
 import type { PartSection } from "../geometry/part";
 import type { StructureDefinition } from "../structure/definition";
 import {
@@ -76,6 +81,8 @@ export interface StructureConfig {
   stones: Record<string, StoneConfig>;
   bevels: Record<string, BevelConfig>;
   materialPalettes: Record<string, StructureMaterialPalette>;
+  /** Which engraving each slot-bearing feature carries, keyed by structure. */
+  engravings: Record<string, StructureEngravings>;
   pillar: PillarConfig;
   fireBowl: FireBowlConfig;
   fire: FireConfig;
@@ -89,6 +96,7 @@ export function createDefaultStructureConfig(): StructureConfig {
   const stones: Record<string, StoneConfig> = {};
   const bevels: Record<string, BevelConfig> = {};
   const materialPalettes: Record<string, StructureMaterialPalette> = {};
+  const engravings: Record<string, StructureEngravings> = {};
 
   // Every registered structure gets its live layout up front, so the pane can
   // bind all of them once. Surface objects follow the same rule, allowing one
@@ -104,6 +112,9 @@ export function createDefaultStructureConfig(): StructureConfig {
     materialPalettes[definition.id] = cloneMaterialPalette(
       definition.defaultMaterialPalette ?? DEFAULT_STRUCTURE_MATERIAL_PALETTE,
     );
+    // A structure with no slot-bearing features gets an empty record rather
+    // than no record, so every reader can index without a presence check.
+    engravings[definition.id] = cloneStructureEngravings(definition);
   }
 
   return {
@@ -112,6 +123,7 @@ export function createDefaultStructureConfig(): StructureConfig {
     stones,
     bevels,
     materialPalettes,
+    engravings,
     pillar: clonePillarConfig(DEFAULT_PILLAR_CONFIG),
     fireBowl: cloneFireBowlConfig(DEFAULT_FIRE_BOWL_CONFIG),
     fire: cloneFireConfig(DEFAULT_FIRE_CONFIG),
@@ -196,6 +208,10 @@ export function validateActiveStructureConfig(config: StructureConfig): void {
   }
 
   validateMaterialPalette(palette);
+  // Deliberately here rather than in the geometry validator below: an engraving
+  // dresses a slot without changing the stone it is cut into, so it must never
+  // become part of whether a structure is encodable.
+  validateStructureEngravings(definition, config.engravings[definition.id] ?? {});
   validateIlluminationConfig(config.illumination);
   validateViewConfig(config.view);
 }
@@ -270,6 +286,10 @@ export const SECTIONS_BY_SCOPE: Readonly<Record<RebuildScope, readonly PartSecti
   fire: [],
   offering: [],
   material: [],
+  // Invalidates nothing, like `material`: a decal is built from the published
+  // slot table rather than from the mesh, so changing one never makes any part
+  // of the structure stale.
+  engraving: [],
   illumination: [],
   // Invalidates nothing: a level change does not make any section stale, it
   // asks for the same sections somewhere else. The composer works out what is
