@@ -88,6 +88,10 @@ import { SolidBuilder } from "../src/geometry/solid-builder";
 import { TriangleBvh } from "../src/geometry/bvh";
 import { subdivideLongEdges } from "../src/geometry/subdivide";
 import {
+  overlappingTerminals,
+  summitTerminalCaps,
+} from "../src/structure/connector/terminal";
+import {
   DETAIL_LEVELS,
   DETAIL_PROFILES,
   type DetailLevel,
@@ -334,9 +338,32 @@ const massBowlSlots = resolveMassFireBowlSlots(
   slottedMassGraph,
   slottedMassConfig.fireBowl,
 );
-assert.equal(massBowlSlots.length, slottedMassGraph.connectors.length * 4);
-assert.equal(massBowlSlots.filter((slot) => slot.level === "bottom").length, 8);
-assert.equal(massBowlSlots.filter((slot) => slot.level === "top").length, 8);
+// The foot of every flight keeps both of its own slots: the flights diverge on
+// the way down, so nothing there can collide.
+assert.equal(
+  massBowlSlots.filter((slot) => slot.level === "bottom").length,
+  slottedMassGraph.connectors.length * 2,
+);
+
+// The summit is where they converge. At this layout every adjacent pair of
+// parapet caps overlaps, and each overlap is one pier carrying one bowl — so
+// the count is stated against the collisions rather than against the stairs.
+const massTerminalOverlaps = overlappingTerminals(
+  slottedMassGraph.connectors.flatMap(summitTerminalCaps),
+).length;
+assert.ok(
+  massTerminalOverlaps > 0,
+  "The default mass summit is expected to collide its terminals; if that has "
+  + "changed, this assertion is measuring the wrong thing rather than passing.",
+);
+assert.equal(
+  massBowlSlots.filter((slot) => slot.level === "top").length,
+  massTerminalOverlaps,
+);
+assert.equal(
+  massBowlSlots.length,
+  slottedMassGraph.connectors.length * 2 + massTerminalOverlaps,
+);
 for (const slot of massBowlSlots) {
   const connector = slottedMassGraph.connectors.find((entry) => entry.id === slot.connectorId)!;
   const parapet = connector.parapet!;
@@ -344,8 +371,19 @@ for (const slot of massBowlSlots) {
   const expectedWidth = parapet.width + parapet.cornice!.projection * 2;
   assert.ok(Math.abs(slot.availableWidth - expectedWidth) < 1e-9);
   assert.equal(slot.bowlScale, Math.min(slottedMassConfig.fireBowl.scale, MAX_FIRE_BOWL_SLOT_FILL));
-  assert.equal(slot.outwardX, outward.x);
-  assert.equal(slot.outwardZ, outward.z);
+
+  if (slot.merged) {
+    // A merged pier stands on a corner and belongs to neither flight, so it
+    // faces their bisector. Only its being a direction at all is checkable
+    // here; which direction is the merge's business.
+    assert.ok(
+      Math.abs(Math.hypot(slot.outwardX, slot.outwardZ) - 1) < 1e-9,
+      `Merged slot ${slot.id} does not carry a unit outward direction.`,
+    );
+  } else {
+    assert.equal(slot.outwardX, outward.x);
+    assert.equal(slot.outwardZ, outward.z);
+  }
   const bowl = createFireBowlGeometry(
     { ...slottedMassConfig.fireBowl, scale: slot.bowlScale },
     slot.referenceWidth,
@@ -353,15 +391,21 @@ for (const slot of massBowlSlots) {
   const bounds = bowl.geometry.boundingBox!;
   assert.ok(bounds.max.x - bounds.min.x <= slot.availableWidth * MAX_FIRE_BOWL_SLOT_FILL + 1e-6);
   assert.ok(bounds.max.z - bounds.min.z <= slot.availableWidth * MAX_FIRE_BOWL_SLOT_FILL + 1e-6);
-  const local = stairWorldToLocal(connector, slot);
-  assert.ok(Math.abs(
-    Math.abs(local.u) - (connector.width * 0.5 + parapet.width * 0.5)
-  ) < 1e-9);
-  assert.ok(Math.abs(
-    local.v - (slot.level === "bottom"
-      ? connector.run + expectedWidth * 0.5
-      : -expectedWidth * 0.5)
-  ) < 1e-9);
+  // Position is checked against the owning flight's own terminal, which only
+  // means anything for a slot that stands on one. A merged pier sits where two
+  // caps overlap and is verified against both of them in detail-sanity instead.
+  if (!slot.merged) {
+    const local = stairWorldToLocal(connector, slot);
+    assert.ok(Math.abs(
+      Math.abs(local.u) - (connector.width * 0.5 + parapet.width * 0.5)
+    ) < 1e-9);
+    assert.ok(Math.abs(
+      local.v - (slot.level === "bottom"
+        ? connector.run + expectedWidth * 0.5
+        : -expectedWidth * 0.5)
+    ) < 1e-9);
+  }
+
   assert.ok(Math.abs(
     slot.y - (slot.level === "bottom"
       ? connector.bottomY + parapet.height
@@ -371,14 +415,34 @@ for (const slot of massBowlSlots) {
 }
 
 const slottedMassComposition = new StructureComposer().build(slottedMassConfig);
-assert.equal(slottedMassComposition.sections.fireBowls.partCount, 16);
-assert.equal(slottedMassComposition.anchors.flames.length, 16);
-assert.equal(slottedMassComposition.anchors.glows.length, 8);
+// One bowl per slot, merged piers included, so the composition follows the
+// slot table rather than a count of stairs.
+assert.equal(slottedMassComposition.sections.fireBowls.partCount, massBowlSlots.length);
+assert.equal(slottedMassComposition.anchors.flames.length, massBowlSlots.length);
+// A glow still lights each terminal: one between the pair at every foot, and
+// one on each merged summit pier — which is why the total is unchanged by the
+// merge even though the bowl count fell.
+assert.equal(
+  slottedMassComposition.anchors.glows.length,
+  slottedMassGraph.connectors.length + massTerminalOverlaps,
+);
 for (const glow of slottedMassComposition.anchors.glows) {
   const pair = massBowlSlots.filter(
-    (slot) => `${slot.connectorId}/${slot.level}/fire_glow` === glow.label,
+    (slot) => (slot.merged
+      ? `${slot.id}/fire_glow`
+      : `${slot.connectorId}/${slot.level}/fire_glow`) === glow.label,
   );
-  assert.equal(pair.length, 2);
+  assert.ok(
+    pair.length === 2 || (pair.length === 1 && pair[0]!.merged),
+    `Glow ${glow.label} lights ${pair.length} bowls; only a merged pier may light one.`,
+  );
+
+  if (pair.length === 1) {
+    assert.ok(Math.abs(glow.x - pair[0]!.x) < 1e-9);
+    assert.ok(Math.abs(glow.z - pair[0]!.z) < 1e-9);
+    continue;
+  }
+
   assert.ok(Math.abs(glow.x - (pair[0]!.x + pair[1]!.x) * 0.5) < 1e-9);
   assert.ok(Math.abs(glow.y - (pair[0]!.y + pair[1]!.y) * 0.5) < 1e-9);
   assert.ok(Math.abs(glow.z - (pair[0]!.z + pair[1]!.z) * 0.5) < 1e-9);
@@ -2261,11 +2325,16 @@ assert.equal(independentFireStats.flames.triangleCount, 6_016);
 assert.equal(independentFireStats.glowLightCount, 4);
 
 const massFireStats = scene.rebuild(slottedMassConfig);
-assert.equal(massFireStats.flames.count, 16);
-assert.equal(massFireStats.glowLightCount, 8);
+// Twelve rather than sixteen: the four summit terminal collisions each carry a
+// single bowl on the merged pier instead of two a few centimetres apart.
+assert.equal(massFireStats.flames.count, massBowlSlots.length);
+assert.equal(
+  massFireStats.glowLightCount,
+  slottedMassGraph.connectors.length + massTerminalOverlaps,
+);
 assert.equal(
   scene.scene.children.filter((child) => child.type === "PointLight").length,
-  8,
+  slottedMassGraph.connectors.length + massTerminalOverlaps,
 );
 
 const disabledFlameConfig = createDefaultStructureConfig();

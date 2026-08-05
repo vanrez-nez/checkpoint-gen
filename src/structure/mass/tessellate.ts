@@ -21,6 +21,13 @@ import {
 import { tintSlots } from "../kernel/slot";
 import { buildStair } from "../connector/build";
 import {
+  groupOverlappingTerminals,
+  summitTerminalCaps,
+  unionCells,
+  type TerminalGroup,
+  type UnionCell,
+} from "../connector/terminal";
+import {
   stairLocalVertex,
   stairSteps,
   stairWorldToLocal,
@@ -203,6 +210,22 @@ export function tessellateStructure(
   // primitive, so a stair is blocks exactly as its mass is. The bands are
   // handed over for the burial profile: a slice stops where the mass it climbs
   // swallows it.
+  // Terminals that collide are resolved before any stair is laid, because a
+  // flight cannot see the neighbour it runs into and both would otherwise close
+  // the same corner.
+  const terminalGroups = groupOverlappingTerminals(
+    graph.connectors.flatMap(summitTerminalCaps),
+  );
+  const suppressed = new Map<string, Set<"negative" | "positive">>();
+
+  for (const group of terminalGroups) {
+    for (const cap of group.caps) {
+      const sides = suppressed.get(cap.connectorId) ?? new Set();
+      sides.add(cap.side);
+      suppressed.set(cap.connectorId, sides);
+    }
+  }
+
   for (const connector of graph.connectors) {
     builder.withMaterial("stairs", () => {
       buildStair(builder, connector, graph.masses[0]?.bands ?? [], {
@@ -210,8 +233,13 @@ export function tessellateStructure(
         seed,
         tilesPerStep: stairTilesPerStep,
         ramp: DETAIL_PROFILES[detail].ramps,
+        suppressSummitSides: suppressed.get(connector.id),
       });
     });
+  }
+
+  for (const group of terminalGroups) {
+    layMergedTerminal(builder, group);
   }
 
   // Last, so every face the structure will show already exists. Stelae tint
@@ -636,4 +664,71 @@ export function graphExtents(graph: StructureGraph): {
   }
 
   return min && max ? { min, max } : null;
+}
+
+/**
+ * The single assembly two collided summit terminals become.
+ *
+ * Laid here rather than in `buildStair` because it is the union of caps
+ * belonging to different flights, and no flight can see the one it ran into.
+ * The wall and the molding are unioned separately: the molding overhangs the
+ * wall by its projection on every side, so merging one region and reusing it
+ * would either give the wall the overhang or take it off the molding.
+ */
+function layMergedTerminal(builder: SolidBuilder, group: TerminalGroup): void {
+  const bodyCells = unionCells(group.caps.map((cap) => ({
+    minX: cap.bodyMinX,
+    maxX: cap.bodyMaxX,
+    minZ: cap.bodyMinZ,
+    maxZ: cap.bodyMaxZ,
+  })));
+  const capCells = unionCells(group.caps);
+  const floorY = Math.min(...group.caps.map((entry) => entry.floorY));
+  const bodyTop = Math.min(...group.caps.map((entry) => entry.bottomY));
+  const capTop = Math.max(...group.caps.map((entry) => entry.topY));
+
+  builder.withMaterial("parapet", () => {
+    layUnionCells(builder, bodyCells, floorY, bodyTop, {
+      top: false,
+      bottom: false,
+    });
+  });
+  builder.withMaterial("cornice", () => {
+    layUnionCells(builder, capCells, bodyTop, capTop, {
+      top: true,
+      bottom: true,
+    });
+  });
+}
+
+/**
+ * Upright blocks over a tiling of the merged plan.
+ *
+ * A flank is emitted only where the tiling has nothing standing against it, so
+ * the cells read as one solid rather than as boxes pressed together.
+ */
+function layUnionCells(
+  builder: SolidBuilder,
+  cells: readonly UnionCell[],
+  bottomY: number,
+  topY: number,
+  caps: { readonly top: boolean; readonly bottom: boolean },
+): void {
+  if (topY - bottomY <= EPS) {
+    return;
+  }
+
+  for (const cell of cells) {
+    builder.addBlock(
+      {
+        bottom: cell.ring.map((point) => ({ x: point.x, y: bottomY, z: point.z })),
+        top: cell.ring.map((point) => ({ x: point.x, y: topY, z: point.z })),
+      },
+      {
+        sides: cell.open,
+        top: caps.top,
+        bottom: caps.bottom,
+      },
+    );
+  }
 }

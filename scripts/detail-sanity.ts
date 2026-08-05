@@ -9,7 +9,14 @@ import {
   type DetailLevel,
 } from "../src/structure/kernel/detail";
 import { getStructure, listStructures } from "../src/structure/registry";
-import type { MassLayoutConfig } from "../src/structure/families/mass/config";
+import { resolveMassLayout, type MassLayoutConfig } from "../src/structure/families/mass/config";
+import { resolveMassFireBowlSlots } from "../src/structure/families/mass/fire-bowl-slots";
+import { DEFAULT_FIRE_BOWL_CONFIG } from "../src/props/fire-bowl/config";
+import {
+  overlappingTerminals,
+  summitTerminalCaps,
+  unionCells,
+} from "../src/structure/connector/terminal";
 
 /**
  * The detail ladder at the composer.
@@ -223,3 +230,173 @@ function assertSamePositions(
     message,
   );
 }
+
+// Summit terminals that run into each other.
+//
+// Two stairs arriving on one summit from different sides put their inner
+// parapet caps in the same place. The pair is one pier, and a pier carries one
+// bowl — but only when the caps genuinely overlap, which is a property of the
+// layout rather than something to assume.
+const terminalCases = [0.3, 0.2].map((stairWidthRatio) => {
+  const terminalConfig = createDefaultStructureConfig();
+  terminalConfig.typeId = "mass";
+  const massLayout = terminalConfig.layouts.mass as MassLayoutConfig;
+  massLayout.stairWidthRatio = stairWidthRatio;
+  const graph = resolveMassLayout(massLayout);
+  const slots = resolveMassFireBowlSlots(
+    massLayout,
+    graph,
+    DEFAULT_FIRE_BOWL_CONFIG,
+  );
+  const top = slots.filter((slot) => slot.level === "top");
+
+  return {
+    stairWidthRatio,
+    overlaps: overlappingTerminals(
+      graph.connectors.flatMap(summitTerminalCaps),
+    ).length,
+    top,
+    bottom: slots.filter((slot) => slot.level === "bottom").length,
+  };
+});
+
+const [collided, clear] = terminalCases;
+
+assert.ok(
+  collided!.overlaps > 0,
+  "The wide-stair case must actually collide, or the merge below proves nothing.",
+);
+assert.equal(
+  clear!.overlaps,
+  0,
+  "The narrow-stair case must not collide, or the gate below proves nothing.",
+);
+
+// One bowl per collision, and none of the originals left behind.
+assert.equal(
+  collided!.top.length,
+  collided!.overlaps,
+  `${collided!.overlaps} merged piers carry ${collided!.top.length} summit bowls.`,
+);
+assert.ok(
+  collided!.top.every((slot) => slot.merged),
+  "A collided summit must carry only merged bowls, never a survivor of the pair.",
+);
+
+// The gate: nothing changes where nothing collides.
+assert.ok(
+  clear!.top.every((slot) => !slot.merged),
+  "A summit with no collision must not merge anything.",
+);
+assert.equal(
+  clear!.top.length,
+  collided!.top.length * 2,
+  "Every uncollided stair should still carry both of its own summit bowls.",
+);
+
+// The foot is untouched either way — it is the summit the flights converge on.
+assert.equal(
+  collided!.bottom,
+  clear!.bottom,
+  "Merging summit caps must not disturb the bowls at the foot of the stairs.",
+);
+
+// A merged bowl has to stand on stone. The shared region is the only part of a
+// corner merge every cap covers, so the slot must land inside both.
+for (const slot of collided!.top) {
+  const caps = resolveMassLayout(
+    (() => {
+      const merged = createDefaultStructureConfig();
+      merged.typeId = "mass";
+      return merged.layouts.mass as MassLayoutConfig;
+    })(),
+  ).connectors.flatMap(summitTerminalCaps);
+  const standing = caps.filter(
+    (cap) => slot.x >= cap.minX - 1e-6 && slot.x <= cap.maxX + 1e-6
+      && slot.z >= cap.minZ - 1e-6 && slot.z <= cap.maxZ + 1e-6,
+  );
+  assert.ok(
+    standing.length >= 2,
+    `Merged bowl ${slot.id} stands on ${standing.length} caps; it should sit on `
+    + "the region both of its terminals share.",
+  );
+}
+
+// The merged terminal's plan decomposition.
+//
+// Two properties matter and neither is visible from a screenshot: the cells
+// must cover the union exactly, and no flank may be left open where another
+// cell stands against it. A missed cell is a hole; a wrongly open flank is two
+// faces at the same depth.
+const soloCells = unionCells([{ minX: 0, maxX: 2, minZ: 0, maxZ: 2 }]);
+assert.equal(soloCells.length, 1, "A lone rectangle needs no cutting up.");
+assert.ok(
+  soloCells[0]!.open.every(Boolean),
+  "A lone rectangle stands in open air on every flank.",
+);
+
+// The corner overlap of the summit, in miniature. Two 2x2 squares offset by
+// one leave a step on each side of the diagonal, and each step gets the wedge
+// that turns its two right angles into one.
+const cornerRects = [
+  { minX: 0, maxX: 2, minZ: 0, maxZ: 2 },
+  { minX: 1, maxX: 3, minZ: 1, maxZ: 3 },
+];
+const cornerCells = unionCells(cornerRects);
+const area = (cell: { ring: readonly { x: number; z: number }[] }) => {
+  let total = 0;
+
+  for (let index = 0; index < cell.ring.length; index += 1) {
+    const here = cell.ring[index]!;
+    const next = cell.ring[(index + 1) % cell.ring.length]!;
+    total += here.x * next.z - next.x * here.z;
+  }
+
+  return Math.abs(total) / 2;
+};
+const covered = cornerCells.reduce((total, cell) => total + area(cell), 0);
+
+// 7 for the union of the two squares, plus half a cell for each of the two
+// wedges that fill the steps.
+assert.ok(
+  Math.abs(covered - 8) < 1e-9,
+  `The cells cover ${covered}; the mitred union is 8.`,
+);
+
+// A wedge is the cell that closed on itself: a triangle written as four
+// corners repeats one. Counting open flanks would not do — a filled cell
+// hemmed in on three sides also has exactly one.
+const wedges = cornerCells.filter(
+  (cell) => Math.abs(cell.ring[0]!.x - cell.ring[3]!.x) < 1e-9
+    && Math.abs(cell.ring[0]!.z - cell.ring[3]!.z) < 1e-9,
+);
+assert.equal(
+  wedges.length,
+  2,
+  `A corner overlap has two steps and so two wedges; found ${wedges.length}.`,
+);
+
+for (const wedge of wedges) {
+  // The one open edge is the diagonal, and a diagonal is neither axis.
+  const index = wedge.open.findIndex(Boolean);
+  assert.ok(index >= 0, "A wedge must expose its diagonal.");
+  const from = wedge.ring[index]!;
+  const to = wedge.ring[(index + 1) % wedge.ring.length]!;
+  assert.ok(
+    Math.abs(from.x - to.x) > 1e-9 && Math.abs(from.z - to.z) > 1e-9,
+    "A wedge's open edge must run diagonally; that is the whole point of it.",
+  );
+}
+
+// And the whole point of the merge: one solid, no faces buried inside it.
+const mergedMassConfig = createDefaultStructureConfig();
+mergedMassConfig.typeId = "mass";
+const mergedMass = new StructureComposer().build(mergedMassConfig);
+assert.ok(
+  overlappingTerminals(
+    resolveMassLayout(mergedMassConfig.layouts.mass as MassLayoutConfig)
+      .connectors.flatMap(summitTerminalCaps),
+  ).length > 0,
+  "The default mass must still collide its terminals for this to mean anything.",
+);
+mergedMass.geometry.dispose();

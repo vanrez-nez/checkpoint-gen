@@ -56,10 +56,19 @@ export interface StairBuildOptions {
    * unchanged; what goes is the serration on it.
    */
   readonly ramp: boolean;
+  /**
+   * Summit terminals this flight must not close itself.
+   *
+   * A cap that has run into a neighbour's is laid once, merged, by whoever can
+   * see both — not twice by two stairs that each think it is theirs.
+   */
+  readonly suppressSummitSides?: ReadonlySet<"negative" | "positive">;
 }
 
 const EPS = 1e-9;
 type StairParapet = NonNullable<StairConnectorRecord["parapet"]>;
+/** A flank of a flight, named so a merged terminal can be matched to it. */
+type TerminalSide = readonly ["negative" | "positive", number, number];
 
 /** Canonical plan domain used by every stair, independent of world facade. */
 function localFlightRect(record: StairConnectorRecord): Rect {
@@ -124,7 +133,13 @@ export function buildStair(
 
   if (steppedParapet?.cornice) {
     builder.withMaterial("parapet", () => {
-      laySteppedParapetEndings(builder, record, steps, steppedParapet);
+      laySteppedParapetEndings(
+        builder,
+        record,
+        steps,
+        steppedParapet,
+        options.suppressSummitSides ?? new Set(),
+      );
     });
   }
 
@@ -826,6 +841,7 @@ function laySteppedParapetEndings(
   record: StairConnectorRecord,
   steps: readonly StairStep[],
   parapet: StairParapet,
+  suppressSummitSides: ReadonlySet<"negative" | "positive">,
 ): void {
   const cornice = parapet.cornice;
   const firstStep = steps[0];
@@ -836,9 +852,10 @@ function laySteppedParapetEndings(
 
   const bodyHeight = parapet.height - cornice.height;
   const flightRect = localFlightRect(record);
-  const sides: readonly (readonly [number, number])[] = [
-    [flightRect.minX - parapet.width, flightRect.minX],
-    [flightRect.maxX, flightRect.maxX + parapet.width],
+  // Ordered to match the sides a terminal names: the negative-u flank first.
+  const sides: readonly TerminalSide[] = [
+    ["negative", flightRect.minX - parapet.width, flightRect.minX],
+    ["positive", flightRect.maxX, flightRect.maxX + parapet.width],
   ];
 
   laySupportedCorniceEndings(builder, record, sides, cornice, {
@@ -846,7 +863,7 @@ function laySteppedParapetEndings(
     lowerCapY: firstStep.topY + parapet.height,
     upperBodyTop: record.topY + bodyHeight,
     upperCapY: record.topY + parapet.height,
-  });
+  }, suppressSummitSides);
 }
 
 /**
@@ -879,12 +896,13 @@ function laySlopedParapets(
   const cornice = parapet.cornice;
   const bodyTopOffset = parapet.height - (cornice?.height ?? 0);
   const back = backExposure(profile, record);
-  const sides: readonly (readonly [number, number])[] = [
-    [flightRect.minX - parapet.width, flightRect.minX],
-    [flightRect.maxX, flightRect.maxX + parapet.width],
+  // Ordered to match the sides a terminal names: the negative-u flank first.
+  const sides: readonly TerminalSide[] = [
+    ["negative", flightRect.minX - parapet.width, flightRect.minX],
+    ["positive", flightRect.maxX, flightRect.maxX + parapet.width],
   ];
 
-  for (const [x0, x1] of sides) {
+  for (const [, x0, x1] of sides) {
     builder.addBlock(
       groundBackedRakedBlock(x0, x1, record, bodyTopOffset),
       {
@@ -968,7 +986,7 @@ function laySlopedParapets(
 function laySupportedCorniceEndings(
   builder: SolidBuilder,
   record: StairConnectorRecord,
-  sides: readonly (readonly [number, number])[],
+  sides: readonly TerminalSide[],
   cornice: { readonly projection: number },
   levels: {
     readonly lowerBodyTop: number;
@@ -976,10 +994,12 @@ function laySupportedCorniceEndings(
     readonly upperBodyTop: number;
     readonly upperCapY: number;
   },
+  suppressSummitSides: ReadonlySet<"negative" | "positive"> = new Set(),
 ): void {
   const flightRect = localFlightRect(record);
 
-  for (const [x0, x1] of sides) {
+  for (const [side, x0, x1] of sides) {
+    const summitMerged = suppressSummitSides.has(side);
     const corniceX0 = x0 - cornice.projection;
     const corniceX1 = x1 + cornice.projection;
     const terminalLength = corniceX1 - corniceX0;
@@ -1021,43 +1041,48 @@ function laySupportedCorniceEndings(
         },
       );
     });
-    builder.addBlock(
-      horizontalBlock(
-        record,
-        x0,
-        x1,
-        flightRect.minZ - terminalLength,
-        flightRect.minZ,
-        record.topY,
-        levels.upperBodyTop,
-      ),
-      {
-        // Its front is welded to the parapet wall. The summit floor owns
-        // the bottom and the cornice owns the top.
-        sides: [false, true, true, true],
-        top: false,
-        bottom: false,
-      },
-    );
-    builder.withMaterial("cornice", () => {
+    // A merged summit terminal is laid once, as one solid, by the tessellator
+    // that can see both flights. Emitting it here as well would put two boxes
+    // through each other and hide the merged cap inside them.
+    if (!summitMerged) {
       builder.addBlock(
         horizontalBlock(
           record,
-          corniceX0,
-          corniceX1,
+          x0,
+          x1,
           flightRect.minZ - terminalLength,
           flightRect.minZ,
+          record.topY,
           levels.upperBodyTop,
-          levels.upperCapY,
         ),
         {
-          // Its front is pressed against the parapet cornice.
+          // Its front is welded to the parapet wall. The summit floor owns
+          // the bottom and the cornice owns the top.
           sides: [false, true, true, true],
-          top: true,
-          bottom: true,
+          top: false,
+          bottom: false,
         },
       );
-    });
+      builder.withMaterial("cornice", () => {
+        builder.addBlock(
+          horizontalBlock(
+            record,
+            corniceX0,
+            corniceX1,
+            flightRect.minZ - terminalLength,
+            flightRect.minZ,
+            levels.upperBodyTop,
+            levels.upperCapY,
+          ),
+          {
+            // Its front is pressed against the parapet cornice.
+            sides: [false, true, true, true],
+            top: true,
+            bottom: true,
+          },
+        );
+      });
+    }
   }
 }
 

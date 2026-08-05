@@ -190,14 +190,21 @@ export const massStructure = defineStructure<MassLayoutConfig>({
   },
 });
 
-/** One point light midway between each left/right bowl pair. */
+/**
+ * One point light midway between each left/right bowl pair.
+ *
+ * A merged pier is keyed on itself rather than on a flight. It carries a single
+ * bowl standing where two terminals overlapped, so it belongs to both stairs and
+ * to neither — keying it by connector would file it under whichever flight
+ * happened to be first and leave that stair lighting a corner it only half owns.
+ */
 function groupGlowsByTerminal(
   slots: readonly MassFireBowlSlot[],
 ): CompositionAnchor[] {
   const pairs = new Map<string, MassFireBowlSlot[]>();
 
   for (const slot of slots) {
-    const key = `${slot.connectorId}/${slot.level}`;
+    const key = slot.merged ? slot.id : `${slot.connectorId}/${slot.level}`;
     const pair = pairs.get(key) ?? [];
     pair.push(slot);
     pairs.set(key, pair);

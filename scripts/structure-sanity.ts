@@ -5552,7 +5552,10 @@ const layoutOnly = massStructure.build({
 });
 assert.equal(layoutOnly.parts.length, 1);
 assert.ok(layoutOnly.graph, "The mass structure must report its graph.");
-assert.equal(layoutOnly.anchors.flames.length, 16);
+// Twelve, not sixteen. The four summit terminals that collide are merged into
+// four piers, and a pier carries one bowl — but each still gets its own glow,
+// so the light count is unchanged by the merge.
+assert.equal(layoutOnly.anchors.flames.length, 12);
 assert.equal(layoutOnly.anchors.glows.length, 8);
 assert.equal(layoutOnly.anchors.offering, null);
 
