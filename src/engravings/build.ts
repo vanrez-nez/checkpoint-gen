@@ -5,6 +5,7 @@ import { allSlots, patchIndex, type StructureGraph } from "../structure/kernel/g
 import { engravingCatalog } from "./catalog";
 import { NO_ENGRAVING, type StructureEngravings } from "./config";
 import {
+  DECAL_NORMAL_OFFSET,
   mergeDecalQuads,
   resolveDecalQuad,
   type EngravingDecalQuad,
@@ -36,6 +37,7 @@ export function buildEngravingDecalBatches(
   graph: StructureGraph | null,
   features: readonly SlotFeatureSpec<object>[],
   engravings: StructureEngravings,
+  layout: object | null,
 ): EngravingDecalBatch[] {
   if (!graph) {
     return [];
@@ -70,6 +72,10 @@ export function buildEngravingDecalBatches(
       continue;
     }
 
+    // A decal stands off the stone, which is not always the patch: an applied
+    // moulding is published against the face it was laid on.
+    const offset = DECAL_NORMAL_OFFSET
+      + (layout ? feature.standOff?.(layout) ?? 0 : 0);
     const key = `${layer.id}|${feature.surface}`;
     let batch = quadsByBatch.get(key);
 
@@ -95,6 +101,7 @@ export function buildEngravingDecalBatches(
         fit: assignment.fit,
         margin: assignment.margin,
         aspect: layer.width / layer.height,
+        offset,
       });
 
       if (quad) {

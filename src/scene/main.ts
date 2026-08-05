@@ -222,6 +222,8 @@ export class MainScene {
   private engravingMeshes: THREE.Mesh[] = [];
   private activeEngravings: StructureEngravings = {};
   private activeSlotFeatures: readonly SlotFeatureSpec<object>[] = [];
+  /** The active family's layout, for the features that place stone off-patch. */
+  private activeLayout: object | null = null;
   /**
    * Which decal build is current.
    *
@@ -374,6 +376,7 @@ export class MainScene {
     // themselves are built once the first material document has loaded.
     this.activeEngravings = config.engravings[definition.id] ?? {};
     this.activeSlotFeatures = definition.slotFeatures ?? [];
+    this.activeLayout = config.layouts[definition.id] ?? null;
 
     const composition = this.composer.build(config);
     this.anchors = composition.anchors;
@@ -614,6 +617,7 @@ export class MainScene {
     const engraved = getStructure(config.typeId);
     this.activeEngravings = config.engravings[engraved.id] ?? {};
     this.activeSlotFeatures = engraved.slotFeatures ?? [];
+    this.activeLayout = config.layouts[engraved.id] ?? null;
     // The slot table is republished by every build, so the decals standing on
     // it are stale the moment the graph is replaced. Rebuilt asynchronously,
     // because deriving an engraving's maps takes far longer than a frame and
@@ -634,9 +638,11 @@ export class MainScene {
   setStructureEngravings(
     engravings: StructureEngravings,
     definition: StructureDefinition,
+    layout: object | null = this.activeLayout,
   ): void {
     this.activeEngravings = engravings;
     this.activeSlotFeatures = definition.slotFeatures ?? [];
+    this.activeLayout = layout;
     this.rebuildEngravingDecals();
   }
 
@@ -1088,6 +1094,7 @@ export class MainScene {
       this.graph,
       this.activeSlotFeatures,
       this.activeEngravings,
+      this.activeLayout,
     );
 
     if (batches.length === 0) {

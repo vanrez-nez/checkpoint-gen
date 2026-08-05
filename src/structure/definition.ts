@@ -90,6 +90,25 @@ export interface SlotFeatureSpec<TLayout extends object> {
    */
   matches(slot: SlotRecord): boolean;
   /**
+   * How far this feature's stone stands in front of the patch its slots name,
+   * in metres. Omitted where the two are the same surface, which is most of
+   * them.
+   *
+   * A slot says which patch it belongs to and where on it, but not that the
+   * stone is somewhere else — and a stela's ribbons are applied mouldings laid
+   * on the body face, published against the body's own patch. Anything placed
+   * from the record alone therefore lands inside the moulding: the engraving
+   * was there and buried, correct to the millimetre and invisible.
+   *
+   * Declared per feature because only the family knows it is laying an
+   * applique, and read from the layout because how far it projects is a number
+   * the user can drag. `depthBudget.relief` is not this: it is a budget for how
+   * far an ornament may rise, capped by the neighbours and by `maxRelief`, and
+   * it coincides with the projection only while that cap is not the binding
+   * one.
+   */
+  standOff?(layout: TLayout): number;
+  /**
    * Whether this layout can resolve the feature at all.
    *
    * An archetype that never builds a roof has no fascia to engrave, and a

@@ -30,9 +30,10 @@ import {
   createDefaultStructureConfig,
   sectionsForScopes,
 } from "../src/config/structure-config";
+import { buildEngravingDecalBatches } from "../src/engravings/build";
 import { setEngravingCatalog } from "../src/engravings/catalog";
 import { StructureComposer } from "../src/structure/composer";
-import { allSlots } from "../src/structure/kernel/graph";
+import { allSlots, patchIndex } from "../src/structure/kernel/graph";
 import {
   DEFAULT_ENGRAVING_ASSIGNMENT,
   NO_ENGRAVING,
@@ -819,6 +820,8 @@ assert.ok(
  */
 const MIN_ENGRAVING_COVERAGE = 0.1;
 
+
+
 const composer = new StructureComposer();
 let claimedSlots = 0;
 
@@ -856,7 +859,6 @@ for (const definition of listStructures()) {
 
     const composition = composer.build(built);
     const published = allSlots(composition.graph);
-    composition.geometry.dispose();
 
     const where = archetype === null
       ? definition.id
@@ -926,6 +928,8 @@ for (const definition of listStructures()) {
       claimants.forEach((feature) => unmatched.delete(feature.id));
       claimedSlots += 1;
     }
+
+    composition.geometry.dispose();
   }
 
   // And every feature must find something somewhere, or its dropdown governs
@@ -1045,6 +1049,106 @@ assert.ok(
   sectionsForScopes(["layout"], engravedDefinition).size > 0,
   "Layout must still invalidate something, or the check above proves nothing.",
 );
+
+// --- 11. A declared stand-off reaches the built geometry ---------------------
+
+/**
+ * A slot names a patch and a place on it, but not that its stone is somewhere
+ * else. A stela's ribbons are mouldings laid on the body face and published
+ * against the body's own patch, so a decal placed from the record alone lands
+ * inside the moulding — present, correct to the millimetre, and invisible.
+ *
+ * The family declares how far its stone stands off, and the check is that the
+ * declaration reaches the built quad: the decal has to move when the projection
+ * it is read from moves. Re-deriving the expected position instead would only
+ * prove the arithmetic agrees with itself.
+ */
+/**
+ * Named rather than discovered. A check that only inspects whoever happens to
+ * declare a stand-off passes trivially the moment the declaration is dropped,
+ * which is precisely the regression worth catching.
+ */
+const APPLIED_MOULDINGS: Readonly<Record<string, readonly string[]>> = {
+  stela: ["bandRibbon", "returnRibbon"],
+};
+
+for (const [structureId, applied] of Object.entries(APPLIED_MOULDINGS)) {
+  const definition = listStructures().find((entry) => entry.id === structureId);
+  assert.ok(definition, `No structure "${structureId}" to check stand-offs on.`);
+
+  for (const id of applied) {
+    const feature = (definition.slotFeatures ?? []).find((f) => f.id === id);
+    assert.ok(feature, `${structureId} no longer declares a "${id}" feature.`);
+    assert.ok(
+      feature.standOff !== undefined,
+      `${structureId}: "${id}" lays its stone on the face its slots name, so it `
+      + "must declare how far off that stone stands. Without it the decal is "
+      + "built inside the moulding and never appears.",
+    );
+  }
+}
+
+for (const definition of listStructures()) {
+  const features = (definition.slotFeatures ?? [])
+    .filter((feature) => feature.standOff !== undefined);
+
+  if (features.length === 0) {
+    continue;
+  }
+
+  const decalFront = (projection: number) => {
+    const built = createDefaultStructureConfig();
+    built.typeId = definition.id;
+    const layout = built.layouts[definition.id]! as Record<string, unknown>;
+
+    for (const feature of definition.slotFeatures ?? []) {
+      feature.select(layout).enabled = true;
+      built.engravings[definition.id]![feature.id]!.document =
+        features.some((entry) => entry.id === feature.id)
+          ? catalog.ids[0]!
+          : NO_ENGRAVING;
+    }
+
+    // Every family declaring a stand-off reads it from a projection the user
+    // can drag, so moving that is what moves the stone.
+    layout.ribbonProjection = projection;
+    const composition = composer.build(built);
+    const batches = buildEngravingDecalBatches(
+      composition.graph,
+      definition.slotFeatures ?? [],
+      built.engravings[definition.id]!,
+      layout,
+    );
+    composition.geometry.dispose();
+
+    assert.equal(
+      batches.length,
+      1,
+      `${definition.id}: expected one stand-off batch, got ${batches.length}.`,
+    );
+
+    const geometry = batches[0]!.geometry;
+    const position = geometry.getAttribute("position");
+    const normal = geometry.getAttribute("normal");
+    // Distance of the first vertex along its own face normal. The ribbon's
+    // extent does not move when it projects further; only its plane does.
+    const reach = position.getX(0) * normal.getX(0)
+      + position.getY(0) * normal.getY(0)
+      + position.getZ(0) * normal.getZ(0);
+    geometry.dispose();
+    return reach;
+  };
+
+  const near = decalFront(0.02);
+  const far = decalFront(0.2);
+
+  assert.ok(
+    Math.abs((far - near) - 0.18) < 1e-6,
+    `${definition.id}: pushing its stone 180 mm further out moved the decal `
+    + `${((far - near) * 1000).toFixed(1)} mm. The stand-off is declared but `
+    + "never reaches the geometry, so the decal stays buried in the stone.",
+  );
+}
 
 /** The green channel each row would carry before the orientation pass. */
 function deriveNormalGreenRows(field: Uint8Array, size: number): number[][] {

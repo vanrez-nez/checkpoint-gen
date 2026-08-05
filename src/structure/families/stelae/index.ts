@@ -9,6 +9,7 @@ import {
   STELA_SLOT_FEATURE_IDS,
   STELA_SLOT_FEATURE_LABELS,
   STELA_SLOT_FEATURE_MATCHERS,
+  STELA_SLOT_FEATURE_STAND_OFFS,
   STELA_SLOT_FEATURE_SURFACES,
   cloneStelaLayout,
   resolveStelaGraph,
@@ -71,6 +72,7 @@ export const stelaStructure = defineStructure<StelaLayoutConfig>({
     label: STELA_SLOT_FEATURE_LABELS[id],
     surface: STELA_SLOT_FEATURE_SURFACES[id],
     matches: STELA_SLOT_FEATURE_MATCHERS[id],
+    standOff: STELA_SLOT_FEATURE_STAND_OFFS[id],
     framed: STELA_FRAMED_SLOT_FEATURES[id],
     visibleWhen: (layout: StelaLayoutConfig) => {
       if (id === "returnRibbon") {

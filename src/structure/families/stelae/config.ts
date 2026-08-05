@@ -151,6 +151,21 @@ export const STELA_SLOT_FEATURE_MATCHERS: Readonly<
   baseFace: (slot) => slot.kind === "base_face",
 };
 
+/**
+ * How far a feature's stone stands in front of the patch its slots name.
+ *
+ * Only the two ribbons appear: they are appliques, strips laid on the body face
+ * and published against the body's own patch, so anything placed from the slot
+ * alone lands inside the moulding rather than on it. Every other feature is the
+ * face it says it is, and says nothing here.
+ */
+export const STELA_SLOT_FEATURE_STAND_OFFS: Readonly<
+  Partial<Record<StelaSlotFeatureId, (layout: StelaLayoutConfig) => number>>
+> = {
+  bandRibbon: (layout) => layout.ribbonProjection,
+  returnRibbon: (layout) => layout.ribbonProjection,
+};
+
 /** Only the register field is framed; the rest take a switch and no border. */
 export const STELA_FRAMED_SLOT_FEATURES: Readonly<
   Record<StelaSlotFeatureId, boolean>
