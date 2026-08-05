@@ -86,7 +86,7 @@ export const pillarHallStructure = defineStructure<PillarHallLayoutConfig>({
   cloneLayout: clonePillarHallLayout,
   validateLayout: validatePillarHallLayout,
 
-  build({ layout, stone, debugSlots, sections }) {
+  build({ layout, stone, debugSlots, detail, sections }) {
     const graph = resolvePillarHallGraph(layout);
     const parts: GeometryPart[] = sections.has(PILLAR_HALL_SECTION)
       ? [...tessellateStructure(graph, {
@@ -96,6 +96,7 @@ export const pillarHallStructure = defineStructure<PillarHallLayoutConfig>({
         debugSlots,
         section: PILLAR_HALL_SECTION,
         partId: "pillar-hall",
+        detail,
       }).parts]
       : [];
     return { parts, anchors: emptyCompositionAnchors(), graph };

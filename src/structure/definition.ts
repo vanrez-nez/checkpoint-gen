@@ -9,6 +9,7 @@ import type {
   GeometryPart,
   PartSection,
 } from "../geometry/part";
+import type { DetailLevel } from "./kernel/detail";
 import type { FireBowlConfig } from "../props/fire-bowl/config";
 import type { PillarConfig } from "../props/pillar/config";
 import type { StructureGraph } from "./kernel/graph";
@@ -138,6 +139,13 @@ export interface StructureBuildInput<TLayout extends object> {
   readonly layout: TLayout;
   /** Repaint every published slot in the debug surface. A scene setting. */
   readonly debugSlots: boolean;
+  /**
+   * How much geometry to spend. Also a scene setting, and for the same reason
+   * as `debugSlots`: only the builder knows what it means, so it cannot be
+   * applied after the fact, but it is not part of what the structure *is* and
+   * never reaches the layout schema or the URL hash.
+   */
+  readonly detail: DetailLevel;
   readonly stone: StoneConfig;
   readonly bevel: BevelConfig;
   readonly pillar: PillarConfig;

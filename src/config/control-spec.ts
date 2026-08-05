@@ -16,7 +16,16 @@ export type RebuildScope =
   | "offering"
   | "material"
   | "illumination"
-  | "view";
+  | "view"
+  /**
+   * The detail level changed.
+   *
+   * Maps to no sections, like `view`, but unlike `view` it must still recompose:
+   * the cached parts for the level being switched to may not exist yet. The
+   * scope is what carries that distinction, since an empty section set alone
+   * cannot say whether it means "nothing to do" or "compose somewhere else".
+   */
+  | "detail";
 
 interface BaseControlSpec<T> {
   readonly key: Extract<keyof T, string>;

@@ -16,6 +16,8 @@ export interface StatMirrors {
     triangles: number;
     generationMs: number;
     sunBakeMs: number;
+    /** Which detail level the resident geometry came from. */
+    detail: string;
   };
   pillars: { parts: number; stones: number; vertices: number; triangles: number };
   bowls: { parts: number; vertices: number; triangles: number };
@@ -45,7 +47,14 @@ export interface StatRow {
 
 export function createStatMirrors(): StatMirrors {
   return {
-    structure: { stones: 0, vertices: 0, triangles: 0, generationMs: 0, sunBakeMs: 0 },
+    structure: {
+      stones: 0,
+      vertices: 0,
+      triangles: 0,
+      generationMs: 0,
+      sunBakeMs: 0,
+      detail: "full",
+    },
     pillars: { parts: 0, stones: 0, vertices: 0, triangles: 0 },
     bowls: { parts: 0, vertices: 0, triangles: 0 },
     flames: { count: 0, vertices: 0, triangles: 0, draws: 0, glowLights: 0 },

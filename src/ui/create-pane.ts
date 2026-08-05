@@ -109,6 +109,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     statRow(mirrors.structure, "triangles", "triangles"),
     statRow(mirrors.structure, "generationMs", "generation (ms)"),
     statRow(mirrors.structure, "sunBakeMs", "sun bake (ms)"),
+    statRow(mirrors.structure, "detail", "detail"),
     statRow(mirrors.validation, "status", "status"),
   ]) {
     pane.addBinding(row.target as Record<string, number | string>, row.key, {
@@ -240,7 +241,13 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     // sections that structure declares rather than to a fixed set.
     const sections = sectionsForScopes(scopes, activeStructure());
 
-    if (sections.size > 0) {
+    // A detail change invalidates no section but must still recompose, since
+    // the level being switched to may have nothing cached. It goes through the
+    // same `rebuild` as everything else deliberately: a parallel entry point
+    // would have to repeat the whole post-swap sequence — prepare, attributes,
+    // wireframe, overlay, normals helper, offering, fire — and the one it
+    // forgot is the bug.
+    if (sections.size > 0 || scopes.includes("detail")) {
       scene.rebuild(config, sections);
     } else if (scopes.includes("fire")) {
       scene.updateFireEffects(config);
@@ -628,6 +635,7 @@ function applyStats(
   mirrors.structure.triangles = primary.triangleCount;
   mirrors.structure.generationMs = Math.round(stats.generationMs * 100) / 100;
   mirrors.structure.sunBakeMs = Math.round(stats.sunBakeMs * 100) / 100;
+  mirrors.structure.detail = stats.detail;
   mirrors.pillars.parts = section("pillars").partCount;
   mirrors.pillars.stones = section("pillars").stoneCount;
   mirrors.pillars.vertices = section("pillars").vertexCount;

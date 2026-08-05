@@ -271,6 +271,10 @@ export const SECTIONS_BY_SCOPE: Readonly<Record<RebuildScope, readonly PartSecti
   offering: [],
   material: [],
   illumination: [],
+  // Invalidates nothing: a level change does not make any section stale, it
+  // asks for the same sections somewhere else. The composer works out what is
+  // missing at the requested level on its own.
+  detail: [],
   view: [],
 };
 

@@ -1,5 +1,10 @@
 import type { StoneDetailConfig } from "../geometry/stone-builder";
 import {
+  DEFAULT_DETAIL_LEVEL,
+  DETAIL_LEVEL_OPTIONS,
+  type DetailLevel,
+} from "../structure/kernel/detail";
+import {
   controlsFor,
   validateControls,
   type ControlSpec,
@@ -46,7 +51,16 @@ export const DEFAULT_BEVEL_CONFIG: Readonly<BevelConfig> = {
   variation: 0.6,
 };
 
-/** Presentation toggles that never touch geometry generation. */
+/**
+ * How the structure is presented rather than what it is.
+ *
+ * Two of these do reach geometry generation — `slotDebug` and `detailLevel` —
+ * because only the builder knows what they mean and neither can be applied
+ * after the fact. What makes them belong here anyway is that neither is part of
+ * a structure's identity: the same structure debug-tinted, or laid at a coarser
+ * level, is still the same structure. That is why `collectFields` never reads
+ * this section, and so nothing here is ever encoded into the URL.
+ */
 export interface ViewConfig {
   wireframe: boolean;
   /** Wireframe stroke width in pixels. Wide lines, not GL_LINES' fixed 1px. */
@@ -70,6 +84,14 @@ export interface ViewConfig {
    * was reserved is what got prepared is to see the two coincide.
    */
   slotDebug: boolean;
+  /**
+   * How much geometry the structure spends on itself.
+   *
+   * Coarser levels are regenerated from the kernel rather than simplified from
+   * the finished mesh, so every per-vertex channel stays correct by
+   * construction. See `structure/kernel/detail.ts` for the ladder itself.
+   */
+  detailLevel: DetailLevel;
   materialScale: number;
 }
 
@@ -80,6 +102,7 @@ export const DEFAULT_VIEW_CONFIG: Readonly<ViewConfig> = {
   greybox: false,
   patchDebug: false,
   slotDebug: false,
+  detailLevel: DEFAULT_DETAIL_LEVEL,
   materialScale: 1,
 };
 
@@ -241,6 +264,14 @@ export const VIEW_CONTROLS: readonly ControlSpec<ViewConfig>[] = [
     name: "Vertex normals",
     group: "View",
     scopes: ["view"],
+  }),
+  view.list({
+    key: "detailLevel",
+    label: "detail",
+    name: "Detail level",
+    group: "View",
+    options: DETAIL_LEVEL_OPTIONS,
+    scopes: ["detail"],
   }),
   view.boolean({
     key: "greybox",

@@ -9,6 +9,11 @@ import {
   type BevelConfig,
   type StoneConfig,
 } from "../../../config/sections";
+import {
+  DEFAULT_DETAIL_LEVEL,
+  DETAIL_PROFILES,
+  type DetailLevel,
+} from "../../kernel/detail";
 import type { CircularShellConfig } from "./shell";
 
 /** Layout fields specific to the circular checkpoint. */
@@ -150,17 +155,37 @@ export function validateCircularLayout(layout: CircularLayoutConfig): void {
 /**
  * Flattens the layout plus its stone and bevel sections into the shape the
  * shell generator consumes, keeping that generator's body unchanged.
+ *
+ * This is also where the circular family takes its detail reduction, because
+ * it is the one family that never reaches `tessellateStructure` and so cannot
+ * take the masonry one. `rowsPerTier` is the right lever and a better one than
+ * the masonry reduction gets: the ring count falls with it, and so does the
+ * segment count each ring is divided into, because a ring's target arc length
+ * is derived from the radial step. The saving is quadratic.
+ *
+ * Every reduction lands in the returned object and never in `layout`, which
+ * stays exactly as the user authored it — a level round trip that clobbered
+ * `rowsPerTier` would silently destroy their configuration.
  */
 export function toShellConfig(
   layout: CircularLayoutConfig,
   stone: StoneConfig,
   bevel: BevelConfig,
+  detail: DetailLevel = DEFAULT_DETAIL_LEVEL,
 ): CircularShellConfig {
+  const profile = DETAIL_PROFILES[detail];
+  const stoneDetail = toStoneDetail(stone, bevel);
+
   return {
     ...layout,
+    rowsPerTier: Math.min(layout.rowsPerTier, profile.maxRowsPerTier),
+    edgeFragmentation: layout.edgeFragmentation * profile.fragmentationScale,
     stoneGapRatio: stone.gapRatio,
     sizeVariation: stone.sizeVariation,
     displacement: stone.displacement,
-    ...toStoneDetail(stone, bevel),
+    ...stoneDetail,
+    // A chamfered stone costs about twice a hard one, so retiring the chamfer
+    // roughly halves the plate again on top of the row reduction.
+    bevelEnabled: stoneDetail.bevelEnabled && profile.bevelSegments >= 1,
   };
 }

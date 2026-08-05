@@ -63,13 +63,15 @@ export const circularStructure = defineStructure<CircularLayoutConfig>({
   cloneLayout: cloneCircularLayout,
   validateLayout: validateCircularLayout,
 
-  build({ layout, stone, bevel, pillar, fireBowl, sections }) {
+  build({ layout, stone, bevel, pillar, fireBowl, detail, sections }) {
     validateCircularLayout(layout);
 
     const parts: GeometryPart[] = [];
 
     if (sections.has("layout")) {
-      const shell = buildCircularShell(toShellConfig(layout, stone, bevel));
+      const shell = buildCircularShell(
+        toShellConfig(layout, stone, bevel, detail),
+      );
       parts.push({
         id: "shell",
         section: "layout",

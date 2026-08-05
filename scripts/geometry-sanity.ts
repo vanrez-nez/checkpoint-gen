@@ -87,6 +87,11 @@ import { createBoxProjectedUvs, finalizeGeometry } from "../src/geometry/finaliz
 import { SolidBuilder } from "../src/geometry/solid-builder";
 import { TriangleBvh } from "../src/geometry/bvh";
 import { subdivideLongEdges } from "../src/geometry/subdivide";
+import {
+  DETAIL_LEVELS,
+  DETAIL_PROFILES,
+  type DetailLevel,
+} from "../src/structure/kernel/detail";
 import { bakeSunVisibility } from "../src/geometry/sun-bake";
 import {
   DEFAULT_FIRE_BOWL_CONFIG,
@@ -270,6 +275,11 @@ sceneOnlyHashConfig.view.patchDebug = !sceneOnlyHashConfig.view.patchDebug;
 // reach the builder, which makes it the one debug control that could plausibly
 // leak into a geometry code. It must not.
 sceneOnlyHashConfig.view.slotDebug = !sceneOnlyHashConfig.view.slotDebug;
+// Deliberately included for the same reason, and one step stronger: the detail
+// level rewrites the geometry outright. It still must not enter the code — a
+// structure laid at a coarser level is the same structure, and a code that
+// carried the level would make two of them where there is one.
+sceneOnlyHashConfig.view.detailLevel = "bare";
 sceneOnlyHashConfig.illumination.keyIntensity = 1.2;
 sceneOnlyHashConfig.illumination.keyColor = "#ff0000";
 assert.equal(

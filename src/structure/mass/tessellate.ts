@@ -10,6 +10,13 @@ import type {
 } from "../kernel/graph";
 import { patchIndex } from "../kernel/graph";
 import type { MasonryRule } from "../kernel/masonry";
+import {
+  DEFAULT_DETAIL_LEVEL,
+  reduceBevel,
+  reduceMasonry,
+  reduceStairTiles,
+  type DetailLevel,
+} from "../kernel/detail";
 import { tintSlots } from "../kernel/slot";
 import { buildStair } from "../connector/build";
 import {
@@ -78,6 +85,15 @@ export interface TessellationOptions {
   readonly debugSlots?: boolean;
   /** Rounds stela arrises; null or absent leaves every corner hard. */
   readonly bevel?: BevelRule | null;
+  /**
+   * How much geometry this structure may spend on itself.
+   *
+   * Applied here rather than by each family because the reduced rule below
+   * feeds the shell, the cells, the pillar hall, the stelae and the stairs
+   * alike — reducing it once reaches all of them, and three families reducing
+   * their own copies would drift and would still miss the stair tiles.
+   */
+  readonly detail?: DetailLevel;
 }
 
 export function tessellateStructure(
@@ -86,14 +102,21 @@ export function tessellateStructure(
 ): TessellationResult {
   const builder = new SolidBuilder();
   const {
-    masonry,
+    masonry: authoredMasonry,
     seed,
-    stairTilesPerStep = 5,
+    stairTilesPerStep: authoredStairTiles = 5,
     section = MASS_SECTION,
     partId = "mass",
     debugSlots = false,
-    bevel = null,
+    bevel: authoredBevel = null,
+    detail = DEFAULT_DETAIL_LEVEL,
   } = options;
+  // The only place the level is read. Everything below works from the reduced
+  // values and never learns which level produced them, which is what keeps the
+  // ladder a policy rather than a branch threaded through the whole builder.
+  const masonry = reduceMasonry(authoredMasonry, detail);
+  const bevel = reduceBevel(authoredBevel, detail);
+  const stairTilesPerStep = reduceStairTiles(authoredStairTiles, detail);
   const patches = patchIndex(graph);
 
   for (const mass of graph.masses) {

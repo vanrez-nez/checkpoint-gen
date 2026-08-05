@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import type { DetailLevel } from "../structure/kernel/detail";
 
 /**
  * Material slots a part can be assigned to. The index in this array is both the
@@ -74,6 +75,14 @@ export interface GeometryPart {
   readonly matrix: THREE.Matrix4;
   /** Masonry stones in this part; zero for non-masonry parts such as fire bowls. */
   readonly stoneCount: number;
+  /**
+   * The level this part was generated at, stamped by the composer.
+   *
+   * Absent on a freshly built part, because a family says what to build and not
+   * how much of it to spend — the level is the composer's to know, and stamping
+   * it there from the cache key is what stops the tag and the filing disagreeing.
+   */
+  readonly detail?: DetailLevel;
 }
 
 export interface PartStats {

@@ -136,7 +136,7 @@ export const massStructure = defineStructure<MassLayoutConfig>({
   cloneLayout: cloneMassLayout,
   validateLayout: validateMassLayout,
 
-  build({ layout, stone, fireBowl, debugSlots, sections }) {
+  build({ layout, stone, fireBowl, debugSlots, detail, sections }) {
     // The graph is resolved on every build regardless of what was requested:
     // it is arithmetic over a handful of rectangles, and the scene needs the
     // semantic layer for the debug overlay and the diagnostics readout even
@@ -148,6 +148,7 @@ export const massStructure = defineStructure<MassLayoutConfig>({
         seed: stone.seed,
         stairTilesPerStep: layout.stairTilesPerStep,
         debugSlots,
+        detail,
       }).parts]
       : [];
 

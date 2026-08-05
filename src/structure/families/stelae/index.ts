@@ -82,7 +82,7 @@ export const stelaStructure = defineStructure<StelaLayoutConfig>({
   cloneLayout: cloneStelaLayout,
   validateLayout: validateStelaLayout,
 
-  build({ layout, debugSlots, sections }) {
+  build({ layout, debugSlots, detail, sections }) {
     const graph = resolveStelaGraph(layout);
     const parts: GeometryPart[] = sections.has(STELA_SECTION)
       ? [...tessellateStructure(graph, {
@@ -93,6 +93,7 @@ export const stelaStructure = defineStructure<StelaLayoutConfig>({
         bevel: toStelaBevel(layout),
         section: STELA_SECTION,
         partId: "stela",
+        detail,
       }).parts]
       : [];
     return { parts, anchors: emptyCompositionAnchors(), graph };

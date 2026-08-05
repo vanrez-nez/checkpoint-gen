@@ -36,6 +36,7 @@ import {
   masonrySeed,
   type MasonryRule,
 } from "../src/structure/kernel/masonry";
+import { DETAIL_LEVELS } from "../src/structure/kernel/detail";
 import { hashSeed } from "../src/geometry/random";
 import { buildMassShell } from "../src/structure/mass/shell";
 import {
@@ -7246,3 +7247,91 @@ function assertAllNormalsFace(
     );
   }
 }
+
+// The detail ladder. Its whole premise is that a coarser level is the same
+// structure generated with less spent on it — so the semantic layer must not
+// move, the geometry must stay watertight, and the cost must actually fall.
+
+// `bare` has to land exactly on the path the greybox assertions above already
+// prove, or the level is a new code path wearing a proven one's name.
+const bareByLevel = tessellateStructure(shellGraph, {
+  masonry: shellRule,
+  seed: 1,
+  detail: "bare",
+});
+const bareByNull = tessellateStructure(shellGraph, { masonry: null, seed: 1 });
+assert.deepEqual(
+  Array.from(bareByLevel.parts[0]!.geometry.getIndex()!.array),
+  Array.from(bareByNull.parts[0]!.geometry.getIndex()!.array),
+  "The bare level must be the same geometry as laying no masonry at all.",
+);
+assert.deepEqual(
+  Array.from(bareByLevel.parts[0]!.geometry.getAttribute("position").array),
+  Array.from(bareByNull.parts[0]!.geometry.getAttribute("position").array),
+  "The bare level moved a vertex the greybox path does not.",
+);
+
+const byLevel = DETAIL_LEVELS.map((level) => ({
+  level,
+  result: tessellateStructure(shellGraph, {
+    masonry: shellRule,
+    seed: 1,
+    detail: level,
+  }),
+}));
+
+for (let index = 1; index < byLevel.length; index += 1) {
+  const finer = byLevel[index - 1]!;
+  const coarser = byLevel[index]!;
+  assert.ok(
+    coarser.result.faceCount < finer.result.faceCount,
+    `Detail "${coarser.level}" draws ${coarser.result.faceCount} faces, `
+    + `no fewer than "${finer.level}" at ${finer.result.faceCount}.`,
+  );
+  // Every level is still made of blocks and nothing else. The reduction is
+  // allowed to lay fewer stones; it is not allowed to start drawing rings.
+  assert.equal(
+    coarser.result.parts[0]?.geometry.getIndex()?.count,
+    coarser.result.faceCount * 6,
+    `Detail "${coarser.level}" draws something that is not a block.`,
+  );
+}
+
+// A number, not just an ordering: a policy edit that technically reduces but
+// stops being worth switching to should fail here rather than pass quietly.
+const [fullLevel, coarseLevel] = byLevel;
+assert.ok(
+  coarseLevel!.result.faceCount * 2 < fullLevel!.result.faceCount,
+  `The coarse level must be worth having: ${coarseLevel!.result.faceCount} faces `
+  + `against ${fullLevel!.result.faceCount} is less than half a saving.`,
+);
+
+// The reduction changes how the wall is divided, which is exactly what moves
+// the butted end reservation and the compact quoin fallback — the two paths
+// these invariants exist to guard.
+// Measured against the full level rather than against zero. This fixture
+// already carries a coincident pair at full detail — a pre-existing property of
+// the layout, not of the ladder — and pinning to zero here would be asserting
+// something the coursed path has never promised. What the reduction must not do
+// is make it worse, and that is exactly what these paths could do: forcing
+// butted corners moves the end reservation each course ring reserves, and
+// doubling the stone width changes which fallback the quoin resolver takes.
+const fullCoincident = findCoincidentFaces(
+  byLevel[0]!.result.parts[0]!.geometry,
+).pairs;
+
+for (const { level, result } of byLevel) {
+  const geometry = result.parts[0]!.geometry;
+  assert.ok(
+    findCoincidentFaces(geometry).pairs <= fullCoincident,
+    `Detail "${level}" has ${findCoincidentFaces(geometry).pairs} coincident face `
+    + `pairs, more than the ${fullCoincident} the full level starts with.`,
+  );
+  assert.ok(
+    (result.parts[0]?.stoneCount ?? 0) > 0,
+    `Detail "${level}" reported no blocks at all.`,
+  );
+}
+
+// Detail must never reach the semantic layer — see geometry-sanity, which owns
+// the config machinery needed to resolve every family at every level.

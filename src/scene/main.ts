@@ -25,6 +25,11 @@ import {
 import { subdivideLongEdges } from "../geometry/subdivide";
 import { SunBakeScene, type SunBakeTarget } from "../geometry/sun-bake";
 import { StructureComposer } from "../structure/composer";
+import {
+  DEFAULT_DETAIL_LEVEL,
+  DETAIL_PROFILES,
+  type DetailLevel,
+} from "../structure/kernel/detail";
 import { createPatchOverlay, type PatchOverlay } from "../structure/kernel/debug-overlay";
 import type { StructureGraph } from "../structure/kernel/graph";
 import type { Diagnostic } from "../structure/kernel/validate";
@@ -141,6 +146,8 @@ export interface CompositionStats {
   generationMs: number;
   /** Time spent tracing the sun into the vertex channel, separate from generation. */
   sunBakeMs: number;
+  /** The level the resident geometry was generated at. */
+  detail: DetailLevel;
   flames: FlameStats;
   glowLightCount: number;
   offering: OfferingStats;
@@ -226,6 +233,7 @@ export class MainScene {
   private crackShadowStrength: number;
   private sunShadowStrength: number;
   private sunBakeMs = 0;
+  private detail: DetailLevel = DEFAULT_DETAIL_LEVEL;
   /**
    * The direction the current bake was taken from. Re-baking is far too
    * expensive to do for a colour or intensity change, so the sun's *angle* is
@@ -337,9 +345,11 @@ export class MainScene {
     this.sectionStats = composition.sections;
     this.totalStats = composition.totals;
     this.generationMs = composition.generationMs;
+    this.detail = composition.detail;
     const initialGeometry = this.prepareStructureGeometry(
       composition.geometry,
       config.illumination,
+      composition.detail,
     );
     this.applyGeometryAttributes(initialGeometry);
     // Every semantic slot remains addressable even when the current structure
@@ -537,6 +547,7 @@ export class MainScene {
     const geometry = this.prepareStructureGeometry(
       composition.geometry,
       config.illumination,
+      composition.detail,
     );
     this.applyGeometryAttributes(geometry);
     this.structure.geometry = geometry;
@@ -545,6 +556,7 @@ export class MainScene {
     this.sectionStats = composition.sections;
     this.totalStats = composition.totals;
     this.generationMs = composition.generationMs;
+    this.detail = composition.detail;
     // Rebuilding the wireframe on every geometry swap costs more than the
     // geometry itself, and it is hidden almost always, so drop it and rebuild
     // lazily if the user is actually looking at it.
@@ -573,6 +585,7 @@ export class MainScene {
       totals: this.totalStats,
       generationMs: this.generationMs,
       sunBakeMs: this.sunBakeMs,
+      detail: this.detail,
       flames: {
         count: flames.flameCount,
         vertexCount: flames.vertexCount,
@@ -820,8 +833,16 @@ export class MainScene {
   private prepareStructureGeometry(
     source: THREE.BufferGeometry,
     illumination: IlluminationConfig,
+    detail: DetailLevel,
   ): THREE.BufferGeometry {
-    const refined = subdivideLongEdges(source, SUN_BAKE_MAX_EDGE);
+    // Scaled by the level, and this is what makes the ladder worth having.
+    // Subdivision cost tracks total surface *area*, which barely changes
+    // between levels — the coarse levels have the same silhouette, just fewer
+    // stones in it. Held at one bound, a bare mass's enormous faces would be
+    // refined straight back into roughly the vertex count the full level
+    // carries, and the cheapest level would cost the most to prepare.
+    const bound = SUN_BAKE_MAX_EDGE * DETAIL_PROFILES[detail].edgeScale;
+    const refined = subdivideLongEdges(source, bound);
 
     if (refined.geometry !== source) {
       source.dispose();
