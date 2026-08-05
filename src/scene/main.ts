@@ -30,6 +30,11 @@ import {
 } from "../engravings/decal-material";
 import { EngravingMapCache } from "../engravings/map-cache";
 import { MoistureNoiseTextureResource } from "../engravings/moisture-noise";
+import {
+  engravingResolutionDimension,
+  type EngravingResolution,
+} from "../engravings/resolution";
+import type { EngravingTextures } from "../engravings/textures";
 import { subdivideLongEdges } from "../geometry/subdivide";
 import { SunBakeScene, type SunBakeTarget } from "../geometry/sun-bake";
 import { StructureComposer } from "../structure/composer";
@@ -262,6 +267,7 @@ export class MainScene {
   >();
   /** Master multiplier over every surface's own texture scale. */
   private materialScale: number;
+  private engravingResolution: EngravingResolution;
   private ambientOcclusionStrength: number;
   private crackShadowStrength: number;
   private sunShadowStrength: number;
@@ -283,6 +289,7 @@ export class MainScene {
     this.fireGlowShadowsSupported = options.fireGlowShadowsSupported ?? true;
     this.offeringConfig = { ...config.offering };
     this.materialScale = config.view.materialScale;
+    this.engravingResolution = config.view.engravingResolution;
     this.ambientOcclusionStrength = config.illumination.ambientOcclusion;
     this.crackShadowStrength = config.illumination.crackShadow;
     this.sunShadowStrength = config.illumination.sunShadow;
@@ -699,6 +706,22 @@ export class MainScene {
     this.refreshTextureScales();
   }
 
+  /**
+   * How much texture memory the engravings may spend.
+   *
+   * Rebuilds the decals because the budget is a property of the derived maps
+   * rather than of the shader, and the map cache keys on the size it produced —
+   * so a tier already visited comes back without re-deriving anything.
+   */
+  setEngravingResolution(resolution: EngravingResolution): void {
+    if (this.engravingResolution === resolution) {
+      return;
+    }
+
+    this.engravingResolution = resolution;
+    this.rebuildEngravingDecals();
+  }
+
   setOfferingConfig(config: OfferingConfig): void {
     validateOfferingConfig(config);
     this.offeringConfig = { ...config };
@@ -778,6 +801,15 @@ export class MainScene {
 
     if (direction.distanceToSquared(this.bakedSunDirection) > 1e-12) {
       this.bakeSun(this.structure.geometry, config);
+      // Decals follow the sun with the stone, and share its gate for the same
+      // reason they must not be skipped: an engraving lit from an angle the
+      // wall around it has moved off is the failure, and the two moving
+      // together is what prevents it. This used to run unconditionally, on the
+      // grounds that four vertices a quad made it a rounding error beside the
+      // structure's own bake. A glyph grid spends a quad per cell across every
+      // slot a feature matches, so it is no longer one — and the cost would
+      // otherwise land on sliders that never move the sun at all.
+      this.bakeEngravingShading();
     }
 
     this.applyAmbientOcclusion(this.structure.geometry);
@@ -788,10 +820,7 @@ export class MainScene {
       this.applyBakedShadow(mesh.geometry);
     }
 
-    // Decals follow the sun with the stone. Their own bake is cheap enough to
-    // redo unconditionally, and skipping it would leave an engraving lit from
-    // an angle the wall around it has already moved off.
-    this.bakeEngravingShading();
+    this.applyEngravingShading();
   }
 
   update(deltaTime: number): void {
@@ -1101,27 +1130,28 @@ export class MainScene {
       return;
     }
 
-    const textures = await Promise.allSettled(
-      batches.map((batch) => this.engravingMaps.ensure(batch.layer)),
-    );
+    // Each batch is placed the moment its own maps land, rather than the whole
+    // set waiting on the slowest. That used to be a distinction without a
+    // difference, because a structure named at most one layer per feature; a
+    // glyph grid can name fifteen at once against a single derivation worker,
+    // which would otherwise be one long wait with nothing on screen.
+    const maxDimension = engravingResolutionDimension(this.engravingResolution);
+    await Promise.all(batches.map(async (batch) => {
+      let derived: EngravingTextures;
 
-    if (token !== this.engravingBuildToken) {
-      for (const batch of batches) {
-        batch.geometry.dispose();
-      }
-
-      return;
-    }
-
-    batches.forEach((batch, index) => {
-      const derived = textures[index];
-
-      if (derived?.status !== "fulfilled") {
+      try {
+        derived = await this.engravingMaps.ensure(batch.layer, maxDimension);
+      } catch (error: unknown) {
         console.error(
           `Engraving "${batch.layer.id}" could not be derived; `
           + "its slots stay bare.",
-          derived?.status === "rejected" ? derived.reason : undefined,
+          error,
         );
+        batch.geometry.dispose();
+        return;
+      }
+
+      if (token !== this.engravingBuildToken) {
         batch.geometry.dispose();
         return;
       }
@@ -1142,7 +1172,7 @@ export class MainScene {
         batch.geometry,
         buildEngravingDecalMaterial({
           runtime,
-          textures: derived.value,
+          textures: derived,
           moistureNoise: this.moistureNoise.get(),
           aoIntensity: this.engravingSetting(batch.hostSurface, "aoIntensity"),
           normalStrength: this.engravingSetting(batch.hostSurface, "normalStrength"),
@@ -1166,10 +1196,9 @@ export class MainScene {
       );
       this.engravingMeshes.push(mesh);
       this.engravingRoot.add(mesh);
-    });
-
-    this.bakeEngravingShading();
-    this.refreshEngravingVisibility();
+      this.bakeEngravingShading([mesh]);
+      this.refreshEngravingVisibility();
+    }));
   }
 
   /**
@@ -1180,24 +1209,37 @@ export class MainScene {
    * are traced through the structure's existing hierarchy as receivers only —
    * see `SunBakeScene.bakeTargets` for why they must not join it as casters.
    */
-  private bakeEngravingShading(): void {
-    if (this.engravingMeshes.length === 0) {
+  private bakeEngravingShading(
+    meshes: readonly THREE.Mesh[] = this.engravingMeshes,
+  ): void {
+    if (meshes.length === 0) {
       return;
     }
 
-    const targets: SunBakeTarget[] = this.engravingMeshes.map((mesh) => ({
+    const targets: SunBakeTarget[] = meshes.map((mesh) => ({
       geometry: mesh.geometry,
     }));
 
-    // Four vertices a quad against a hierarchy that already exists, so this is
-    // a rounding error beside the structure's own bake.
     this.sunBakeScene?.bakeTargets(targets, {
       direction: this.bakedSunDirection,
       softness: SUN_BAKE_SOFTNESS,
       samples: SUN_BAKE_SAMPLES,
     });
+    this.applyEngravingShading(meshes);
+  }
 
-    for (const mesh of this.engravingMeshes) {
+  /**
+   * Re-derives the two strength-driven channels from the arrays the bake left.
+   *
+   * Split out because it is the cheap half. A colour, an intensity or either
+   * strength slider only rescales what is already there, exactly as it does for
+   * the structure — so this runs on every illumination change while the bake
+   * above waits for the sun to actually move.
+   */
+  private applyEngravingShading(
+    meshes: readonly THREE.Mesh[] = this.engravingMeshes,
+  ): void {
+    for (const mesh of meshes) {
       this.applyAmbientOcclusion(mesh.geometry);
       this.applyBakedShadow(mesh.geometry);
     }

@@ -222,7 +222,23 @@ function codecFieldsFor(field: HashField): readonly CodecField[] {
         key: `${label}.${component}`,
         ...(index % 2 === 0 ? BEZIER_X_RANGE : BEZIER_Y_RANGE),
       }));
+    case "text":
+      throw new TypeError(unencodableText(label));
   }
+}
+
+/**
+ * Named rather than skipped.
+ *
+ * The codec is a mixed radix over each control's own grid, so a field with no
+ * finite set of values has no radix and cannot be carried. The one text control
+ * in the project describes an engraving, which never reaches `collectFields` at
+ * all — so this is a guard against a future layout field, and it has to be a
+ * refusal rather than a silent omission or the code would decode into a
+ * structure that is not the one it was written from.
+ */
+function unencodableText(label: string): string {
+  return `${label} is a text control, which a geometry code cannot carry.`;
 }
 
 /** Reads one field's live value into the codec's flat numeric form. */
@@ -257,7 +273,12 @@ function writeFieldValue(field: HashField, form: Record<string, number>): void {
       BEZIER_COMPONENTS.forEach((component, index) => {
         form[`${label}.${component}`] = bezier[index] ?? 0;
       });
+      return;
     }
+    // This switch returns void, so an unhandled kind would fall through and
+    // write nothing rather than fail to compile. Say so out loud.
+    case "text":
+      throw new TypeError(unencodableText(label));
   }
 }
 
@@ -288,7 +309,10 @@ function readFieldValue(field: HashField, form: Record<string, number>): void {
         (component) => form[`${label}.${component}`] ?? 0,
       );
       field.target[spec.key] = [x1!, y1!, x2!, y2!] satisfies BezierValue;
+      return;
     }
+    case "text":
+      throw new TypeError(unencodableText(label));
   }
 }
 

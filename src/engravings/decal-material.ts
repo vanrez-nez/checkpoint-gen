@@ -66,6 +66,10 @@ export function buildEngravingDecalMaterial(
   const source = host as NodeMaterial & Record<string, NodeValue>;
   const { textures } = input;
   const engravingUv: NodeValue = attribute("engravingUv", "vec2");
+  // The engraving's own square, multiplied by however many times the motif
+  // repeats across the quad. At a repeat of one it is `engravingUv` exactly, so
+  // an untiled decal renders as it always did.
+  const engravingTileUv: NodeValue = attribute("engravingTileUv", "vec2");
   const materialUv: NodeValue = uv();
   const channel = (
     name: Parameters<typeof input.runtime.surface.getChannelTexture>[0],
@@ -74,7 +78,7 @@ export function buildEngravingDecalMaterial(
 
   const engravingAo: NodeValue = float(1).sub(
     float(1)
-      .sub(texture(textures.ambientOcclusion, engravingUv).r)
+      .sub(texture(textures.ambientOcclusion, engravingTileUv).r)
       .mul(float(Math.max(0, input.aoIntensity))),
   ).saturate();
   // Cavities darken the stone a little even in direct light, or a deep cut
@@ -86,6 +90,13 @@ export function buildEngravingDecalMaterial(
   const moistureLevel: NodeValue = float(
     Math.max(0, Math.min(1, input.moistureLevel)),
   );
+  // The blotching stays in the slot's own space while the three derived maps
+  // move to the tiled one, and that split is the point: the accumulation map
+  // says where water collects in the *cut*, so it has to repeat with the cut,
+  // while the noise says where the *wall* is damp — and a wall that stained
+  // itself once per motif would advertise the repetition rather than break it
+  // up. For the same reason the aspect here stays the layer's own and is not
+  // scaled by the repeat, which would shrink the blotches as a run tightened.
   const moistureUv: NodeValue = vec2(
     engravingUv.x.mul(Math.max(0.0001, input.aspect)),
     engravingUv.y,
@@ -96,7 +107,7 @@ export function buildEngravingDecalMaterial(
     texture(input.moistureNoise, moistureUv).r,
   );
   const moistureDarkening: NodeValue = float(1).sub(
-    texture(textures.moistureAccumulation, engravingUv).r
+    texture(textures.moistureAccumulation, engravingTileUv).r
       .mul(moistureSpots)
       .mul(moistureLevel)
       .mul(0.9),
@@ -113,8 +124,10 @@ export function buildEngravingDecalMaterial(
     ? hostColor.mul(cavityColor).mul(moistureDarkening)
     : null;
 
-  const engravingNormalSample: NodeValue = texture(textures.normal, engravingUv)
-    .xyz.mul(2).sub(1);
+  const engravingNormalSample: NodeValue = texture(
+    textures.normal,
+    engravingTileUv,
+  ).xyz.mul(2).sub(1);
   const engravingNormal: NodeValue = vec3(
     engravingNormalSample.xy.mul(float(Math.max(0, input.normalStrength) * 2)),
     engravingNormalSample.z,

@@ -10,13 +10,18 @@ import {
 /**
  * How many derived layers to keep uploaded.
  *
- * A structure dresses at most one engraving per slot-bearing feature, and the
- * widest family declares six, so this holds two structures' worth of choices
- * plus the ones a user tried on the way. At roughly two megabytes for the
- * largest layer's chain it is a bounded cost for never re-deriving a layer the
- * user is toggling between.
+ * This used to be twelve, on the reasoning that a structure dresses at most one
+ * engraving per slot-bearing feature and the widest family declares six. A glyph
+ * grid ends that: a single feature can name every glyph in the catalog, so
+ * twelve would evict layers that are on screen and re-derive them on the next
+ * frame — the one failure this cache exists to prevent.
+ *
+ * Sized above the catalog instead, so within one project file nothing resident
+ * is ever evicted and the ceiling is what the catalog costs rather than what the
+ * count allows. That cost is the user's to set: the resolution tier in
+ * `resolution.ts` puts the whole catalog at 2.61 MB, 5.46 MB or 18.12 MB.
  */
-const MAX_CACHED_LAYERS = 12;
+const MAX_CACHED_LAYERS = 32;
 
 interface CacheEntry {
   readonly textures: Promise<EngravingTextures>;
@@ -40,8 +45,14 @@ export class EngravingMapCache {
   private readonly entries = new Map<string, CacheEntry>();
   private readonly worker = new EngravingMapWorker();
 
-  ensure(layer: EngravingLayer): Promise<EngravingTextures> {
-    const target = engravingTargetSize(layer.width, layer.height);
+  ensure(
+    layer: EngravingLayer,
+    maxDimension?: number,
+  ): Promise<EngravingTextures> {
+    const target = engravingTargetSize(layer.width, layer.height, maxDimension);
+    // The budget reaches the key through the size it produced rather than by
+    // name, which is what lets two tiers of the same layer coexist and makes
+    // returning to a tier already derived free.
     const key = `${layer.id}|${target.width}x${target.height}`
       + `|r${ENGRAVING_NORMAL_RADIUS}`;
     const cached = this.entries.get(key);

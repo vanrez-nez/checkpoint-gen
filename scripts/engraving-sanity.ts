@@ -24,6 +24,7 @@ import {
 import {
   ENGRAVING_MAX_DIMENSION,
   ENGRAVING_MIN_DIMENSION,
+  ENGRAVING_RESOLUTION_TIERS,
   engravingTargetSize,
 } from "../src/engravings/resolution";
 import {
@@ -43,10 +44,23 @@ import {
 import {
   DECAL_MAX_EDGE,
   DECAL_NORMAL_OFFSET,
+  MAX_GRID_CELLS,
+  MAX_TILE_REPEATS,
+  NO_DECAL_REPEAT,
+  gridCellRects,
   mergeDecalQuads,
+  resolveDecalPlacement,
   resolveDecalQuad,
   resolveDecalRect,
+  resolveDecalRepeat,
+  resolveGridLayout,
+  type DecalTiling,
 } from "../src/engravings/decal-geometry";
+import {
+  createGlyphPicker,
+  resolveGlyphPool,
+} from "../src/engravings/glyph-pool";
+import { containDecalRect } from "../src/engravings/decal-geometry";
 import { rasterizeRoundedPixelField } from "../src/engravings/rounded-pixels";
 import { deriveSurfaceMaps } from "../src/engravings/surface-maps";
 import {
@@ -699,7 +713,9 @@ for (let quad = 0; quad < mergedQuads.length; quad += 1) {
   }
 
   // However finely it was divided, the engraving still occupies exactly one
-  // unit square: the corners are present and nothing runs outside them.
+  // unit square: the corners are present and nothing runs outside them. This
+  // holds whatever the repeat is — the tiled UVs live on their own attribute,
+  // and this one stays the slot's own space for the moisture blotching to read.
   const us: number[] = [];
   const vs: number[] = [];
 
@@ -744,6 +760,7 @@ const smallMerged = mergeDecalQuads([{
   ],
   normal: { x: 0, y: 0, z: 1 },
   flipWinding: false,
+  repeat: NO_DECAL_REPEAT,
 }])!;
 assert.equal(
   smallMerged.getAttribute("position").count,
@@ -776,6 +793,359 @@ assert.notEqual(merged.userData.vertexAoBase, merged.getAttribute("vertexAo").ar
 
 merged.dispose();
 assert.equal(mergeDecalQuads([]), null, "Nothing to place is not a geometry.");
+
+// --- 8b. Arrangements --------------------------------------------------------
+
+const seamless = (
+  mode: DecalTiling["mode"],
+  scale: number,
+): DecalTiling => ({ mode, scale, cellMin: 0.1, cellMax: 1, gutter: 0 });
+
+/**
+ * A tile is derived from the motif's own proportions rather than typed, because
+ * one assignment resolves every slot its feature matches and a stated size could
+ * only be right for one of them. A square motif on a two-by-half-metre band is
+ * therefore four across, and doubling the scale halves that.
+ */
+assert.deepEqual(resolveDecalRepeat(2, 0.5, 1, seamless("horizontal", 1)), { s: 4, t: 1 });
+assert.deepEqual(resolveDecalRepeat(2, 0.5, 1, seamless("horizontal", 2)), { s: 2, t: 1 });
+// A 1:4 ribbon is four times as tall as it is wide, so it runs four times as
+// often along the same band.
+assert.deepEqual(resolveDecalRepeat(2, 0.5, 0.25, seamless("horizontal", 1)), { s: 16, t: 1 });
+assert.deepEqual(resolveDecalRepeat(0.5, 2, 1, seamless("vertical", 1)), { s: 1, t: 4 });
+
+// Fractional and unrounded: the run starts at the origin corner and the far
+// edge cuts the last motif, which is what a band does where it meets a corner.
+assert.equal(resolveDecalRepeat(1, 0.3, 1, seamless("horizontal", 1)).s, 1 / 0.3);
+
+// Never below one. A slot too narrow for a repeat gets one squeezed into it
+// rather than a fragment of a motif with no beginning.
+assert.deepEqual(resolveDecalRepeat(0.2, 1, 1, seamless("horizontal", 1)), { s: 1, t: 1 });
+// And never past the guard, however far a slot's height has collapsed.
+assert.equal(
+  resolveDecalRepeat(1000, 0.001, 1, seamless("horizontal", 1)).s,
+  MAX_TILE_REPEATS,
+);
+
+// Four ways of asking for nothing, all the same answer. The NaN matters: it
+// would otherwise reach a vertex attribute and blank a whole draw call with
+// nothing to point at.
+assert.deepEqual(resolveDecalRepeat(9, 9, 1, undefined), NO_DECAL_REPEAT);
+assert.deepEqual(resolveDecalRepeat(9, 9, 1, seamless("none", 1)), NO_DECAL_REPEAT);
+assert.deepEqual(resolveDecalRepeat(9, 9, 1, seamless("horizontal", 0)), NO_DECAL_REPEAT);
+assert.deepEqual(
+  resolveDecalRepeat(9, 9, 1, seamless("horizontal", Number.NaN)),
+  NO_DECAL_REPEAT,
+);
+// A grid carries its count in the layout rather than here.
+assert.deepEqual(resolveDecalRepeat(9, 9, 1, seamless("grid", 1)), NO_DECAL_REPEAT);
+
+/**
+ * The identity that makes every claim above safe: at a repeat of one the tiled
+ * attribute *is* the slot-local one, so switching tiling off renders exactly
+ * what shipped before there was any.
+ */
+const untiled = mergeDecalQuads([identityQuad])!;
+const untiledUv = untiled.getAttribute("engravingUv");
+const untiledTileUv = untiled.getAttribute("engravingTileUv");
+assert.equal(untiledTileUv.itemSize, 2);
+assert.equal(untiledTileUv.count, untiledUv.count);
+
+for (let vertex = 0; vertex < untiledUv.count; vertex += 1) {
+  assert.equal(untiledTileUv.getX(vertex), untiledUv.getX(vertex));
+  assert.equal(untiledTileUv.getY(vertex), untiledUv.getY(vertex));
+}
+
+untiled.dispose();
+
+/**
+ * Three quads with three different repeats in one geometry.
+ *
+ * Not a hypothetical: a batch is keyed by layer and host surface, and a mass
+ * puts its band cornice and its summit roof cornice both on `cornice`, so one
+ * mesh really does carry two features' settings. That is the whole reason the
+ * repeat rides a vertex attribute instead of a material uniform — a uniform
+ * would have to pick a winner, and "the stronger tiling" means nothing.
+ *
+ * The flipped quad is here because a mirrored motif on a terrace or plinth-top
+ * slot would be a failure nobody would see.
+ */
+const tiledQuads = [
+  { ...identityQuad, repeat: { s: 6, t: 1 } },
+  { ...identityQuad, repeat: { s: 1, t: 3 } },
+  { ...identityQuad, flipWinding: true, repeat: { s: 4, t: 2 } },
+];
+const tiledMerged = mergeDecalQuads(tiledQuads)!;
+const tiledUv = tiledMerged.getAttribute("engravingUv");
+const tileUv = tiledMerged.getAttribute("engravingTileUv");
+
+for (let quad = 0; quad < tiledQuads.length; quad += 1) {
+  const from = quad * perQuadVertices;
+  const to = from + perQuadVertices;
+  const { s, t } = tiledQuads[quad]!.repeat;
+  const us: number[] = [];
+  const vs: number[] = [];
+  const tileUs: number[] = [];
+  const tileVs: number[] = [];
+
+  for (let vertex = from; vertex < to; vertex += 1) {
+    us.push(tiledUv.getX(vertex));
+    vs.push(tiledUv.getY(vertex));
+    tileUs.push(tileUv.getX(vertex));
+    tileVs.push(tileUv.getY(vertex));
+  }
+
+  assert.equal(Math.min(...us), 0, `Tiled quad ${quad} must still start at u 0.`);
+  assert.equal(Math.max(...us), 1, `Tiled quad ${quad} must still reach u 1.`);
+  assert.equal(Math.min(...vs), 0, `Tiled quad ${quad} must still start at v 0.`);
+  assert.equal(Math.max(...vs), 1, `Tiled quad ${quad} must still reach v 1.`);
+  assert.equal(Math.min(...tileUs), 0, `Tiled quad ${quad} must start at tile u 0.`);
+  assert.equal(Math.max(...tileUs), s, `Tiled quad ${quad} must reach tile u ${s}.`);
+  assert.equal(Math.min(...tileVs), 0, `Tiled quad ${quad} must start at tile v 0.`);
+  assert.equal(Math.max(...tileVs), t, `Tiled quad ${quad} must reach tile v ${t}.`);
+}
+
+// Tiling a run adds no geometry at all. This is the assertion that would catch
+// anyone reintroducing a quad per tile on the seamless path, where the sun bake
+// would then scale with a slider.
+assert.equal(
+  tiledMerged.getAttribute("position").count,
+  tiledQuads.length * perQuadVertices,
+);
+tiledMerged.dispose();
+
+/**
+ * The grid fitter, with no ratio bias anywhere in it.
+ *
+ * Scoring on how much of the field the cells actually cover already prefers the
+ * orientation that fits, because a wrongly-turned grid wastes area. Ties — a
+ * square field takes two by two and three by three equally well — go to the
+ * larger cell, which is what makes the maximum the operative control.
+ */
+assert.deepEqual(resolveGridLayout(2, 1, 0.4, 1.2), { columns: 2, rows: 1 });
+assert.deepEqual(resolveGridLayout(1, 2, 0.4, 1.2), { columns: 1, rows: 2 });
+assert.deepEqual(resolveGridLayout(2, 2, 0.4, 1.2), { columns: 2, rows: 2 });
+// The case a bias was meant to protect: a field a tenth taller than it is wide
+// must stay one cell, because a column of two would cover only 55% of it.
+assert.deepEqual(resolveGridLayout(1, 1.1, 0.4, 1.2), { columns: 1, rows: 1 });
+assert.deepEqual(resolveGridLayout(1.1, 1, 0.4, 1.2), { columns: 1, rows: 1 });
+// A real pier panel, which is the commonest slot in the project.
+assert.deepEqual(resolveGridLayout(0.541, 0.333, 0.15, 0.6), { columns: 1, rows: 1 });
+assert.deepEqual(resolveGridLayout(0.541, 0.333, 0.15, 0.28), { columns: 2, rows: 1 });
+
+const capped = resolveGridLayout(40, 40, 0.05, 0.05);
+assert.ok(
+  capped.columns * capped.rows <= MAX_GRID_CELLS,
+  `A grid may not exceed ${MAX_GRID_CELLS} cells; got ${capped.columns * capped.rows}.`,
+);
+
+// A band far thinner than the smallest cell has no legal division at all, and
+// must still place something rather than refusing.
+const bandGrid = resolveGridLayout(23.418, 0.16, 0.4, 1.2);
+assert.ok(bandGrid.columns >= 1 && bandGrid.rows === 1);
+
+/**
+ * Cells are square in metres, and a glyph keeps the shape it was authored as.
+ *
+ * This is the assertion the whole grid exists to hold. Squaring a glyph is not
+ * a rounding fix — only six of the fifteen shipped glyphs are square, and
+ * `glyph-scopion` is 50 by 66 — and it is done by containing the glyph in its
+ * cell rather than by padding a texture, which is what keeps it free.
+ */
+const gridSlot: SlotRecord = {
+  ...fixtureSlot,
+  extent: { uBottom: 2, uTop: 2, v: 2 },
+  boundary: [
+    { u: 0, v: 0 },
+    { u: 2, v: 0 },
+    { u: 2, v: 2 },
+    { u: 0, v: 2 },
+  ],
+};
+const gridTiling: DecalTiling = {
+  mode: "grid",
+  scale: 1,
+  cellMin: 0.4,
+  cellMax: 1.2,
+  gutter: 0,
+};
+const gridPlaced = resolveDecalPlacement(gridSlot, {
+  fit: "stretch",
+  margin: 0,
+  aspect: 1,
+  tiling: gridTiling,
+})!;
+assert.deepEqual(gridPlaced.grid, { columns: 2, rows: 2 });
+assert.deepEqual(gridPlaced.repeat, { s: 2, t: 2 });
+
+const gridCells = gridCellRects(gridPlaced.rect, gridPlaced.grid!, 0);
+assert.equal(gridCells.length, 4, "A two by two grid has four cells.");
+
+for (const [index, cell] of gridCells.entries()) {
+  const width = gridSlot.extent.uBottom * (cell.sMax - cell.sMin);
+  const height = gridSlot.extent.v * (cell.tMax - cell.tMin);
+  assert.ok(
+    Math.abs(width - height) < 1e-9,
+    `Cell ${index} must be square in metres; it is ${width} by ${height}.`,
+  );
+}
+
+// Reading order: the top row comes first, because a sequential run is a text
+// and a text starts at the top. `t` runs up the slot, so that is the last row
+// along it.
+assert.ok(
+  gridCells[0]!.tMin > gridCells[2]!.tMin,
+  "The first cell must be on the top row.",
+);
+assert.ok(
+  gridCells[0]!.sMin < gridCells[1]!.sMin,
+  "The first row must read left to right.",
+);
+
+// The gutter shrinks a cell about its own centre and nothing else.
+const guttered = gridCellRects(gridPlaced.rect, gridPlaced.grid!, 0.1);
+
+for (const [index, cell] of guttered.entries()) {
+  const plain = gridCells[index]!;
+  assert.ok(
+    Math.abs((cell.sMin + cell.sMax) - (plain.sMin + plain.sMax)) < 1e-12
+    && Math.abs((cell.tMin + cell.tMax) - (plain.tMin + plain.tMax)) < 1e-12,
+    `Cell ${index} must keep its centre when guttered.`,
+  );
+  assert.ok(
+    cell.sMax - cell.sMin < plain.sMax - plain.sMin,
+    `Cell ${index} must shrink when guttered.`,
+  );
+}
+
+// A glyph that was not authored square keeps its proportions inside a square
+// cell. `glyph-scopion` at 50 by 66 is the worst the catalog carries.
+const scorpion = 50 / 66;
+const contained = containDecalRect(gridSlot, gridCells[0]!, scorpion)!;
+const containedAspect = (gridSlot.extent.uBottom * (contained.sMax - contained.sMin))
+  / (gridSlot.extent.v * (contained.tMax - contained.tMin));
+assert.ok(
+  Math.abs(containedAspect - scorpion) < 1e-9,
+  `A contained glyph must keep its authored aspect; got ${containedAspect}.`,
+);
+
+// --- 8c. The glyph pool ------------------------------------------------------
+
+/**
+ * An empty catalog rejects nothing.
+ *
+ * The project file is loaded from disk after these modules are evaluated, and
+ * every default has to validate before that happens — the same reason the
+ * document list carries `None` as a real value. Asserted before the catalog is
+ * installed below, because afterwards it can never be observed again.
+ */
+assert.deepEqual(
+  resolveGlyphPool("glyph-*"),
+  [],
+  "An unloaded catalog must yield an empty pool rather than a rejection.",
+);
+
+setEngravingCatalog(catalog);
+
+const glyphIds = catalog.ids.filter((id) => id.startsWith("glyph-"));
+assert.ok(glyphIds.length > 1, "The catalog must carry glyphs to pool.");
+
+assert.deepEqual(
+  resolveGlyphPool("glyph-*").map((layer) => layer.id),
+  glyphIds,
+  "A wildcard must expand in catalog order.",
+);
+assert.deepEqual(
+  resolveGlyphPool("").map((layer) => layer.id),
+  [...catalog.ids],
+  "An empty pool means every layer the catalog carries.",
+);
+// Written order, not catalog order: with a sequential arrangement the pool is
+// the sequence, and sorting it would carve something other than what was asked.
+assert.deepEqual(
+  resolveGlyphPool(" glyph-sun , glyph-eagle ").map((layer) => layer.id),
+  ["glyph-sun", "glyph-eagle"],
+  "Named layers must keep the order they were written in.",
+);
+assert.deepEqual(
+  resolveGlyphPool("glyph-sun, glyph-sun").map((layer) => layer.id),
+  ["glyph-sun"],
+  "A repeat collapses to its first appearance.",
+);
+assert.throws(
+  () => resolveGlyphPool("glyph-nonesuch"),
+  /glyph-nonesuch/,
+  "A layer the catalog does not carry must be named, not dropped.",
+);
+assert.throws(
+  () => resolveGlyphPool("nonesuch-*"),
+  /nonesuch-\*/,
+  "A pattern that matches nothing must be named too.",
+);
+
+/**
+ * Sequential runs one counter across every slot, so a colonnade reads as one
+ * text rather than as the same panel repeated; random reseeds per slot, so a
+ * panel is stable under every rebuild that leaves its slot id alone.
+ */
+const pool = resolveGlyphPool("glyph-*");
+const sequential = createGlyphPicker(pool, "sequential");
+sequential.beginSlot("slot-a");
+const firstSlot = [sequential.next().id, sequential.next().id];
+sequential.beginSlot("slot-b");
+const secondSlot = [sequential.next().id, sequential.next().id];
+assert.deepEqual(firstSlot, [pool[0]!.id, pool[1]!.id]);
+assert.deepEqual(
+  secondSlot,
+  [pool[2]!.id, pool[3]!.id],
+  "A sequential run must continue across slots, not restart at each one.",
+);
+
+const drawFour = (slotId: string): string[] => {
+  const picker = createGlyphPicker(pool, "random");
+  picker.beginSlot(slotId);
+  return [0, 1, 2, 3].map(() => picker.next().id);
+};
+assert.deepEqual(
+  drawFour("slot-a"),
+  drawFour("slot-a"),
+  "A random grid must be identical on every rebuild of the same slot.",
+);
+assert.notDeepEqual(
+  drawFour("slot-a"),
+  drawFour("slot-b"),
+  "Two slots must not draw the same glyphs.",
+);
+
+// --- 8d. The resolution budget -----------------------------------------------
+
+/**
+ * The tiers are a memory budget, so what has to hold is that they are ordered
+ * and that the floor still wins — a four-by-six pattern keeps a usable mip
+ * chain at every tier rather than collapsing along with the ceiling.
+ */
+const tierSizes = (["low", "medium", "high"] as const).map((tier) => {
+  const size = engravingTargetSize(110, 110, ENGRAVING_RESOLUTION_TIERS[tier]);
+  return size.width * size.height;
+});
+
+for (let index = 1; index < tierSizes.length; index += 1) {
+  assert.ok(
+    tierSizes[index]! > tierSizes[index - 1]!,
+    "Each resolution tier must cost strictly more than the one below it.",
+  );
+}
+
+assert.deepEqual(
+  engravingTargetSize(110, 110, ENGRAVING_RESOLUTION_TIERS.high),
+  engravingTargetSize(110, 110),
+  "The high tier must be what the ceiling was before there were tiers.",
+);
+assert.deepEqual(
+  engravingTargetSize(4, 6, ENGRAVING_RESOLUTION_TIERS.low),
+  engravingTargetSize(4, 6),
+  "A layer governed by the floor must be untouched by the budget.",
+);
 
 // --- 9. Every slot feature engraves a surface its structure dresses ----------
 
@@ -882,7 +1252,7 @@ for (const definition of listStructures()) {
       const owned = published.filter((slot) => feature.matches(slot));
 
       for (const slot of owned) {
-        const rect = resolveDecalRect(slot, {
+        const placed = resolveDecalPlacement(slot, {
           fit: featureDefaults[feature.id]!.fit,
           margin: DEFAULT_ENGRAVING_ASSIGNMENT.margin,
           // The squarest motif is the worst case for a band: it is the one
@@ -890,9 +1260,20 @@ for (const definition of listStructures()) {
           aspect: 1,
         });
 
-        if (!rect) {
+        if (!placed) {
           continue;
         }
+
+        const rect = placed.rect;
+        // Nothing arranges itself by default. Every coverage figure below is
+        // measured against a single instance, so a default that quietly tiled
+        // would shrink all of them without any being re-measured.
+        assert.deepEqual(
+          placed.repeat,
+          NO_DECAL_REPEAT,
+          `${where}: feature "${feature.id}" tiles by default.`,
+        );
+        assert.equal(placed.grid, null);
 
         const width = ((slot.extent.uBottom + slot.extent.uTop) / 2)
           * (rect.sMax - rect.sMin);
@@ -941,6 +1322,75 @@ for (const definition of listStructures()) {
   );
 }
 
+// --- 9b. A seamless run costs no geometry ------------------------------------
+
+/**
+ * The claim the whole seamless design rests on, measured through the real build
+ * rather than argued: a hundred repeats is the same mesh as one.
+ *
+ * It matters beyond the draw call. The decal sun bake is a per-vertex ray cast
+ * against the structure's own hierarchy, so a run whose vertex count tracked its
+ * repeat would put the cost of a slider onto every change of the light. This is
+ * the assertion that would catch anyone reintroducing a quad per tile here.
+ */
+{
+  const engraved = listStructures().find(
+    (definition) => (definition.slotFeatures ?? []).length > 0,
+  )!;
+  const runLayer = catalog.ids.find((id) => id.startsWith("pattern-"))!;
+
+  const verticesFor = (tiling: "none" | "horizontal") => {
+    const config = createDefaultStructureConfig();
+    config.typeId = engraved.id;
+    const assignments = config.engravings[engraved.id]!;
+
+    for (const feature of engraved.slotFeatures ?? []) {
+      feature.select(
+        config.layouts[engraved.id]! as Record<string, unknown>,
+      ).enabled = true;
+      Object.assign(assignments[feature.id]!, { document: runLayer, tiling });
+    }
+
+    const composition = composer.build(config);
+    const batches = buildEngravingDecalBatches(
+      composition.graph,
+      engraved.slotFeatures ?? [],
+      assignments,
+      config.layouts[engraved.id]!,
+    );
+    const vertices = batches.reduce(
+      (total, batch) => total + batch.geometry.getAttribute("position").count,
+      0,
+    );
+    const tileU = batches.flatMap((batch) => {
+      const attribute = batch.geometry.getAttribute("engravingTileUv");
+      return Array.from({ length: attribute.count }, (_, i) => attribute.getX(i));
+    });
+
+    for (const batch of batches) {
+      batch.geometry.dispose();
+    }
+
+    composition.geometry.dispose();
+    return { vertices, peak: Math.max(...tileU) };
+  };
+
+  const plain = verticesFor("none");
+  const tiled = verticesFor("horizontal");
+
+  assert.ok(plain.vertices > 0, "The reference build must place some decals.");
+  assert.equal(
+    tiled.vertices,
+    plain.vertices,
+    "Tiling a run must add no vertices; the repeat rides an attribute.",
+  );
+  assert.equal(plain.peak, 1, "An untiled run must stop at one repeat.");
+  assert.ok(
+    tiled.peak > 1,
+    `The tiled build must actually have tiled; its peak repeat is ${tiled.peak}.`,
+  );
+}
+
 /**
  * Every form a family can take, or a single null for one that has just the one.
  *
@@ -962,8 +1412,8 @@ function archetypesOf(
 // --- 10. Config defaults, cloning and validation -----------------------------
 
 // The catalog is a module-level fact everywhere else, so the control options
-// are empty until it is set. Everything below runs against the real one.
-setEngravingCatalog(catalog);
+// are empty until it is set. Section 8c installed the real one, and everything
+// below runs against it.
 
 const defaultConfig = createDefaultStructureConfig();
 
@@ -1001,6 +1451,15 @@ const chosen = cloneStructureEngravings(engravedDefinition, {
     margin: 0.05,
     normalStrength: 2,
     aoIntensity: 0.5,
+    // A tiled selection rather than a bare one, so the arrangement fields are
+    // proved to validate on the path a real assignment takes.
+    tiling: "grid",
+    tileScale: 0.5,
+    glyphs: "glyph-*",
+    glyphOrder: "random",
+    cellMin: 0.2,
+    cellMax: 0.8,
+    cellGutter: 0.05,
   },
 });
 assert.equal(chosen[engravedFeature.id]!.document, sampleLayer);
@@ -1017,9 +1476,20 @@ for (const [field, value, pattern] of [
   // A layer the project no longer carries. This is the case that actually
   // happens, because the project file is rewritten by another program.
   ["document", "glyph-that-was-removed", /engraving/i],
+  // Still rejected, and deliberately: repeating a motif is not a fit. A fit
+  // says what shape one instance is, a tiling says how many there are, and
+  // folding them together would make "contained, four across" unsayable.
   ["fit", "tile", /fit/i],
   ["margin", 5, /margin/i],
   ["normalStrength", -1, /relief/i],
+  ["tiling", "brick", /tiling/i],
+  ["glyphOrder", "spiral", /order/i],
+  // A pool naming a layer the catalog no longer carries has to be a named
+  // rejection the pane can restore from, for the same reason a stale document
+  // is: the project file is rewritten by another program.
+  ["glyphs", "glyph-nonesuch", /glyph/i],
+  ["cellMax", 99, /cell/i],
+  ["cellGutter", 0.9, /gutter/i],
 ] as const) {
   assert.throws(
     () => validateStructureEngravings(

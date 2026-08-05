@@ -3,21 +3,36 @@ import type { MaterialSurfaceId } from "../config/material-palette";
 import type { SlotFeatureSpec } from "../structure/definition";
 import { allSlots, patchIndex, type StructureGraph } from "../structure/kernel/graph";
 import { engravingCatalog } from "./catalog";
-import { NO_ENGRAVING, type StructureEngravings } from "./config";
 import {
+  NO_ENGRAVING,
+  type EngravingAssignment,
+  type StructureEngravings,
+} from "./config";
+import {
+  containDecalRect,
   DECAL_NORMAL_OFFSET,
+  decalQuadFromRect,
+  gridCellRects,
   mergeDecalQuads,
-  resolveDecalQuad,
+  NO_DECAL_REPEAT,
+  resolveDecalPlacement,
+  type DecalTiling,
   type EngravingDecalQuad,
 } from "./decal-geometry";
 import type { EngravingLayer } from "./document";
+import { createGlyphPicker, resolveGlyphPool } from "./glyph-pool";
 
 export interface EngravingDecalBatch {
   readonly layer: EngravingLayer;
   readonly hostSurface: MaterialSurfaceId;
   readonly geometry: THREE.BufferGeometry;
-  /** How many slots this batch covers. Reported, never used for rendering. */
-  readonly slotCount: number;
+  /**
+   * How many quads this batch covers. Reported, never used for rendering.
+   *
+   * Quads rather than slots, because a grid spends one per cell and a batch
+   * collects the cells of one glyph out of many slots.
+   */
+  readonly quadCount: number;
 }
 
 /**
@@ -76,13 +91,35 @@ export function buildEngravingDecalBatches(
     // moulding is published against the face it was laid on.
     const offset = DECAL_NORMAL_OFFSET
       + (layout ? feature.standOff?.(layout) ?? 0 : 0);
-    const key = `${layer.id}|${feature.surface}`;
-    let batch = quadsByBatch.get(key);
+    const tiling: DecalTiling = {
+      mode: assignment.tiling,
+      scale: assignment.tileScale,
+      cellMin: assignment.cellMin,
+      cellMax: assignment.cellMax,
+      gutter: assignment.cellGutter,
+    };
+    // Resolved once for the feature rather than once per slot: the pool is what
+    // the assignment says, and a sequential run has to keep one counter across
+    // every slot the feature matches or each panel would repeat the last.
+    const picker = assignment.tiling === "grid"
+      ? glyphPicker(assignment.glyphs, assignment.glyphOrder)
+      : null;
 
-    if (!batch) {
-      batch = { layer, hostSurface: feature.surface, quads: [] };
-      quadsByBatch.set(key, batch);
+    if (assignment.tiling === "grid" && !picker) {
+      continue;
     }
+
+    const push = (target: EngravingLayer, quad: EngravingDecalQuad): void => {
+      const key = `${target.id}|${feature.surface}`;
+      let batch = quadsByBatch.get(key);
+
+      if (!batch) {
+        batch = { layer: target, hostSurface: feature.surface, quads: [] };
+        quadsByBatch.set(key, batch);
+      }
+
+      batch.quads.push(quad);
+    };
 
     for (const slot of slots) {
       // A slot whose stone is gone carries no engraving. The same rule the
@@ -97,15 +134,49 @@ export function buildEngravingDecalBatches(
         continue;
       }
 
-      const quad = resolveDecalQuad(slot, patch.frame, {
+      const placed = resolveDecalPlacement(slot, {
         fit: assignment.fit,
         margin: assignment.margin,
         aspect: layer.width / layer.height,
         offset,
+        tiling,
       });
 
-      if (quad) {
-        batch.quads.push(quad);
+      if (!placed) {
+        continue;
+      }
+
+      if (!placed.grid || !picker) {
+        const quad = decalQuadFromRect(
+          slot,
+          patch.frame,
+          placed.rect,
+          offset,
+          placed.repeat,
+        );
+
+        if (quad) {
+          push(layer, quad);
+        }
+
+        continue;
+      }
+
+      // One quad per cell, each carrying its own glyph and its own zero-to-one
+      // square. Containing per cell is what normalises a glyph that was not
+      // authored square: the cell is square in metres and the glyph keeps the
+      // shape it was drawn as, centred in it.
+      picker.beginSlot(slot.id);
+
+      for (const cell of gridCellRects(placed.rect, placed.grid, tiling.gutter)) {
+        const glyph = picker.next();
+        const rect = containDecalRect(slot, cell, glyph.width / glyph.height);
+        const quad = rect
+          && decalQuadFromRect(slot, patch.frame, rect, offset, NO_DECAL_REPEAT);
+
+        if (quad) {
+          push(glyph, quad);
+        }
       }
     }
   }
@@ -120,11 +191,29 @@ export function buildEngravingDecalBatches(
         layer: batch.layer,
         hostSurface: batch.hostSurface,
         geometry,
-        slotCount: batch.quads.length,
+        quadCount: batch.quads.length,
       });
     }
   }
 
   return batches;
+}
+
+/**
+ * A picker, or null if the pool cannot be resolved.
+ *
+ * Validation rejects an unresolvable pool at the pane, so reaching this means
+ * the config was written past it — and a reader's answer to that is bare stone,
+ * exactly as it is for a document the catalog no longer carries.
+ */
+function glyphPicker(
+  spec: string,
+  order: EngravingAssignment["glyphOrder"],
+): ReturnType<typeof createGlyphPicker> | null {
+  try {
+    return createGlyphPicker(resolveGlyphPool(spec), order);
+  } catch {
+    return null;
+  }
 }
 

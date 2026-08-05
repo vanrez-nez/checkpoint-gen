@@ -277,6 +277,10 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     // only for a change to the choices, which touches no geometry at all.
     if (scopes.includes("engraving")) {
       const definition = activeStructure();
+      // A no-op unless the budget itself is what changed, which is the one case
+      // where this and the call below both rebuild — the stale one is dropped by
+      // the build token, and the map cache means nothing is derived twice.
+      scene.setEngravingResolution(config.view.engravingResolution);
       scene.setStructureEngravings(
         config.engravings[definition.id] ?? {},
         definition,

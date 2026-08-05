@@ -105,11 +105,32 @@ export interface BezierControlSpec<T> extends BaseControlSpec<T> {
   readonly kind: "bezier";
 }
 
+/**
+ * Free text, for a set too open to enumerate as a list.
+ *
+ * The one field that needs this is an engraving's glyph pool, which names
+ * layers from a catalog another program rewrites and accepts wildcards over
+ * them — so neither the members nor their count are known when the table is
+ * written. Everything else that reads as a choice should stay a `list`, whose
+ * options are checked against the same table the dropdown is built from and so
+ * cannot be selectable but invalid.
+ *
+ * The grammar itself is the caller's, not this module's: `validate` is where a
+ * domain rule lives, which is what keeps a generic spec table from learning
+ * what a catalog is.
+ */
+export interface TextControlSpec<T> extends BaseControlSpec<T> {
+  readonly kind: "text";
+  /** Throws with `name` in the message, the way the built-in kinds do. */
+  readonly validate?: (value: string, name: string) => void;
+}
+
 export type ControlSpec<T> =
   | NumberControlSpec<T>
   | BooleanControlSpec<T>
   | ListControlSpec<T>
-  | BezierControlSpec<T>;
+  | BezierControlSpec<T>
+  | TextControlSpec<T>;
 
 /** The shape a `bezier` control binds to: `[x1, y1, x2, y2]`. */
 export type BezierValue = [number, number, number, number];
@@ -129,12 +150,14 @@ export function controlsFor<T extends object>(): {
   boolean: (spec: Omit<BooleanControlSpec<T>, "kind">) => BooleanControlSpec<T>;
   list: (spec: Omit<ListControlSpec<T>, "kind">) => ListControlSpec<T>;
   bezier: (spec: Omit<BezierControlSpec<T>, "kind">) => BezierControlSpec<T>;
+  text: (spec: Omit<TextControlSpec<T>, "kind">) => TextControlSpec<T>;
 } {
   return {
     number: (spec) => ({ kind: "number", ...spec }),
     boolean: (spec) => ({ kind: "boolean", ...spec }),
     list: (spec) => ({ kind: "list", ...spec }),
     bezier: (spec) => ({ kind: "bezier", ...spec }),
+    text: (spec) => ({ kind: "text", ...spec }),
   };
 }
 
@@ -171,6 +194,18 @@ export function validateControls<T extends object>(
         );
       }
 
+      continue;
+    }
+
+    if (spec.kind === "text") {
+      if (typeof value !== "string") {
+        throw new TypeError(`${name} must be text.`);
+      }
+
+      // The grammar belongs to whoever declared the control. All this module
+      // knows is that the value is a string and that a rejection has to name
+      // the control, so the pane can restore from it like any other.
+      spec.validate?.(value, name);
       continue;
     }
 

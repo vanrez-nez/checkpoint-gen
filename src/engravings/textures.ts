@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { ENGRAVING_ANISOTROPY } from "./resolution";
 import type { SurfaceMapMipLevel } from "./surface-maps";
 import type { EngravingSurfaceMaps } from "./worker-protocol";
 
@@ -66,6 +67,12 @@ function mipmappedDataTexture(
   texture.wrapT = THREE.RepeatWrapping;
   texture.magFilter = THREE.LinearFilter;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
+  // Three's WebGPU backend forwards this only when the three filters above all
+  // resolve to linear, which they do, and it keys its sampler cache on the
+  // value — so this is one more `GPUSampler` in total rather than one per
+  // texture, and it costs nothing on the layers that are not tiled, since the
+  // extra taps only fire where the derivatives ask for them.
+  texture.anisotropy = ENGRAVING_ANISOTROPY;
   texture.generateMipmaps = false;
   texture.flipY = false;
   // The editor could omit this because its map widths all derived from 1024 and

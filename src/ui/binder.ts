@@ -178,6 +178,11 @@ function bindingParams<T>(
       return { options: spec.options };
     case "boolean":
       return {};
+    // Tweakpane gives a string binding a text field by default, and commits it
+    // on blur or Enter rather than per keystroke — which is what keeps a
+    // half-typed value from being dispatched and rejected mid-word.
+    case "text":
+      return {};
   }
 }
 

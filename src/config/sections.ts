@@ -1,3 +1,8 @@
+import {
+  DEFAULT_ENGRAVING_RESOLUTION,
+  ENGRAVING_RESOLUTION_OPTIONS,
+  type EngravingResolution,
+} from "../engravings/resolution";
 import type { StoneDetailConfig } from "../geometry/stone-builder";
 import {
   DEFAULT_DETAIL_LEVEL,
@@ -93,6 +98,15 @@ export interface ViewConfig {
    */
   detailLevel: DetailLevel;
   materialScale: number;
+  /**
+   * How much texture memory the engravings may spend.
+   *
+   * Global rather than per feature because it is a budget, not a look: a glyph
+   * grid can name fifteen layers from one assignment, and what that costs to
+   * hold and to derive is a property of the machine rather than of the wall.
+   * See `engravings/resolution.ts` for the measured tiers.
+   */
+  engravingResolution: EngravingResolution;
 }
 
 export const DEFAULT_VIEW_CONFIG: Readonly<ViewConfig> = {
@@ -104,6 +118,7 @@ export const DEFAULT_VIEW_CONFIG: Readonly<ViewConfig> = {
   slotDebug: false,
   detailLevel: DEFAULT_DETAIL_LEVEL,
   materialScale: 1,
+  engravingResolution: DEFAULT_ENGRAVING_RESOLUTION,
 };
 
 /** Lighting, plus the two baked-attribute strengths driven from userData. */
@@ -308,6 +323,18 @@ export const VIEW_CONTROLS: readonly ControlSpec<ViewConfig>[] = [
     max: 4,
     step: 0.05,
     scopes: ["material"],
+  }),
+  view.list({
+    key: "engravingResolution",
+    label: "engraving detail",
+    name: "Engraving resolution",
+    group: "Material",
+    options: ENGRAVING_RESOLUTION_OPTIONS,
+    // The engraving scope, not the material one: this changes what the map
+    // cache is asked for, and nothing about the palette. Because the cache keys
+    // on the derived size, the tiers coexist and switching back to one already
+    // derived costs nothing.
+    scopes: ["engraving"],
   }),
 ];
 
