@@ -61,17 +61,6 @@ export interface EngravingAssignment {
   margin: number;
   normalStrength: number;
   aoIntensity: number;
-  /**
-   * A colour multiplied into the decal, `#ffffff` for none.
-   *
-   * The cheap half of what a per-feature material would have bought. A decal
-   * cannot take a material document of its own — a triangle's material is one
-   * of twenty-four append-only draw groups, so the stone under it could never
-   * follow, and a decal wearing different stone from its own slot face is the
-   * sticker this subsystem exists to avoid. A tint moves the same stone's tone
-   * without any of that.
-   */
-  tint: string;
   /** How the motif is arranged across each slot the feature resolves. */
   tiling: EngravingTiling;
   /**
@@ -115,9 +104,6 @@ export const DEFAULT_ENGRAVING_ASSIGNMENT: Readonly<EngravingAssignment> = {
   margin: 0.02,
   normalStrength: 1,
   aoIntensity: 1,
-  // No tint: a decal starts indistinguishable from the stone it is cut into,
-  // and every departure from that is asked for.
-  tint: "#ffffff",
   // No arrangement by default, which is what keeps every coverage figure the
   // suite holds the defaults to measured against a single instance.
   tiling: "none",
@@ -320,14 +306,6 @@ export function engravingControls(
       min: 0,
       max: MAX_AO_INTENSITY,
       step: STRENGTH_STEP,
-      scopes: ["engraving"],
-      visibleWhen: engraved,
-    }),
-    control.color({
-      key: "tint",
-      label: "tint",
-      name: `${label} engraving tint`,
-      group: label,
       scopes: ["engraving"],
       visibleWhen: engraved,
     }),

@@ -30,8 +30,6 @@ export interface EngravingDecalMaterialInput {
   readonly aoIntensity: number;
   readonly normalStrength: number;
   readonly moistureLevel: number;
-  /** A `#rrggbb` multiplied into the host's colour. White changes nothing. */
-  readonly tint: string;
 }
 
 /**
@@ -117,18 +115,11 @@ export function buildEngravingDecalMaterial(
   // engraving changes how the stone is shaped, not what it is made of. Only
   // colour, normal and occlusion carry the cut, and each is composed onto
   // whatever the host already had rather than replacing it.
-  // Multiplied in linear space, like every other term here. The colour arrives
-  // as the sRGB hex the pane produced, so it is converted rather than used
-  // raw — a tint that looked right in the picker and came out washed would be
-  // the kind of wrongness nobody thinks to suspect.
-  const tint = new THREE.Color(input.tint).convertSRGBToLinear();
-  const tintColor: NodeValue = vec3(tint.r, tint.g, tint.b);
-
   const baseColor = channel("baseColor");
   const hostColor: NodeValue = source.colorNode
     ?? (baseColor ? sample(baseColor).rgb : null);
   material.colorNode = hostColor
-    ? hostColor.mul(cavityColor).mul(moistureDarkening).mul(tintColor)
+    ? hostColor.mul(cavityColor).mul(moistureDarkening)
     : null;
 
   const engravingNormalSample: NodeValue = texture(

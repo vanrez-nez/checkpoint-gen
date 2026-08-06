@@ -1227,7 +1227,6 @@ export class MainScene {
           moistureNoise: this.moistureNoise.get(),
           aoIntensity: batch.appearance.aoIntensity,
           normalStrength: batch.appearance.normalStrength,
-          tint: batch.appearance.tint,
           moistureLevel: batch.layer.moisture,
         }),
       );

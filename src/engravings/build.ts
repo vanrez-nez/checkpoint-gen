@@ -59,7 +59,6 @@ export interface EngravingDecalBatch {
 export interface DecalAppearance {
   readonly aoIntensity: number;
   readonly normalStrength: number;
-  readonly tint: string;
   /**
    * The density of the stone under this decal, read off the slot rather than
    * chosen here.
@@ -78,7 +77,6 @@ function appearanceOf(
   return {
     aoIntensity: assignment.aoIntensity,
     normalStrength: assignment.normalStrength,
-    tint: assignment.tint,
     textureScale,
   };
 }
@@ -86,7 +84,7 @@ function appearanceOf(
 /** Two features agreeing on all of this can share one mesh; nothing else can. */
 function appearanceKey(appearance: DecalAppearance): string {
   return `${appearance.aoIntensity}|${appearance.normalStrength}`
-    + `|${appearance.tint}|${appearance.textureScale}`;
+    + `|${appearance.textureScale}`;
 }
 
 /**

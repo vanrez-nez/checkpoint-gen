@@ -1499,8 +1499,8 @@ function archetypesOf(
  * feature on the surface. That fudge was already coarser than the batching it
  * served: it maxed over features whose motif the batch had nothing to do with.
  *
- * A tint makes it incoherent rather than merely approximate, so appearance now
- * decides what may share. These hold the two halves of that: features that
+ * So appearance decides what may share, and the strengths travel on the batch
+ * that will actually use them. These hold the two halves of that: features that
  * agree still share one mesh, and features that differ get their own and keep
  * their own numbers.
  */
@@ -1510,7 +1510,7 @@ function archetypesOf(
   )!;
   const [first, second] = family.slotFeatures!;
 
-  const batchesWith = (tints: readonly [string, string]) => {
+  const batchesWith = (cavities: readonly [number, number]) => {
     const config = createDefaultStructureConfig();
     config.typeId = family.id;
     const assignments = config.engravings[family.id]!;
@@ -1521,8 +1521,8 @@ function archetypesOf(
       Object.assign(assignments[feature.id]!, { document: catalog.ids[0]! });
     }
 
-    assignments[first!.id]!.tint = tints[0];
-    assignments[second!.id]!.tint = tints[1];
+    assignments[first!.id]!.aoIntensity = cavities[0];
+    assignments[second!.id]!.aoIntensity = cavities[1];
 
     const composition = composer.build(config);
     const built = buildEngravingDecalBatches(
@@ -1530,7 +1530,7 @@ function archetypesOf(
     );
     const result = built.map((batch) => ({
       surface: batch.hostSurface,
-      tint: batch.appearance.tint,
+      cavity: batch.appearance.aoIntensity,
     }));
 
     built.forEach((batch) => batch.geometry.dispose());
@@ -1538,21 +1538,21 @@ function archetypesOf(
     return result;
   };
 
-  const shared = batchesWith(["#ffffff", "#ffffff"]);
-  const split = batchesWith(["#ffffff", "#884422"]);
+  const shared = batchesWith([1, 1]);
+  const split = batchesWith([1, 0.25]);
 
   assert.ok(shared.length > 0, "The reference build must place some decals.");
   assert.ok(
     split.length > shared.length,
-    "Two features that disagree on tint must not share a mesh; "
+    "Two features that disagree on cavity must not share a mesh; "
     + `${shared.length} batches became ${split.length}.`,
   );
   assert.ok(
-    split.some((batch) => batch.tint === "#884422"),
-    "A feature's own tint must reach the batch that draws it.",
+    split.some((batch) => batch.cavity === 0.25),
+    "A feature's own cavity must reach the batch that draws it.",
   );
   assert.ok(
-    shared.every((batch) => batch.tint === "#ffffff"),
+    shared.every((batch) => batch.cavity === 1),
     "Agreement must still collapse to one appearance.",
   );
 }
@@ -1599,7 +1599,6 @@ const chosen = cloneStructureEngravings(engravedDefinition, {
     margin: 0.05,
     normalStrength: 2,
     aoIntensity: 0.5,
-    tint: "#8899aa",
     // A tiled selection rather than a bare one, so the arrangement fields are
     // proved to validate on the path a real assignment takes.
     tiling: "grid",
@@ -1639,8 +1638,6 @@ for (const [field, value, pattern] of [
   ["glyphs", "glyph-nonesuch", /glyph/i],
   ["cellMax", 99, /cell/i],
   ["cellGutter", 0.9, /gutter/i],
-  // Not a colour the picker could ever have produced.
-  ["tint", "burnt sienna", /tint/i],
 ] as const) {
   assert.throws(
     () => validateStructureEngravings(

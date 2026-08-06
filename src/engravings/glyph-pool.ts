@@ -154,3 +154,70 @@ function wildcard(token: string): RegExp {
   const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`^${escaped.split("\\*").join(".*")}$`);
 }
+
+/**
+ * The catalog positions a spec resolves to, as a bitmask.
+ *
+ * A pool is a subset of a known catalog, and a subset is a mask — one integer,
+ * whatever the pool's length, which is what makes it encodable in a dense
+ * mixed-radix code where a variable-length list is not. The authored text stays
+ * the authoring form; this is only the wire form.
+ *
+ * Positional, so a catalog rewritten by the editor shifts what an old code
+ * means. That exposure is not new: the single-document choice is already
+ * encoded as an index into the same order.
+ */
+export function glyphPoolMask(spec: string): number {
+  const catalog = engravingCatalog();
+  let mask = 0;
+
+  try {
+    for (const layer of resolveGlyphPool(spec)) {
+      const index = catalog.ids.indexOf(layer.id);
+
+      if (index >= 0 && index < MASK_BITS) {
+        mask |= 1 << index;
+      }
+    }
+  } catch {
+    // An unresolvable pool encodes as nothing rather than refusing to encode.
+    // The pane rejects one long before a code is built from it.
+    return 0;
+  }
+
+  return mask >>> 0;
+}
+
+/**
+ * A spec that resolves to exactly the layers a mask names.
+ *
+ * Canonical rather than a round trip of what was typed: a mask carries which
+ * layers, not the order they were written in or the wildcard that gathered
+ * them. The one wildcard worth reconstructing is the glyph family, because it
+ * is the default and reading a decoded default as fifteen names would suggest
+ * something had been hand-picked.
+ */
+export function glyphPoolFromMask(mask: number): string {
+  const catalog = engravingCatalog();
+  const named = catalog.ids.filter((_, index) => (mask & (1 << index)) !== 0);
+
+  if (named.length === 0) {
+    return DEFAULT_GLYPH_POOL;
+  }
+
+  const family = catalog.ids.filter((id) => id.startsWith(GLYPH_PREFIX));
+
+  return named.length === family.length
+    && family.every((id) => named.includes(id))
+    ? DEFAULT_GLYPH_POOL
+    : named.join(", ");
+}
+
+/** Positions a mask can carry. The catalog ships 28; this is the headroom. */
+const MASK_BITS = 30;
+
+export const GLYPH_POOL_MASK_MAX = 2 ** MASK_BITS - 1;
+
+const GLYPH_PREFIX = "glyph-";
+
+export const DEFAULT_GLYPH_POOL = `${GLYPH_PREFIX}*`;
