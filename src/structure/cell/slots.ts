@@ -9,6 +9,7 @@ import type { Patch } from "../kernel/patch";
 import {
   arrisEdges,
   resolveFaceSlot,
+  resolveSlotRelief,
   slotDepthBudget,
   slotRuleOf,
   withSlotReservations,
@@ -23,13 +24,21 @@ import { compiledSurfaceFragments } from "../surface/features";
 /**
  * The engravable fields a summit building's exterior walls present.
  *
- * A wall carrying surface features is not one of them. `profileWallPanels`
- * breaks a featured wall into a grid at every feature edge, so a portal or a
- * hierarchical facade leaves a wall made of stacked panels rather than one
- * plane — and a field spanning several of them would belong to none. A wall
- * with no features resolves to exactly one panel, which is exactly what an
- * engraving needs. Emitting nothing for the rest is the correct answer, not a
- * gap: the facade grammar already owns that elevation's composition.
+ * `profileWallPanels` breaks a featured wall into a grid at every feature edge,
+ * so a portal or a hierarchical facade leaves a wall made of stacked panels
+ * rather than one plane, and a field spanning several of them would belong to
+ * none. The answer is to hand back the panels the features leave *between*
+ * them, rather than the whole face.
+ *
+ * This used to refuse any wall carrying a feature that was not a cut, which
+ * meant a hierarchical facade published nothing at all: its pilasters and
+ * frieze are extrusions, so every wall was skipped and the summit-wall control
+ * was a switch with nothing behind it. That was defensible while the facade
+ * owned the composition outright — it drew its own recessed panels into the
+ * field, and a slot competing with them would have read as a mistake. Those
+ * panels are gone now, and what is left is framing: pilasters flanking the
+ * entrance, a frieze capping the wall. Framing is exactly what a field wants
+ * around it.
  */
 
 const EPS = 1e-9;
@@ -74,13 +83,6 @@ export function resolveCellSlots(input: CellSlotInput): ResolvedCellSlots {
 
     const compiled = compiledSurfaceFragments(patch);
 
-    // An entry is a hole in the wall, and stone either side of it is still an
-    // elevation. Anything else on the wall is a facade grammar, and that owns
-    // the composition — a field competing with it would read as a mistake.
-    if (compiled.some((entry) => entry.feature.operation !== "cut")) {
-      continue;
-    }
-
     // The corner blocks own the returns, so the panel this wall is drawn as
     // runs only the interior's span. The patch spans the whole footprint edge,
     // so the slot says which part of it the wall actually is.
@@ -96,9 +98,33 @@ export function resolveCellSlots(input: CellSlotInput): ResolvedCellSlots {
 
     for (const entry of compiled) {
       for (const fragment of entry.fragments) {
+        // `profileWallPanels` cuts the wall into a grid at every feature's
+        // bounds, in *both* axes and across the whole face. A field is drawable
+        // exactly when it fits inside one cell of that grid: one straddling a
+        // split belongs to no panel, and is published, tinted by nothing, and
+        // never drawn. So the field is fitted to the grid here.
+        //
+        // A frieze hangs from the parapet and runs nearly the full width. It
+        // lowers the field's ceiling and takes no width — carving its `u` would
+        // leave slivers at the wall's ends and nothing in between, which is
+        // what published no fields at all the first time this was tried.
+        if (fragment.vMax >= 1 - EPS) {
+          head = Math.min(head, fragment.vMin);
+          continue;
+        }
+
+        // Everything else divides the wall across and is carved out of it: the
+        // entrance, the pilasters flanking it, a window floating in a side
+        // wall. Where the field's ceiling then falls depends on which end the
+        // feature is anchored to — a doorway is open to the floor, so the wall
+        // is whole up to its head, while a window has stone under it and the
+        // split is at its sill.
         spans = spans.flatMap((span) =>
           withoutRange(span, [fragment.uMin, fragment.uMax]));
-        head = Math.min(head, fragment.vMax);
+        head = Math.min(
+          head,
+          fragment.vMin > EPS ? fragment.vMin : fragment.vMax,
+        );
       }
     }
 
@@ -129,6 +155,14 @@ export function resolveCellSlots(input: CellSlotInput): ResolvedCellSlots {
         flow: patch.dimensions.u >= patch.dimensions.v ? "horizontal" : "vertical",
         continuity: "per_face",
         depthBudget: slotDepthBudget(input.cell.wallThickness, rule.recessDepth),
+        textureScale: input.feature.textureScale,
+        // Against the wall's own thickness, which is what makes the same
+        // request a shallow mark on a thin screen and a real pocket on a
+        // thick one.
+        faceOffset: resolveSlotRelief(
+          input.feature.relief,
+          slotDepthBudget(input.cell.wallThickness, rule.recessDepth),
+        ),
         tags: ["engraving", "exterior", "cell_wall", wall.orientation],
         rule,
       });
@@ -192,6 +226,12 @@ export interface PreparedCellField {
   readonly maxU: number;
   readonly minV: number;
   readonly maxV: number;
+  /**
+   * Signed metres the field's face leaves the wall by, already resolved
+   * against the budget. Negative sinks a pocket, positive raises a panel.
+   */
+  readonly relief: number;
+  readonly textureScale: number;
 }
 
 export function preparedCellFields(
@@ -229,6 +269,11 @@ export function preparedCellFields(
       maxU: second,
       minV: cell.bottomY + slot.inscribed.vMin * height,
       maxV: cell.bottomY + slot.inscribed.vMax * height,
+      // Read off the record rather than recomputed from the feature: the slot
+      // is what every other consumer reads, and a second opinion here could
+      // disagree with it.
+      relief: slot.faceOffset,
+      textureScale: slot.textureScale,
     });
   }
 

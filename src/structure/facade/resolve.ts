@@ -264,74 +264,55 @@ function addHierarchicalFeatures(input: HierarchyInput): HierarchyResult {
     );
     reveals.push(...group);
     revealGroups.push(group);
-  } else if (!input.request) {
-    const slot = insetSlot(primary, input.openingBand, 0.2, 0.18, 0.78);
-    const result = addDepthFeature(
-      exterior,
-      structurePath(input.facadeId, "recessed_panel_primary"),
-      slot.uRange,
-      slot.vRange,
-      "inset",
-      input.spec.recessDepth,
-      90,
-      ["facade", "recessed_panel", "primary"],
-      "panel",
-    );
-    exterior = result.patch;
-    featureIds.push(result.featureId);
   }
 
+  // Secondary bays used to carry a recessed panel each — a niche beside an
+  // entrance, a sunk panel on a blind wall — sized by the facade's own recess
+  // depth. They are gone, and deliberately: a slot now carries its own signed
+  // face depth, which does the same thing under a control that can also be
+  // engraved, tiled and lit. Two mechanisms cutting the same wall meant the
+  // facade's won by default and the slot could never be seen.
+  //
+  // What is left here is the one bay that becomes a window rather than a panel,
+  // which is a hole through the wall and not an articulation of its face.
   for (const bay of secondary) {
-    const slot = insetSlot(bay, input.openingBand, 0.18, 0.18, 0.78);
-    if (
-      input.request
+    const isSideWindow = input.request
       && input.direction === "sidePositiveU"
-      && bay.index === secondary[0]?.index
-    ) {
-      const openingId = structurePath(input.facadeId, "window_secondary");
-      const volume = openingRect(input.cell, input.direction, input.exterior.frame, slot.uRange);
-      const bottomY = input.cell.bottomY + slot.vRange[0] * input.cell.height;
-      const topY = input.cell.bottomY + slot.vRange[1] * input.cell.height;
-      const opening = addThroughOpening(
-        exterior,
-        interior,
-        openingId,
-        "window",
-        volume,
-        bottomY,
-        topY,
-        180,
-        "windowReveal",
-      );
-      exterior = opening.exterior;
-      interior = opening.interior;
-      featureIds.push(...opening.featureIds);
-      const group = openingRevealPatches(
-        openingId,
-        volume,
-        input.direction,
-        bottomY,
-        topY,
-        true,
-      );
-      reveals.push(...group);
-      revealGroups.push(group);
+      && bay.index === secondary[0]?.index;
+
+    if (!isSideWindow) {
       continue;
     }
-    const kind = input.request ? "niche" : "recessed_panel";
-    const result = addDepthFeature(
+
+    const slot = insetSlot(bay, input.openingBand, 0.18, 0.18, 0.78);
+    const openingId = structurePath(input.facadeId, "window_secondary");
+    const volume = openingRect(input.cell, input.direction, input.exterior.frame, slot.uRange);
+    const bottomY = input.cell.bottomY + slot.vRange[0] * input.cell.height;
+    const topY = input.cell.bottomY + slot.vRange[1] * input.cell.height;
+    const opening = addThroughOpening(
       exterior,
-      structurePath(input.facadeId, `${kind}_${String(bay.index + 1).padStart(2, "0")}`),
-      slot.uRange,
-      slot.vRange,
-      "inset",
-      input.spec.recessDepth,
-      80,
-      ["facade", kind, "secondary"],
-      kind === "niche" ? "niche" : "panel",
+      interior,
+      openingId,
+      "window",
+      volume,
+      bottomY,
+      topY,
+      180,
+      "windowReveal",
     );
-    exterior = result.patch;
-    featureIds.push(result.featureId);
+    exterior = opening.exterior;
+    interior = opening.interior;
+    featureIds.push(...opening.featureIds);
+    const group = openingRevealPatches(
+      openingId,
+      volume,
+      input.direction,
+      bottomY,
+      topY,
+      true,
+    );
+    reveals.push(...group);
+    revealGroups.push(group);
   }
 
   const pilasterWidth = Math.min(0.22, input.exterior.frame.uLength * 0.035);
@@ -820,21 +801,13 @@ function validSpec(
     return true;
   }
   if (
-    ![spec.recessDepth, spec.pilasterProjection, spec.friezeHeight, spec.friezeProjection]
+    ![spec.pilasterProjection, spec.friezeHeight, spec.friezeProjection]
       .every((value) => Number.isFinite(value) && value > 0)
   ) {
     diagnostics.error(
       "facade.invalid_dimensions",
       cell.id,
-      "Facade recess, projection and frieze dimensions must be positive.",
-    );
-    return false;
-  }
-  if (spec.recessDepth >= cell.wallThickness - EPS) {
-    diagnostics.error(
-      "facade.recess_too_deep",
-      cell.id,
-      "Facade recess depth must remain shallower than the cell wall.",
+      "Facade projection and frieze dimensions must be positive.",
     );
     return false;
   }

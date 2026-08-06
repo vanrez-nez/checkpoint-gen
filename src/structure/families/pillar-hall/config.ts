@@ -400,7 +400,7 @@ function toPlatformSpec(layout: PillarHallLayoutConfig): StructureSpec {
     },
     stairs: stair,
     cells: [],
-    facade: { style: "plain", recessDepth: 0.1, pilasterProjection: 0.1, friezeHeight: 0.2, friezeProjection: 0.1 },
+    facade: { style: "plain", pilasterProjection: 0.1, friezeHeight: 0.2, friezeProjection: 0.1 },
     roofs: [],
     // The platform under a hall is a mass, and none of its own elevations are
     // prepared: the hall's features are resolved separately.

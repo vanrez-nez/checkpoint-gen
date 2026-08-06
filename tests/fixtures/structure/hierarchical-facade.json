@@ -2133,48 +2133,6 @@
           ]
         },
         {
-          "id": "structure/summit_chamber/wall_front_exterior/region_niche_01",
-          "uRange": [
-            0.11178,
-            0.340871
-          ],
-          "vRange": [
-            0.1665,
-            0.7215
-          ],
-          "priority": 80,
-          "allowedOperations": [
-            "inset"
-          ],
-          "exclusions": [],
-          "tags": [
-            "facade",
-            "niche",
-            "secondary"
-          ]
-        },
-        {
-          "id": "structure/summit_chamber/wall_front_exterior/region_niche_03",
-          "uRange": [
-            0.659129,
-            0.88822
-          ],
-          "vRange": [
-            0.1665,
-            0.7215
-          ],
-          "priority": 80,
-          "allowedOperations": [
-            "inset"
-          ],
-          "exclusions": [],
-          "tags": [
-            "facade",
-            "niche",
-            "secondary"
-          ]
-        },
-        {
           "id": "structure/summit_chamber/wall_front_exterior/region_pilaster_01",
           "uRange": [
             0.38447,
@@ -2252,36 +2210,12 @@
           "conflictPolicy": "error"
         },
         {
-          "id": "structure/summit_chamber/facade_front/niche_01",
-          "operation": "inset",
-          "depth": 0.18,
-          "materialRole": "niche",
-          "regionId": "structure/summit_chamber/wall_front_exterior/region_niche_01",
-          "order": 1,
-          "dependsOn": [],
-          "runsBefore": [],
-          "runsAfter": [],
-          "conflictPolicy": "clip"
-        },
-        {
-          "id": "structure/summit_chamber/facade_front/niche_03",
-          "operation": "inset",
-          "depth": 0.18,
-          "materialRole": "niche",
-          "regionId": "structure/summit_chamber/wall_front_exterior/region_niche_03",
-          "order": 2,
-          "dependsOn": [],
-          "runsBefore": [],
-          "runsAfter": [],
-          "conflictPolicy": "clip"
-        },
-        {
           "id": "structure/summit_chamber/facade_front/pilaster_01",
           "operation": "extrude",
           "depth": 0.16,
           "materialRole": "pilaster",
           "regionId": "structure/summit_chamber/wall_front_exterior/region_pilaster_01",
-          "order": 3,
+          "order": 1,
           "dependsOn": [],
           "runsBefore": [],
           "runsAfter": [],
@@ -2293,7 +2227,7 @@
           "depth": 0.16,
           "materialRole": "pilaster",
           "regionId": "structure/summit_chamber/wall_front_exterior/region_pilaster_02",
-          "order": 4,
+          "order": 2,
           "dependsOn": [],
           "runsBefore": [],
           "runsAfter": [],
@@ -2305,7 +2239,7 @@
           "depth": 0.12,
           "materialRole": "frieze",
           "regionId": "structure/summit_chamber/wall_front_exterior/region_frieze",
-          "order": 5,
+          "order": 3,
           "dependsOn": [],
           "runsBefore": [],
           "runsAfter": [],
@@ -2589,69 +2523,6 @@
           ]
         },
         {
-          "id": "structure/summit_chamber/wall_rear_exterior/region_recessed_panel_primary",
-          "uRange": [
-            0.388168,
-            0.611832
-          ],
-          "vRange": [
-            0.1665,
-            0.7215
-          ],
-          "priority": 90,
-          "allowedOperations": [
-            "inset"
-          ],
-          "exclusions": [],
-          "tags": [
-            "facade",
-            "recessed_panel",
-            "primary"
-          ]
-        },
-        {
-          "id": "structure/summit_chamber/wall_rear_exterior/region_recessed_panel_01",
-          "uRange": [
-            0.095276,
-            0.265686
-          ],
-          "vRange": [
-            0.1665,
-            0.7215
-          ],
-          "priority": 80,
-          "allowedOperations": [
-            "inset"
-          ],
-          "exclusions": [],
-          "tags": [
-            "facade",
-            "recessed_panel",
-            "secondary"
-          ]
-        },
-        {
-          "id": "structure/summit_chamber/wall_rear_exterior/region_recessed_panel_03",
-          "uRange": [
-            0.734314,
-            0.904724
-          ],
-          "vRange": [
-            0.1665,
-            0.7215
-          ],
-          "priority": 80,
-          "allowedOperations": [
-            "inset"
-          ],
-          "exclusions": [],
-          "tags": [
-            "facade",
-            "recessed_panel",
-            "secondary"
-          ]
-        },
-        {
           "id": "structure/summit_chamber/wall_rear_exterior/region_pilaster_01",
           "uRange": [
             0.303197,
@@ -2717,48 +2588,12 @@
       ],
       "features": [
         {
-          "id": "structure/summit_chamber/facade_rear/recessed_panel_primary",
-          "operation": "inset",
-          "depth": 0.18,
-          "materialRole": "panel",
-          "regionId": "structure/summit_chamber/wall_rear_exterior/region_recessed_panel_primary",
-          "order": 0,
-          "dependsOn": [],
-          "runsBefore": [],
-          "runsAfter": [],
-          "conflictPolicy": "clip"
-        },
-        {
-          "id": "structure/summit_chamber/facade_rear/recessed_panel_01",
-          "operation": "inset",
-          "depth": 0.18,
-          "materialRole": "panel",
-          "regionId": "structure/summit_chamber/wall_rear_exterior/region_recessed_panel_01",
-          "order": 1,
-          "dependsOn": [],
-          "runsBefore": [],
-          "runsAfter": [],
-          "conflictPolicy": "clip"
-        },
-        {
-          "id": "structure/summit_chamber/facade_rear/recessed_panel_03",
-          "operation": "inset",
-          "depth": 0.18,
-          "materialRole": "panel",
-          "regionId": "structure/summit_chamber/wall_rear_exterior/region_recessed_panel_03",
-          "order": 2,
-          "dependsOn": [],
-          "runsBefore": [],
-          "runsAfter": [],
-          "conflictPolicy": "clip"
-        },
-        {
           "id": "structure/summit_chamber/facade_rear/pilaster_01",
           "operation": "extrude",
           "depth": 0.16,
           "materialRole": "pilaster",
           "regionId": "structure/summit_chamber/wall_rear_exterior/region_pilaster_01",
-          "order": 3,
+          "order": 0,
           "dependsOn": [],
           "runsBefore": [],
           "runsAfter": [],
@@ -2770,7 +2605,7 @@
           "depth": 0.16,
           "materialRole": "pilaster",
           "regionId": "structure/summit_chamber/wall_rear_exterior/region_pilaster_02",
-          "order": 4,
+          "order": 1,
           "dependsOn": [],
           "runsBefore": [],
           "runsAfter": [],
@@ -2782,7 +2617,7 @@
           "depth": 0.12,
           "materialRole": "frieze",
           "regionId": "structure/summit_chamber/wall_rear_exterior/region_frieze",
-          "order": 5,
+          "order": 2,
           "dependsOn": [],
           "runsBefore": [],
           "runsAfter": [],
@@ -3052,48 +2887,6 @@
           ]
         },
         {
-          "id": "structure/summit_chamber/wall_right_exterior/region_recessed_panel_01",
-          "uRange": [
-            0.113151,
-            0.276035
-          ],
-          "vRange": [
-            0.1665,
-            0.7215
-          ],
-          "priority": 80,
-          "allowedOperations": [
-            "inset"
-          ],
-          "exclusions": [],
-          "tags": [
-            "facade",
-            "recessed_panel",
-            "secondary"
-          ]
-        },
-        {
-          "id": "structure/summit_chamber/wall_right_exterior/region_recessed_panel_03",
-          "uRange": [
-            0.723965,
-            0.886849
-          ],
-          "vRange": [
-            0.1665,
-            0.7215
-          ],
-          "priority": 80,
-          "allowedOperations": [
-            "inset"
-          ],
-          "exclusions": [],
-          "tags": [
-            "facade",
-            "recessed_panel",
-            "secondary"
-          ]
-        },
-        {
           "id": "structure/summit_chamber/wall_right_exterior/region_pilaster_01",
           "uRange": [
             0.307031,
@@ -3171,36 +2964,12 @@
           "conflictPolicy": "error"
         },
         {
-          "id": "structure/summit_chamber/facade_right/recessed_panel_01",
-          "operation": "inset",
-          "depth": 0.18,
-          "materialRole": "panel",
-          "regionId": "structure/summit_chamber/wall_right_exterior/region_recessed_panel_01",
-          "order": 1,
-          "dependsOn": [],
-          "runsBefore": [],
-          "runsAfter": [],
-          "conflictPolicy": "clip"
-        },
-        {
-          "id": "structure/summit_chamber/facade_right/recessed_panel_03",
-          "operation": "inset",
-          "depth": 0.18,
-          "materialRole": "panel",
-          "regionId": "structure/summit_chamber/wall_right_exterior/region_recessed_panel_03",
-          "order": 2,
-          "dependsOn": [],
-          "runsBefore": [],
-          "runsAfter": [],
-          "conflictPolicy": "clip"
-        },
-        {
           "id": "structure/summit_chamber/facade_right/pilaster_01",
           "operation": "extrude",
           "depth": 0.16,
           "materialRole": "pilaster",
           "regionId": "structure/summit_chamber/wall_right_exterior/region_pilaster_01",
-          "order": 3,
+          "order": 1,
           "dependsOn": [],
           "runsBefore": [],
           "runsAfter": [],
@@ -3212,7 +2981,7 @@
           "depth": 0.16,
           "materialRole": "pilaster",
           "regionId": "structure/summit_chamber/wall_right_exterior/region_pilaster_02",
-          "order": 4,
+          "order": 2,
           "dependsOn": [],
           "runsBefore": [],
           "runsAfter": [],
@@ -3224,7 +2993,7 @@
           "depth": 0.12,
           "materialRole": "frieze",
           "regionId": "structure/summit_chamber/wall_right_exterior/region_frieze",
-          "order": 5,
+          "order": 3,
           "dependsOn": [],
           "runsBefore": [],
           "runsAfter": [],
@@ -3508,69 +3277,6 @@
           ]
         },
         {
-          "id": "structure/summit_chamber/wall_left_exterior/region_recessed_panel_primary",
-          "uRange": [
-            0.393108,
-            0.606892
-          ],
-          "vRange": [
-            0.1665,
-            0.7215
-          ],
-          "priority": 90,
-          "allowedOperations": [
-            "inset"
-          ],
-          "exclusions": [],
-          "tags": [
-            "facade",
-            "recessed_panel",
-            "primary"
-          ]
-        },
-        {
-          "id": "structure/summit_chamber/wall_left_exterior/region_recessed_panel_01",
-          "uRange": [
-            0.113151,
-            0.276035
-          ],
-          "vRange": [
-            0.1665,
-            0.7215
-          ],
-          "priority": 80,
-          "allowedOperations": [
-            "inset"
-          ],
-          "exclusions": [],
-          "tags": [
-            "facade",
-            "recessed_panel",
-            "secondary"
-          ]
-        },
-        {
-          "id": "structure/summit_chamber/wall_left_exterior/region_recessed_panel_03",
-          "uRange": [
-            0.723965,
-            0.886849
-          ],
-          "vRange": [
-            0.1665,
-            0.7215
-          ],
-          "priority": 80,
-          "allowedOperations": [
-            "inset"
-          ],
-          "exclusions": [],
-          "tags": [
-            "facade",
-            "recessed_panel",
-            "secondary"
-          ]
-        },
-        {
           "id": "structure/summit_chamber/wall_left_exterior/region_pilaster_01",
           "uRange": [
             0.307031,
@@ -3636,48 +3342,12 @@
       ],
       "features": [
         {
-          "id": "structure/summit_chamber/facade_left/recessed_panel_primary",
-          "operation": "inset",
-          "depth": 0.18,
-          "materialRole": "panel",
-          "regionId": "structure/summit_chamber/wall_left_exterior/region_recessed_panel_primary",
-          "order": 0,
-          "dependsOn": [],
-          "runsBefore": [],
-          "runsAfter": [],
-          "conflictPolicy": "clip"
-        },
-        {
-          "id": "structure/summit_chamber/facade_left/recessed_panel_01",
-          "operation": "inset",
-          "depth": 0.18,
-          "materialRole": "panel",
-          "regionId": "structure/summit_chamber/wall_left_exterior/region_recessed_panel_01",
-          "order": 1,
-          "dependsOn": [],
-          "runsBefore": [],
-          "runsAfter": [],
-          "conflictPolicy": "clip"
-        },
-        {
-          "id": "structure/summit_chamber/facade_left/recessed_panel_03",
-          "operation": "inset",
-          "depth": 0.18,
-          "materialRole": "panel",
-          "regionId": "structure/summit_chamber/wall_left_exterior/region_recessed_panel_03",
-          "order": 2,
-          "dependsOn": [],
-          "runsBefore": [],
-          "runsAfter": [],
-          "conflictPolicy": "clip"
-        },
-        {
           "id": "structure/summit_chamber/facade_left/pilaster_01",
           "operation": "extrude",
           "depth": 0.16,
           "materialRole": "pilaster",
           "regionId": "structure/summit_chamber/wall_left_exterior/region_pilaster_01",
-          "order": 3,
+          "order": 0,
           "dependsOn": [],
           "runsBefore": [],
           "runsAfter": [],
@@ -3689,7 +3359,7 @@
           "depth": 0.16,
           "materialRole": "pilaster",
           "regionId": "structure/summit_chamber/wall_left_exterior/region_pilaster_02",
-          "order": 4,
+          "order": 1,
           "dependsOn": [],
           "runsBefore": [],
           "runsAfter": [],
@@ -3701,7 +3371,7 @@
           "depth": 0.12,
           "materialRole": "frieze",
           "regionId": "structure/summit_chamber/wall_left_exterior/region_frieze",
-          "order": 5,
+          "order": 2,
           "dependsOn": [],
           "runsBefore": [],
           "runsAfter": [],
@@ -6008,8 +5678,6 @@
       "featureIds": [
         "structure/summit_chamber/wall_front_exterior/cut_front",
         "structure/summit_chamber/wall_front_interior/cut_front",
-        "structure/summit_chamber/facade_front/niche_01",
-        "structure/summit_chamber/facade_front/niche_03",
         "structure/summit_chamber/facade_front/pilaster_01",
         "structure/summit_chamber/facade_front/pilaster_02",
         "structure/summit_chamber/facade_front/frieze"
@@ -6083,9 +5751,6 @@
         }
       ],
       "featureIds": [
-        "structure/summit_chamber/facade_rear/recessed_panel_primary",
-        "structure/summit_chamber/facade_rear/recessed_panel_01",
-        "structure/summit_chamber/facade_rear/recessed_panel_03",
         "structure/summit_chamber/facade_rear/pilaster_01",
         "structure/summit_chamber/facade_rear/pilaster_02",
         "structure/summit_chamber/facade_rear/frieze"
@@ -6161,8 +5826,6 @@
       "featureIds": [
         "structure/summit_chamber/wall_right_exterior/cut_window_primary",
         "structure/summit_chamber/wall_right_interior/cut_window_primary",
-        "structure/summit_chamber/facade_right/recessed_panel_01",
-        "structure/summit_chamber/facade_right/recessed_panel_03",
         "structure/summit_chamber/facade_right/pilaster_01",
         "structure/summit_chamber/facade_right/pilaster_02",
         "structure/summit_chamber/facade_right/frieze"
@@ -6236,9 +5899,6 @@
         }
       ],
       "featureIds": [
-        "structure/summit_chamber/facade_left/recessed_panel_primary",
-        "structure/summit_chamber/facade_left/recessed_panel_01",
-        "structure/summit_chamber/facade_left/recessed_panel_03",
         "structure/summit_chamber/facade_left/pilaster_01",
         "structure/summit_chamber/facade_left/pilaster_02",
         "structure/summit_chamber/facade_left/frieze"

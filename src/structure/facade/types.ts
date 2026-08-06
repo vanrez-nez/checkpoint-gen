@@ -9,7 +9,6 @@ export type FacadeSymmetry = (typeof FACADE_SYMMETRIES)[number];
 export interface FacadeSpec {
   readonly style: FacadeStyle;
   /** How far niches and recessed panels retreat behind the wall face. */
-  readonly recessDepth: number;
   /** How far pilasters stand proud of the wall face. */
   readonly pilasterProjection: number;
   /** Real height of the continuous upper facade band. */

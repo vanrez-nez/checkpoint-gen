@@ -115,7 +115,6 @@ export interface MassLayoutConfig {
   summitInteriorOpeningHeight: number;
   /** Exterior grammar applied after the Cell plan resolves. */
   facadeStyle: FacadeStyle;
-  facadeRecessDepth: number;
   facadePilasterProjection: number;
   facadeFriezeHeight: number;
   facadeFriezeProjection: number;
@@ -242,15 +241,19 @@ export const MASS_SLOT_FEATURE_MATCHERS: Readonly<
 /**
  * Which of a mass's prepared faces can leave the plane of their member.
  *
- * Declared only where a resolver decides a depth *and* an emitter draws one,
- * which is the three that run through `stretchSlots` and `addFramedFace`. The
- * summit's wall and its roof mouldings resolve through the cell and roof
- * modules, which publish flush faces — so they are omitted rather than given a
- * slider that would move nothing.
+ * Declared only where a resolver decides a depth *and* an emitter draws one.
+ * The three elevation features run through `stretchSlots`; the summit wall runs
+ * through the cell module, which already emitted its fields with the same
+ * `addFramedFace` and only ever passed a flat zero — so carrying the resolved
+ * offset the record already held was the whole of it.
+ *
+ * The roof's mouldings stay out. They resolve through the roof module, which
+ * publishes flush faces, and a slider there would move nothing.
  *
  * Depth is not what distinguishes them; the budget is. A cornice is a hand's
  * width of stone and `slotDepthBudget` says so, so the same request cuts deep
- * into a band and barely marks a moulding.
+ * into a band and barely marks a moulding — and a summit wall is measured
+ * against its own thickness, so a thin screen grants less than a thick one.
  */
 export const MASS_SLOT_FEATURE_RELIEF: Readonly<
   Partial<Record<MassSlotFeatureId, SlotRelief>>
@@ -258,6 +261,7 @@ export const MASS_SLOT_FEATURE_RELIEF: Readonly<
   plinth: { sink: true, raise: true },
   bandWall: { sink: true, raise: true },
   summitPad: { sink: true, raise: true },
+  summitWall: { sink: true, raise: true },
 };
 
 /**
@@ -353,7 +357,6 @@ export const MASS_LAYOUT_BASELINE: Readonly<MassLayoutConfig> = {
   summitInteriorOpeningWidth: 1.5,
   summitInteriorOpeningHeight: 2.2,
   facadeStyle: "plain",
-  facadeRecessDepth: 0.18,
   facadePilasterProjection: 0.16,
   facadeFriezeHeight: 0.3,
   facadeFriezeProjection: 0.12,
@@ -1113,18 +1116,6 @@ export const MASS_LAYOUT_CONTROLS: readonly ControlSpec<MassLayoutConfig>[] = [
     visibleWhen: (layout) => layout.summitBuildingEnabled,
   }),
   control.number({
-    key: "facadeRecessDepth",
-    label: "recess depth",
-    name: "Facade recess depth",
-    group: "Facade",
-    min: 0.02,
-    max: 0.8,
-    step: 0.01,
-    scopes: ["layout"],
-    visibleWhen: (layout) =>
-      layout.summitBuildingEnabled && layout.facadeStyle === "hierarchical",
-  }),
-  control.number({
     key: "facadePilasterProjection",
     label: "pilaster projection",
     name: "Facade pilaster projection",
@@ -1313,7 +1304,6 @@ export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
     cells: toCellSpecs(layout),
     facade: {
       style: layout.facadeStyle,
-      recessDepth: layout.facadeRecessDepth,
       pilasterProjection: layout.facadePilasterProjection,
       friezeHeight: layout.facadeFriezeHeight,
       friezeProjection: layout.facadeFriezeProjection,

@@ -201,7 +201,6 @@ assert.deepEqual(
     summitInteriorOpeningWidth: DEFAULT_MASS_LAYOUT.summitInteriorOpeningWidth,
     summitInteriorOpeningHeight: DEFAULT_MASS_LAYOUT.summitInteriorOpeningHeight,
     facadeStyle: DEFAULT_MASS_LAYOUT.facadeStyle,
-    facadeRecessDepth: DEFAULT_MASS_LAYOUT.facadeRecessDepth,
     facadePilasterProjection: DEFAULT_MASS_LAYOUT.facadePilasterProjection,
     facadeFriezeHeight: DEFAULT_MASS_LAYOUT.facadeFriezeHeight,
     facadeFriezeProjection: DEFAULT_MASS_LAYOUT.facadeFriezeProjection,
@@ -261,7 +260,6 @@ assert.deepEqual(
     summitInteriorOpeningWidth: 1.5,
     summitInteriorOpeningHeight: 2.2,
     facadeStyle: "plain",
-    facadeRecessDepth: 0.18,
     facadePilasterProjection: 0.16,
     facadeFriezeHeight: 0.3,
     facadeFriezeProjection: 0.12,
@@ -3359,18 +3357,33 @@ for (const facade of hierarchicalFacadeGraph.facades) {
 }
 const hierarchicalOperations = hierarchicalFacadeGraph.patches
   .flatMap((patch) => patch.features.map((feature) => feature.operation));
-for (const operation of ["cut", "inset", "extrude"] as const) {
+for (const operation of ["cut", "extrude"] as const) {
   assert.equal(
     hierarchicalOperations.includes(operation),
     true,
     `Hierarchical facade emitted no ${operation} feature.`,
   );
 }
+
+// The wall is no longer articulated by the facade grammar, and that is the
+// point rather than a regression.
+//
+// A hierarchical facade used to sink a recessed panel into every secondary bay,
+// sized by its own recess depth. A slot now carries a signed face depth that
+// does the same thing under a control that can also be engraved, tiled and lit
+// — and while both existed the facade's cut won by default, so the slot could
+// never be seen. What is left is framing: the entrance, the pilasters flanking
+// it, the frieze over it.
+assert.equal(
+  hierarchicalOperations.includes("inset"),
+  false,
+  "A hierarchical facade must leave its wall field to the slot system. An "
+  + "inset here is the facade cutting the same face the slot's relief cuts, "
+  + "and the facade wins.",
+);
 const facadeDetailMaterials = [
   "portalReveal",
   "windowReveal",
-  "niche",
-  "panel",
   "pilaster",
   "frieze",
 ] as const;
@@ -3383,6 +3396,13 @@ for (const role of facadeDetailMaterials) {
     hierarchicalMaterialRoles.has(role),
     true,
     `Hierarchical facade emitted no ${role} material owner.`,
+  );
+}
+for (const role of ["niche", "panel"] as const) {
+  assert.equal(
+    hierarchicalMaterialRoles.has(role),
+    false,
+    `Hierarchical facade still dresses a ${role}; the wall insets are gone.`,
   );
 }
 assert.equal(
@@ -3492,8 +3512,11 @@ assert.equal(
   "Hierarchical material groups do not cover every index exactly once.",
 );
 
+// Any facade-owned role does here; the subject is an unregistered *name*, not
+// which detail happens to carry it. This used to reach for "panel", which the
+// hierarchical wall no longer emits.
 const unknownMaterialPatch = hierarchicalFacadeGraph.patches.find((patch) =>
-  patch.features.some((feature) => feature.materialRole === "panel"));
+  patch.features.some((feature) => feature.materialRole === "pilaster"));
 assert.ok(unknownMaterialPatch);
 const unknownMaterialPatches = patchIndex({
   ...hierarchicalFacadeGraph,
@@ -3502,7 +3525,7 @@ const unknownMaterialPatches = patchIndex({
       ? {
         ...patch,
         features: patch.features.map((feature) =>
-          feature.materialRole === "panel"
+          feature.materialRole === "pilaster"
             ? { ...feature, materialRole: "unregistered_facade_material" }
             : feature),
       }
@@ -3556,20 +3579,25 @@ assert.deepEqual(cellWithOversizedPortal.masses, []);
 assert.deepEqual(cellWithOversizedPortal.patches, []);
 assert.deepEqual(cellWithOversizedPortal.cells, []);
 
-const cellWithDeepFacadeRecess = generateStructure(toStructureSpec({
+// A thin wall used to be a hard error under a hierarchical facade, because the
+// facade sank a recess of its own into it and a recess deeper than the wall is
+// a hole. There is no such recess now, and what replaced it — a slot's face
+// depth — is *clamped* against the wall's budget rather than refused, the same
+// way every other relief in the project is. So a wall too thin to carve deeply
+// is no longer a wall that fails to build; it is one that grants less depth.
+const cellWithThinFacadeWall = generateStructure(toStructureSpec({
   ...summitCellLayout,
   facadeStyle: "hierarchical",
   summitBuildingWallThickness: 0.15,
-  facadeRecessDepth: 0.2,
 }));
-assert.equal(
-  cellWithDeepFacadeRecess.diagnostics.find(
+assert.deepEqual(
+  cellWithThinFacadeWall.diagnostics.filter(
     (diagnostic) => diagnostic.severity === "error",
-  )?.code,
-  "facade.recess_too_deep",
+  ),
+  [],
+  "A thin summit wall must still resolve; depth is budgeted, not demanded.",
 );
-assert.deepEqual(cellWithDeepFacadeRecess.cells, []);
-assert.deepEqual(cellWithDeepFacadeRecess.facades, []);
+assert.equal(cellWithThinFacadeWall.facades.length, 4);
 
 const cellWithOversizedInteriorOpening = generateStructure(toStructureSpec({
   ...summitCellLayout,
@@ -5679,6 +5707,16 @@ const ENGRAVED_CASES: readonly {
     layout: { ...DEFAULT_MASS_LAYOUT, batterAngle: 0 },
   },
   {
+    // The summit's walls only became engravable under this grammar once the
+    // facade stopped sinking its own panels into them, and the fields it
+    // publishes are shaped by the framing rather than by the wall: carved
+    // around the pilasters, stopped under the frieze, and on the side wall
+    // stopped under the window's sill. Every one of those is a chance to
+    // publish a field no panel contains, so the whole battery runs on it.
+    label: "engraved hierarchical",
+    layout: { ...DEFAULT_MASS_LAYOUT, facadeStyle: "hierarchical" as const },
+  },
+  {
     label: "engraved corniced",
     layout: {
       ...cloneFrontStairLayout(),
@@ -6006,8 +6044,15 @@ for (const batterAngle of [0, 12, 25, 35]) {
 
 // The summit building's entries. A wall with a doorway is still an elevation:
 // the stone either side of it takes a field, and the wall above the head is a
-// panel of its own that deliberately takes none. A wall under a hierarchical
-// facade takes none at all — that grammar owns the composition.
+// panel of its own that deliberately takes none.
+//
+// A hierarchical facade used to take no field at all, on the grounds that the
+// grammar owned the composition — and while that grammar sank its own recessed
+// panel into each bay, it did. It no longer does, so the same two fields per
+// elevation come back, narrower by the pilasters flanking the entrance and
+// stopped under the frieze rather than at the parapet. The pilasters divide the
+// wall exactly where the doorway already did, which is why the count matches
+// the plain case instead of exceeding it.
 for (const [label, overrides, expected] of [
   ["every approach", {}, { front: 2, rear: 2, sidePositiveU: 2, sideNegativeU: 2 }],
   [
@@ -6015,7 +6060,11 @@ for (const [label, overrides, expected] of [
     { stairRearEnabled: false, stairLeftEnabled: false, stairRightEnabled: false },
     { front: 2, rear: 1, sidePositiveU: 1, sideNegativeU: 1 },
   ],
-  ["hierarchical facade", { facadeStyle: "hierarchical" as const }, {}],
+  [
+    "hierarchical facade",
+    { facadeStyle: "hierarchical" as const },
+    { front: 2, rear: 2, sidePositiveU: 2, sideNegativeU: 2 },
+  ],
 ] as const) {
   const layout = withMassSlots(
     { ...DEFAULT_MASS_LAYOUT, ...overrides },
