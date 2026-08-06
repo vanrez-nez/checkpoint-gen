@@ -123,6 +123,23 @@ export interface TextControlSpec<T> extends BaseControlSpec<T> {
   readonly kind: "text";
   /** Throws with `name` in the message, the way the built-in kinds do. */
   readonly validate?: (value: string, name: string) => void;
+  /**
+   * How this field survives a geometry code, for the fields that must.
+   *
+   * The codec is a dense mixed radix, so it carries numbers with a known range
+   * and nothing else. Text has neither — until the caller says what finite
+   * thing the text actually denotes. A glyph pool is a subset of a known
+   * catalog, and a subset is a bitmask; declaring that here is what lets the
+   * authored form stay text while the wire form is one integer.
+   *
+   * Omitted means the field genuinely cannot be encoded, and the codec refuses
+   * by name rather than dropping it.
+   */
+  readonly codec?: {
+    readonly max: number;
+    encode(value: string): number;
+    decode(value: number): string;
+  };
 }
 
 /**

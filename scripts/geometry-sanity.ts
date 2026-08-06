@@ -243,22 +243,22 @@ assert.equal(validationLog.mirror.text, "No validation events yet.");
 // Every field is explicit in the unversioned current-schema code. The first
 // character is the structure selector; there is no migration prefix.
 const circularDefaultCode = encodeStructureHash(config);
-assert.ok(circularDefaultCode.length <= 55);
+assert.ok(circularDefaultCode.length <= 60);
 assert.ok(isStructureHash(circularDefaultCode));
 
 const massDefaultHashConfig = createDefaultStructureConfig();
 massDefaultHashConfig.typeId = "mass";
 const massDefaultCode = encodeStructureHash(massDefaultHashConfig);
-assert.ok(massDefaultCode.length <= 120);
+assert.ok(massDefaultCode.length <= 210);
 // The other families have room today; the assert is what keeps it visible when
 // the next batch of per-feature settings lands.
 {
   const hallCode = createDefaultStructureConfig();
   hallCode.typeId = "pillar_hall";
-  assert.ok(encodeStructureHash(hallCode).length <= 70);
+  assert.ok(encodeStructureHash(hallCode).length <= 130);
   const stelaCode = createDefaultStructureConfig();
   stelaCode.typeId = "stela";
-  assert.ok(encodeStructureHash(stelaCode).length <= 70);
+  assert.ok(encodeStructureHash(stelaCode).length <= 120);
 }
 assert.doesNotMatch(massDefaultCode, /^g\d/);
 assert.equal(

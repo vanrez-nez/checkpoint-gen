@@ -26,6 +26,7 @@ import {
   getStructure,
   listStructures,
 } from "../structure/registry";
+import { engravingControls } from "../engravings/config";
 import {
   slotFeatureControls,
   type PropId,
@@ -118,6 +119,16 @@ export function applyStructureHash(
     requireRecord(config.layouts, definition.id, "layout"),
     requireRecord(decoded.config.layouts, definition.id, "decoded layout"),
   );
+
+  // In place, like the layout above: the pane binds each assignment object
+  // directly, so replacing one would leave every engraving control writing to
+  // an object nothing reads.
+  const live = config.engravings[definition.id];
+  const restored = decoded.config.engravings[definition.id];
+
+  if (live && restored) {
+    overwriteObject(live, restored);
+  }
 
   for (const prop of definition.props) {
     overwriteProp(config, decoded.config, definition, prop);
@@ -223,6 +234,11 @@ function codecFieldsFor(field: HashField): readonly CodecField[] {
         ...(index % 2 === 0 ? BEZIER_X_RANGE : BEZIER_Y_RANGE),
       }));
     case "text":
+      if (spec.codec) {
+        return [{ key: label, min: 0, max: spec.codec.max, step: 1 }];
+      }
+
+      throw new TypeError(unencodableText(label, spec.kind));
     case "color":
       throw new TypeError(unencodableText(label, spec.kind));
   }
@@ -279,6 +295,12 @@ function writeFieldValue(field: HashField, form: Record<string, number>): void {
     // This switch returns void, so an unhandled kind would fall through and
     // write nothing rather than fail to compile. Say so out loud.
     case "text":
+      if (spec.codec) {
+        form[label] = spec.codec.encode(value as string);
+        return;
+      }
+
+      throw new TypeError(unencodableText(label, spec.kind));
     case "color":
       throw new TypeError(unencodableText(label, spec.kind));
   }
@@ -314,6 +336,12 @@ function readFieldValue(field: HashField, form: Record<string, number>): void {
       return;
     }
     case "text":
+      if (spec.codec) {
+        field.target[spec.key] = spec.codec.decode(form[label] ?? 0);
+        return;
+      }
+
+      throw new TypeError(unencodableText(label, spec.kind));
     case "color":
       throw new TypeError(unencodableText(label, spec.kind));
   }
@@ -364,6 +392,29 @@ function collectFields(config: StructureConfig): HashField[] {
       feature.select(layout),
       slotFeatureControls(feature.label, feature.framed, feature.relief),
     );
+  }
+
+  // An engraving used to be excluded here, on the grounds that it dresses a
+  // slot without changing the stone it is cut into and so could not affect
+  // whether a structure is encodable. That held while an engraving was one
+  // motif on a face. A grid with a pool, a cell range and an arrangement is
+  // most of what a design *is*, and a code that dropped it was not describing
+  // what was on screen.
+  const engravings = config.engravings[definition.id];
+
+  if (engravings) {
+    for (const feature of definition.slotFeatures ?? []) {
+      const assignment = engravings[feature.id];
+
+      if (assignment) {
+        addFields(
+          fields,
+          `${definition.id}.engraving.${feature.id}`,
+          assignment,
+          engravingControls(feature.label),
+        );
+      }
+    }
   }
 
   for (const prop of definition.props) {

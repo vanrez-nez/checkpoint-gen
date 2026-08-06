@@ -657,12 +657,23 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
   }
 }
 
+/**
+ * Whether a change belongs in the geometry code.
+ *
+ * `engraving` is here now, and was not before. The code used to carry only the
+ * stone, on the grounds that an engraving dresses a slot without changing what
+ * the slot is — so the URL stayed put while a motif changed. Now that the code
+ * carries the whole assignment, leaving it out meant the encoding worked and
+ * the URL simply never learned about it: reload, and the engraving was gone
+ * while every dimension around it survived.
+ */
 function isStructureScope(scope: RebuildScope): boolean {
   return scope === "layout"
     || scope === "pillars"
     || scope === "bowls"
     || scope === "fire"
-    || scope === "offering";
+    || scope === "offering"
+    || scope === "engraving";
 }
 
 function applyStats(

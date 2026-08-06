@@ -33,6 +33,26 @@ if (!canvas || !paneHost) {
 }
 
 const sceneCanvas = canvas;
+// Loaded before anything reads the config, not merely before the pane.
+//
+// The engraving dropdowns are populated from what the project actually carries,
+// so the pane needs it — but so does the geometry code, whose field schema now
+// includes an engraving's document list and glyph pool. Decoding a hash against
+// an empty catalog reads a different schema than the one that wrote it, and the
+// code is discarded as corrupt: the structure silently resets to the default.
+//
+// A failure here leaves an empty catalog and every slot offering nothing but
+// "None", which is a state the user can see and the console explains — the
+// alternative is a pane that cannot be built at all.
+try {
+  setEngravingCatalog(await loadEngravingCatalog());
+} catch (error) {
+  console.error(
+    "The engraving catalog failed to load; slots stay bare.",
+    error,
+  );
+}
+
 const config = createDefaultStructureConfig();
 
 if (window.location.hash.length > 1) {
@@ -100,7 +120,12 @@ const mainScene = new MainScene(config, {
   sunShadowCascades,
 });
 
-// TEMPORARY: shading has no test coverage and can only be checked in a frame.
+// A debug handle on the composed scene, because the shading has no other
+// witness. The suite can assert what the builders emit, but the per-vertex
+// occlusion, crack shadow and sun visibility a decal ends up wearing are
+// resolved against the subdivided host at compose time — there is no seam a
+// script can read them from, and every one of the four shading bugs found so
+// far was invisible until the arrays were compared in a live frame.
 (window as unknown as Record<string, unknown>).__scene = mainScene;
 
 const activeDefinition = getStructure(config.typeId);
@@ -118,18 +143,6 @@ await mainScene.loadStructureMaterialPalette(
   activeDefinition.materialSurfaces ?? ["stone"],
 );
 
-// Before the pane is built, because the engraving dropdowns are populated from
-// what the project actually carries. A failure here leaves an empty catalog and
-// every slot offering nothing but "None", which is a state the user can see and
-// the console explains — the alternative is a pane that cannot be built at all.
-try {
-  setEngravingCatalog(await loadEngravingCatalog());
-} catch (error) {
-  console.error(
-    "The engraving catalog failed to load; slots stay bare.",
-    error,
-  );
-}
 
 try {
   await mainScene.loadOffering(

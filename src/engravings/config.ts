@@ -9,7 +9,12 @@ import {
   type EngravingGlyphOrder,
   type EngravingTiling,
 } from "./decal-geometry";
-import { resolveGlyphPool } from "./glyph-pool";
+import {
+  GLYPH_POOL_MASK_MAX,
+  glyphPoolFromMask,
+  glyphPoolMask,
+  resolveGlyphPool,
+} from "./glyph-pool";
 
 /** The document choice that leaves a feature's slots as bare prepared stone. */
 export const NO_ENGRAVING = "none";
@@ -219,6 +224,15 @@ export function engravingControls(
       visibleWhen: gridded,
       validate: (value, name) => {
         resolveGlyphPool(value, name);
+      },
+      // A pool is a subset of the catalog, and a subset is a bitmask — so the
+      // authored text survives a geometry code as one integer. What it cannot
+      // carry is the order names were written in, since a mask has none; a
+      // decoded pool comes back in catalog order.
+      codec: {
+        max: GLYPH_POOL_MASK_MAX,
+        encode: glyphPoolMask,
+        decode: glyphPoolFromMask,
       },
     }),
     control.list({
