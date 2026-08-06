@@ -40,6 +40,41 @@ const INTERPOLATED_BASES: readonly (readonly [string, number])[] = [
   ["bakedShadowBase", 1],
 ];
 
+/**
+ * Bases that exist only after a bake has run, so a first pass has none.
+ *
+ * `sunVisibilityBase` is written by the sun trace, which happens *after* the
+ * geometry it traces has been refined — so on the first pass there is nothing
+ * to carry, and on a second there is. Missing is normal here, unlike above.
+ */
+const OPTIONAL_BASES: readonly (readonly [string, number])[] = [
+  ["sunVisibilityBase", 1],
+];
+
+/** How far two vertices' sun visibility must differ to count as a boundary. */
+const SHADOW_STEP = 1e-6;
+
+export interface SubdivisionOptions {
+  /**
+   * A tighter bound applied only to edges that straddle a shadow boundary.
+   *
+   * The sun is baked per vertex, so a shadow's edge is not an edge at all — it
+   * is a linear ramp between one lit vertex and one dark one, as wide as they
+   * are apart. Measured on a default mass that ramp runs about a metre, which
+   * is why a cast shadow reads as a gradient and why anything laid over it
+   * reconstructs that gradient differently.
+   *
+   * Refining uniformly to fix it is unaffordable: it would multiply the whole
+   * mesh to sharpen the eighth of it that carries a boundary. Refining *only*
+   * across the boundary buys the same edge for a fraction of the vertices, and
+   * costs nothing at all on the flat lit and flat dark faces that are the other
+   * seven eighths.
+   *
+   * Requires `userData.sunVisibilityBase`, so it does nothing on a first pass.
+   */
+  readonly shadowEdge?: number;
+}
+
 export interface SubdivisionResult {
   readonly geometry: THREE.BufferGeometry;
   /** Vertices added. Zero means the input was already fine enough to return as-is. */
@@ -57,6 +92,7 @@ export interface SubdivisionResult {
 export function subdivideLongEdges(
   source: THREE.BufferGeometry,
   maxEdge: number,
+  options: SubdivisionOptions = {},
 ): SubdivisionResult {
   if (!(maxEdge > 0)) {
     throw new RangeError(`maxEdge must be positive; received ${maxEdge}.`);
@@ -92,6 +128,14 @@ export function subdivideLongEdges(
 
     return { name, itemSize, values: Array.from(values) };
   });
+
+  for (const [name, itemSize] of OPTIONAL_BASES) {
+    const values = source.userData[name] as ArrayLike<number> | undefined;
+
+    if (values) {
+      bases.push({ name, itemSize, values: Array.from(values) });
+    }
+  }
 
   const slotAttribute = source.getAttribute("surfaceMaterial");
 
@@ -152,11 +196,29 @@ export function subdivideLongEdges(
     return created;
   };
 
+  const sun = bases.find((entry) => entry.name === "sunVisibilityBase");
+  const shadowEdge = options.shadowEdge;
+  const shadowEdgeSquared = shadowEdge !== undefined && shadowEdge > 0
+    ? shadowEdge * shadowEdge
+    : null;
+
   const isLong = (a: number, b: number): boolean => {
     const dx = position.values[a * 3]! - position.values[b * 3]!;
     const dy = position.values[a * 3 + 1]! - position.values[b * 3 + 1]!;
     const dz = position.values[a * 3 + 2]! - position.values[b * 3 + 2]!;
-    return dx * dx + dy * dy + dz * dz > maxEdgeSquared;
+    const lengthSquared = dx * dx + dy * dy + dz * dz;
+
+    if (lengthSquared > maxEdgeSquared) {
+      return true;
+    }
+
+    // Still a property of the edge, never of a triangle: both owners of a
+    // shared edge ask the same question and get the same answer, which is what
+    // keeps this free of the T-junctions the uniform bound is careful about.
+    return shadowEdgeSquared !== null
+      && sun !== undefined
+      && lengthSquared > shadowEdgeSquared
+      && Math.abs((sun.values[a] ?? 0) - (sun.values[b] ?? 0)) > SHADOW_STEP;
   };
 
   for (let pass = 0; pass < MAX_PASSES; pass += 1) {

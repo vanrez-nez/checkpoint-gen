@@ -94,6 +94,17 @@ const MATERIAL_OUTPUT_RESOLUTION = 512;
  */
 const SUN_BAKE_MAX_EDGE = 1.5;
 
+/**
+ * How wide a shadow's edge may be, in metres, where one falls.
+ *
+ * The sun is baked per vertex, so an edge is a ramp between a lit vertex and a
+ * dark one. `SUN_BAKE_MAX_EDGE` alone leaves that ramp about a metre wide on a
+ * default mass, which reads as a gradient rather than a shadow and which any
+ * second surface laid over it reconstructs differently. This is the bound the
+ * refinement pass applies to those edges alone.
+ */
+const SHADOW_EDGE_BOUND = 0.2;
+
 /** Half-angle of the sun's disc. Wider than the real sun, to soften contacts. */
 const SUN_BAKE_SOFTNESS = 0.035;
 
@@ -980,7 +991,27 @@ export class MainScene {
     this.sunBakeScene = null;
     this.hostShading = null;
     this.bakeSun(refined.geometry, illumination);
-    return refined.geometry;
+
+    // A second pass, now that there is a shadow to refine against.
+    //
+    // The first bake is what makes the second one targetable: until the sun has
+    // been traced, nothing knows which edges carry a boundary. Measured on a
+    // default mass, 13% of triangles straddle one and 99.3% of vertices come
+    // back fully lit or fully dark — so the whole quality problem lives on an
+    // eighth of the surface, and refining the other seven eighths would buy
+    // nothing at several times the cost.
+    const sharpened = subdivideLongEdges(refined.geometry, bound, {
+      shadowEdge: SHADOW_EDGE_BOUND * DETAIL_PROFILES[detail].edgeScale,
+    });
+
+    if (sharpened.geometry !== refined.geometry) {
+      refined.geometry.dispose();
+      this.sunBakeScene = null;
+      this.hostShading = null;
+      this.bakeSun(sharpened.geometry, illumination);
+    }
+
+    return sharpened.geometry;
   }
 
   /**
