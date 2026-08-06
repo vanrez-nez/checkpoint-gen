@@ -7,6 +7,7 @@ import {
   applyStructureHash,
   encodeStructureHash,
 } from "./config/structure-hash";
+import { applySessionState, writeSessionState } from "./config/session-state";
 import { setEngravingCatalog } from "./engravings/catalog";
 import { loadEngravingCatalog } from "./engravings/document";
 import { MainScene } from "./scene/main";
@@ -62,6 +63,12 @@ if (window.location.hash.length > 1) {
     console.warn("Ignoring invalid geometry code.", error);
   }
 }
+
+// The half the code above does not carry: dressing, lighting and the overlays.
+// Order does not matter for correctness — the two sets are disjoint, and
+// `isSessionScope` is what keeps them that way — but it has to land before the
+// palette is loaded below, which reads whichever documents this restores.
+applySessionState(config);
 
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
 const adapter = await navigator.gpu?.requestAdapter({
@@ -163,6 +170,7 @@ const pane = createControlPane({
   rendererLabel: rendererBackend.isWebGPUBackend === true ? "WebGPU" : "WebGL2",
   fireGlowShadowsSupported,
   onStructureConfigChange: writeGeometryHash,
+  onSessionConfigChange: () => writeSessionState(config),
 });
 const { stats } = pane;
 writeGeometryHash();

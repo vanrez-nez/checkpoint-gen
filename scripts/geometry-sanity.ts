@@ -51,6 +51,10 @@ import {
   encodeStructureHash,
   isStructureHash,
 } from "../src/config/structure-hash";
+import {
+  applySessionState,
+  writeSessionState,
+} from "../src/config/session-state";
 import { validateControls, type ControlSpec } from "../src/config/control-spec";
 import {
   DEFAULT_CIRCULAR_MATERIAL_PALETTE,
@@ -2609,6 +2613,126 @@ fineFloor.geometry.dispose();
 shelteredFloor.geometry.dispose();
 roof.geometry.dispose();
 litFloor.geometry.dispose();
+
+// The settings the geometry code deliberately excludes.
+//
+// Worth asserting precisely because they are the fields no code round trip can
+// catch: every other test here proves a value survives being encoded, and these
+// are the ones that are *not* encoded, so their only witness is this.
+const sessionStore = new Map<string, string>();
+(globalThis as { window?: unknown }).window = {
+  sessionStorage: {
+    getItem: (key: string) => sessionStore.get(key) ?? null,
+    setItem: (key: string, value: string) => void sessionStore.set(key, value),
+    removeItem: (key: string) => void sessionStore.delete(key),
+  },
+};
+
+const sessionSource = createDefaultStructureConfig();
+sessionSource.illumination.keyAzimuth = 31;
+sessionSource.illumination.shadowMode = "dynamic";
+sessionSource.illumination.keyColor = "#ff8800";
+sessionSource.view.detailLevel = "coarse";
+sessionSource.view.materialScale = 1.75;
+// The two fields that live in the session but are scoped to a geometry rebuild,
+// because only the builder can apply them. They are the reason the pane writes
+// this on every change instead of on a scope predicate: `slotDebug` is scoped
+// `layout` and `engravingResolution` is scoped `engraving`, so anything keyed on
+// "is this a session scope" drops both while looking entirely correct.
+sessionSource.view.slotDebug = true;
+sessionSource.view.engravingResolution = "high";
+sessionSource.materialPalettes.mass!.stone!.document = "lichen-stone";
+sessionSource.materialPalettes.mass!.stone!.textureScale = 2.5;
+writeSessionState(sessionSource);
+
+const sessionTarget = createDefaultStructureConfig();
+const restoredIllumination = sessionTarget.illumination;
+const restoredView = sessionTarget.view;
+const restoredPalette = sessionTarget.materialPalettes.mass!;
+applySessionState(sessionTarget);
+
+assert.equal(sessionTarget.illumination, restoredIllumination,
+  "Restoring must keep the live objects the pane is bound to.");
+assert.equal(sessionTarget.view, restoredView);
+assert.equal(sessionTarget.materialPalettes.mass, restoredPalette);
+assert.equal(sessionTarget.illumination.keyAzimuth, 31);
+assert.equal(sessionTarget.illumination.shadowMode, "dynamic");
+assert.equal(sessionTarget.illumination.keyColor, "#ff8800");
+assert.equal(sessionTarget.view.detailLevel, "coarse");
+assert.equal(sessionTarget.view.materialScale, 1.75);
+assert.equal(sessionTarget.view.slotDebug, true);
+assert.equal(sessionTarget.view.engravingResolution, "high");
+assert.equal(sessionTarget.materialPalettes.mass!.stone!.document, "lichen-stone");
+assert.equal(sessionTarget.materialPalettes.mass!.stone!.textureScale, 2.5);
+
+// The two halves must partition the settings, not overlap: a field carried by
+// both would be restored twice from two sources that can disagree, and which
+// one won would depend on the order two calls happen to be made in.
+const sessionOnlyGeometry = createDefaultStructureConfig();
+const geometryBefore = encodeStructureHash(sessionOnlyGeometry);
+applySessionState(sessionOnlyGeometry);
+assert.equal(
+  encodeStructureHash(sessionOnlyGeometry),
+  geometryBefore,
+  "Restoring session settings must not move a single field of the geometry code.",
+);
+
+// A stored blob outlives the schema that wrote it. Each of these is a shape the
+// storage can genuinely hold after an edit to the config, and none of them may
+// cost the sitting.
+//
+// The warnings these raise are the point of the exercise, so they are counted
+// rather than printed — a rejection that stayed silent would be the actual bug,
+// and letting nine expected ones through would bury a tenth that was not.
+const realWarn = console.warn;
+let sessionWarnings = 0;
+console.warn = () => { sessionWarnings += 1; };
+
+for (const [label, stored] of [
+  ["unparseable", "{not json"],
+  ["not an object", "[1, 2, 3]"],
+  ["empty", "{}"],
+  ["unknown keys only", '{"view":{"noSuchField":9}}'],
+  ["out of range", '{"view":{"materialScale":9999}}'],
+  ["wrong type", '{"illumination":{"keyIntensity":"bright"}}'],
+  ["retired list value", '{"illumination":{"shadowMode":"strobe"}}'],
+  ["unknown structure", '{"materialPalettes":{"ziggurat":{"stone":{}}}}'],
+  ["retired document", '{"materialPalettes":{"mass":{"stone":{"document":"jade"}}}}'],
+] as const) {
+  sessionStore.set("checkpoint-gen.session", stored);
+  const survivor = createDefaultStructureConfig();
+  applySessionState(survivor);
+  validateActiveStructureConfig(survivor);
+  assert.equal(survivor.view.materialScale, 1,
+    `Stored ${label} settings must leave the defaults intact.`);
+  assert.equal(survivor.illumination.keyIntensity, 0.6);
+  assert.equal(
+    survivor.materialPalettes.mass!.stone!.document,
+    DEFAULT_MASS_MATERIAL_PALETTE.stone.document,
+  );
+}
+
+// A section that fails takes only itself down. Nothing else in the blob is
+// implicated by one bad field, and the alternative — dropping the sitting —
+// would mean a retired stone cost you your lighting.
+sessionStore.set(
+  "checkpoint-gen.session",
+  '{"view":{"materialScale":9999},"illumination":{"keyAzimuth":44}}',
+);
+const partial = createDefaultStructureConfig();
+applySessionState(partial);
+console.warn = realWarn;
+assert.equal(partial.view.materialScale, 1, "The bad section rolls back whole.");
+assert.equal(partial.illumination.keyAzimuth, 44, "The good section still lands.");
+assert.equal(
+  sessionWarnings,
+  6,
+  "Every rejected section must say so, and only those: four invalid values and "
+  + "one retired document in the loop, plus the partial blob's bad view. The "
+  + "four shapes carrying nothing to reject — unreadable as an object, empty, "
+  + "unknown keys, unknown structure — are dropped in silence, because none of "
+  + "them describes a setting anyone chose.",
+);
 
 console.log(
   `Geometry sanity passed: ${pillar.stoneCount} stones per default pillar, `

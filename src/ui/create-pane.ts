@@ -72,6 +72,14 @@ export interface ControlPaneOptions {
   fireGlowShadowsSupported?: boolean;
   /** Called only after a valid structure-owned control has been applied. */
   onStructureConfigChange?: () => void;
+  /**
+   * Called after any valid control has been applied.
+   *
+   * Every change rather than only the ones outside the geometry code, because
+   * what this persists is a set of whole sections and no scope reliably names
+   * them. See the call site.
+   */
+  onSessionConfigChange?: () => void;
 }
 
 export interface ControlPane {
@@ -92,6 +100,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     rendererLabel,
     fireGlowShadowsSupported = true,
     onStructureConfigChange,
+    onSessionConfigChange,
   } = options;
   const pane = new Pane({ container, title: "Structure" });
   pane.registerPlugin(StatsPanePluginBundle);
@@ -301,6 +310,17 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     if (scopes.some(isStructureScope)) {
       onStructureConfigChange?.();
     }
+
+    // Unconditional, where the hash above is scoped. A scope says what a change
+    // invalidates, which is not the same question as where the value lives, and
+    // two controls prove it: `slotDebug` is scoped `layout` and
+    // `engravingResolution` is scoped `engraving` — both geometry scopes — yet
+    // both sit in `config.view`, which `collectFields` never reads. Gating this
+    // on a scope predicate would have silently dropped exactly those two, which
+    // is the same failure as an engraving that saved nowhere. Writing the whole
+    // excluded set every time is cheap next to the rebuild that just ran, and
+    // it cannot be wrong about which section a control belongs to.
+    onSessionConfigChange?.();
   }
 
   function refreshStats(): void {
@@ -675,6 +695,7 @@ function isStructureScope(scope: RebuildScope): boolean {
     || scope === "offering"
     || scope === "engraving";
 }
+
 
 function applyStats(
   mirrors: StatMirrors,
