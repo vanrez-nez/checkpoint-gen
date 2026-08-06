@@ -8,7 +8,6 @@ import { DEFAULT_MASS_MATERIAL_PALETTE } from "../../../config/material-palette"
 import { createFireBowlGeometry } from "../../../props/fire-bowl/generator";
 import { MASS_SECTION, tessellateStructure } from "../../mass/tessellate";
 import {
-  DEFAULT_MASS_LAYOUT,
   DEFAULT_MASS_STONE_CONFIG,
   MASS_LAYOUT_CONTROLS,
   MASS_SLOT_FEATURE_IDS,
@@ -93,7 +92,6 @@ export const massStructure = defineStructure<MassLayoutConfig>({
     layout: [MASS_SECTION, MASS_FIRE_BOWL_SECTION],
     bowls: [MASS_FIRE_BOWL_SECTION],
   },
-  defaultLayout: DEFAULT_MASS_LAYOUT,
   defaultStone: DEFAULT_MASS_STONE_CONFIG,
   defaultMaterialPalette: DEFAULT_MASS_MATERIAL_PALETTE,
   materialSurfaces: [

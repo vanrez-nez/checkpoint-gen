@@ -38,6 +38,14 @@ import type { EngravingTextures } from "../engravings/textures";
 import { HostShadingSampler } from "../geometry/host-shading";
 import { subdivideLongEdges } from "../geometry/subdivide";
 import { SunBakeScene, type SunBakeTarget } from "../geometry/sun-bake";
+import {
+  SHADOW_EDGE_BOUND,
+  SUN_BAKE_MAX_EDGE,
+  SUN_BAKE_SAMPLES,
+  SUN_BAKE_SOFTNESS,
+  SUN_CLASSIFY_SAMPLES,
+  sunDirection,
+} from "../geometry/shading-budget";
 import { StructureComposer } from "../structure/composer";
 import {
   DEFAULT_DETAIL_LEVEL,
@@ -51,6 +59,7 @@ import type { Diagnostic } from "../structure/kernel/validate";
 import type { StructureConfig } from "../config/structure-config";
 import {
   cloneMaterialPalette,
+  dressingDiffers,
   materialDocumentUrl,
   validateMaterialPalette,
   type MaterialDocumentId,
@@ -84,39 +93,6 @@ import {
 } from "../props/offering/config";
 
 const MATERIAL_OUTPUT_RESOLUTION = 512;
-/**
- * Longest edge a face may keep before the sun bake subdivides it.
- *
- * Sized against the stonework rather than the structure: a course is 0.86 tall
- * and a stone 1.65 long, so this leaves the masonry untouched and refines only
- * the plain faces — roofs, pads, plaza slabs — that carry too few vertices to
- * describe a shadow crossing them.
- */
-const SUN_BAKE_MAX_EDGE = 1.5;
-
-/**
- * How wide a shadow's edge may be, in metres, where one falls.
- *
- * The sun is baked per vertex, so an edge is a ramp between a lit vertex and a
- * dark one. `SUN_BAKE_MAX_EDGE` alone leaves that ramp about a metre wide on a
- * default mass, which reads as a gradient rather than a shadow and which any
- * second surface laid over it reconstructs differently. This is the bound the
- * refinement pass applies to those edges alone.
- */
-const SHADOW_EDGE_BOUND = 0.2;
-
-/** Half-angle of the sun's disc. Wider than the real sun, to soften contacts. */
-const SUN_BAKE_SOFTNESS = 0.035;
-
-/**
- * Rays per lit vertex.
- *
- * Cost is the product of this and the vertex count that `SUN_BAKE_MAX_EDGE`
- * implies, and both bite hard: refining to 0.75 with eight rays took nine
- * seconds on this mass, which is not a slider. Halving the bound quarters the
- * vertices it adds, so the edge bound is the dial to reach for first.
- */
-const SUN_BAKE_SAMPLES = 4;
 
 /**
  * The unit direction from the structure toward the sun.
@@ -126,15 +102,7 @@ const SUN_BAKE_SAMPLES = 4;
  * elevation twice is how they stop agreeing.
  */
 function sunDirectionOf(config: IlluminationConfig): THREE.Vector3 {
-  const azimuth = THREE.MathUtils.degToRad(config.keyAzimuth);
-  const elevation = THREE.MathUtils.degToRad(config.keyElevation);
-  const horizontal = Math.cos(elevation);
-
-  return new THREE.Vector3(
-    Math.cos(azimuth) * horizontal,
-    Math.sin(elevation),
-    Math.sin(azimuth) * horizontal,
-  );
+  return sunDirection(config.keyAzimuth, config.keyElevation);
 }
 
 const CSM_CASCADES = 3;
@@ -164,6 +132,23 @@ export interface FlameStats {
   vertexCount: number;
   triangleCount: number;
   drawCallCount: number;
+}
+
+export interface RebuildOptions {
+  /**
+   * Build a frame that is about to be replaced.
+   *
+   * Set while a control is still moving. The structure is generated and lit in
+   * full, but the shadow-refinement pass is left for the rebuild that follows
+   * the release — it is three quarters of the cost and it sharpens an edge
+   * nobody is studying mid-drag.
+   *
+   * The caller owes a settled rebuild afterwards. `createControlPane` schedules
+   * one on a timer as well as on the release event, so a drag that ends without
+   * one — a pointer lost off the window, a control that never reports it —
+   * still resolves rather than leaving the structure permanently coarse.
+   */
+  readonly interim?: boolean;
 }
 
 export interface CompositionStats {
@@ -260,6 +245,8 @@ export class MainScene {
   private offeringConfig: OfferingConfig;
   private activeMaterialPalette: StructureMaterialPalette;
   private activeMaterialSurfaces: ReadonlySet<MaterialSurfaceId>;
+  /** Whether any surface has ever been dressed. See `setStructureMaterialPalette`. */
+  private dressedOnce = false;
   private materialRenderer: WebGPURenderer | null = null;
   private readonly structureMaterialRuntimes = new Map<
     MaterialDocumentId,
@@ -414,6 +401,9 @@ export class MainScene {
       composition.geometry,
       config.illumination,
       composition.detail,
+      // The first frame is the one that gets looked at longest. Nothing is
+      // dragging it, and nothing would come back to finish it.
+      false,
     );
     this.applyGeometryAttributes(initialGeometry);
     // Every semantic slot remains addressable even when the current structure
@@ -485,16 +475,36 @@ export class MainScene {
     surfaces: readonly MaterialSurfaceId[],
   ): Promise<void> {
     validateMaterialPalette(palette);
+    const previous = this.activeMaterialPalette;
+    const previousSurfaces = this.activeMaterialSurfaces;
     this.activeMaterialPalette = cloneMaterialPalette(palette);
     this.activeMaterialSurfaces = new Set(surfaces);
     this.refreshSurfaceMaterials();
     this.refreshTextureScales();
+
+    const dressingChanged = dressingDiffers(
+      previous,
+      this.activeMaterialPalette,
+      previousSurfaces,
+      surfaces,
+    );
 
     const renderer = this.materialRenderer;
 
     if (!renderer) {
       return;
     }
+
+    // `dressedOnce`, not just `dressingChanged`: the constructor seeds the
+    // palette from the same config the first load then passes back in, so the
+    // opening call legitimately changes nothing and still has every runtime to
+    // fetch. Gating on the comparison alone would leave the structure wearing
+    // the fallback material for the whole session.
+    if (!dressingChanged && this.dressedOnce) {
+      return;
+    }
+
+    this.dressedOnce = true;
 
     const ids = [
       ...new Set(
@@ -515,10 +525,10 @@ export class MainScene {
       }
     });
     this.refreshSurfaceMaterials();
-    // Unconditionally, not only when a document had to be fetched: switching a
-    // surface to a document already in the cache loads nothing, so the rebuild
-    // hook on the loader never fires and the decals would keep wearing the
-    // stone they were built against.
+    // Whenever a document changed, not only when one had to be *fetched*:
+    // switching a surface to a document already in the cache loads nothing, so
+    // the rebuild hook on the loader never fires and the decals would keep
+    // wearing the stone they were built against.
     this.rebuildEngravingDecals();
   }
 
@@ -611,6 +621,7 @@ export class MainScene {
   rebuild(
     config: StructureConfig,
     sections?: Iterable<PartSection>,
+    options: RebuildOptions = {},
   ): CompositionStats {
     const composition = this.composer.build(config, sections);
     const previousGeometry = this.structure.geometry;
@@ -618,6 +629,7 @@ export class MainScene {
       composition.geometry,
       config.illumination,
       composition.detail,
+      options.interim === true,
     );
     this.applyGeometryAttributes(geometry);
     this.structure.geometry = geometry;
@@ -825,6 +837,9 @@ export class MainScene {
     const direction = sunDirectionOf(config);
 
     if (direction.distanceToSquared(this.bakedSunDirection) > 1e-12) {
+      // A sun move is its own episode: one bake, reported on its own, rather
+      // than added to whatever the last geometry rebuild spent.
+      this.sunBakeMs = 0;
       this.bakeSun(this.structure.geometry, config);
       // Decals follow the sun with the stone, and share its gate for the same
       // reason they must not be skipped: an engraving lit from an angle the
@@ -973,6 +988,7 @@ export class MainScene {
     source: THREE.BufferGeometry,
     illumination: IlluminationConfig,
     detail: DetailLevel,
+    interim: boolean,
   ): THREE.BufferGeometry {
     // Scaled by the level, and this is what makes the ladder worth having.
     // Subdivision cost tracks total surface *area*, which barely changes
@@ -990,7 +1006,32 @@ export class MainScene {
     // Both hierarchies are indexed against this geometry, so both die with it.
     this.sunBakeScene = null;
     this.hostShading = null;
+    this.sunBakeMs = 0;
+
+    // Mid-drag, stop here with the cheap bake.
+    //
+    // The refinement below is three quarters of a rebuild, and its whole job is
+    // to sharpen a shadow's edge — which is not what anyone is looking at while
+    // they drag a footprint. So a moving value gets the massing at once and the
+    // shadows a moment later, and the classification bake is enough to light it
+    // meanwhile: measured on a mass, 550 ms of tracing becomes 144 ms, and what
+    // it costs is a penumbra, on a frame that is about to be replaced.
+    //
+    // It returns *before* the second pass rather than skipping it, so the
+    // settled rebuild that follows starts from the merged geometry and runs the
+    // identical path a non-drag change takes. There is no second code path to
+    // keep in step, which is the failure this shape exists to avoid.
+    if (interim) {
+      this.bakeSun(refined.geometry, illumination, { samples: SUN_CLASSIFY_SAMPLES });
+      return refined.geometry;
+    }
+
     this.bakeSun(refined.geometry, illumination);
+
+    // How many vertices carry a traced value from here on. Subdivision appends,
+    // so everything below this index survives the next pass unchanged — in
+    // position, in number, and therefore in visibility.
+    const traced = refined.geometry.getAttribute("position").count;
 
     // A second pass, now that there is a shadow to refine against.
     //
@@ -1008,7 +1049,10 @@ export class MainScene {
       refined.geometry.dispose();
       this.sunBakeScene = null;
       this.hostShading = null;
-      this.bakeSun(sharpened.geometry, illumination);
+      // Only the midpoints the pass just added. The rest were traced above at
+      // these exact positions and are not stale, merely already known — and
+      // re-deriving them was a third of the whole rebuild.
+      this.bakeSun(sharpened.geometry, illumination, { fromVertex: traced });
     }
 
     return sharpened.geometry;
@@ -1024,8 +1068,13 @@ export class MainScene {
   private bakeSun(
     structureGeometry: THREE.BufferGeometry,
     illumination: IlluminationConfig,
+    options: { readonly fromVertex?: number; readonly samples?: number } = {},
   ): void {
     const direction = sunDirectionOf(illumination);
+    // Around the hierarchy build as well as the trace. The build costs about as
+    // much again, and timing only the trace is how the readout came to report a
+    // quarter of the sun's real cost while looking authoritative.
+    const started = performance.now();
 
     // The hierarchy outlives a sun move: flattening the triangles and building
     // it is about as expensive as the tracing, and neither depends on where the
@@ -1041,13 +1090,28 @@ export class MainScene {
       this.sunBakeScene = SunBakeScene.from(targets);
     }
 
-    const report = this.sunBakeScene.bake({
+    const settings = {
       direction,
       softness: SUN_BAKE_SOFTNESS,
-      samples: SUN_BAKE_SAMPLES,
-    });
+      samples: options.samples ?? SUN_BAKE_SAMPLES,
+    };
+    const from = options.fromVertex ?? 0;
 
-    this.sunBakeMs = report.milliseconds;
+    // A partial bake names its one target rather than going through `bake`,
+    // which would carry the offset onto the offerings too — and they were not
+    // subdivided, so every one of their vertices still needs its own answer.
+    if (from > 0) {
+      this.sunBakeScene.bakeTargets(
+        [{ geometry: structureGeometry, fromVertex: from }],
+        settings,
+      );
+    } else {
+      this.sunBakeScene.bake(settings);
+    }
+
+    // Accumulated, not assigned: a rebuild bakes twice, and assigning meant the
+    // panel reported the second one as though it were the whole cost.
+    this.sunBakeMs += performance.now() - started;
     this.bakedSunDirection.copy(direction);
   }
 

@@ -66,6 +66,7 @@ import {
   MATERIAL_SURFACE_CONTROLS,
   MATERIAL_SURFACE_IDS,
   cloneMaterialPalette,
+  dressingDiffers,
 } from "../src/config/material-palette";
 import {
   ILLUMINATION_CONTROLS,
@@ -2304,6 +2305,55 @@ void scene.setStructureMaterialPalette(
   circularSurfaces,
 );
 assertSurfaceTextureScale(structureMesh.geometry, "pillar", 1);
+
+// What counts as re-dressing a surface, and what merely re-tiles it.
+//
+// The distinction decides whether every decal is disposed and rebuilt, so it is
+// the difference between a texture-scale drag costing a UV rewrite and costing
+// a pipeline compile per batch. Asserted here rather than through the scene
+// because `setStructureMaterialPalette` returns early without a renderer, and
+// there is no renderer in Node — so the branch itself is unreachable from a
+// test and only the decision behind it can be pinned.
+{
+  const base = cloneMaterialPalette(sceneConfig.materialPalettes.circular);
+  const surfaces = new Set(circularSurfaces);
+
+  assert.equal(
+    dressingDiffers(base, cloneMaterialPalette(base), surfaces, circularSurfaces),
+    false,
+    "An identical palette re-dresses nothing.",
+  );
+
+  const rescaled = cloneMaterialPalette(base);
+  rescaled.pillar.textureScale = 3.5;
+  assert.equal(
+    dressingDiffers(base, rescaled, surfaces, circularSurfaces),
+    false,
+    "Texture scale is a UV concern; it must not invalidate a decal's material.",
+  );
+
+  const redressed = cloneMaterialPalette(base);
+  redressed.pillar.document = base.pillar.document === "lichen-stone"
+    ? "flamed-basalt"
+    : "lichen-stone";
+  assert.equal(
+    dressingDiffers(base, redressed, surfaces, circularSurfaces),
+    true,
+    "A different document means a different material clone, so decals are stale.",
+  );
+
+  // A structure switch, where the decals belong to the family being left.
+  assert.equal(
+    dressingDiffers(base, base, surfaces, [...circularSurfaces, "offering"]),
+    true,
+    "A surface appearing must re-dress, whatever the documents say.",
+  );
+  assert.equal(
+    dressingDiffers(base, base, new Set(["stone"] as const), circularSurfaces),
+    true,
+    "A surface disappearing must re-dress too.",
+  );
+}
 
 // Fire retuning must not rebuild geometry or recreate the flame batch.
 const firstGlowLight = scene.scene.children.find((child) => child.type === "PointLight");

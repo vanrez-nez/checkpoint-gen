@@ -149,6 +149,43 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
   let tabs: TabApi | null = null;
   let lastValidConfig = snapshotStructureConfig(config);
 
+  /**
+   * How long after a value stops moving the shadows are refined.
+   *
+   * A backstop, not the mechanism: the release event is what normally settles a
+   * drag, and it arrives first. This covers the drags that never report one — a
+   * pointer released outside the window, a control that emits its last value
+   * without marking it — because the alternative is a structure that stays
+   * coarsely lit until something unrelated happens to rebuild it.
+   *
+   * Long enough not to fire between two frames of a drag on a slow machine,
+   * short enough that a release which does go missing is not something anyone
+   * has time to notice.
+   */
+  const SETTLE_DELAY_MS = 400;
+
+  let settleTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function scheduleSettle(scopes: readonly RebuildScope[]): void {
+    cancelSettle();
+    settleTimer = setTimeout(() => {
+      settleTimer = null;
+      // Through `dispatch` rather than straight to `scene.rebuild`, so the
+      // settle re-runs the whole arm — stats, visibility, the geometry code —
+      // exactly as the release would have. No scopes are invalidated a second
+      // time; the composer serves the same parts from cache and only the
+      // preparation runs again.
+      dispatch(scopes);
+    }, SETTLE_DELAY_MS);
+  }
+
+  function cancelSettle(): void {
+    if (settleTimer !== null) {
+      clearTimeout(settleTimer);
+      settleTimer = null;
+    }
+  }
+
   // Global state, so it sits above the tab bar rather than inside a tab.
   pane.addBinding(config, "typeId", {
     label: "type",
@@ -173,6 +210,8 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
       dispatch(["layout", "pillars", "bowls", "fire", "offering", "material"]);
     },
     dispose(): void {
+      // A pending settle would rebuild into a disposed scene.
+      cancelSettle();
       pane.dispose();
     },
   };
@@ -258,7 +297,16 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     // wireframe, overlay, normals helper, offering, fire — and the one it
     // forgot is the bug.
     if (sections.size > 0 || scopes.includes("detail")) {
-      scene.rebuild(config, sections);
+      const settled = change?.settled ?? true;
+      scene.rebuild(config, sections, { interim: !settled });
+      // A settled rebuild answers any interim one that came before it, so there
+      // is nothing left owing. An unsettled one leaves the shadows unrefined,
+      // and something has to come back for them.
+      if (settled) {
+        cancelSettle();
+      } else {
+        scheduleSettle(scopes);
+      }
     } else if (scopes.includes("fire")) {
       scene.updateFireEffects(config);
     }

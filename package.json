@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "dev:proxy": "bash scripts/devsite.sh",
-    "test": "tsx scripts/geometry-sanity.ts && tsx scripts/structure-sanity.ts && tsx scripts/detail-sanity.ts && tsx scripts/engraving-sanity.ts",
+    "test": "tsx scripts/layering-sanity.ts && tsx scripts/geometry-sanity.ts && tsx scripts/structure-sanity.ts && tsx scripts/detail-sanity.ts && tsx scripts/engraving-sanity.ts",
+    "bench": "tsx scripts/bench.ts",
     "build": "tsc && vite build",
     "preview": "vite preview --host 127.0.0.1"
   },

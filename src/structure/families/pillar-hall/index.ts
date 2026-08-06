@@ -3,7 +3,6 @@ import { emptyCompositionAnchors, type GeometryPart } from "../../../geometry/pa
 import { defineStructure } from "../../definition";
 import { tessellateStructure } from "../../mass/tessellate";
 import {
-  DEFAULT_PILLAR_HALL_LAYOUT,
   DEFAULT_PILLAR_HALL_STONE_CONFIG,
   PILLAR_HALL_FRAMED_SLOT_FEATURES,
   PILLAR_HALL_LAYOUT_CONTROLS,
@@ -53,7 +52,6 @@ export const pillarHallStructure = defineStructure<PillarHallLayoutConfig>({
   ],
   sections: [PILLAR_HALL_SECTION],
   sectionsByScope: { layout: [PILLAR_HALL_SECTION] },
-  defaultLayout: DEFAULT_PILLAR_HALL_LAYOUT,
   defaultStone: DEFAULT_PILLAR_HALL_STONE_CONFIG,
   defaultMaterialPalette: DEFAULT_PILLAR_HALL_MATERIAL_PALETTE,
   materialSurfaces: [

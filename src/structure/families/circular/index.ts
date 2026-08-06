@@ -12,7 +12,6 @@ import { buildPillarParts } from "../../../props/pillar/build";
 import { defineStructure } from "../../definition";
 import {
   CIRCULAR_LAYOUT_CONTROLS,
-  DEFAULT_CIRCULAR_LAYOUT,
   cloneCircularLayout,
   toShellConfig,
   validateCircularLayout,
@@ -50,7 +49,6 @@ export const circularStructure = defineStructure<CircularLayoutConfig>({
     { id: "materials", label: "Materials", props: ["materialPalette"] },
   ],
   sections: ["layout", "pillars", "fireBowls"],
-  defaultLayout: DEFAULT_CIRCULAR_LAYOUT,
   defaultStone: DEFAULT_STONE_CONFIG,
   defaultBevel: DEFAULT_BEVEL_CONFIG,
   defaultMaterialPalette: DEFAULT_CIRCULAR_MATERIAL_PALETTE,

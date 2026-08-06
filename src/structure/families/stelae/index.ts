@@ -3,7 +3,6 @@ import { emptyCompositionAnchors, type GeometryPart } from "../../../geometry/pa
 import { defineStructure } from "../../definition";
 import { tessellateStructure } from "../../mass/tessellate";
 import {
-  DEFAULT_STELA_LAYOUT,
   STELA_FRAMED_SLOT_FEATURES,
   STELA_LAYOUT_CONTROLS,
   STELA_SLOT_FEATURE_IDS,
@@ -56,7 +55,6 @@ export const stelaStructure = defineStructure<StelaLayoutConfig>({
   ],
   sections: [STELA_SECTION],
   sectionsByScope: { layout: [STELA_SECTION] },
-  defaultLayout: DEFAULT_STELA_LAYOUT,
   defaultMaterialPalette: DEFAULT_STELA_MATERIAL_PALETTE,
   materialSurfaces: [
     "stelaBody",

@@ -11,6 +11,21 @@ export interface DispatchChange {
   readonly key: string;
   readonly label: string;
   readonly value: unknown;
+  /**
+   * Whether the value has stopped moving.
+   *
+   * False for every intermediate frame of a slider drag, true for the release
+   * and for anything discrete — a checkbox, a dropdown, a typed number. This is
+   * Tweakpane's own `last` flag, which the pane used to discard, and discarding
+   * it meant a drag across a range ran the whole 4.7-second rebuild at every
+   * step it happened to sample. What a drag needs is geometry now and shading
+   * shortly; what it was getting was both, repeatedly, from a queue it could
+   * never work off.
+   *
+   * Treated as settled when absent, so a caller that dispatches by hand gets
+   * the complete result rather than a preview nothing will finish.
+   */
+  readonly settled?: boolean;
 }
 
 export type Dispatch = (
@@ -76,12 +91,13 @@ export function bindControls<T extends object>(
   return specs.map((spec) => {
     const folder = resolveFolder(parent, registry, spec.group);
     const label = spec.label ?? spec.key;
-    const notify = () => {
+    const notify = (settled = true) => {
       spec.onChange?.(target);
       dispatch(spec.scopes ?? [], {
         key: spec.key,
         label: controlName(spec),
         value: target[spec.key],
+        settled,
       });
     };
 
@@ -95,7 +111,7 @@ export function bindControls<T extends object>(
       { label, ...bindingParams(spec) },
     ) as BindingApi;
 
-    binding.on("change", notify);
+    binding.on("change", (event) => notify(event.last));
 
     return { spec, binding };
   });
@@ -115,7 +131,7 @@ function addBezierBlade<T extends object>(
   target: T,
   key: Extract<keyof T, string>,
   label: string,
-  notify: () => void,
+  notify: (settled?: boolean) => void,
 ): { readonly binding: BladeApi; readonly onShow: () => void } {
   const initial = target[key] as unknown as BezierValue;
   const blade = folder.addBlade({
@@ -135,7 +151,9 @@ function addBezierBlade<T extends object>(
 
     const { x1, y1, x2, y2 } = event.value;
     (target as Record<string, unknown>)[key] = [x1, y1, x2, y2] satisfies BezierValue;
-    notify();
+    // Dragging a handle is a drag like any other, and the curve editor emits
+    // continuously while one is held.
+    notify(event.last);
   });
 
   return {

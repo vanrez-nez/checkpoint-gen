@@ -237,6 +237,39 @@ export const MATERIAL_SURFACE_CONTROLS: Readonly<
   MATERIAL_SURFACE_IDS.map((id) => [id, createSurfaceControls(id)]),
 ) as Record<MaterialSurfaceId, readonly ControlSpec<MaterialSurfaceConfig>[]>;
 
+/**
+ * Whether two palettes dress the surfaces differently — documents only.
+ *
+ * The question a decal has to ask before deciding whether it is stale. Its
+ * material is cloned from the host surface's runtime, so a different *document*
+ * means a different clone and a genuine rebuild: dispose every decal mesh,
+ * re-derive the host-shading hierarchy, clone a node material per batch, and
+ * pay a pipeline compile for each. A different *texture scale* means none of
+ * that — scale is a UV concern, rewritten in place on the one buffer, and the
+ * decals ride the same rescale.
+ *
+ * Answering "did anything at all change" instead is what made dragging the
+ * texture-scale slider the most expensive control in the pane.
+ *
+ * A surface appearing or disappearing counts, since that is a structure type
+ * changing underneath and every decal belongs to the outgoing family.
+ */
+export function dressingDiffers(
+  previous: Readonly<StructureMaterialPalette>,
+  next: Readonly<StructureMaterialPalette>,
+  previousSurfaces: ReadonlySet<MaterialSurfaceId>,
+  nextSurfaces: readonly MaterialSurfaceId[],
+): boolean {
+  if (nextSurfaces.length !== previousSurfaces.size) {
+    return true;
+  }
+
+  return nextSurfaces.some((surface) => (
+    !previousSurfaces.has(surface)
+    || previous[surface]?.document !== next[surface]?.document
+  ));
+}
+
 export function cloneMaterialPalette(
   source: Readonly<StructureMaterialPalette> =
     DEFAULT_STRUCTURE_MATERIAL_PALETTE,

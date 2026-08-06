@@ -305,7 +305,6 @@ export interface StructureDefinition<TLayout extends object = object> {
    * shared ones must map at least the scopes its own controls use.
    */
   readonly sectionsByScope?: Partial<Record<RebuildScope, readonly PartSection[]>>;
-  readonly defaultLayout: Readonly<TLayout>;
   /** Per-family surface defaults; control shapes remain shared. */
   readonly defaultStone?: Readonly<StoneConfig>;
   readonly defaultBevel?: Readonly<BevelConfig>;
@@ -422,12 +421,4 @@ function assertUnique(values: readonly string[], subject: string): void {
   if (new Set(values).size !== values.length) {
     throw new Error(`${subject} must be unique.`);
   }
-}
-
-/** True when the structure uses every prop in `required`. */
-export function usesProps(
-  definition: StructureDefinition,
-  ...required: readonly PropId[]
-): boolean {
-  return required.every((prop) => definition.props.includes(prop));
 }

@@ -29,6 +29,30 @@ export interface SunBakeTarget {
   readonly geometry: THREE.BufferGeometry;
   /** Local-to-world, applied to both occluders and sample origins. */
   readonly matrixWorld?: THREE.Matrix4;
+  /**
+   * Skip this target's vertices below this index, keeping what they carry.
+   *
+   * For the refinement pass, which is the only caller that can honestly use it.
+   * Subdivision *appends*: a split writes its midpoint at `slots.length`, and
+   * `reorderBySlot` permutes the index rather than the vertices, so every
+   * vertex the first bake traced keeps both its position and its number. Their
+   * visibility is not stale — it is exact — and re-tracing it spends a third of
+   * the second bake re-deriving numbers that are already right. The vertices
+   * at and above this index are the new midpoints, which carry an interpolated
+   * value from the split and genuinely need tracing.
+   *
+   * So this is lossless rather than approximate: the result is identical to
+   * tracing everything, and `scripts/bench.ts` asserts exactly that.
+   *
+   * Per target rather than per bake, because a bake covers several and only one
+   * of them was subdivided — the structure. An offering is handed to the same
+   * call unchanged, and skipping its vertices on the structure's say-so would
+   * leave it lit by whatever it happened to hold.
+   *
+   * Requires the geometry to already carry a `sunVisibilityBase` at least this
+   * long; without one the bake throws rather than going half dark.
+   */
+  readonly fromVertex?: number;
 }
 
 export interface SunBakeOptions {
@@ -107,6 +131,13 @@ export class SunBakeScene {
    * would strike it within a centimetre of travel: the wall would go black
    * under its own ornament.
    *
+   * Also how a target already *in* the scene gets re-lit on its own — the
+   * refinement pass hands back the structure with a `fromVertex`, to trace the
+   * midpoints subdivision just added without re-tracing the offerings, whose
+   * occluders did not move. Being in the hierarchy is not a problem for a
+   * receiver: an ordinary `bake` traces every target through a hierarchy that
+   * contains it, and `ORIGIN_OFFSET` is what keeps a vertex off its own surface.
+   *
    * A sibling of `bake` rather than a parameter on it, because that method's
    * second argument is already its clock.
    */
@@ -151,7 +182,6 @@ function traceSun(
   direction.normalize();
 
   const directions = sampleDirections(direction, options.softness ?? 0, options.samples ?? 1);
-
   let vertexTotal = 0;
   let rayTotal = 0;
 
@@ -167,14 +197,18 @@ function traceSun(
       throw new Error("Sun baking needs position and normal attributes.");
     }
 
-    const visibility = new Float32Array(position.count);
+    const from = Math.min(
+      position.count,
+      Math.max(0, Math.trunc(target.fromVertex ?? 0)),
+    );
+    const visibility = seedVisibility(target.geometry, position.count, from);
     const matrix = target.matrixWorld;
 
     if (matrix) {
       normalMatrix.getNormalMatrix(matrix);
     }
 
-    for (let vertex = 0; vertex < position.count; vertex += 1) {
+    for (let vertex = from; vertex < position.count; vertex += 1) {
       worldPosition.fromBufferAttribute(position as THREE.BufferAttribute, vertex);
       worldNormal.fromBufferAttribute(normal as THREE.BufferAttribute, vertex);
 
@@ -211,7 +245,7 @@ function traceSun(
     }
 
     target.geometry.userData.sunVisibilityBase = visibility;
-    vertexTotal += position.count;
+    vertexTotal += position.count - from;
   }
 
   return {
@@ -220,6 +254,38 @@ function traceSun(
     rays: rayTotal,
     milliseconds: now() - started,
   };
+}
+
+/**
+ * The array a trace writes into, carrying forward anything it will not retrace.
+ *
+ * A full bake gets a fresh array, because every entry is about to be written.
+ * A partial one has to start from what the geometry already holds, and it has
+ * to be a copy: the caller's array may be the one a previous pass handed out,
+ * and a bake that mutated it in place would rewrite history for anyone still
+ * reading the old geometry.
+ */
+function seedVisibility(
+  geometry: THREE.BufferGeometry,
+  count: number,
+  from: number,
+): Float32Array {
+  if (from <= 0) {
+    return new Float32Array(count);
+  }
+
+  const existing = geometry.userData.sunVisibilityBase as Float32Array | undefined;
+
+  if (!existing || existing.length < from) {
+    throw new Error(
+      "A partial sun bake needs the visibility its earlier pass produced; "
+      + `this geometry carries ${existing?.length ?? 0} of the ${from} required.`,
+    );
+  }
+
+  const seeded = new Float32Array(count);
+  seeded.set(existing.subarray(0, Math.min(from, existing.length)));
+  return seeded;
 }
 
 /** Flattens every target's indexed triangles into world-space corner triples. */
