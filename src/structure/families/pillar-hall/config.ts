@@ -408,6 +408,7 @@ function toPlatformSpec(layout: PillarHallLayoutConfig): StructureSpec {
       plinth: DISABLED_SLOT_FEATURE,
       bandWall: DISABLED_SLOT_FEATURE,
       bandCornice: DISABLED_SLOT_FEATURE,
+      summitPad: DISABLED_SLOT_FEATURE,
       summitWall: DISABLED_SLOT_FEATURE,
       summitRoofFascia: DISABLED_SLOT_FEATURE,
       summitRoofCornice: DISABLED_SLOT_FEATURE,

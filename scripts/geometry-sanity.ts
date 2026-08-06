@@ -254,7 +254,11 @@ assert.ok(isStructureHash(circularDefaultCode));
 const massDefaultHashConfig = createDefaultStructureConfig();
 massDefaultHashConfig.typeId = "mass";
 const massDefaultCode = encodeStructureHash(massDefaultHashConfig);
-assert.ok(massDefaultCode.length <= 210);
+// 210 before the summit pad was split off the band wall. A whole slot feature —
+// enabled, border, both insets, relief, texture scale — cost two characters,
+// which is the dense mixed radix behaving as advertised and worth knowing when
+// judging the next one.
+assert.ok(massDefaultCode.length <= 215);
 // The other families have room today; the assert is what keeps it visible when
 // the next batch of per-feature settings lands.
 {
@@ -1799,6 +1803,7 @@ assert.deepEqual(
     "Summit building",
     "Facade",
     "Roof",
+    "Summit pad slots",
     "Summit wall slots",
     "Roof fascia slots",
     "Roof cornice slots",

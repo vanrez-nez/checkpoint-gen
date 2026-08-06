@@ -72,6 +72,9 @@ export const massStructure = defineStructure<MassLayoutConfig>({
         "Summit building",
         "Facade",
         "Roof",
+        // Beside the Summit controls rather than with the band walls it was
+        // split from: what it dresses is the pad those controls raise.
+        MASS_SLOT_FEATURE_LABELS.summitPad,
         MASS_SLOT_FEATURE_LABELS.summitWall,
         MASS_SLOT_FEATURE_LABELS.summitRoofFascia,
         MASS_SLOT_FEATURE_LABELS.summitRoofCornice,

@@ -169,6 +169,7 @@ export const MASS_SLOT_FEATURE_IDS = [
   "plinth",
   "bandWall",
   "bandCornice",
+  "summitPad",
   "summitWall",
   "summitRoofFascia",
   "summitRoofCornice",
@@ -182,6 +183,7 @@ export const MASS_SLOT_FEATURE_LABELS: Readonly<
   plinth: "Plinth slots",
   bandWall: "Band wall slots",
   bandCornice: "Band cornice slots",
+  summitPad: "Summit pad slots",
   summitWall: "Summit wall slots",
   summitRoofFascia: "Roof fascia slots",
   summitRoofCornice: "Roof cornice slots",
@@ -201,7 +203,10 @@ export const MASS_SLOT_FEATURE_SURFACES: Readonly<
 > = {
   plinth: "stone",
   bandWall: "stone",
+  // The pad's sides are an elevation stretch labelled `wall`, so the
+  // tessellator lays them in the same stone as any other band face.
   bandCornice: "cornice",
+  summitPad: "stone",
   summitWall: "summit",
   summitRoofFascia: "roof",
   summitRoofCornice: "cornice",
@@ -225,6 +230,10 @@ export const MASS_SLOT_FEATURE_MATCHERS: Readonly<
   // Guarded against the roof's own moulding, which shares the role and is told
   // apart by the member carrying it.
   bandCornice: (slot) => slot.faceRole === "cornice" && slot.part !== "roof",
+  // Marked by the resolver rather than inferred: a pad is `walkable` and sits
+  // above the last band index, so nothing about the band itself separates it
+  // from a terrace. See `bandPart`.
+  summitPad: (slot) => slot.part === "summit_pad",
   summitWall: (slot) => slot.part === "cell",
   summitRoofFascia: (slot) => slot.part === "roof" && slot.faceRole === "slab",
   summitRoofCornice: (slot) => slot.part === "roof" && slot.faceRole === "cornice",
@@ -248,6 +257,7 @@ export const MASS_SLOT_FEATURE_RELIEF: Readonly<
 > = {
   plinth: { sink: true, raise: true },
   bandWall: { sink: true, raise: true },
+  summitPad: { sink: true, raise: true },
 };
 
 /**
@@ -286,6 +296,7 @@ function defaultMassSlots(): MassLayoutConfig["slots"] {
     plinth: off(0.06, 0.05),
     bandWall: off(0.12, 0.1),
     bandCornice: off(0.04, 0.03),
+    summitPad: off(0.12, 0.1),
     summitWall: off(0.1, 0.08),
     summitRoofFascia: off(0.05, 0.04),
     summitRoofCornice: off(0.03, 0.02),
@@ -1170,6 +1181,7 @@ export function cloneMassSlots(
     plinth: { ...source.plinth },
     bandWall: { ...source.bandWall },
     bandCornice: { ...source.bandCornice },
+    summitPad: { ...source.summitPad },
     summitWall: { ...source.summitWall },
     summitRoofFascia: { ...source.summitRoofFascia },
     summitRoofCornice: { ...source.summitRoofCornice },

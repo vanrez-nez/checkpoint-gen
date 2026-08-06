@@ -92,6 +92,17 @@ export interface MassSlotFeatures {
   readonly plinth: SlotFeatureConfig;
   readonly bandWall: SlotFeatureConfig;
   readonly bandCornice: SlotFeatureConfig;
+  /**
+   * The raised pad's own sides, which used to be dressed as band walls.
+   *
+   * They are the same kind of surface and were carved by the same settings, but
+   * they are not the same thing to look at: a band wall is one of several
+   * stacked terraces read from below, while the pad is a single plinth carrying
+   * the summit building and read against it. Sharing one control meant a
+   * register sized for the terraces landed on the pad at whatever height it
+   * happened to be, and the only way to dress one was to dress both.
+   */
+  readonly summitPad: SlotFeatureConfig;
   readonly summitWall: SlotFeatureConfig;
   readonly summitRoofFascia: SlotFeatureConfig;
   readonly summitRoofCornice: SlotFeatureConfig;
@@ -161,23 +172,33 @@ export function resolveMassSlots(
   const frames: FrameRecord[] = [];
   const slots: SlotRecord[] = [];
 
-  const climbed = input.bands.map((band) => ({ band, stairs: input.stairs }));
+  const climbed = input.bands.map((band) => ({
+    band,
+    stairs: input.stairs,
+    detached: false,
+  }));
   const clear = input.detachedBands.map((band) => ({
     band,
     stairs: [] as readonly MassStairReserve[],
+    detached: true,
   }));
 
-  for (const { band, stairs } of [...climbed, ...clear]) {
+  for (const { band, stairs, detached } of [...climbed, ...clear]) {
     if (!rectIsValid(band.lower)) {
       continue;
     }
 
     for (const stretch of bandStretches(band)) {
+      // A moulding is a moulding wherever it sits, so a detached band's cornice
+      // — if one is ever resolved for it; the pad publishes none today — still
+      // answers to the cornice feature. Only the wall splits.
       const feature = stretch.label === "cornice"
         ? input.features.bandCornice
         : band.index < 0
           ? input.features.plinth
-          : input.features.bandWall;
+          : detached
+            ? input.features.summitPad
+            : input.features.bandWall;
 
       if (!feature.enabled) {
         continue;
@@ -198,6 +219,7 @@ export function resolveMassSlots(
           bands,
           feature.relief,
           feature.textureScale,
+          bandPart(band, detached),
         );
         for (const resolved of found) {
           if (resolved.frame) {
@@ -227,6 +249,7 @@ function stretchSlots(
   bands: number,
   relief: number,
   textureScale: number,
+  part: string,
 ): { readonly slot: SlotRecord; readonly frame: FrameRecord | null }[] {
   const cornice = stretch.label === "cornice";
   const patchId = cornice
@@ -280,7 +303,7 @@ function stretchSlots(
       // A strip let into a wall is a running band, not a panel, and is judged
       // on a ribbon's minimums rather than a field's.
       kind: cornice || rows.length > 1 ? "ribbon" : bandSlotKind(band),
-      part: bandPart(band),
+      part,
       face: orientation,
       faceRole: cornice ? "cornice" : band.surfaceRole,
       // The stretch this slot prepares. The tessellator reads it back to decide
@@ -407,10 +430,25 @@ function bandSlotKind(band: ElevationBandRecord): "field" | "base_face" {
   return band.index < 0 ? "base_face" : "field";
 }
 
-function bandPart(band: ElevationBandRecord): string {
+/**
+ * What a band's slots call themselves, which is how a feature finds them again.
+ *
+ * `detached` is not something the band can answer. A raised summit pad is
+ * `walkable` and sits above the last band index, so by its own record it is
+ * indistinguishable from any other body course — the thing that makes it a pad
+ * is that no flight climbs it, and only the resolver's caller knows that. It
+ * arrives as `detachedBands` and is marked here, so a matcher downstream can
+ * tell a pad side from a terrace without re-deriving which is which.
+ */
+function bandPart(band: ElevationBandRecord, detached: boolean): string {
   if (band.index < 0) {
     return "base";
   }
+
+  if (detached) {
+    return "summit_pad";
+  }
+
   return band.walkable ? "body" : "crown";
 }
 
