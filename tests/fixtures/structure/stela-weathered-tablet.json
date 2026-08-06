@@ -202,7 +202,7 @@
           "kind": "ornament",
           "u": 0.457429,
           "v": 0.43375,
-          "d": 0,
+          "d": -0.03,
           "regionId": "stela_structure/stela_01/register_01/face_front/bay_01/field/region",
           "orientation": "front"
         },
@@ -331,7 +331,7 @@
           "kind": "ornament",
           "u": 0.457429,
           "v": 0.43375,
-          "d": 0,
+          "d": -0.03,
           "regionId": "stela_structure/stela_01/register_01/face_rear/bay_01/field/region",
           "orientation": "rear"
         },
@@ -766,6 +766,7 @@
             "v": 2.216
           },
           "aspect": 0.441065,
+          "faceOffset": -0.03,
           "depthBudget": {
             "relief": 0.03,
             "recess": 0.13
@@ -822,6 +823,7 @@
             "v": 2.216
           },
           "aspect": 0.441065,
+          "faceOffset": -0.03,
           "depthBudget": {
             "relief": 0.03,
             "recess": 0.13
@@ -878,6 +880,7 @@
             "v": 0.12
           },
           "aspect": 11.622917,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.03,
             "recess": 0.13
@@ -934,6 +937,7 @@
             "v": 0.12
           },
           "aspect": 11.622917,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.03,
             "recess": 0.13
@@ -990,6 +994,7 @@
             "v": 0.12
           },
           "aspect": 3.333333,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.03,
             "recess": 0.628688
@@ -1046,6 +1051,7 @@
             "v": 0.12
           },
           "aspect": 3.333333,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.03,
             "recess": 0.628688

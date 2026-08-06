@@ -896,6 +896,12 @@ function resolveSlots(
       inscribed,
       extent,
       aspect: aspectOf(inscribed, face.widthBottom, bodyHeight),
+      // A framed bay *is* the pocket, cut this far back from the body face the
+      // patch describes. Without saying so the field measures the recess and
+      // then publishes it at the uncut plane, and everything placed from the
+      // record hangs the pocket's whole depth in front of the stone it was
+      // carved into — the one failure `standOff` warns about, inverted.
+      faceOffset: pocket ? -pocket.depth : 0,
       depthBudget: depthBudget(layout, body, face, band, frame, bands),
       flow: "none",
       continuity: "per_face",
@@ -941,6 +947,9 @@ function resolveSlots(
         inscribed,
         extent,
         aspect: aspectOf(inscribed, face.widthBottom, bodyHeight),
+        // An applique laid on the body face, not a face that moved. How far it
+        // stands proud is the family's `standOff`, read from the layout.
+        faceOffset: 0,
         depthBudget: {
           relief: Math.max(Math.min(layout.maxRelief, band.projection), 0),
           recess: recessBudget(body, face, (band.bottomY + band.topY) / 2),
@@ -999,6 +1008,9 @@ function resolveSlots(
       inscribed,
       extent,
       aspect: aspectOf(inscribed, face.widthBottom, bodyHeight),
+      // An applique laid on the face, not a face that moved: how far it stands
+      // proud is the family's `standOff`, read from the layout.
+      faceOffset: 0,
       depthBudget: {
         relief: Math.max(Math.min(layout.maxRelief, strip.depth), 0),
         recess: recessBudget(body, face, (strip.bottomY + strip.topY) / 2),
@@ -1032,6 +1044,8 @@ function resolveSlots(
         inscribed: { uMin: 0, uMax: 1, vMin: 0, vMax: 1 },
         extent: { uBottom: width, uTop: width, v: depth },
         aspect: width / depth,
+        // The crown's own top, drawn by the crown courses.
+        faceOffset: 0,
         depthBudget: {
           relief: Math.max(layout.maxRelief, 0),
           recess: Math.max((crown.topY - crown.bottomY) * 0.3, 0),
@@ -1081,6 +1095,8 @@ function resolveSlots(
           inscribed: { uMin: 0, uMax: 1, vMin: 0, vMax: 1 },
           extent: { uBottom: width, uTop: width, v: height },
           aspect: width / height,
+          // The base course's own face.
+          faceOffset: 0,
           depthBudget: {
             relief: Math.max(Math.min(layout.maxRelief, projection), 0),
             recess: Math.max(projection * 0.5, 0),

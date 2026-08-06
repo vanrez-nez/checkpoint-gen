@@ -120,6 +120,7 @@ function defaultPillarHallSlots(): PillarHallSlotFeatures {
     borderWidth,
     insetU: inset,
     insetV: inset,
+    relief: 0,
   });
 
   return {

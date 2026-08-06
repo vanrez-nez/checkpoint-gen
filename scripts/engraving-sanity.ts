@@ -1409,6 +1409,154 @@ function archetypesOf(
     : [null];
 }
 
+// --- 9b2. A carved face carries its own depth --------------------------------
+
+/**
+ * A stela register is a pocket cut into the body, but its slot is published
+ * against the body's *uncut* face — so for as long as the record said nothing
+ * about depth, every register engraving was drawn at the outer plane and hung
+ * the pocket's whole depth in front of the stone it was carved into. Present,
+ * correct to the millimetre, and floating.
+ *
+ * That is the failure `SlotFeatureSpec.standOff` warns about, inverted: there
+ * the stone was in front of the patch, here it is behind. The field the record
+ * gained says which, and this holds the two halves — that the resolver
+ * publishes it, and that the decal actually moves by it.
+ */
+{
+  const stela = listStructures().find((definition) => definition.id === "stela")!;
+  const config = createDefaultStructureConfig();
+  config.typeId = stela.id;
+  const layout = config.layouts[stela.id]! as Record<string, unknown>;
+  layout.archetype = "framed_tablet";
+  stela.layoutControls
+    .find((control) => control.key === "archetype")
+    ?.onChange?.(layout);
+
+  for (const feature of stela.slotFeatures ?? []) {
+    feature.select(layout as never).enabled = true;
+  }
+
+  const composition = composer.build(config);
+  const published = allSlots(composition.graph);
+  const bayFeature = stela.slotFeatures!.find((f) => f.id === "bayField")!;
+  const fields = published.filter((slot) => bayFeature.matches(slot));
+
+  assert.ok(fields.length > 0, "A framed tablet must publish bay fields.");
+  assert.ok(
+    fields.every((slot) => slot.faceOffset < 0),
+    "A framed bay is a pocket, so its face sits behind the patch that names it.",
+  );
+
+  // The recess the family cut is the depth the slot reports. Not re-derived
+  // here — read off the frame record, so the two are proved to agree rather
+  // than proved to be the same arithmetic twice.
+  const frames = composition.graph.stelae?.[0]?.frames ?? [];
+  const recess = frames[0]?.recessDepth;
+  assert.ok(
+    recess !== undefined && recess > 0,
+    "A framed tablet must cut a recess to be a test of one.",
+  );
+  assert.ok(
+    fields.every((slot) => Math.abs(slot.faceOffset + recess!) < 1e-9),
+    `A bay field must sit exactly ${recess} behind the face, not somewhere near it.`,
+  );
+
+  // And it must reach the geometry: the same slot placed with and without its
+  // depth differs by exactly that depth along the patch normal.
+  const patch = patchIndex(composition.graph).get(fields[0]!.patchId)!;
+  const sunk = resolveDecalQuad(fields[0]!, patch.frame, {
+    fit: "stretch",
+    margin: 0,
+    aspect: 1,
+    offset: DECAL_NORMAL_OFFSET + fields[0]!.faceOffset,
+  })!;
+  const flush = resolveDecalQuad(fields[0]!, patch.frame, {
+    fit: "stretch",
+    margin: 0,
+    aspect: 1,
+    offset: DECAL_NORMAL_OFFSET,
+  })!;
+  const drop = Math.hypot(
+    flush.corners[0].x - sunk.corners[0].x,
+    flush.corners[0].y - sunk.corners[0].y,
+    flush.corners[0].z - sunk.corners[0].z,
+  );
+  assert.ok(
+    Math.abs(drop - recess!) < 1e-9,
+    `Honouring the depth must move the decal by exactly it; it moved ${drop}.`,
+  );
+
+  composition.geometry.dispose();
+}
+
+// --- 9c. Appearance decides what shares a mesh -------------------------------
+
+/**
+ * Two features on the same layer and the same stone shared a mesh, and
+ * therefore a material, and therefore had to agree on the two shading
+ * strengths — which the scene resolved by taking the strongest across every
+ * feature on the surface. That fudge was already coarser than the batching it
+ * served: it maxed over features whose motif the batch had nothing to do with.
+ *
+ * A tint makes it incoherent rather than merely approximate, so appearance now
+ * decides what may share. These hold the two halves of that: features that
+ * agree still share one mesh, and features that differ get their own and keep
+ * their own numbers.
+ */
+{
+  const family = listStructures().find(
+    (definition) => (definition.slotFeatures ?? []).length > 1,
+  )!;
+  const [first, second] = family.slotFeatures!;
+
+  const batchesWith = (tints: readonly [string, string]) => {
+    const config = createDefaultStructureConfig();
+    config.typeId = family.id;
+    const assignments = config.engravings[family.id]!;
+    const layout = config.layouts[family.id]! as Record<string, unknown>;
+
+    for (const feature of family.slotFeatures ?? []) {
+      feature.select(layout as never).enabled = true;
+      Object.assign(assignments[feature.id]!, { document: catalog.ids[0]! });
+    }
+
+    assignments[first!.id]!.tint = tints[0];
+    assignments[second!.id]!.tint = tints[1];
+
+    const composition = composer.build(config);
+    const built = buildEngravingDecalBatches(
+      composition.graph, family.slotFeatures ?? [], assignments, layout,
+    );
+    const result = built.map((batch) => ({
+      surface: batch.hostSurface,
+      tint: batch.appearance.tint,
+    }));
+
+    built.forEach((batch) => batch.geometry.dispose());
+    composition.geometry.dispose();
+    return result;
+  };
+
+  const shared = batchesWith(["#ffffff", "#ffffff"]);
+  const split = batchesWith(["#ffffff", "#884422"]);
+
+  assert.ok(shared.length > 0, "The reference build must place some decals.");
+  assert.ok(
+    split.length > shared.length,
+    "Two features that disagree on tint must not share a mesh; "
+    + `${shared.length} batches became ${split.length}.`,
+  );
+  assert.ok(
+    split.some((batch) => batch.tint === "#884422"),
+    "A feature's own tint must reach the batch that draws it.",
+  );
+  assert.ok(
+    shared.every((batch) => batch.tint === "#ffffff"),
+    "Agreement must still collapse to one appearance.",
+  );
+}
+
 // --- 10. Config defaults, cloning and validation -----------------------------
 
 // The catalog is a module-level fact everywhere else, so the control options
@@ -1451,6 +1599,8 @@ const chosen = cloneStructureEngravings(engravedDefinition, {
     margin: 0.05,
     normalStrength: 2,
     aoIntensity: 0.5,
+    textureScale: 1.5,
+    tint: "#8899aa",
     // A tiled selection rather than a bare one, so the arrangement fields are
     // proved to validate on the path a real assignment takes.
     tiling: "grid",
@@ -1490,6 +1640,9 @@ for (const [field, value, pattern] of [
   ["glyphs", "glyph-nonesuch", /glyph/i],
   ["cellMax", 99, /cell/i],
   ["cellGutter", 0.9, /gutter/i],
+  ["textureScale", 99, /texture scale/i],
+  // Not a colour the picker could ever have produced.
+  ["tint", "burnt sienna", /tint/i],
 ] as const) {
   assert.throws(
     () => validateStructureEngravings(

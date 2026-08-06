@@ -350,7 +350,7 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
       const featureBound = bindControls(
         page,
         target,
-        slotFeatureControls(feature.label, feature.framed),
+        slotFeatureControls(feature.label, feature.framed, feature.relief),
         dispatch,
         folders,
       );

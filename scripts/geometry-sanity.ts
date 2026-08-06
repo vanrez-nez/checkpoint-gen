@@ -84,6 +84,7 @@ import {
 } from "../src/geometry/part";
 import { mergeParts } from "../src/geometry/merge-parts";
 import { createBoxProjectedUvs, finalizeGeometry } from "../src/geometry/finalize";
+import { HostShadingSampler } from "../src/geometry/host-shading";
 import { SolidBuilder } from "../src/geometry/solid-builder";
 import { TriangleBvh } from "../src/geometry/bvh";
 import { subdivideLongEdges } from "../src/geometry/subdivide";
@@ -1004,6 +1005,87 @@ for (const placement of allPlacements) {
   assert.ok(Math.abs(axial - defaultBaseHalfWidth - junctionDistance) < 1e-9);
   assert.ok(Math.abs(Math.abs(lateral) - defaultBaseHalfWidth - entryHalfWidth) < 1e-9);
   assert.equal(placement.y, 0);
+}
+
+// --- host shading ----------------------------------------------------------
+/**
+ * A decal reads the stone it lies on rather than assuming it is unshaded.
+ *
+ * `mergeDecalQuads` fills a decal's occlusion and crack-shadow arrays with ones,
+ * which was justified by a claim that a prepared field is already at one.
+ * Measured against what the families emit, a wall averages 0.62 and 0.39 — so a
+ * decal keeping the ones reads as a brighter plate laid on the stone instead of
+ * as carving in it. These check the lookup that fixes that.
+ */
+{
+  /** One unit quad in the z = 0 plane, facing +z, with a gradient up it. */
+  const hostGeometry = new THREE.BufferGeometry();
+  hostGeometry.setAttribute("position", new THREE.Float32BufferAttribute([
+    0, 0, 0,
+    1, 0, 0,
+    1, 1, 0,
+    0, 1, 0,
+  ], 3));
+  hostGeometry.setIndex([0, 1, 2, 0, 2, 3]);
+  // Bottom corners dark, top corners light, exactly as `DEFAULT_FACE_SHADING`
+  // lays a side quad out.
+  hostGeometry.userData.vertexAoBase = Float32Array.from([0.28, 0.28, 0.72, 0.72]);
+  hostGeometry.userData.bakedShadowBase = Float32Array.from([0.06, 0.06, 0.38, 0.38]);
+
+  const sampler = HostShadingSampler.from(hostGeometry)!;
+  assert.ok(sampler, "A geometry with an index must yield a sampler.");
+
+  // Dead centre of the quad, standing 6 mm off it: halfway up the gradient.
+  const middle = sampler.sample(0.5, 0.5, 0.006, 0, 0, 1, 0.006)!;
+  assert.ok(middle, "A decal directly in front of stone must find it.");
+  assert.ok(
+    Math.abs(middle.ambientOcclusion - 0.5) < 1e-5,
+    `Halfway up a 0.28-to-0.72 gradient is 0.5, not ${middle.ambientOcclusion}.`,
+  );
+  assert.ok(
+    Math.abs(middle.bakedShadow - 0.22) < 1e-5,
+    `Halfway up a 0.06-to-0.38 gradient is 0.22, not ${middle.bakedShadow}.`,
+  );
+
+  // Near the bottom edge it must read the bottom of the gradient, or the
+  // interpolation is not actually barycentric.
+  const low = sampler.sample(0.5, 0.02, 0.006, 0, 0, 1, 0.006)!;
+  assert.ok(low.ambientOcclusion < 0.32, `Near the base must be dark; got ${low.ambientOcclusion}.`);
+
+  /**
+   * A miss keeps its one rather than going black. An applique standing free of
+   * the structure has no host behind it, and must not be blackened for it.
+   */
+  assert.equal(
+    sampler.sample(5, 5, 0.006, 0, 0, 1, 0.006),
+    null,
+    "A point with no stone behind it must report no shading, not a dark one.",
+  );
+
+  /**
+   * The nearest surface wins. This is the whole reason the decal hierarchy is a
+   * separate class from the occlusion one: once a face can be sunk into its
+   * member, the ray crosses the pocket's own return before reaching the floor,
+   * and an any-hit traversal would sample the return.
+   */
+  const layered = new THREE.BufferGeometry();
+  layered.setAttribute("position", new THREE.Float32BufferAttribute([
+    0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0,
+    0, 0, -0.5, 1, 0, -0.5, 1, 1, -0.5, 0, 1, -0.5,
+  ], 3));
+  layered.setIndex([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]);
+  layered.userData.vertexAoBase = Float32Array.from([1, 1, 1, 1, 0, 0, 0, 0]);
+  layered.userData.bakedShadowBase = Float32Array.from([1, 1, 1, 1, 0, 0, 0, 0]);
+
+  const near = HostShadingSampler.from(layered)!.sample(0.5, 0.5, 0.006, 0, 0, 1, 0.006)!;
+  assert.equal(
+    near.ambientOcclusion,
+    1,
+    "The nearer of two surfaces must be the one sampled.",
+  );
+
+  hostGeometry.dispose();
+  layered.dispose();
 }
 
 // --- part merging ----------------------------------------------------------

@@ -132,6 +132,25 @@ export interface SlotRecord {
     readonly v: number;
   };
   readonly aspect: number;
+  /**
+   * How far this slot's stone stands off the plane its patch describes, in
+   * metres along `patch.frame.normal`. Negative is sunk into the member,
+   * positive is raised off it, zero is flush and is what most slots are.
+   *
+   * A slot has no plane of its own — world placement comes from the patch, and
+   * that is what stops one drifting from the surface it names. But a face that
+   * has been carved into or raised off its member is genuinely somewhere else,
+   * and the record has to say so or everything placed from it lands in the
+   * wrong place: an engraving in a pocket would float at the uncut plane,
+   * present and correct to the millimetre and hanging in front of the stone.
+   *
+   * Set by whichever resolver actually built the stone, since only it knows.
+   * Distinct from `SlotFeatureSpec.standOff`, which is a family saying "this
+   * feature's whole stone is an applique laid on the face" — descriptive, one
+   * number for every slot the feature resolves, and read from the layout. This
+   * is per slot and resolved.
+   */
+  readonly faceOffset: number;
   readonly depthBudget: {
     readonly relief: number;
     readonly recess: number;
@@ -442,7 +461,10 @@ export function slotAnchor(orientation: Orientation) {
     kind: "ornament",
     u: (slot.inscribed.uMin + slot.inscribed.uMax) / 2,
     v: (slot.inscribed.vMin + slot.inscribed.vMax) / 2,
-    d: 0,
+    // On the stone, which is not always the patch plane. Anything that attaches
+    // here — a prop, a figure, an inlay — has to land on the face that was
+    // actually built rather than the one the patch describes.
+    d: slot.faceOffset,
     regionId: slot.regionId,
     orientation,
   });
@@ -462,6 +484,15 @@ export interface SlotFeatureConfig {
   borderWidth: number;
   insetU: number;
   insetV: number;
+  /**
+   * How far this feature's prepared faces leave the plane of their member, in
+   * metres. Negative sinks a pocket into it, positive raises a panel off it.
+   *
+   * Requested rather than granted: what a slot actually gets is clamped by the
+   * stone available behind it, and by whether its family says the host can take
+   * a pocket at all. See `resolveSlotRelief`.
+   */
+  relief: number;
 }
 
 /** A feature that is switched off, for a family that has not authored one. */
@@ -470,7 +501,61 @@ export const DISABLED_SLOT_FEATURE: SlotFeatureConfig = {
   borderWidth: 0,
   insetU: 0,
   insetV: 0,
+  relief: 0,
 };
+
+/** Which directions a family's host can take a prepared face moving in. */
+export interface SlotRelief {
+  readonly sink: boolean;
+  readonly raise: boolean;
+}
+
+/**
+ * The deepest a prepared face may be sunk or raised, in metres.
+ *
+ * A judgement rather than a derivation, and the thing it is judging is the
+ * batter. A face displaces along its patch's normal, which on a raked wall is
+ * horizontal while the stone leans — so a pocket's returns meet its floor at
+ * ninety degrees less the batter angle rather than square. That angle is fixed
+ * by the wall and no depth changes it; what depth changes is how much of the
+ * lean is on show. Fifteen centimetres is deep enough to read as carved and
+ * shallow enough that a thirty-five degree face does not put a visibly
+ * parallelogram pocket on the elevation.
+ */
+export const MAX_SLOT_RELIEF = 0.15;
+
+/**
+ * What a slot's face actually gets, from what its feature asked for.
+ *
+ * Sinking is bounded by `depthBudget.recess` — the stone that must survive
+ * behind a carved field — because it removes material. Raising is not, because
+ * it adds: nothing behind the face is at risk, and the only bound is how far a
+ * panel can stand proud before it stops reading as part of the wall.
+ *
+ * Direction is not checked here. A feature whose host cannot take a pocket has
+ * no relief control at all — `slotFeatureControls` ranges the slider by what
+ * the family declared, so a raise-only feature cannot hold a negative value to
+ * begin with, and validation rejects one that somehow does. Re-deciding it here
+ * would be a second opinion on a question already answered.
+ */
+export function resolveSlotRelief(
+  requested: number,
+  budget: SlotRecord["depthBudget"],
+): number {
+  if (!Number.isFinite(requested) || requested === 0) {
+    return 0;
+  }
+
+  const granted = requested < 0
+    ? -Math.min(-requested, Math.max(budget.recess, 0), MAX_SLOT_RELIEF)
+    : Math.min(requested, MAX_SLOT_RELIEF);
+
+  // Negating a clamp to nothing gives negative zero, which is flush by every
+  // arithmetic that reads it and a diff against a plain zero in the fixtures
+  // that record it. `serializeGraph` already normalises it on the way out; not
+  // producing it in the first place is better.
+  return granted === 0 ? 0 : granted;
+}
 
 /**
  * Stone that must survive behind a carved field. An ornament may sink as far
@@ -553,6 +638,8 @@ export interface FaceSlotInput {
   readonly flow: SlotRecord["flow"];
   readonly continuity: SlotRecord["continuity"];
   readonly depthBudget: SlotRecord["depthBudget"];
+  /** Omitted where the prepared face sits in the member's own plane. */
+  readonly faceOffset?: number;
   readonly tags: readonly string[];
   readonly rule: SlotRule;
 }
@@ -680,6 +767,10 @@ export function resolveFaceSlot(input: FaceSlotInput): ResolvedFaceSlot | null {
       inscribed,
       extent,
       aspect: aspectOf(inscribed, input.widthBottom, input.faceHeight),
+      // Flush by default. Every family that reaches this road draws its
+      // prepared face in the plane of the member, so the only slots that are
+      // anywhere else are the ones whose resolver says so.
+      faceOffset: input.faceOffset ?? 0,
       depthBudget: input.depthBudget,
       flow: input.flow,
       continuity: input.continuity,
@@ -751,9 +842,12 @@ export function tintSlots(
       continue;
     }
     // The outline, not the rectangle inside it: on a leaning face the two are
-    // different shapes, and it is the outline that was drawn.
+    // different shapes, and it is the outline that was drawn. And at the depth
+    // the face was drawn at — a `whole` match compares corners to the
+    // millimetre, so a sunk face compared against the patch plane would match
+    // nothing and the tint would silently paint an empty set.
     const corners = slot.boundary.map(
-      (point) => evaluateFrame(patch.frame, point.u, point.v, 0),
+      (point) => evaluateFrame(patch.frame, point.u, point.v, slot.faceOffset),
     );
     if (match === "whole") {
       builder.assignFaceMaterial(

@@ -13,6 +13,7 @@ import { structurePath } from "../kernel/ids";
 import {
   arrisEdges,
   resolveFaceSlot,
+  resolveSlotRelief,
   slotDepthBudget,
   slotRuleOf,
   withoutRange,
@@ -195,6 +196,7 @@ export function resolveMassSlots(
           stairs,
           slotRuleOf(feature),
           bands,
+          feature.relief,
         );
         for (const resolved of found) {
           if (resolved.frame) {
@@ -222,6 +224,7 @@ function stretchSlots(
   stairs: readonly MassStairReserve[],
   rule: SlotRule,
   bands: number,
+  relief: number,
 ): { readonly slot: SlotRecord; readonly frame: FrameRecord | null }[] {
   const cornice = stretch.label === "cornice";
   const patchId = cornice
@@ -294,6 +297,13 @@ function stretchSlots(
       // elevation and stops at the arris.
       continuity: cornice ? "wrapping" : "per_face",
       depthBudget: slotDepthBudget(thickness, rule.recessDepth),
+      // What the feature asked for, against what this member can spare. The
+      // budget is the reason the same request gives a deep pocket on a two
+      // metre band and a shallow one on a hand's-width cornice.
+      faceOffset: resolveSlotRelief(
+        relief,
+        slotDepthBudget(thickness, rule.recessDepth),
+      ),
       tags: ["engraving", "exterior", stretch.label, orientation],
       rule,
     });
@@ -377,6 +387,11 @@ export function preparedFieldsOf(
         ] as const,
         bottomY,
         topY,
+        // Read off the slot rather than re-resolved. The resolver already
+        // decided what this member could spare, and deciding again here would
+        // be a second opinion that could disagree with the record every other
+        // consumer reads.
+        relief: slot.faceOffset,
         rowBottomY: Math.max(bottomY - margin, stretch.bottomY),
         rowTopY: Math.min(topY + margin, stretch.topY),
       };

@@ -183,6 +183,11 @@ function bindingParams<T>(
     // half-typed value from being dispatched and rejected mid-word.
     case "text":
       return {};
+    // Stated rather than left to Tweakpane's own sniffing of the value, so a
+    // colour that happens to start life as an unrecognised string still gets a
+    // picker instead of a text field.
+    case "color":
+      return { view: "color" };
   }
 }
 

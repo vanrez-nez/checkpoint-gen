@@ -296,6 +296,23 @@ export interface PreparedField {
   readonly bottomY: number;
   readonly topY: number;
   /**
+   * How far this field's face leaves the elevation, in metres along its
+   * outward normal, as its slot resolved it.
+   *
+   * Carried but not yet drawn. `addFramedFace` emits every piece of a face as a
+   * zero-thickness block, so it has no depth axis and a field is flat whatever
+   * this says. Two things have to be true before that changes, and measurement
+   * says neither is yet: a pocket is a *void*, so its jambs face inward and a
+   * solid box built by `addBlock` has them facing out — which reads as fifteen
+   * holes in a backface sweep — and both directions add coincident pairs the
+   * mass suite compares against the bare geometry exactly.
+   *
+   * Left in place because everything upstream of the emitter is right: the slot
+   * resolves the depth, the record publishes it, and the decal already follows
+   * it. What is missing is one emitter that can draw a hole in a wall.
+   */
+  readonly relief: number;
+  /**
    * The strip of stone this field was cut from, which is what gets laid flat.
    *
    * The field retreats inside it by the border, and the border is drawn as part
@@ -559,6 +576,7 @@ export function addFramedFace(
     uTo: (v: number) => number,
     vMin: number,
     vMax: number,
+    depth = 0,
   ) => {
     // Both ends, not just the bottom: a converging pair that is open at one
     // height and closed at the other would otherwise be drawn as a bowtie.
@@ -570,10 +588,10 @@ export function addFramedFace(
     }
 
     const ring = [
-      point(uFrom(vMin), vMin),
-      point(Math.max(uTo(vMin), uFrom(vMin)), vMin),
-      point(Math.max(uTo(vMax), uFrom(vMax)), vMax),
-      point(uFrom(vMax), vMax),
+      shifted(uFrom(vMin), vMin, depth),
+      shifted(Math.max(uTo(vMin), uFrom(vMin)), vMin, depth),
+      shifted(Math.max(uTo(vMax), uFrom(vMax)), vMax, depth),
+      shifted(uFrom(vMax), vMax, depth),
     ];
     // A degenerate plan ring, as `addHorizontalRing` uses for a flat cap: the
     // block has no thickness and contributes exactly the one side asked for.
@@ -611,12 +629,166 @@ export function addFramedFace(
       return (along - a0 - rake * v) / span;
     };
   };
+  const shifted = (u: number, v: number, depth: number): Vertex3 => {
+    const at = point(u, v);
+    return {
+      x: at.x + base.normal.x * depth,
+      y: at.y,
+      z: at.z + base.normal.z * depth,
+    };
+  };
+
+  /**
+   * One face of a field that has left the elevation, wound to face where it
+   * has to.
+   *
+   * Built from degenerate rings, like every other piece of this face, and that
+   * is what makes it possible at all: `addBlock` normalises a real plan ring's
+   * winding so a solid always faces outward, which is right for a raised panel
+   * and exactly wrong for a pocket — a pocket is a void, and its jambs face
+   * into it. A ring with no area has no winding to normalise, so the corner
+   * order survives and the sign of the depth flips the normal by itself. One
+   * emitter therefore draws both, and neither needs a special case.
+   */
+  const skin = (
+    from: (v: number) => Vertex3,
+    to: (v: number) => Vertex3,
+    vMin: number,
+    vMax: number,
+  ) => {
+    const low = [from(vMin), to(vMin)];
+    const high = [from(vMax), to(vMax)];
+    builder.addBlock(
+      {
+        bottom: [low[0]!, low[1]!, low[1]!, low[0]!],
+        top: [high[0]!, high[1]!, high[1]!, high[0]!],
+      },
+      { sides: [true, false, false, false] },
+    );
+  };
+
+  /**
+   * The horizontal closure at a field's sill or soffit.
+   *
+   * A real plan ring rather than a degenerate one, because this face is
+   * horizontal and a block's caps are the only faces that are. Which cap gets
+   * drawn is where the pocket and the panel finally differ: a pocket's soffit
+   * looks down into the void and a panel's top looks up out of it.
+   */
+  const closure = (
+    uFrom: (v: number) => number,
+    uTo: (v: number) => number,
+    v: number,
+    depth: number,
+    facing: "up" | "down",
+  ) => {
+    const left = uFrom(v);
+    const right = Math.max(uTo(v), left);
+
+    if (right - left <= EPS || Math.abs(depth) <= EPS) {
+      return;
+    }
+
+    const ring = [
+      shifted(left, v, 0),
+      shifted(right, v, 0),
+      shifted(right, v, depth),
+      shifted(left, v, depth),
+    ];
+    builder.addBlock(
+      { bottom: ring, top: ring },
+      {
+        sides: [false, false, false, false],
+        top: facing === "up",
+        bottom: facing === "down",
+      },
+    );
+  };
+
+  /**
+   * A field, at whatever depth its slot resolved.
+   *
+   * Flat is the ordinary case and stays exactly what it was. Anything else is
+   * the face itself, moved, plus the four returns that close it back to the
+   * elevation — two jambs wound by the depth's own sign, and two horizontal
+   * closures that are the one place the two directions are told apart.
+   */
+  const reliefField = (
+    uFrom: (v: number) => number,
+    uTo: (v: number) => number,
+    vMin: number,
+    vMax: number,
+    relief: number,
+  ) => {
+    if (Math.abs(relief) <= EPS) {
+      quad(uFrom, uTo, vMin, vMax);
+      return;
+    }
+
+    quad(uFrom, uTo, vMin, vMax, relief);
+
+    const left = (v: number) => uFrom(v);
+    const right = (v: number) => Math.max(uTo(v), uFrom(v));
+    // A jamb closes a field against the stone beside it, and at an arris there
+    // is none: the neighbouring elevation is prepared to the same depth, so its
+    // own field lies in the very plane this jamb would occupy and the two would
+    // fight. The corner is closed by the two faces meeting, exactly as it is
+    // when nothing is carved at all.
+    const atStart = Math.abs(left(vMin)) <= EPS && Math.abs(left(vMax)) <= EPS;
+    const atEnd = Math.abs(right(vMin) - edgeU(vMin)) <= EPS
+      && Math.abs(right(vMax) - edgeU(vMax)) <= EPS;
+
+    // Outward then inward on the left jamb, inward then outward on the right:
+    // the two are mirror images, and the sign of the depth turns both round
+    // together when a pocket becomes a panel.
+    if (!atStart) {
+      skin(
+        (v) => shifted(left(v), v, 0),
+        (v) => shifted(left(v), v, relief),
+        vMin,
+        vMax,
+      );
+    }
+
+    if (!atEnd) {
+      skin(
+        (v) => shifted(right(v), v, relief),
+        (v) => shifted(right(v), v, 0),
+        vMin,
+        vMax,
+      );
+    }
+    // Mitred at the arris, by giving the corner to one side of it.
+    //
+    // Where a field runs to the end of its elevation, the neighbouring one does
+    // too, and both sills are horizontal at the same height — so the little
+    // square of stone in the corner is covered by each of them. Ceding it at
+    // every start edge and claiming it at every end edge leaves exactly one
+    // cover per corner, because the elevations circulate in one direction and
+    // one face's end is always the next face's start.
+    const corner = atStart ? Math.abs(relief) / baseLength : 0;
+    const capLeft = (v: number) => left(v) + corner;
+
+    // And suppressed where the field runs to the top or bottom of its own
+    // stretch, for the same reason a jamb is at an arris: the band above or
+    // below carries on from there, so what would close the field is already
+    // drawn by whatever adjoins it.
+    if (vMax < 1 - EPS) {
+      closure(capLeft, right, vMax, relief, relief < 0 ? "down" : "up");
+    }
+
+    if (vMin > EPS) {
+      closure(capLeft, right, vMin, relief, relief < 0 ? "up" : "down");
+    }
+  };
+
   const prepared = fields.map((field) => {
     const vMin = toV(field.bottomY);
     const vMax = toV(field.topY);
     return {
       vMin,
       vMax,
+      relief: field.relief,
       left: lineOf(field.left, vMin, vMax),
       right: lineOf(field.right, vMin, vMax),
     };
@@ -647,7 +819,7 @@ export function addFramedFace(
 
     for (const field of active) {
       quad(cursor, field.left, vMin, vMax);
-      quad(field.left, field.right, vMin, vMax);
+      reliefField(field.left, field.right, vMin, vMax, field.relief);
       cursor = field.right;
     }
 

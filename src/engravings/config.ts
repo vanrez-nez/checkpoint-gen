@@ -61,6 +61,36 @@ export interface EngravingAssignment {
   margin: number;
   normalStrength: number;
   aoIntensity: number;
+  /**
+   * How densely the stone's own material tiles under this feature's decals,
+   * against the host surface's setting.
+   *
+   * A multiplier rather than an absolute, because the decal reads the host's
+   * material and must keep reading it at a density that relates to the wall.
+   * One is the wall exactly, which is what makes an engraving sit in the stone
+   * rather than on it; moving off one is a deliberate statement that this
+   * field was dressed finer or coarser than the elevation around it.
+   *
+   * It reaches the decal and not yet the prepared face under it, which is a
+   * boundary rather than an oversight: the face is structure geometry, and this
+   * lives on the engraving assignment, which is deliberately outside everything
+   * that rebuilds geometry. Moving the two into step needs a per-vertex channel
+   * carrying which feature owns each face, threaded through the builder and the
+   * merge — see the note on `SlotFeatureConfig.relief` for the same boundary
+   * seen from the other side.
+   */
+  textureScale: number;
+  /**
+   * A colour multiplied into the decal, `#ffffff` for none.
+   *
+   * The cheap half of what a per-feature material would have bought. A decal
+   * cannot take a material document of its own — a triangle's material is one
+   * of twenty-four append-only draw groups, so the stone under it could never
+   * follow, and a decal wearing different stone from its own slot face is the
+   * sticker this subsystem exists to avoid. A tint moves the same stone's tone
+   * without any of that.
+   */
+  tint: string;
   /** How the motif is arranged across each slot the feature resolves. */
   tiling: EngravingTiling;
   /**
@@ -104,6 +134,10 @@ export const DEFAULT_ENGRAVING_ASSIGNMENT: Readonly<EngravingAssignment> = {
   margin: 0.02,
   normalStrength: 1,
   aoIntensity: 1,
+  // The host's own density and no tint: a decal starts indistinguishable from
+  // the stone it is cut into, and every departure from that is asked for.
+  textureScale: 1,
+  tint: "#ffffff",
   // No arrangement by default, which is what keeps every coverage figure the
   // suite holds the defaults to measured against a single instance.
   tiling: "none",
@@ -128,6 +162,10 @@ const MARGIN_STEP = 0.005;
 const MAX_NORMAL_STRENGTH = 3;
 const MAX_AO_INTENSITY = 2;
 const STRENGTH_STEP = 0.05;
+/** Against the host surface's own density, so one is the wall exactly. */
+const MIN_TEXTURE_SCALE = 0.25;
+const MAX_TEXTURE_SCALE = 4;
+const TEXTURE_SCALE_STEP = 0.05;
 const MIN_TILE_SCALE = 0.1;
 const MAX_TILE_SCALE = 4;
 const TILE_SCALE_STEP = 0.05;
@@ -306,6 +344,25 @@ export function engravingControls(
       min: 0,
       max: MAX_AO_INTENSITY,
       step: STRENGTH_STEP,
+      scopes: ["engraving"],
+      visibleWhen: engraved,
+    }),
+    control.number({
+      key: "textureScale",
+      label: "texture scale",
+      name: `${label} engraving texture scale`,
+      group: label,
+      min: MIN_TEXTURE_SCALE,
+      max: MAX_TEXTURE_SCALE,
+      step: TEXTURE_SCALE_STEP,
+      scopes: ["engraving"],
+      visibleWhen: engraved,
+    }),
+    control.color({
+      key: "tint",
+      label: "tint",
+      name: `${label} engraving tint`,
+      group: label,
       scopes: ["engraving"],
       visibleWhen: engraved,
     }),

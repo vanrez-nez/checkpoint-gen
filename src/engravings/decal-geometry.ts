@@ -562,10 +562,11 @@ export function mergeDecalQuads(
         normals[vertex * 3 + 2] = quad.normal.z;
         engravingUvs[vertex * 2] = s;
         engravingUvs[vertex * 2 + 1] = t;
-        // The base UVs stay slot-local zero to one whatever the repeat is, and
-        // that is not redundancy: the moisture blotching reads them, and
-        // blotching that repeated with the motif would advertise the repetition
-        // instead of breaking it up.
+        // The base UVs stay slot-local zero to one whatever the repeat is. No
+        // shader reads them now — the blotching that used to is anchored to the
+        // wall instead — but they are what the tiled pair is derived from, and
+        // the suite holds the two to that relationship. Nothing about a decal's
+        // placement is easy to see once it is wrong, so the reference stays.
         engravingTileUvs[vertex * 2] = s * repeatS;
         engravingTileUvs[vertex * 2 + 1] = t * repeatT;
         vertex += 1;

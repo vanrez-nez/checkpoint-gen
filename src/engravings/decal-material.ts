@@ -7,7 +7,6 @@ import {
   smoothstep,
   texture,
   uv,
-  vec2,
   vec3,
 } from "three/tsl";
 import type { MaterialGraphRuntime } from "material-designer-runtime";
@@ -31,8 +30,8 @@ export interface EngravingDecalMaterialInput {
   readonly aoIntensity: number;
   readonly normalStrength: number;
   readonly moistureLevel: number;
-  /** The layer's own width over its height, in cells. */
-  readonly aspect: number;
+  /** A `#rrggbb` multiplied into the host's colour. White changes nothing. */
+  readonly tint: string;
 }
 
 /**
@@ -65,7 +64,6 @@ export function buildEngravingDecalMaterial(
   const material = host.clone() as NodeMaterial & Record<string, NodeValue>;
   const source = host as NodeMaterial & Record<string, NodeValue>;
   const { textures } = input;
-  const engravingUv: NodeValue = attribute("engravingUv", "vec2");
   // The engraving's own square, multiplied by however many times the motif
   // repeats across the quad. At a repeat of one it is `engravingUv` exactly, so
   // an untiled decal renders as it always did.
@@ -90,17 +88,19 @@ export function buildEngravingDecalMaterial(
   const moistureLevel: NodeValue = float(
     Math.max(0, Math.min(1, input.moistureLevel)),
   );
-  // The blotching stays in the slot's own space while the three derived maps
-  // move to the tiled one, and that split is the point: the accumulation map
-  // says where water collects in the *cut*, so it has to repeat with the cut,
-  // while the noise says where the *wall* is damp — and a wall that stained
-  // itself once per motif would advertise the repetition rather than break it
-  // up. For the same reason the aspect here stays the layer's own and is not
-  // scaled by the repeat, which would shrink the blotches as a run tightened.
-  const moistureUv: NodeValue = vec2(
-    engravingUv.x.mul(Math.max(0.0001, input.aspect)),
-    engravingUv.y,
-  ).mul(0.37);
+  // The blotching is anchored to the wall, not to the engraving.
+  //
+  // It used to read the slot's own square, which was right while a slot was one
+  // quad and wrong the moment a grid made every cell its own. Each cell then
+  // restarted the same pattern in the same place, and a field of glyphs read as
+  // a grid of squares no matter what was carved in them — the repetition the
+  // noise exists to break up, produced by the noise itself.
+  //
+  // The host's own UVs have none of that: they are box projected from world
+  // position, so they run continuously across cells, across the slot, and out
+  // into the elevation around it. A damp patch now crosses a carving the way it
+  // crosses the stone, which is the whole idea.
+  const moistureUv: NodeValue = materialUv.mul(0.37);
   const moistureSpots: NodeValue = smoothstep(
     float(0.82).sub(moistureLevel.mul(0.52)).sub(0.12),
     float(0.82).sub(moistureLevel.mul(0.52)).add(0.12),
@@ -117,11 +117,18 @@ export function buildEngravingDecalMaterial(
   // engraving changes how the stone is shaped, not what it is made of. Only
   // colour, normal and occlusion carry the cut, and each is composed onto
   // whatever the host already had rather than replacing it.
+  // Multiplied in linear space, like every other term here. The colour arrives
+  // as the sRGB hex the pane produced, so it is converted rather than used
+  // raw — a tint that looked right in the picker and came out washed would be
+  // the kind of wrongness nobody thinks to suspect.
+  const tint = new THREE.Color(input.tint).convertSRGBToLinear();
+  const tintColor: NodeValue = vec3(tint.r, tint.g, tint.b);
+
   const baseColor = channel("baseColor");
   const hostColor: NodeValue = source.colorNode
     ?? (baseColor ? sample(baseColor).rgb : null);
   material.colorNode = hostColor
-    ? hostColor.mul(cavityColor).mul(moistureDarkening)
+    ? hostColor.mul(cavityColor).mul(moistureDarkening).mul(tintColor)
     : null;
 
   const engravingNormalSample: NodeValue = texture(

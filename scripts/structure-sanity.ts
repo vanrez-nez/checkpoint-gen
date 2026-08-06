@@ -79,8 +79,10 @@ import {
 } from "../src/structure/kernel/graph";
 import { isValidId } from "../src/structure/kernel/ids";
 import {
+  MAX_SLOT_RELIEF,
   MIN_FIELD_EXTENT,
   MIN_RIBBON_WIDTH,
+  resolveSlotRelief,
 } from "../src/structure/kernel/slot";
 import { createSeedSet, deriveSeed, subsystemSeed } from "../src/structure/kernel/seed";
 import {
@@ -1002,6 +1004,50 @@ function withMassSlots(
     slots[id] = { ...slots[id], enabled: true };
   }
   return { ...cloneMassLayout(layout), slots };
+}
+
+/** The same, with every enabled field sunk or raised by `relief` metres. */
+function withMassRelief(
+  layout: MassLayoutConfig,
+  relief: number,
+  ...ids: readonly MassSlotFeatureId[]
+): MassLayoutConfig {
+  const prepared = withMassSlots(layout, ...ids);
+  const slots = cloneMassSlots(prepared.slots);
+  for (const id of ids) {
+    slots[id] = { ...slots[id], relief };
+  }
+  return { ...prepared, slots };
+}
+
+/**
+ * What a field's face is allowed to do, from what its feature asked for.
+ *
+ * The two directions are bounded differently, and the asymmetry is the point.
+ * Sinking removes material, so it stops at the stone that has to survive behind
+ * a carved field; raising adds material, so nothing behind it is at risk and
+ * only legibility bounds it. That is why the same request cuts deep into a band
+ * and barely marks a moulding.
+ */
+{
+  const generous = { relief: 0, recess: 1 };
+  const thin = { relief: 0, recess: 0.04 };
+
+  assert.equal(resolveSlotRelief(0, generous), 0);
+  assert.equal(resolveSlotRelief(-0.05, generous), -0.05);
+  assert.equal(resolveSlotRelief(0.05, generous), 0.05);
+
+  // A moulding has a hand's width of stone, and says so.
+  assert.equal(resolveSlotRelief(-0.5, thin), -0.04);
+  // Raising is not bounded by what is behind it, only by how far a panel can
+  // stand proud and still read as part of the wall.
+  assert.equal(resolveSlotRelief(0.5, thin), MAX_SLOT_RELIEF);
+  assert.equal(resolveSlotRelief(-0.5, generous), -MAX_SLOT_RELIEF);
+
+  // A budget of nothing grants nothing, and a NaN that slipped past validation
+  // must not reach a vertex.
+  assert.equal(resolveSlotRelief(-0.05, { relief: 0, recess: 0 }), 0);
+  assert.equal(resolveSlotRelief(Number.NaN, generous), 0);
 }
 
 /** Every mass elevation, and everything crowning or enclosing it. */
@@ -5680,6 +5726,50 @@ for (const { label, layout } of ENGRAVED_CASES) {
       ).parts, [MASS_SECTION]).geometry).pairs,
       `${scope}: preparing a face introduced coincident faces.`,
     );
+    /**
+     * A field that has left the elevation holds the same bargain a flat one
+     * does: it introduces no coincident faces and it leaves no hole.
+     *
+     * Both halves were earned rather than assumed. A pocket is a *void*, so its
+     * jambs face into it — a solid box built by `addBlock` has them facing out,
+     * which read as fifteen holes in a backface sweep until every surface was
+     * wound by hand. And the closures duplicated their neighbours three
+     * different ways: at an arris, where the next elevation is prepared to the
+     * same depth; at a corner, where two sills claim the same square of stone;
+     * and at the top or bottom of a stretch, where the band beyond carries on.
+     * Each is suppressed rather than tolerated, so this compares exactly.
+     */
+    for (const relief of [-0.08, 0.08]) {
+      const shaped = mergeParts(tessellateStructure(
+        generateStructure(toStructureSpec(
+          withMassRelief(layout, relief, ...ids),
+        )),
+        {
+          masonry: toMasonry(engravedLayout, squareSet),
+          seed: engravedLayout.seed,
+          stairTilesPerStep: engravedLayout.stairTilesPerStep,
+        },
+      ).parts, [MASS_SECTION]).geometry;
+      const how = relief < 0 ? "sunk" : "raised";
+
+      assert.equal(
+        findCoincidentFaces(shaped).pairs,
+        findCoincidentFaces(geometry).pairs,
+        `${scope}: a ${how} face introduced coincident faces.`,
+      );
+      assert.equal(
+        findBackfaces(shaped, 48).backfaces,
+        0,
+        `${scope}: a ${how} face left a hole.`,
+      );
+      assert.ok(
+        shaped.getAttribute("position").count
+          > geometry.getAttribute("position").count,
+        `${scope}: a ${how} face drew no returns, so it did not move at all.`,
+      );
+      shaped.dispose();
+    }
+
     assert.equal(
       findBackfaces(geometry, 48).backfaces,
       0,

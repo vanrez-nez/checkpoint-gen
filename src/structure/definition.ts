@@ -13,7 +13,12 @@ import type { DetailLevel } from "./kernel/detail";
 import type { FireBowlConfig } from "../props/fire-bowl/config";
 import type { PillarConfig } from "../props/pillar/config";
 import type { StructureGraph } from "./kernel/graph";
-import type { SlotFeatureConfig, SlotRecord } from "./kernel/slot";
+import {
+  MAX_SLOT_RELIEF,
+  type SlotFeatureConfig,
+  type SlotRecord,
+  type SlotRelief,
+} from "./kernel/slot";
 
 /**
  * Shared props a structure can opt into. The pane shows a prop's controls only
@@ -116,6 +121,21 @@ export interface SlotFeatureSpec<TLayout extends object> {
    * switch that is broken rather than one that does not apply.
    */
   visibleWhen?(layout: TLayout): boolean;
+  /**
+   * Which way this feature's prepared faces may leave their member's plane.
+   *
+   * Declared rather than clamped, because a host that cannot take a pocket is
+   * not one that can take a shallow pocket, and a control that silently does
+   * nothing reads as broken. Omitted means neither, which is the honest answer
+   * for a face drawn by machinery with no depth axis in it.
+   *
+   * The cases are real and various: a stela's register is *already* a pocket
+   * and cannot be raised into an applique by the partition that cuts it; its
+   * base face is coursed masonry with no plane to cut into at all; its ribbons
+   * are appliques laid on the body, so a cut would target the applique rather
+   * than the wall; a hall's pier panel is already railed proud.
+   */
+  readonly relief?: SlotRelief;
   /** The feature's own settings, in place on the layout so edits land there. */
   select(layout: TLayout): SlotFeatureConfig;
 }
@@ -132,16 +152,10 @@ const slotControl = controlsFor<SlotFeatureConfig>();
 export function slotFeatureControls(
   label: string,
   framed = true,
+  relief?: SlotRelief,
 ): readonly ControlSpec<SlotFeatureConfig>[] {
   const enabled = (feature: SlotFeatureConfig) => feature.enabled;
-  const shown = [
-    slotControl.boolean({
-      key: "enabled",
-      label: "enabled",
-      name: `${label} slots`,
-      group: label,
-      scopes: ["layout"],
-    }),
+  const border = [
     slotControl.number({
       key: "borderWidth",
       label: "border",
@@ -177,7 +191,46 @@ export function slotFeatureControls(
     }),
   ];
 
-  return framed ? shown : shown.slice(0, 1);
+  // Assembled from parts rather than sliced. A border is one capability and a
+  // relief is another, and truncating a single list at the border's end hid the
+  // relief on exactly the features that most want one — a pier panel, a base
+  // panel, and every stela face but its bay field are all unframed.
+  return [
+    slotControl.boolean({
+      key: "enabled",
+      label: "enabled",
+      name: `${label} slots`,
+      group: label,
+      scopes: ["layout"],
+    }),
+    ...(framed ? border : []),
+    ...(relief ? [reliefControl(label, relief)] : []),
+  ];
+}
+
+/**
+ * The relief control, ranged by what its host can actually do.
+ *
+ * A one-way host gets a one-way slider rather than a two-way one that refuses
+ * half its travel. That also keeps the geometry code out of the codec's radix:
+ * the wire schema is built from these bounds, so a feature that can only sink
+ * costs the bits for sinking and no more.
+ */
+function reliefControl(
+  label: string,
+  relief: SlotRelief,
+): ControlSpec<SlotFeatureConfig> {
+  return slotControl.number({
+    key: "relief",
+    label: "relief",
+    name: `${label} slot relief`,
+    group: label,
+    min: relief.sink ? -MAX_SLOT_RELIEF : 0,
+    max: relief.raise ? MAX_SLOT_RELIEF : 0,
+    step: 0.005,
+    scopes: ["layout"],
+    visibleWhen: (feature: SlotFeatureConfig) => feature.enabled,
+  });
 }
 
 export interface StructureBuildInput<TLayout extends object> {

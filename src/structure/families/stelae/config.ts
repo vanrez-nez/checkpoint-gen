@@ -185,10 +185,22 @@ function stelaSlots(
   borderWidth: number,
   inset: number,
 ): StelaSlotFeatures {
-  const plain = { enabled: true, borderWidth: 0, insetU: 0, insetV: 0 };
+  const plain = {
+    enabled: true,
+    borderWidth: 0,
+    insetU: 0,
+    insetV: 0,
+    relief: 0,
+  };
 
   return {
-    bayField: { enabled: true, borderWidth, insetU: inset, insetV: inset },
+    bayField: {
+      enabled: true,
+      borderWidth,
+      insetU: inset,
+      insetV: inset,
+      relief: 0,
+    },
     bandRibbon: { ...plain },
     returnRibbon: { ...plain },
     crownFace: { ...plain },

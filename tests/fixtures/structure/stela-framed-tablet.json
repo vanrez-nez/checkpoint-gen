@@ -270,7 +270,7 @@
           "kind": "ornament",
           "u": 0.492903,
           "v": 0.194118,
-          "d": 0,
+          "d": -0.035,
           "regionId": "stela_structure/stela_01/register_01/face_front/bay_01/field/region",
           "orientation": "front"
         },
@@ -279,7 +279,7 @@
           "kind": "ornament",
           "u": 0.485256,
           "v": 0.5,
-          "d": 0,
+          "d": -0.035,
           "regionId": "stela_structure/stela_01/register_02/face_front/bay_01/field/region",
           "orientation": "front"
         },
@@ -288,7 +288,7 @@
           "kind": "ornament",
           "u": 0.477609,
           "v": 0.805882,
-          "d": 0,
+          "d": -0.035,
           "regionId": "stela_structure/stela_01/register_03/face_front/bay_01/field/region",
           "orientation": "front"
         },
@@ -489,7 +489,7 @@
           "kind": "ornament",
           "u": 0.492903,
           "v": 0.194118,
-          "d": 0,
+          "d": -0.035,
           "regionId": "stela_structure/stela_01/register_01/face_rear/bay_01/field/region",
           "orientation": "rear"
         },
@@ -498,7 +498,7 @@
           "kind": "ornament",
           "u": 0.485256,
           "v": 0.5,
-          "d": 0,
+          "d": -0.035,
           "regionId": "stela_structure/stela_01/register_02/face_rear/bay_01/field/region",
           "orientation": "rear"
         },
@@ -507,7 +507,7 @@
           "kind": "ornament",
           "u": 0.477609,
           "v": 0.805882,
-          "d": 0,
+          "d": -0.035,
           "regionId": "stela_structure/stela_01/register_03/face_rear/bay_01/field/region",
           "orientation": "rear"
         },
@@ -1723,6 +1723,7 @@
             "v": 0.79
           },
           "aspect": 1.057418,
+          "faceOffset": -0.035,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -1779,6 +1780,7 @@
             "v": 0.79
           },
           "aspect": 1.057418,
+          "faceOffset": -0.035,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -1835,6 +1837,7 @@
             "v": 0.79
           },
           "aspect": 1.040962,
+          "faceOffset": -0.035,
           "depthBudget": {
             "relief": 0.035,
             "recess": 0.1105
@@ -1891,6 +1894,7 @@
             "v": 0.79
           },
           "aspect": 1.040962,
+          "faceOffset": -0.035,
           "depthBudget": {
             "relief": 0.035,
             "recess": 0.1105
@@ -1947,6 +1951,7 @@
             "v": 0.79
           },
           "aspect": 1.024507,
+          "faceOffset": -0.035,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -2003,6 +2008,7 @@
             "v": 0.79
           },
           "aspect": 1.024507,
+          "faceOffset": -0.035,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -2059,6 +2065,7 @@
             "v": 0.14
           },
           "aspect": 7.840966,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -2115,6 +2122,7 @@
             "v": 0.14
           },
           "aspect": 7.840966,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -2171,6 +2179,7 @@
             "v": 0.14
           },
           "aspect": 2.428571,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.489934
@@ -2227,6 +2236,7 @@
             "v": 0.14
           },
           "aspect": 2.428571,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.489934
@@ -2283,6 +2293,7 @@
             "v": 0.14
           },
           "aspect": 7.464286,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -2339,6 +2350,7 @@
             "v": 0.14
           },
           "aspect": 7.464286,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -2395,6 +2407,7 @@
             "v": 0.14
           },
           "aspect": 2.428571,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.463566
@@ -2451,6 +2464,7 @@
             "v": 0.14
           },
           "aspect": 2.428571,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.463566
@@ -2507,6 +2521,7 @@
             "v": 3.12
           },
           "aspect": 0.038462,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.47675
@@ -2563,6 +2578,7 @@
             "v": 3.12
           },
           "aspect": 0.038462,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.47675
@@ -2619,6 +2635,7 @@
             "v": 0.3876
           },
           "aspect": 3.073529,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.05,
             "recess": 0.066
@@ -2674,6 +2691,7 @@
             "v": 0.22
           },
           "aspect": 6.5,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.05,
             "recess": 0.0825
@@ -2729,6 +2747,7 @@
             "v": 0.22
           },
           "aspect": 6.5,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.05,
             "recess": 0.0825
@@ -2784,6 +2803,7 @@
             "v": 0.22
           },
           "aspect": 2.009091,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.05,
             "recess": 0.0825
@@ -2839,6 +2859,7 @@
             "v": 0.22
           },
           "aspect": 2.009091,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0.05,
             "recess": 0.0825

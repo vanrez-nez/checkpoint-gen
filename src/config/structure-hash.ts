@@ -223,7 +223,8 @@ function codecFieldsFor(field: HashField): readonly CodecField[] {
         ...(index % 2 === 0 ? BEZIER_X_RANGE : BEZIER_Y_RANGE),
       }));
     case "text":
-      throw new TypeError(unencodableText(label));
+    case "color":
+      throw new TypeError(unencodableText(label, spec.kind));
   }
 }
 
@@ -231,14 +232,14 @@ function codecFieldsFor(field: HashField): readonly CodecField[] {
  * Named rather than skipped.
  *
  * The codec is a mixed radix over each control's own grid, so a field with no
- * finite set of values has no radix and cannot be carried. The one text control
- * in the project describes an engraving, which never reaches `collectFields` at
- * all — so this is a guard against a future layout field, and it has to be a
- * refusal rather than a silent omission or the code would decode into a
- * structure that is not the one it was written from.
+ * finite set of values has no radix and cannot be carried. Both kinds that hit
+ * this describe an engraving, which never reaches `collectFields` at all — so
+ * this is a guard against a future layout field, and it has to be a refusal
+ * rather than a silent omission or the code would decode into a structure that
+ * is not the one it was written from.
  */
-function unencodableText(label: string): string {
-  return `${label} is a text control, which a geometry code cannot carry.`;
+function unencodableText(label: string, kind: string): string {
+  return `${label} is a ${kind} control, which a geometry code cannot carry.`;
 }
 
 /** Reads one field's live value into the codec's flat numeric form. */
@@ -278,7 +279,8 @@ function writeFieldValue(field: HashField, form: Record<string, number>): void {
     // This switch returns void, so an unhandled kind would fall through and
     // write nothing rather than fail to compile. Say so out loud.
     case "text":
-      throw new TypeError(unencodableText(label));
+    case "color":
+      throw new TypeError(unencodableText(label, spec.kind));
   }
 }
 
@@ -312,7 +314,8 @@ function readFieldValue(field: HashField, form: Record<string, number>): void {
       return;
     }
     case "text":
-      throw new TypeError(unencodableText(label));
+    case "color":
+      throw new TypeError(unencodableText(label, spec.kind));
   }
 }
 
@@ -359,7 +362,7 @@ function collectFields(config: StructureConfig): HashField[] {
       fields,
       `${definition.id}.slots.${feature.id}`,
       feature.select(layout),
-      slotFeatureControls(feature.label, feature.framed),
+      slotFeatureControls(feature.label, feature.framed, feature.relief),
     );
   }
 

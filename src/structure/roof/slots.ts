@@ -47,6 +47,7 @@ export function preparedRoofFields(
       face: orientation,
       left: [low, low],
       right: [high, high],
+      relief: slot.faceOffset,
       bottomY: Math.min(corners[0]!.y, corners[1]!.y),
       topY: Math.max(corners[0]!.y, corners[1]!.y),
       // A fascia is never banded; the strip laid flat is the whole face.

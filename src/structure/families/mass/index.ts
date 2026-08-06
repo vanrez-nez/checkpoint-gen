@@ -14,6 +14,7 @@ import {
   MASS_SLOT_FEATURE_IDS,
   MASS_SLOT_FEATURE_LABELS,
   MASS_SLOT_FEATURE_MATCHERS,
+  MASS_SLOT_FEATURE_RELIEF,
   MASS_SLOT_FEATURE_SURFACES,
   cloneMassLayout,
   resolveMassLayout,
@@ -119,6 +120,7 @@ export const massStructure = defineStructure<MassLayoutConfig>({
     label: MASS_SLOT_FEATURE_LABELS[id],
     surface: MASS_SLOT_FEATURE_SURFACES[id],
     matches: MASS_SLOT_FEATURE_MATCHERS[id],
+    relief: MASS_SLOT_FEATURE_RELIEF[id],
     // A surface the composition never builds has nothing to engrave.
     visibleWhen: (layout: MassLayoutConfig) => {
       switch (id) {

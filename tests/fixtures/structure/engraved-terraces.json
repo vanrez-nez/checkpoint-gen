@@ -829,6 +829,7 @@
             "v": 0.13
           },
           "aspect": 59.846154,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 2.375
@@ -886,6 +887,7 @@
             "v": 0.13
           },
           "aspect": 59.846154,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 2.375
@@ -943,6 +945,7 @@
             "v": 0.13
           },
           "aspect": 190.615385,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 2.375
@@ -1000,6 +1003,7 @@
             "v": 0.13
           },
           "aspect": 144.461538,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 2.375
@@ -1057,6 +1061,7 @@
             "v": 0.13
           },
           "aspect": 144.461538,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 2.375
@@ -1114,6 +1119,7 @@
             "v": 1.569714
           },
           "aspect": 4.30257,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 2.25
@@ -1171,6 +1177,7 @@
             "v": 1.569714
           },
           "aspect": 4.131482,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 2.25
@@ -1228,6 +1235,7 @@
             "v": 1.569714
           },
           "aspect": 14.618975,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 2.25
@@ -1285,6 +1293,7 @@
             "v": 1.569714
           },
           "aspect": 10.796622,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 2.25
@@ -1342,6 +1351,7 @@
             "v": 1.569714
           },
           "aspect": 10.796622,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 2.25
@@ -1399,6 +1409,7 @@
             "v": 0.16
           },
           "aspect": 147.95203,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -1456,6 +1467,7 @@
             "v": 0.16
           },
           "aspect": 147.95203,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -1513,6 +1525,7 @@
             "v": 0.16
           },
           "aspect": 110.45203,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -1570,6 +1583,7 @@
             "v": 0.16
           },
           "aspect": 110.45203,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -1627,6 +1641,7 @@
             "v": 1.569714
           },
           "aspect": 3.240111,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.945561
@@ -1684,6 +1699,7 @@
             "v": 1.569714
           },
           "aspect": 3.069024,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.945561
@@ -1741,6 +1757,7 @@
             "v": 1.569714
           },
           "aspect": 12.494059,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.945561
@@ -1798,6 +1815,7 @@
             "v": 1.569714
           },
           "aspect": 9.245059,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.945561
@@ -1855,6 +1873,7 @@
             "v": 1.569714
           },
           "aspect": 9.245059,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.945561
@@ -1912,6 +1931,7 @@
             "v": 0.16
           },
           "aspect": 127.105095,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -1969,6 +1989,7 @@
             "v": 0.16
           },
           "aspect": 127.105095,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2026,6 +2047,7 @@
             "v": 0.16
           },
           "aspect": 95.230095,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2083,6 +2105,7 @@
             "v": 0.16
           },
           "aspect": 95.230095,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2140,6 +2163,7 @@
             "v": 1.569714
           },
           "aspect": 2.177653,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.641123
@@ -2197,6 +2221,7 @@
             "v": 1.569714
           },
           "aspect": 2.006566,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.641123
@@ -2254,6 +2279,7 @@
             "v": 1.569714
           },
           "aspect": 10.369143,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.641123
@@ -2311,6 +2337,7 @@
             "v": 1.569714
           },
           "aspect": 7.693496,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.641123
@@ -2368,6 +2395,7 @@
             "v": 1.569714
           },
           "aspect": 7.693496,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.641123
@@ -2425,6 +2453,7 @@
             "v": 0.16
           },
           "aspect": 106.258161,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2482,6 +2511,7 @@
             "v": 0.16
           },
           "aspect": 106.258161,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2539,6 +2569,7 @@
             "v": 0.16
           },
           "aspect": 80.008161,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2596,6 +2627,7 @@
             "v": 0.16
           },
           "aspect": 80.008161,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2653,6 +2685,7 @@
             "v": 1.569714
           },
           "aspect": 1.115195,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.336684
@@ -2710,6 +2743,7 @@
             "v": 1.569714
           },
           "aspect": 0.944108,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.336684
@@ -2767,6 +2801,7 @@
             "v": 1.569714
           },
           "aspect": 8.244227,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.336684
@@ -2824,6 +2859,7 @@
             "v": 1.569714
           },
           "aspect": 6.141933,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.336684
@@ -2881,6 +2917,7 @@
             "v": 1.569714
           },
           "aspect": 6.141933,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 1.336684
@@ -2938,6 +2975,7 @@
             "v": 0.16
           },
           "aspect": 85.411226,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -2995,6 +3033,7 @@
             "v": 0.16
           },
           "aspect": 85.411226,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -3052,6 +3091,7 @@
             "v": 0.16
           },
           "aspect": 64.786226,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -3109,6 +3149,7 @@
             "v": 0.16
           },
           "aspect": 64.786226,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.075
@@ -11057,6 +11098,7 @@
             "v": 2.24
           },
           "aspect": 1.526786,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.125
@@ -11114,6 +11156,7 @@
             "v": 2.24
           },
           "aspect": 1.526786,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.125
@@ -11171,6 +11214,7 @@
             "v": 3.64
           },
           "aspect": 2.527473,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.125
@@ -11228,6 +11272,7 @@
             "v": 3.64
           },
           "aspect": 1.666209,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.125
@@ -11285,6 +11330,7 @@
             "v": 3.64
           },
           "aspect": 1.666209,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.125
@@ -11727,6 +11773,7 @@
             "v": 0.32
           },
           "aspect": 34,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.0625
@@ -11784,6 +11831,7 @@
             "v": 0.32
           },
           "aspect": 34,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.0625
@@ -11841,6 +11889,7 @@
             "v": 0.32
           },
           "aspect": 22.640625,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.0625
@@ -11898,6 +11947,7 @@
             "v": 0.32
           },
           "aspect": 22.640625,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.0625
@@ -11955,6 +12005,7 @@
             "v": 0.15
           },
           "aspect": 75.733333,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.05
@@ -12012,6 +12063,7 @@
             "v": 0.15
           },
           "aspect": 75.733333,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.05
@@ -12069,6 +12121,7 @@
             "v": 0.15
           },
           "aspect": 52.166667,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.05
@@ -12126,6 +12179,7 @@
             "v": 0.15
           },
           "aspect": 52.166667,
+          "faceOffset": 0,
           "depthBudget": {
             "relief": 0,
             "recess": 0.05

@@ -35,6 +35,7 @@ import {
   type EngravingResolution,
 } from "../engravings/resolution";
 import type { EngravingTextures } from "../engravings/textures";
+import { HostShadingSampler } from "../geometry/host-shading";
 import { subdivideLongEdges } from "../geometry/subdivide";
 import { SunBakeScene, type SunBakeTarget } from "../geometry/sun-bake";
 import { StructureComposer } from "../structure/composer";
@@ -268,6 +269,12 @@ export class MainScene {
   /** Master multiplier over every surface's own texture scale. */
   private materialScale: number;
   private engravingResolution: EngravingResolution;
+  /**
+   * The stone's baked shading, for decals to read. Built on the first decal
+   * that needs it and dropped with the bake hierarchy, since both are indexed
+   * against the same subdivided geometry.
+   */
+  private hostShading: HostShadingSampler | null = null;
   private ambientOcclusionStrength: number;
   private crackShadowStrength: number;
   private sunShadowStrength: number;
@@ -962,7 +969,9 @@ export class MainScene {
       source.dispose();
     }
 
+    // Both hierarchies are indexed against this geometry, so both die with it.
     this.sunBakeScene = null;
+    this.hostShading = null;
     this.bakeSun(refined.geometry, illumination);
     return refined.geometry;
   }
@@ -1053,7 +1062,11 @@ export class MainScene {
     // stone would change grain across the edge of the engraving.
     for (const mesh of this.engravingMeshes) {
       const surface = mesh.userData.engravingSurface as MaterialSurfaceId;
-      this.applyTextureScale(mesh.geometry, () => this.textureScaleFor(surface));
+      const grain = (mesh.userData.engravingGrain as number | undefined) ?? 1;
+      this.applyTextureScale(
+        mesh.geometry,
+        () => this.textureScaleFor(surface) * grain,
+      );
     }
 
     const offeringScale = this.textureScaleFor("offering");
@@ -1174,10 +1187,10 @@ export class MainScene {
           runtime,
           textures: derived,
           moistureNoise: this.moistureNoise.get(),
-          aoIntensity: this.engravingSetting(batch.hostSurface, "aoIntensity"),
-          normalStrength: this.engravingSetting(batch.hostSurface, "normalStrength"),
+          aoIntensity: batch.appearance.aoIntensity,
+          normalStrength: batch.appearance.normalStrength,
+          tint: batch.appearance.tint,
           moistureLevel: batch.layer.moisture,
-          aspect: batch.layer.width / batch.layer.height,
         }),
       );
       mesh.name = `Engraving ${batch.layer.id} on ${batch.hostSurface}`;
@@ -1190,15 +1203,64 @@ export class MainScene {
       // The opaque sort is by bounding-sphere distance, which says nothing
       // useful between one decal batch and the whole structure.
       mesh.renderOrder = 1;
+      mesh.userData.engravingGrain = batch.appearance.textureScale;
       this.applyTextureScale(
         batch.geometry,
-        () => this.textureScaleFor(batch.hostSurface),
+        () => this.textureScaleFor(batch.hostSurface) * batch.appearance.textureScale,
       );
       this.engravingMeshes.push(mesh);
       this.engravingRoot.add(mesh);
+      this.readHostShading(batch.geometry, batch.standOff);
       this.bakeEngravingShading([mesh]);
       this.refreshEngravingVisibility();
     }));
+  }
+
+  /**
+   * Gives a decal the shading of the stone it lies on.
+   *
+   * `mergeDecalQuads` fills both base arrays with ones, because it builds
+   * geometry with no scene to ask. Here there is one, and the difference is not
+   * subtle: a wall averages 0.62 occlusion and 0.39 crack shadow against a
+   * decal's flat 1.0, so a decal that keeps the ones reads as a brighter plate
+   * laid on the stone rather than as carving in it.
+   *
+   * A vertex that finds nothing keeps its one. That is the right answer for a
+   * decal with no host behind it, and the only safe one — a miss must not
+   * blacken an engraving.
+   */
+  private readHostShading(
+    geometry: THREE.BufferGeometry,
+    standOff: number,
+  ): void {
+    const sampler = this.hostShading ??= HostShadingSampler.from(
+      this.structure.geometry,
+    );
+    const position = geometry.getAttribute("position");
+    const normal = geometry.getAttribute("normal");
+    const ambientOcclusion = geometry.userData.vertexAoBase as Float32Array;
+    const bakedShadow = geometry.userData.bakedShadowBase as Float32Array;
+
+    if (!sampler || !position || !normal) {
+      return;
+    }
+
+    for (let vertex = 0; vertex < position.count; vertex += 1) {
+      const shading = sampler.sample(
+        position.getX(vertex),
+        position.getY(vertex),
+        position.getZ(vertex),
+        normal.getX(vertex),
+        normal.getY(vertex),
+        normal.getZ(vertex),
+        standOff,
+      );
+
+      if (shading) {
+        ambientOcclusion[vertex] = shading.ambientOcclusion;
+        bakedShadow[vertex] = shading.bakedShadow;
+      }
+    }
   }
 
   /**
@@ -1243,34 +1305,6 @@ export class MainScene {
       this.applyAmbientOcclusion(mesh.geometry);
       this.applyBakedShadow(mesh.geometry);
     }
-  }
-
-  /**
-   * One assignment's shading strength, for the features on a given surface.
-   *
-   * Decals are batched by engraving and host surface rather than by feature, so
-   * two features sharing both share a mesh and therefore a material. They agree
-   * on everything the material needs except these two numbers, and the stronger
-   * reading is the one that was asked for.
-   */
-  private engravingSetting(
-    surface: MaterialSurfaceId,
-    key: "aoIntensity" | "normalStrength",
-  ): number {
-    let strongest = 0;
-
-    for (const feature of this.activeSlotFeatures) {
-      if (feature.surface !== surface) {
-        continue;
-      }
-
-      strongest = Math.max(
-        strongest,
-        this.activeEngravings[feature.id]?.[key] ?? 0,
-      );
-    }
-
-    return strongest;
   }
 
   /**

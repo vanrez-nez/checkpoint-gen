@@ -125,12 +125,28 @@ export interface TextControlSpec<T> extends BaseControlSpec<T> {
   readonly validate?: (value: string, name: string) => void;
 }
 
+/**
+ * A colour, stored as a `#rrggbb` string.
+ *
+ * A string rather than a triple because that is what every colour in this
+ * project already is — the illumination config has carried hex since before
+ * there was a spec table — and because it is what Tweakpane and
+ * `THREE.Color.set` both take without a conversion in between.
+ */
+export interface ColorControlSpec<T> extends BaseControlSpec<T> {
+  readonly kind: "color";
+}
+
 export type ControlSpec<T> =
   | NumberControlSpec<T>
   | BooleanControlSpec<T>
   | ListControlSpec<T>
   | BezierControlSpec<T>
-  | TextControlSpec<T>;
+  | TextControlSpec<T>
+  | ColorControlSpec<T>;
+
+/** `#rgb` or `#rrggbb`. Anything else is a value the pane cannot have produced. */
+const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 /** The shape a `bezier` control binds to: `[x1, y1, x2, y2]`. */
 export type BezierValue = [number, number, number, number];
@@ -151,6 +167,7 @@ export function controlsFor<T extends object>(): {
   list: (spec: Omit<ListControlSpec<T>, "kind">) => ListControlSpec<T>;
   bezier: (spec: Omit<BezierControlSpec<T>, "kind">) => BezierControlSpec<T>;
   text: (spec: Omit<TextControlSpec<T>, "kind">) => TextControlSpec<T>;
+  color: (spec: Omit<ColorControlSpec<T>, "kind">) => ColorControlSpec<T>;
 } {
   return {
     number: (spec) => ({ kind: "number", ...spec }),
@@ -158,6 +175,7 @@ export function controlsFor<T extends object>(): {
     list: (spec) => ({ kind: "list", ...spec }),
     bezier: (spec) => ({ kind: "bezier", ...spec }),
     text: (spec) => ({ kind: "text", ...spec }),
+    color: (spec) => ({ kind: "color", ...spec }),
   };
 }
 
@@ -192,6 +210,14 @@ export function validateControls<T extends object>(
         throw new RangeError(
           `${name} must be one of ${allowed.join(", ")}.`,
         );
+      }
+
+      continue;
+    }
+
+    if (spec.kind === "color") {
+      if (typeof value !== "string" || !HEX_COLOR.test(value)) {
+        throw new TypeError(`${name} must be a hex colour such as #8899aa.`);
       }
 
       continue;

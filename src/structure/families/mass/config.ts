@@ -12,7 +12,7 @@ import {
   type MasonryRule,
 } from "../../kernel/masonry";
 import type { StructureGraph } from "../../kernel/graph";
-import type { SlotRecord } from "../../kernel/slot";
+import type { SlotRecord, SlotRelief } from "../../kernel/slot";
 import {
   CURVE_SHAPES,
   LINEAR_BEZIER,
@@ -230,6 +230,47 @@ export const MASS_SLOT_FEATURE_MATCHERS: Readonly<
   summitRoofCornice: (slot) => slot.part === "roof" && slot.faceRole === "cornice",
 };
 
+/**
+ * Which of a mass's prepared faces can leave the plane of their member.
+ *
+ * Declared only where a resolver decides a depth *and* an emitter draws one,
+ * which is the three that run through `stretchSlots` and `addFramedFace`. The
+ * summit's wall and its roof mouldings resolve through the cell and roof
+ * modules, which publish flush faces — so they are omitted rather than given a
+ * slider that would move nothing.
+ *
+ * Depth is not what distinguishes them; the budget is. A cornice is a hand's
+ * width of stone and `slotDepthBudget` says so, so the same request cuts deep
+ * into a band and barely marks a moulding.
+ */
+export const MASS_SLOT_FEATURE_RELIEF: Readonly<
+  Partial<Record<MassSlotFeatureId, SlotRelief>>
+> = {
+  plinth: { sink: true, raise: true },
+  bandWall: { sink: true, raise: true },
+};
+
+/**
+ * Drops any relief a feature was never declared able to take.
+ *
+ * The capability ranges the control, so the pane cannot produce such a value —
+ * but a control that does not exist is also a control that validates nothing,
+ * and a layout can arrive from a fixture, a test or a hand-edited file. This is
+ * the one place every resolved mass passes through, so it is where the
+ * declaration is made to mean something rather than merely describe the pane.
+ */
+function reliefAsDeclared(slots: MassSlotFeatures): MassSlotFeatures {
+  const masked = { ...slots };
+
+  for (const id of MASS_SLOT_FEATURE_IDS) {
+    if (!MASS_SLOT_FEATURE_RELIEF[id] && masked[id].relief !== 0) {
+      masked[id] = { ...masked[id], relief: 0 };
+    }
+  }
+
+  return masked;
+}
+
 /** Nothing is prepared until it is asked for; the borders are a starting point. */
 function defaultMassSlots(): MassLayoutConfig["slots"] {
   const off = (borderWidth: number, inset: number) => ({
@@ -237,6 +278,7 @@ function defaultMassSlots(): MassLayoutConfig["slots"] {
     borderWidth,
     insetU: inset,
     insetV: inset,
+    relief: 0,
   });
 
   return {
@@ -1264,7 +1306,7 @@ export function toStructureSpec(layout: MassLayoutConfig): StructureSpec {
       friezeProjection: layout.facadeFriezeProjection,
     },
     roofs: toRoofSpecs(layout),
-    slots: layout.slots,
+    slots: reliefAsDeclared(layout.slots),
     slotBands: layout.slotBands,
   };
 }

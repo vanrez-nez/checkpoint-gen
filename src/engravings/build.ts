@@ -33,6 +33,49 @@ export interface EngravingDecalBatch {
    * collects the cells of one glyph out of many slots.
    */
   readonly quadCount: number;
+  /**
+   * The furthest any of these quads stands off the stone, in metres.
+   *
+   * Not a placement — the quads already carry that in their corners. It is how
+   * far back the scene has to look to find the wall each one belongs to, and
+   * the maximum because a batch can gather quads from two features whose stone
+   * is at different depths.
+   */
+  readonly standOff: number;
+  /**
+   * Everything the decal's material needs beyond the layer and the host.
+   *
+   * Carried on the batch rather than looked up per surface by the scene,
+   * because the batch is the only thing that knows which features actually
+   * contributed to it. The scene used to resolve these by taking the strongest
+   * reading across every feature on the surface — a fudge that was already
+   * coarser than the batching it served, and one that a per-feature tint would
+   * have made incoherent rather than merely approximate.
+   */
+  readonly appearance: DecalAppearance;
+}
+
+/** The per-feature half of a decal's material. */
+export interface DecalAppearance {
+  readonly aoIntensity: number;
+  readonly normalStrength: number;
+  readonly textureScale: number;
+  readonly tint: string;
+}
+
+function appearanceOf(assignment: EngravingAssignment): DecalAppearance {
+  return {
+    aoIntensity: assignment.aoIntensity,
+    normalStrength: assignment.normalStrength,
+    textureScale: assignment.textureScale,
+    tint: assignment.tint,
+  };
+}
+
+/** Two features agreeing on all of this can share one mesh; nothing else can. */
+function appearanceKey(appearance: DecalAppearance): string {
+  return `${appearance.aoIntensity}|${appearance.normalStrength}`
+    + `|${appearance.textureScale}|${appearance.tint}`;
 }
 
 /**
@@ -74,6 +117,8 @@ export function buildEngravingDecalBatches(
     layer: EngravingLayer;
     hostSurface: MaterialSurfaceId;
     quads: EngravingDecalQuad[];
+    standOff: number;
+    appearance: DecalAppearance;
   }>();
 
   for (const feature of assigned) {
@@ -109,16 +154,31 @@ export function buildEngravingDecalBatches(
       continue;
     }
 
-    const push = (target: EngravingLayer, quad: EngravingDecalQuad): void => {
-      const key = `${target.id}|${feature.surface}`;
+    const appearance = appearanceOf(assignment);
+    const push = (
+      target: EngravingLayer,
+      quad: EngravingDecalQuad,
+      standOff: number,
+    ): void => {
+      const key = `${target.id}|${feature.surface}|${appearanceKey(appearance)}`;
       let batch = quadsByBatch.get(key);
 
       if (!batch) {
-        batch = { layer: target, hostSurface: feature.surface, quads: [] };
+        batch = {
+          layer: target,
+          hostSurface: feature.surface,
+          quads: [],
+          standOff: 0,
+          appearance,
+        };
         quadsByBatch.set(key, batch);
       }
 
       batch.quads.push(quad);
+      // How far this quad's own stone is from the patch plane, not how far the
+      // feature declares. A sunk face is further away, and the scene has to
+      // look that much further back to find it.
+      batch.standOff = Math.max(batch.standOff, Math.abs(standOff));
     };
 
     for (const slot of slots) {
@@ -134,11 +194,15 @@ export function buildEngravingDecalBatches(
         continue;
       }
 
+      // The patch says where the face would be; the slot says where it is. A
+      // sunk face is genuinely further back, and a decal that ignored that
+      // would hang the pocket's whole depth in front of the stone.
+      const placedOffset = offset + slot.faceOffset;
       const placed = resolveDecalPlacement(slot, {
         fit: assignment.fit,
         margin: assignment.margin,
         aspect: layer.width / layer.height,
-        offset,
+        offset: placedOffset,
         tiling,
       });
 
@@ -151,12 +215,12 @@ export function buildEngravingDecalBatches(
           slot,
           patch.frame,
           placed.rect,
-          offset,
+          placedOffset,
           placed.repeat,
         );
 
         if (quad) {
-          push(layer, quad);
+          push(layer, quad, placedOffset);
         }
 
         continue;
@@ -172,10 +236,10 @@ export function buildEngravingDecalBatches(
         const glyph = picker.next();
         const rect = containDecalRect(slot, cell, glyph.width / glyph.height);
         const quad = rect
-          && decalQuadFromRect(slot, patch.frame, rect, offset, NO_DECAL_REPEAT);
+          && decalQuadFromRect(slot, patch.frame, rect, placedOffset, NO_DECAL_REPEAT);
 
         if (quad) {
-          push(glyph, quad);
+          push(glyph, quad, placedOffset);
         }
       }
     }
@@ -192,6 +256,8 @@ export function buildEngravingDecalBatches(
         hostSurface: batch.hostSurface,
         geometry,
         quadCount: batch.quads.length,
+        standOff: batch.standOff,
+        appearance: batch.appearance,
       });
     }
   }
