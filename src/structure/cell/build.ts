@@ -920,6 +920,7 @@ function addPanelBlock(builder: SolidBuilder, panel: CellPanel): void {
         // Flat: this resolver does not yet decide a depth, so there is none to
         // carry. The emitter reads it, so wiring one here is all it will take.
         relief: 0,
+        textureScale: 1,
         bottomY: field.minV,
         topY: field.maxV,
         rowBottomY: panel.bottomY,

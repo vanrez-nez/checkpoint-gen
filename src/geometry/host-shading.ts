@@ -24,6 +24,17 @@ import { SurfaceBvh } from "./bvh";
 export interface HostShading {
   readonly ambientOcclusion: number;
   readonly bakedShadow: number;
+  /**
+   * How much sun the stone behind this point sees.
+   *
+   * Read rather than traced. A decal that casts its own rays does it from a few
+   * millimetres out in front of the wall — clear of every course joint and
+   * stone offset that shadows the surface it covers — and comes back measurably
+   * more lit than its own host: 0.31 against 0.20 on a coursed elevation. That
+   * difference is uniform across a quad and steps at its edge, which is a
+   * visible lighter rectangle around every carving.
+   */
+  readonly sunVisibility: number;
 }
 
 /**
@@ -43,17 +54,20 @@ export class HostShadingSampler {
   private readonly index: THREE.TypedArray;
   private readonly ambientOcclusion: Float32Array | null;
   private readonly bakedShadow: Float32Array | null;
+  private readonly sunVisibility: Float32Array | null;
 
   private constructor(
     bvh: SurfaceBvh,
     index: THREE.TypedArray,
     ambientOcclusion: Float32Array | null,
     bakedShadow: Float32Array | null,
+    sunVisibility: Float32Array | null,
   ) {
     this.bvh = bvh;
     this.index = index;
     this.ambientOcclusion = ambientOcclusion;
     this.bakedShadow = bakedShadow;
+    this.sunVisibility = sunVisibility;
   }
 
   /**
@@ -89,6 +103,7 @@ export class HostShadingSampler {
     const userData = geometry.userData as {
       vertexAoBase?: Float32Array;
       bakedShadowBase?: Float32Array;
+      sunVisibilityBase?: Float32Array;
     };
     const expected = position.count;
 
@@ -97,6 +112,9 @@ export class HostShadingSampler {
       index.array,
       userData.vertexAoBase?.length === expected ? userData.vertexAoBase : null,
       userData.bakedShadowBase?.length === expected ? userData.bakedShadowBase : null,
+      userData.sunVisibilityBase?.length === expected
+        ? userData.sunVisibilityBase
+        : null,
     );
   }
 
@@ -153,6 +171,11 @@ export class HostShadingSampler {
         ? weightA * this.bakedShadow[a]!
           + hit.u * this.bakedShadow[b]!
           + hit.v * this.bakedShadow[c]!
+        : 1,
+      sunVisibility: this.sunVisibility
+        ? weightA * this.sunVisibility[a]!
+          + hit.u * this.sunVisibility[b]!
+          + hit.v * this.sunVisibility[c]!
         : 1,
     };
   }

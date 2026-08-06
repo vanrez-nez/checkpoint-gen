@@ -151,6 +151,8 @@ export interface SlotRecord {
    * is per slot and resolved.
    */
   readonly faceOffset: number;
+  /** Material density across this slot's face, against its surface's own. */
+  readonly textureScale: number;
   readonly depthBudget: {
     readonly relief: number;
     readonly recess: number;
@@ -493,6 +495,19 @@ export interface SlotFeatureConfig {
    * a pocket at all. See `resolveSlotRelief`.
    */
   relief: number;
+  /**
+   * How densely the stone's own material tiles across this feature's prepared
+   * faces, against the host surface's setting.
+   *
+   * On the slot rather than on its engraving, because it dresses stone. An
+   * engraving is chosen and re-chosen without a face being rebuilt; this
+   * changes the face, so it lives with the border and the insets and rebuilds
+   * with them. It was briefly on the assignment instead, where it scaled the
+   * carving and not the stone under it — and every prepared face then read as a
+   * differently-grained square laid on the wall, which is the exact seam a decal
+   * exists to avoid.
+   */
+  textureScale: number;
 }
 
 /** A feature that is switched off, for a family that has not authored one. */
@@ -502,6 +517,7 @@ export const DISABLED_SLOT_FEATURE: SlotFeatureConfig = {
   insetU: 0,
   insetV: 0,
   relief: 0,
+  textureScale: 1,
 };
 
 /** Which directions a family's host can take a prepared face moving in. */
@@ -640,6 +656,8 @@ export interface FaceSlotInput {
   readonly depthBudget: SlotRecord["depthBudget"];
   /** Omitted where the prepared face sits in the member's own plane. */
   readonly faceOffset?: number;
+  /** Omitted where the face is dressed at its surface's own density. */
+  readonly textureScale?: number;
   readonly tags: readonly string[];
   readonly rule: SlotRule;
 }
@@ -771,6 +789,7 @@ export function resolveFaceSlot(input: FaceSlotInput): ResolvedFaceSlot | null {
       // prepared face in the plane of the member, so the only slots that are
       // anywhere else are the ones whose resolver says so.
       faceOffset: input.faceOffset ?? 0,
+      textureScale: input.textureScale ?? 1,
       depthBudget: input.depthBudget,
       flow: input.flow,
       continuity: input.continuity,

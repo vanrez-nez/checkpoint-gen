@@ -28,6 +28,16 @@ export interface GeometryBuffers {
   /** One semantic material-slot index per vertex. */
   readonly surfaceMaterials?: readonly number[];
   /**
+   * One material-density multiplier per vertex, or absent for the host's own.
+   *
+   * Folded into the base UVs here rather than carried onward as an attribute.
+   * The runtime already rescales those UVs per surface, and multiplying into
+   * them keeps a prepared face's own density compounding with the palette's
+   * instead of competing with it — and leaves the merge and the subdivision
+   * with nothing new to carry.
+   */
+  readonly textureScales?: readonly number[];
+  /**
    * Two authored UVs per vertex, or NaN where the emitter had nothing to say.
    *
    * Box projection cannot be continuous around a corner: it reads a world axis,
@@ -132,6 +142,18 @@ export function finalizeGeometry(
       }
     }
   }
+  const densities = buffers.textureScales;
+  if (densities) {
+    for (let vertex = 0; vertex < densities.length; vertex += 1) {
+      const scale = densities[vertex] ?? 1;
+
+      if (scale !== 1) {
+        baseUvs[vertex * 2] *= scale;
+        baseUvs[vertex * 2 + 1] *= scale;
+      }
+    }
+  }
+
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(baseUvs.slice(), 2));
   geometry.userData.baseUvs = baseUvs;
   geometry.computeBoundingBox();

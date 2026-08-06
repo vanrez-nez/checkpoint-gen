@@ -101,6 +101,7 @@ export class SolidBuilder implements GeometryBuffers {
   /** Authored UVs; NaN wherever the caller left the projection to decide. */
   readonly uvs: number[] = [];
   private activeMaterial: MaterialSlot = "stone";
+  private activeTextureScale = 1;
   /** Blocks laid, whichever of their faces turned out to be visible. */
   blockCount = 0;
   /**
@@ -114,6 +115,13 @@ export class SolidBuilder implements GeometryBuffers {
    * equal the index count.
    */
   readonly blockFaces: number[] = [];
+  /**
+   * One material-density multiplier per vertex, folded into the UVs at
+   * finalize. A prepared face may be dressed finer or coarser than the
+   * elevation around it, and this is how it says so without a second attribute
+   * surviving into the merged mesh.
+   */
+  readonly textureScales: number[] = [];
 
   /** Emits every face in `callback` with one semantic material owner. */
   withMaterial<T>(slot: MaterialSlot, callback: () => T): T {
@@ -124,6 +132,18 @@ export class SolidBuilder implements GeometryBuffers {
       return callback();
     } finally {
       this.activeMaterial = previous;
+    }
+  }
+
+  /** Emits every face in `callback` at one material density. One is the host's. */
+  withTextureScale<T>(scale: number, callback: () => T): T {
+    const previous = this.activeTextureScale;
+    this.activeTextureScale = scale > 0 ? scale : 1;
+
+    try {
+      return callback();
+    } finally {
+      this.activeTextureScale = previous;
     }
   }
 
@@ -171,6 +191,7 @@ export class SolidBuilder implements GeometryBuffers {
     const bakedShadow: number[] = [];
     const surfaceMaterials: number[] = [];
     const uvs: number[] = [];
+    const textureScales: number[] = [];
     const indices: number[] = [];
     const blockFaces: number[] = [];
     let removed = 0;
@@ -202,6 +223,7 @@ export class SolidBuilder implements GeometryBuffers {
           this.uvs[vertex * 2] ?? Number.NaN,
           this.uvs[vertex * 2 + 1] ?? Number.NaN,
         );
+        textureScales.push(this.textureScales[vertex] ?? 1);
       }
 
       indices.push(
@@ -215,6 +237,7 @@ export class SolidBuilder implements GeometryBuffers {
     replaceContents(this.bakedShadow, bakedShadow);
     replaceContents(this.surfaceMaterials, surfaceMaterials);
     replaceContents(this.uvs, uvs);
+    replaceContents(this.textureScales, textureScales);
     replaceContents(this.indices, indices);
     replaceContents(this.blockFaces, blockFaces);
 
@@ -391,6 +414,7 @@ export class SolidBuilder implements GeometryBuffers {
     this.bakedShadow.push(bakedShadow);
     this.surfaceMaterials.push(materialSlotIndex(material ?? this.activeMaterial));
     this.uvs.push(uv?.[0] ?? Number.NaN, uv?.[1] ?? Number.NaN);
+    this.textureScales.push(this.activeTextureScale);
   }
 
   private faceCorners(start: number): Vertex3[] {

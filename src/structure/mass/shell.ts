@@ -312,6 +312,8 @@ export interface PreparedField {
    * it. What is missing is one emitter that can draw a hole in a wall.
    */
   readonly relief: number;
+  /** Material density across this field, against the host surface's own. */
+  readonly textureScale: number;
   /**
    * The strip of stone this field was cut from, which is what gets laid flat.
    *
@@ -789,6 +791,7 @@ export function addFramedFace(
       vMin,
       vMax,
       relief: field.relief,
+      textureScale: field.textureScale,
       left: lineOf(field.left, vMin, vMax),
       right: lineOf(field.right, vMin, vMax),
     };
@@ -819,7 +822,12 @@ export function addFramedFace(
 
     for (const field of active) {
       quad(cursor, field.left, vMin, vMax);
-      reliefField(field.left, field.right, vMin, vMax, field.relief);
+      // The field's own stone, at the field's own density. The border around it
+      // stays the elevation's, which is what makes a prepared face read as a
+      // panel let into the wall rather than as a patch laid on it.
+      builder.withTextureScale(field.textureScale, () => {
+        reliefField(field.left, field.right, vMin, vMax, field.relief);
+      });
       cursor = field.right;
     }
 

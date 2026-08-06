@@ -799,7 +799,14 @@ export class MainScene {
       1,
     );
     this.crackShadowStrength = THREE.MathUtils.clamp(config.crackShadow, 0, 1);
-    this.sunShadowStrength = THREE.MathUtils.clamp(config.sunShadow, 0, 1);
+    // The three modes are exclusive: a baked sun and a cascaded one applied at
+    // once would darken every contact twice, and neither would be a fair look
+    // at what the other is doing.
+    const baked = config.shadowMode === "baked";
+    this.sunShadowStrength = baked
+      ? THREE.MathUtils.clamp(config.sunShadow, 0, 1)
+      : 0;
+    this.sunLight.castShadow = config.shadowMode === "dynamic";
 
     // Only the sun's *angle* invalidates a bake. Colour, intensity and the
     // strength sliders all re-derive from the base arrays, which is the whole
@@ -816,7 +823,7 @@ export class MainScene {
       // structure's own bake. A glyph grid spends a quad per cell across every
       // slot a feature matches, so it is no longer one — and the cost would
       // otherwise land on sliders that never move the sun at all.
-      this.bakeEngravingShading();
+      this.readEngravingShading();
     }
 
     this.applyAmbientOcclusion(this.structure.geometry);
@@ -1062,10 +1069,10 @@ export class MainScene {
     // stone would change grain across the edge of the engraving.
     for (const mesh of this.engravingMeshes) {
       const surface = mesh.userData.engravingSurface as MaterialSurfaceId;
-      const grain = (mesh.userData.engravingGrain as number | undefined) ?? 1;
+      const density = (mesh.userData.engravingTextureScale as number | undefined) ?? 1;
       this.applyTextureScale(
         mesh.geometry,
-        () => this.textureScaleFor(surface) * grain,
+        () => this.textureScaleFor(surface) * density,
       );
     }
 
@@ -1203,7 +1210,9 @@ export class MainScene {
       // The opaque sort is by bounding-sphere distance, which says nothing
       // useful between one decal batch and the whole structure.
       mesh.renderOrder = 1;
-      mesh.userData.engravingGrain = batch.appearance.textureScale;
+      // The same number the stone under it was dressed at, so the grain runs
+      // from wall to carving without a boundary anywhere in it.
+      mesh.userData.engravingTextureScale = batch.appearance.textureScale;
       this.applyTextureScale(
         batch.geometry,
         () => this.textureScaleFor(batch.hostSurface) * batch.appearance.textureScale,
@@ -1211,7 +1220,6 @@ export class MainScene {
       this.engravingMeshes.push(mesh);
       this.engravingRoot.add(mesh);
       this.readHostShading(batch.geometry, batch.standOff);
-      this.bakeEngravingShading([mesh]);
       this.refreshEngravingVisibility();
     }));
   }
@@ -1240,6 +1248,8 @@ export class MainScene {
     const normal = geometry.getAttribute("normal");
     const ambientOcclusion = geometry.userData.vertexAoBase as Float32Array;
     const bakedShadow = geometry.userData.bakedShadowBase as Float32Array;
+    const sunVisibility = geometry.userData.sunVisibilityBase as Float32Array;
+    geometry.userData.decalStandOff = standOff;
 
     if (!sampler || !position || !normal) {
       return;
@@ -1259,6 +1269,7 @@ export class MainScene {
       if (shading) {
         ambientOcclusion[vertex] = shading.ambientOcclusion;
         bakedShadow[vertex] = shading.bakedShadow;
+        sunVisibility[vertex] = shading.sunVisibility;
       }
     }
   }
@@ -1271,23 +1282,30 @@ export class MainScene {
    * are traced through the structure's existing hierarchy as receivers only —
    * see `SunBakeScene.bakeTargets` for why they must not join it as casters.
    */
-  private bakeEngravingShading(
-    meshes: readonly THREE.Mesh[] = this.engravingMeshes,
-  ): void {
-    if (meshes.length === 0) {
-      return;
+  /**
+   * Re-reads every decal's shading from the stone it lies on.
+   *
+   * A decal used to trace its own rays at the sun, through the structure as an
+   * occluder. That was right in principle and measurably wrong in fact: the
+   * rays leave from a few millimetres out in front of the wall, clear of the
+   * course joints and stone offsets that shadow the surface underneath, so a
+   * decal came back better lit than its own host — 0.31 against 0.20 on a
+   * coursed elevation. Uniform across a quad and stepping at its edge, which is
+   * a lighter rectangle round every carving and the reason those rectangles
+   * vanished the moment the sun's shadow was switched off.
+   *
+   * Reading the wall's own answer is both correct and cheaper: a decal is not a
+   * separate surface that happens to be near the stone, it *is* the stone, and
+   * nothing about how it is lit should be derived independently.
+   */
+  private readEngravingShading(): void {
+    for (const mesh of this.engravingMeshes) {
+      const standOff = (mesh.geometry.userData.decalStandOff as number | undefined)
+        ?? 0;
+      this.readHostShading(mesh.geometry, standOff);
     }
 
-    const targets: SunBakeTarget[] = meshes.map((mesh) => ({
-      geometry: mesh.geometry,
-    }));
-
-    this.sunBakeScene?.bakeTargets(targets, {
-      direction: this.bakedSunDirection,
-      softness: SUN_BAKE_SOFTNESS,
-      samples: SUN_BAKE_SAMPLES,
-    });
-    this.applyEngravingShading(meshes);
+    this.applyEngravingShading();
   }
 
   /**

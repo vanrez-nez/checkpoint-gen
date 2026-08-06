@@ -197,6 +197,7 @@ export function resolveMassSlots(
           slotRuleOf(feature),
           bands,
           feature.relief,
+          feature.textureScale,
         );
         for (const resolved of found) {
           if (resolved.frame) {
@@ -225,6 +226,7 @@ function stretchSlots(
   rule: SlotRule,
   bands: number,
   relief: number,
+  textureScale: number,
 ): { readonly slot: SlotRecord; readonly frame: FrameRecord | null }[] {
   const cornice = stretch.label === "cornice";
   const patchId = cornice
@@ -300,6 +302,7 @@ function stretchSlots(
       // What the feature asked for, against what this member can spare. The
       // budget is the reason the same request gives a deep pocket on a two
       // metre band and a shallow one on a hand's-width cornice.
+      textureScale,
       faceOffset: resolveSlotRelief(
         relief,
         slotDepthBudget(thickness, rule.recessDepth),
@@ -392,6 +395,7 @@ export function preparedFieldsOf(
         // be a second opinion that could disagree with the record every other
         // consumer reads.
         relief: slot.faceOffset,
+        textureScale: slot.textureScale,
         rowBottomY: Math.max(bottomY - margin, stretch.bottomY),
         rowTopY: Math.min(topY + margin, stretch.topY),
       };

@@ -1724,6 +1724,7 @@
           },
           "aspect": 1.057418,
           "faceOffset": -0.035,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -1781,6 +1782,7 @@
           },
           "aspect": 1.057418,
           "faceOffset": -0.035,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -1838,6 +1840,7 @@
           },
           "aspect": 1.040962,
           "faceOffset": -0.035,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.035,
             "recess": 0.1105
@@ -1895,6 +1898,7 @@
           },
           "aspect": 1.040962,
           "faceOffset": -0.035,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.035,
             "recess": 0.1105
@@ -1952,6 +1956,7 @@
           },
           "aspect": 1.024507,
           "faceOffset": -0.035,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -2009,6 +2014,7 @@
           },
           "aspect": 1.024507,
           "faceOffset": -0.035,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -2066,6 +2072,7 @@
           },
           "aspect": 7.840966,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -2123,6 +2130,7 @@
           },
           "aspect": 7.840966,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -2180,6 +2188,7 @@
           },
           "aspect": 2.428571,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.489934
@@ -2237,6 +2246,7 @@
           },
           "aspect": 2.428571,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.489934
@@ -2294,6 +2304,7 @@
           },
           "aspect": 7.464286,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -2351,6 +2362,7 @@
           },
           "aspect": 7.464286,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.1105
@@ -2408,6 +2420,7 @@
           },
           "aspect": 2.428571,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.463566
@@ -2465,6 +2478,7 @@
           },
           "aspect": 2.428571,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.463566
@@ -2522,6 +2536,7 @@
           },
           "aspect": 0.038462,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.47675
@@ -2579,6 +2594,7 @@
           },
           "aspect": 0.038462,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.025,
             "recess": 0.47675
@@ -2636,6 +2652,7 @@
           },
           "aspect": 3.073529,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.05,
             "recess": 0.066
@@ -2692,6 +2709,7 @@
           },
           "aspect": 6.5,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.05,
             "recess": 0.0825
@@ -2748,6 +2766,7 @@
           },
           "aspect": 6.5,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.05,
             "recess": 0.0825
@@ -2804,6 +2823,7 @@
           },
           "aspect": 2.009091,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.05,
             "recess": 0.0825
@@ -2860,6 +2880,7 @@
           },
           "aspect": 2.009091,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.05,
             "recess": 0.0825

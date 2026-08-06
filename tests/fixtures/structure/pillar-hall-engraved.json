@@ -27386,6 +27386,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -27444,6 +27445,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -27502,6 +27504,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -27560,6 +27563,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -27618,6 +27622,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -27676,6 +27681,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -27734,6 +27740,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -27792,6 +27799,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -27850,6 +27858,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -27908,6 +27917,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -27966,6 +27976,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28024,6 +28035,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28082,6 +28094,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28140,6 +28153,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28198,6 +28212,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28256,6 +28271,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28314,6 +28330,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28372,6 +28389,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28430,6 +28448,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28488,6 +28507,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28546,6 +28566,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28604,6 +28625,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28662,6 +28684,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28720,6 +28743,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28778,6 +28802,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28836,6 +28861,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28894,6 +28920,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -28952,6 +28979,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29010,6 +29038,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29068,6 +29097,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29126,6 +29156,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29184,6 +29215,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29242,6 +29274,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29300,6 +29333,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29358,6 +29392,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29416,6 +29451,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29474,6 +29510,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29532,6 +29569,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29590,6 +29628,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29648,6 +29687,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29706,6 +29746,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29764,6 +29805,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29822,6 +29864,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29880,6 +29923,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29938,6 +29982,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -29996,6 +30041,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30054,6 +30100,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30112,6 +30159,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30170,6 +30218,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30228,6 +30277,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30286,6 +30336,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30344,6 +30395,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30402,6 +30454,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30460,6 +30513,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30518,6 +30572,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30576,6 +30631,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30634,6 +30690,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30692,6 +30749,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30750,6 +30808,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30808,6 +30867,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30866,6 +30926,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30924,6 +30985,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -30982,6 +31044,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31040,6 +31103,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31098,6 +31162,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31156,6 +31221,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31214,6 +31280,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31272,6 +31339,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31330,6 +31398,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31388,6 +31457,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31446,6 +31516,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31504,6 +31575,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31562,6 +31634,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31620,6 +31693,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31678,6 +31752,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31736,6 +31811,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31794,6 +31870,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31852,6 +31929,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31910,6 +31988,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -31968,6 +32047,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32026,6 +32106,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32084,6 +32165,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32142,6 +32224,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32200,6 +32283,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32258,6 +32342,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32316,6 +32401,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32374,6 +32460,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32432,6 +32519,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32490,6 +32578,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32548,6 +32637,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32606,6 +32696,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32664,6 +32755,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32722,6 +32814,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32780,6 +32873,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32838,6 +32932,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32896,6 +32991,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -32954,6 +33050,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33012,6 +33109,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33070,6 +33168,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33128,6 +33227,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33186,6 +33286,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33244,6 +33345,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33302,6 +33404,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33360,6 +33463,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33418,6 +33522,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33476,6 +33581,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33534,6 +33640,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33592,6 +33699,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33650,6 +33758,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33708,6 +33817,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33766,6 +33876,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33824,6 +33935,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33882,6 +33994,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33940,6 +34053,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -33998,6 +34112,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34056,6 +34171,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34114,6 +34230,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34172,6 +34289,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34230,6 +34348,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34288,6 +34407,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34346,6 +34466,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34404,6 +34525,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34462,6 +34584,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34520,6 +34643,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34578,6 +34702,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34636,6 +34761,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34694,6 +34820,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34752,6 +34879,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34810,6 +34938,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34868,6 +34997,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34926,6 +35056,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -34984,6 +35115,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35042,6 +35174,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35100,6 +35233,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35158,6 +35292,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35216,6 +35351,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35274,6 +35410,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35332,6 +35469,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35390,6 +35528,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35448,6 +35587,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35506,6 +35646,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35564,6 +35705,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35622,6 +35764,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35680,6 +35823,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35738,6 +35882,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35796,6 +35941,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35854,6 +36000,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35912,6 +36059,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -35970,6 +36118,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36028,6 +36177,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36086,6 +36236,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36144,6 +36295,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36202,6 +36354,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36260,6 +36413,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36318,6 +36472,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36376,6 +36531,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36434,6 +36590,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36492,6 +36649,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36550,6 +36708,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36608,6 +36767,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36666,6 +36826,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36724,6 +36885,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36782,6 +36944,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36840,6 +37003,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36898,6 +37062,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -36956,6 +37121,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37014,6 +37180,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37072,6 +37239,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37130,6 +37298,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37188,6 +37357,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37246,6 +37416,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37304,6 +37475,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37362,6 +37534,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37420,6 +37593,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37478,6 +37652,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37536,6 +37711,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37594,6 +37770,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37652,6 +37829,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37710,6 +37888,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37768,6 +37947,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37826,6 +38006,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37884,6 +38065,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -37942,6 +38124,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -38000,6 +38183,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -38058,6 +38242,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -38116,6 +38301,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -38174,6 +38360,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -38232,6 +38419,7 @@
           },
           "aspect": 1.6238,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -38290,6 +38478,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -38348,6 +38537,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -38406,6 +38596,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -38464,6 +38655,7 @@
           },
           "aspect": 0.348977,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.01375
@@ -38522,6 +38714,7 @@
           },
           "aspect": 47.083333,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.23925
@@ -38580,6 +38773,7 @@
           },
           "aspect": 47.083333,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.23925
@@ -38638,6 +38832,7 @@
           },
           "aspect": 3.404167,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.23925
@@ -38696,6 +38891,7 @@
           },
           "aspect": 3.404167,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.23925
@@ -38754,6 +38950,7 @@
           },
           "aspect": 63.555556,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.29925
@@ -38812,6 +39009,7 @@
           },
           "aspect": 63.555556,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.29925
@@ -38870,6 +39068,7 @@
           },
           "aspect": 6.65,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.29925
@@ -38928,6 +39127,7 @@
           },
           "aspect": 6.65,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.29925
@@ -38986,6 +39186,7 @@
           },
           "aspect": 47.083333,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.23925
@@ -39044,6 +39245,7 @@
           },
           "aspect": 47.083333,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.23925
@@ -39102,6 +39304,7 @@
           },
           "aspect": 3.404167,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.23925
@@ -39160,6 +39363,7 @@
           },
           "aspect": 3.404167,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.23925
@@ -39218,6 +39422,7 @@
           },
           "aspect": 63.555556,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.29925
@@ -39276,6 +39481,7 @@
           },
           "aspect": 63.555556,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.29925
@@ -39334,6 +39540,7 @@
           },
           "aspect": 6.65,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.29925
@@ -39392,6 +39599,7 @@
           },
           "aspect": 6.65,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.29925
@@ -39450,6 +39658,7 @@
           },
           "aspect": 48.16,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.0875
@@ -39508,6 +39717,7 @@
           },
           "aspect": 48.16,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.0875
@@ -39566,6 +39776,7 @@
           },
           "aspect": 19.04,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.0875
@@ -39624,6 +39835,7 @@
           },
           "aspect": 19.04,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0,
             "recess": 0.0875

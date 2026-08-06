@@ -154,7 +154,19 @@ export function buildEngravingDecalMaterial(
   const hostAo = channel("ambientOcclusion");
   const graphAo: NodeValue = source.aoNode
     ?? (hostAo ? sample(hostAo).r : float(1));
-  material.aoNode = graphAo.mul(engravingAo).mul(attribute("vertexAo", "float"));
+  // The cut's own occlusion, on top of whatever the host already had.
+  //
+  // `vertexAo` is deliberately absent. This material is a clone of the host's
+  // and the graph runtime binds that attribute itself, so naming it here
+  // applies it twice and a decal comes out at the square of the occlusion its
+  // wall is wearing — which, with the sun off and only the hemisphere lighting
+  // the scene, is a visibly darker rectangle around every carving.
+  //
+  // It hid for as long as decals carried a flat one, because one squared is
+  // one. Sampling the stone's real value is what exposed it, and it took an
+  // isolating render to prove: sun intensity, crack shadow and sun shadow all
+  // at zero leaves nothing but this term in the frame.
+  material.aoNode = graphAo.mul(engravingAo);
 
   // The sun and crack terms ride the vertex colour channel for the structure,
   // and `setupDiffuseColor` multiplies it into a user-supplied colour node just

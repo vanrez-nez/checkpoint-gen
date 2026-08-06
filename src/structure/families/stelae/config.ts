@@ -191,6 +191,7 @@ function stelaSlots(
     insetU: 0,
     insetV: 0,
     relief: 0,
+    textureScale: 1,
   };
 
   return {
@@ -200,6 +201,7 @@ function stelaSlots(
       insetU: inset,
       insetV: inset,
       relief: 0,
+      textureScale: 1,
     },
     bandRibbon: { ...plain },
     returnRibbon: { ...plain },

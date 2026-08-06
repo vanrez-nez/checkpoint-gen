@@ -121,6 +121,7 @@ function defaultPillarHallSlots(): PillarHallSlotFeatures {
     insetU: inset,
     insetV: inset,
     relief: 0,
+    textureScale: 1,
   });
 
   return {

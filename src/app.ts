@@ -100,6 +100,9 @@ const mainScene = new MainScene(config, {
   sunShadowCascades,
 });
 
+// TEMPORARY: shading has no test coverage and can only be checked in a frame.
+(window as unknown as Record<string, unknown>).__scene = mainScene;
+
 const activeDefinition = getStructure(config.typeId);
 const activePalette = config.materialPalettes[activeDefinition.id];
 

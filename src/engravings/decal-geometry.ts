@@ -473,14 +473,30 @@ export function decalQuadFromRect(
     return evaluateFrame(frame, lerp(bottomU, topU, t), lerp(bottomV, topV, t), offset);
   };
 
+  const corners: readonly [Vec3, Vec3, Vec3, Vec3] = [
+    at(rect.sMin, rect.tMin),
+    at(rect.sMax, rect.tMin),
+    at(rect.sMax, rect.tMax),
+    at(rect.sMin, rect.tMax),
+  ];
+
   return {
-    corners: [
-      at(rect.sMin, rect.tMin),
-      at(rect.sMax, rect.tMin),
-      at(rect.sMax, rect.tMax),
-      at(rect.sMin, rect.tMax),
-    ],
-    normal: frame.normal,
+    corners,
+    // The face's own normal, not the patch's.
+    //
+    // A patch frame on a battered wall carries an axis-aligned normal while its
+    // `v` runs up the rake, so the two disagree by the batter. That is harmless
+    // for placement, and not at all harmless for the box projection: it applies
+    // a foreshortening correction read off the vertex normal, so a decal
+    // claiming to be plumb was projected without the correction its host wall
+    // was getting. Two per cent of scale, which sounds like nothing and is not —
+    // it is a *drift*, and by the far end of an elevation the decal's grain has
+    // walked a whole texel out of phase with the stone it lies on. Every quad
+    // edge is then a visible seam in a surface that should have none.
+    //
+    // Derived from the corners rather than the frame, so it is the normal of the
+    // quad that was actually built, on a battered face and a plumb one alike.
+    normal: faceNormalOf(corners, frame.normal),
     // The kernel's frames are not consistently handed: a facade's u crossed
     // into its v gives its outward normal, while a horizontal frame's gives the
     // opposite. A terrace or plinth-top slot would therefore be built
@@ -774,6 +790,35 @@ function shrinkT(rect: DecalRect, factor: number): DecalRect {
   const center = (rect.tMin + rect.tMax) / 2;
   const half = ((rect.tMax - rect.tMin) * factor) / 2;
   return { ...rect, tMin: center - half, tMax: center + half };
+}
+
+/**
+ * The quad's own outward normal, falling back to the frame's where it has none.
+ *
+ * Oriented to agree with the frame rather than trusted from the winding: the
+ * corner order is the slot's, and a horizontal frame hands it back reversed.
+ */
+function faceNormalOf(
+  corners: readonly [Vec3, Vec3, Vec3, Vec3],
+  fallback: Vec3,
+): Vec3 {
+  const [origin, along, , up] = corners;
+  const normal = cross(
+    { x: along.x - origin.x, y: along.y - origin.y, z: along.z - origin.z },
+    { x: up.x - origin.x, y: up.y - origin.y, z: up.z - origin.z },
+  );
+  const length = Math.hypot(normal.x, normal.y, normal.z);
+
+  if (!(length > 1e-9)) {
+    return fallback;
+  }
+
+  const sign = dot(normal, fallback) < 0 ? -1 : 1;
+  return {
+    x: (normal.x / length) * sign,
+    y: (normal.y / length) * sign,
+    z: (normal.z / length) * sign,
+  };
 }
 
 function cross(left: Vec3, right: Vec3): Vec3 {

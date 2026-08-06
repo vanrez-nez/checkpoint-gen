@@ -59,23 +59,34 @@ export interface EngravingDecalBatch {
 export interface DecalAppearance {
   readonly aoIntensity: number;
   readonly normalStrength: number;
-  readonly textureScale: number;
   readonly tint: string;
+  /**
+   * The density of the stone under this decal, read off the slot rather than
+   * chosen here.
+   *
+   * A carving and the face it is cut into have to be dressed at one density or
+   * the face reads as a differently-grained square laid on the wall. There is
+   * one number, it belongs to the slot, and this is a copy of it.
+   */
+  readonly textureScale: number;
 }
 
-function appearanceOf(assignment: EngravingAssignment): DecalAppearance {
+function appearanceOf(
+  assignment: EngravingAssignment,
+  textureScale: number,
+): DecalAppearance {
   return {
     aoIntensity: assignment.aoIntensity,
     normalStrength: assignment.normalStrength,
-    textureScale: assignment.textureScale,
     tint: assignment.tint,
+    textureScale,
   };
 }
 
 /** Two features agreeing on all of this can share one mesh; nothing else can. */
 function appearanceKey(appearance: DecalAppearance): string {
   return `${appearance.aoIntensity}|${appearance.normalStrength}`
-    + `|${appearance.textureScale}|${appearance.tint}`;
+    + `|${appearance.tint}|${appearance.textureScale}`;
 }
 
 /**
@@ -154,7 +165,10 @@ export function buildEngravingDecalBatches(
       continue;
     }
 
-    const appearance = appearanceOf(assignment);
+    const appearance = appearanceOf(
+      assignment,
+      layout ? feature.select(layout).textureScale : 1,
+    );
     const push = (
       target: EngravingLayer,
       quad: EngravingDecalQuad,

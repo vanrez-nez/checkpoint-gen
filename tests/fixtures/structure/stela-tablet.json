@@ -1170,6 +1170,7 @@
           },
           "aspect": 0.34913,
           "faceOffset": -0.03,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.03,
             "recess": 0.13
@@ -1227,6 +1228,7 @@
           },
           "aspect": 0.34913,
           "faceOffset": -0.03,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.03,
             "recess": 0.13
@@ -1284,6 +1286,7 @@
           },
           "aspect": 11.622917,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.03,
             "recess": 0.13
@@ -1341,6 +1344,7 @@
           },
           "aspect": 11.622917,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.03,
             "recess": 0.13
@@ -1398,6 +1402,7 @@
           },
           "aspect": 3.333333,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.03,
             "recess": 0.628688
@@ -1455,6 +1460,7 @@
           },
           "aspect": 3.333333,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.03,
             "recess": 0.628688
@@ -1512,6 +1518,7 @@
           },
           "aspect": 5.786667,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.06,
             "recess": 0.084
@@ -1568,6 +1575,7 @@
           },
           "aspect": 5.786667,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.06,
             "recess": 0.084
@@ -1624,6 +1632,7 @@
           },
           "aspect": 1.653333,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.06,
             "recess": 0.084
@@ -1680,6 +1689,7 @@
           },
           "aspect": 1.653333,
           "faceOffset": 0,
+          "textureScale": 1,
           "depthBudget": {
             "relief": 0.06,
             "recess": 0.084

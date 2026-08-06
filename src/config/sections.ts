@@ -132,9 +132,30 @@ export interface IlluminationConfig {
   ambientIntensity: number;
   ambientOcclusion: number;
   crackShadow: number;
-  /** Weight of the baked sun occlusion. The sun casts no realtime shadow. */
+  /** Weight of the baked sun occlusion, when the sun's shadow is baked. */
   sunShadow: number;
+  /**
+   * Where the sun's shadow comes from.
+   *
+   * Three ways rather than a toggle because the two techniques fail
+   * differently, and telling them apart is most of what this is for. `baked`
+   * traces the sun per vertex into a channel, which is what ships; `dynamic`
+   * hands the sun to the cascaded shadow map that is wired but dormant; `off`
+   * leaves the geometry lit by nothing but the light itself, which is the only
+   * way to see whether an artefact belongs to a shadow at all.
+   */
+  shadowMode: ShadowMode;
 }
+
+export const SHADOW_MODES = ["baked", "dynamic", "off"] as const;
+
+export type ShadowMode = (typeof SHADOW_MODES)[number];
+
+export const SHADOW_MODE_OPTIONS: Readonly<Record<string, ShadowMode>> = {
+  Baked: "baked",
+  Dynamic: "dynamic",
+  Off: "off",
+};
 
 export const DEFAULT_ILLUMINATION_CONFIG: Readonly<IlluminationConfig> = {
   keyColor: "#cce2ff",
@@ -147,6 +168,7 @@ export const DEFAULT_ILLUMINATION_CONFIG: Readonly<IlluminationConfig> = {
   ambientOcclusion: 0.75,
   crackShadow: 1,
   sunShadow: 1,
+  shadowMode: "baked",
 };
 
 /**
@@ -407,6 +429,17 @@ export const ILLUMINATION_CONTROLS: readonly ControlSpec<IlluminationConfig>[] =
     min: 0,
     max: 1,
     step: 0.01,
+    scopes: ["illumination"],
+    // Meaningless unless the sun's shadow is the baked one, and a strength
+    // slider that moves nothing is how a reader concludes the bake is broken.
+    visibleWhen: (config) => config.shadowMode === "baked",
+  }),
+  illumination.list({
+    key: "shadowMode",
+    label: "shadows",
+    name: "Sun shadow mode",
+    group: "Illumination",
+    options: SHADOW_MODE_OPTIONS,
     scopes: ["illumination"],
   }),
 ];

@@ -902,6 +902,7 @@ function resolveSlots(
       // record hangs the pocket's whole depth in front of the stone it was
       // carved into — the one failure `standOff` warns about, inverted.
       faceOffset: pocket ? -pocket.depth : 0,
+      textureScale: features.bayField.textureScale,
       depthBudget: depthBudget(layout, body, face, band, frame, bands),
       flow: "none",
       continuity: "per_face",
@@ -950,6 +951,7 @@ function resolveSlots(
         // An applique laid on the body face, not a face that moved. How far it
         // stands proud is the family's `standOff`, read from the layout.
         faceOffset: 0,
+        textureScale: features.bandRibbon.textureScale,
         depthBudget: {
           relief: Math.max(Math.min(layout.maxRelief, band.projection), 0),
           recess: recessBudget(body, face, (band.bottomY + band.topY) / 2),
@@ -1011,6 +1013,7 @@ function resolveSlots(
       // An applique laid on the face, not a face that moved: how far it stands
       // proud is the family's `standOff`, read from the layout.
       faceOffset: 0,
+      textureScale: features.returnRibbon.textureScale,
       depthBudget: {
         relief: Math.max(Math.min(layout.maxRelief, strip.depth), 0),
         recess: recessBudget(body, face, (strip.bottomY + strip.topY) / 2),
@@ -1046,6 +1049,7 @@ function resolveSlots(
         aspect: width / depth,
         // The crown's own top, drawn by the crown courses.
         faceOffset: 0,
+        textureScale: features.crownFace.textureScale,
         depthBudget: {
           relief: Math.max(layout.maxRelief, 0),
           recess: Math.max((crown.topY - crown.bottomY) * 0.3, 0),
@@ -1097,6 +1101,7 @@ function resolveSlots(
           aspect: width / height,
           // The base course's own face.
           faceOffset: 0,
+          textureScale: features.baseFace.textureScale,
           depthBudget: {
             relief: Math.max(Math.min(layout.maxRelief, projection), 0),
             recess: Math.max(projection * 0.5, 0),

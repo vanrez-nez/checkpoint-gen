@@ -1599,7 +1599,6 @@ const chosen = cloneStructureEngravings(engravedDefinition, {
     margin: 0.05,
     normalStrength: 2,
     aoIntensity: 0.5,
-    textureScale: 1.5,
     tint: "#8899aa",
     // A tiled selection rather than a bare one, so the arrangement fields are
     // proved to validate on the path a real assignment takes.
@@ -1640,7 +1639,6 @@ for (const [field, value, pattern] of [
   ["glyphs", "glyph-nonesuch", /glyph/i],
   ["cellMax", 99, /cell/i],
   ["cellGutter", 0.9, /gutter/i],
-  ["textureScale", 99, /texture scale/i],
   // Not a colour the picker could ever have produced.
   ["tint", "burnt sienna", /tint/i],
 ] as const) {

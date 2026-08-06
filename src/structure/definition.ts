@@ -204,6 +204,17 @@ export function slotFeatureControls(
       scopes: ["layout"],
     }),
     ...(framed ? border : []),
+    slotControl.number({
+      key: "textureScale",
+      label: "texture scale",
+      name: `${label} slot texture scale`,
+      group: label,
+      min: 0.25,
+      max: 4,
+      step: 0.05,
+      scopes: ["layout"],
+      visibleWhen: enabled,
+    }),
     ...(relief ? [reliefControl(label, relief)] : []),
   ];
 }
@@ -222,8 +233,11 @@ function reliefControl(
 ): ControlSpec<SlotFeatureConfig> {
   return slotControl.number({
     key: "relief",
-    label: "relief",
-    name: `${label} slot relief`,
+    // Not "relief", which the folder already spends on how strongly an
+    // engraving's cut reads. Two controls under one label in one folder is a
+    // question nobody should have to answer by dragging both.
+    label: "face depth",
+    name: `${label} slot face depth`,
     group: label,
     min: relief.sink ? -MAX_SLOT_RELIEF : 0,
     max: relief.raise ? MAX_SLOT_RELIEF : 0,
