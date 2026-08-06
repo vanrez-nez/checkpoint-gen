@@ -441,10 +441,20 @@ function collectFields(config: StructureConfig): HashField[] {
         addFields(fields, "pillar.bevel", config.pillar.bevel, PILLAR_BEVEL_CONTROLS);
         break;
       case "fireBowl":
-        addFields(fields, "fireBowl", config.fireBowl, FIRE_BOWL_CONTROLS);
+        addFields(
+          fields,
+          `${definition.id}.fireBowl`,
+          requireRecord(config.fireBowls, definition.id, "fire bowl"),
+          FIRE_BOWL_CONTROLS,
+        );
         break;
       case "fire":
-        addFields(fields, "fire", config.fire, FIRE_CONTROLS);
+        addFields(
+          fields,
+          `${definition.id}.fire`,
+          requireRecord(config.fires, definition.id, "fire"),
+          FIRE_CONTROLS,
+        );
         break;
       case "offering":
         addFields(fields, "offering", config.offering, OFFERING_CONTROLS);
@@ -497,10 +507,16 @@ function overwriteProp(
       overwriteObject(target.pillar, source.pillar);
       return;
     case "fireBowl":
-      overwriteObject(target.fireBowl, source.fireBowl);
+      overwriteObject(
+        requireRecord(target.fireBowls, definition.id, "fire bowl"),
+        requireRecord(source.fireBowls, definition.id, "decoded fire bowl"),
+      );
       return;
     case "fire":
-      overwriteObject(target.fire, source.fire);
+      overwriteObject(
+        requireRecord(target.fires, definition.id, "fire"),
+        requireRecord(source.fires, definition.id, "decoded fire"),
+      );
       return;
     case "offering":
       overwriteObject(target.offering, source.offering);

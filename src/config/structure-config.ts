@@ -84,8 +84,18 @@ export interface StructureConfig {
   /** Which engraving each slot-bearing feature carries, keyed by structure. */
   engravings: Record<string, StructureEngravings>;
   pillar: PillarConfig;
-  fireBowl: FireBowlConfig;
-  fire: FireConfig;
+  /**
+   * The bowl and its flame, keyed by structure.
+   *
+   * Per structure rather than shared, because these are the two props both
+   * families declare and the only ones that were ever linked — `pillar` and
+   * `offering` belong to the circular checkpoint alone, so nothing could
+   * observe them being global. A brazier sized for a circular hearth is not the
+   * one that belongs on a pyramid's parapet terminals, and tuning one used to
+   * retune the other behind your back.
+   */
+  fireBowls: Record<string, FireBowlConfig>;
+  fires: Record<string, FireConfig>;
   offering: OfferingConfig;
   illumination: IlluminationConfig;
   view: ViewConfig;
@@ -97,6 +107,8 @@ export function createDefaultStructureConfig(): StructureConfig {
   const bevels: Record<string, BevelConfig> = {};
   const materialPalettes: Record<string, StructureMaterialPalette> = {};
   const engravings: Record<string, StructureEngravings> = {};
+  const fireBowls: Record<string, FireBowlConfig> = {};
+  const fires: Record<string, FireConfig> = {};
 
   // Every registered structure gets its live layout up front, so the pane can
   // bind all of them once. Surface objects follow the same rule, allowing one
@@ -115,6 +127,11 @@ export function createDefaultStructureConfig(): StructureConfig {
     // A structure with no slot-bearing features gets an empty record rather
     // than no record, so every reader can index without a presence check.
     engravings[definition.id] = cloneStructureEngravings(definition);
+    // Seeded for every structure, not only those declaring the props: the pane
+    // binds all of them once, and a family that gains a fire later must not
+    // find a missing record.
+    fireBowls[definition.id] = cloneFireBowlConfig(DEFAULT_FIRE_BOWL_CONFIG);
+    fires[definition.id] = cloneFireConfig(DEFAULT_FIRE_CONFIG);
   }
 
   return {
@@ -125,12 +142,42 @@ export function createDefaultStructureConfig(): StructureConfig {
     materialPalettes,
     engravings,
     pillar: clonePillarConfig(DEFAULT_PILLAR_CONFIG),
-    fireBowl: cloneFireBowlConfig(DEFAULT_FIRE_BOWL_CONFIG),
-    fire: cloneFireConfig(DEFAULT_FIRE_CONFIG),
+    fireBowls,
+    fires,
     offering: cloneOfferingConfig(DEFAULT_OFFERING_CONFIG),
     illumination: cloneIlluminationConfig(DEFAULT_ILLUMINATION_CONFIG),
     view: { ...DEFAULT_VIEW_CONFIG },
   };
+}
+
+/**
+ * The fire and bowl belonging to whichever structure is selected.
+ *
+ * A named accessor rather than an index at each call site, because there are
+ * six of them across the scene and the composer and every one of them wants the
+ * same record — and because a missing one is a broken config rather than a
+ * `undefined` to be threaded onward.
+ */
+export function activeFire(config: StructureConfig): FireConfig {
+  const fire = config.fires[config.typeId];
+
+  if (!fire) {
+    throw new Error(`Missing fire config for structure "${config.typeId}".`);
+  }
+
+  return fire;
+}
+
+export function activeFireBowl(config: StructureConfig): FireBowlConfig {
+  const bowl = config.fireBowls[config.typeId];
+
+  if (!bowl) {
+    throw new Error(
+      `Missing fire bowl config for structure "${config.typeId}".`,
+    );
+  }
+
+  return bowl;
 }
 
 /**
@@ -257,13 +304,27 @@ export function validateActiveStructureGeometryConfig(
     validatePillarConfig(config.pillar);
   }
   if (definition.props.includes("fireBowl")) {
+    const fireBowl = config.fireBowls[definition.id];
+
+    if (!fireBowl) {
+      throw new Error(
+        `Missing fire bowl config for structure "${definition.id}".`,
+      );
+    }
+
     validateFireBowlConfig(
-      config.fireBowl,
+      fireBowl,
       definition.props.includes("pillar") ? config.pillar.shaftWidth : 1,
     );
   }
   if (definition.props.includes("fire")) {
-    validateFireConfig(config.fire);
+    const fire = config.fires[definition.id];
+
+    if (!fire) {
+      throw new Error(`Missing fire config for structure "${definition.id}".`);
+    }
+
+    validateFireConfig(fire);
   }
   if (definition.props.includes("offering")) {
     validateOfferingConfig(config.offering);

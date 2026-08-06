@@ -56,7 +56,10 @@ import { createPatchOverlay, type PatchOverlay } from "../structure/kernel/debug
 import type { SlotFeatureSpec, StructureDefinition } from "../structure/definition";
 import type { StructureGraph } from "../structure/kernel/graph";
 import type { Diagnostic } from "../structure/kernel/validate";
-import type { StructureConfig } from "../config/structure-config";
+import {
+  activeFire,
+  type StructureConfig,
+} from "../config/structure-config";
 import {
   cloneMaterialPalette,
   dressingDiffers,
@@ -300,7 +303,7 @@ export class MainScene {
     this.sunShadowStrength = config.illumination.sunShadow;
     this.scene.background = new THREE.Color(0x171714);
     this.fireBatch = new VertexConeFireBatch(
-      config.fire.radialSegments,
+      activeFire(config).radialSegments,
       MAX_FIRE_FLAMES,
     );
 
@@ -419,7 +422,7 @@ export class MainScene {
     this.structure.receiveShadow = true;
     this.engravingRoot.name = "Engraving decals";
     this.scene.add(this.structure, this.engravingRoot, this.fireBatch.object);
-    this.applyFireEffects(config.fire);
+    this.applyFireEffects(activeFire(config));
 
     this.sunLight = new THREE.DirectionalLight();
     // The sun's occlusion is baked per structure, so it casts nothing at
@@ -647,7 +650,7 @@ export class MainScene {
     this.rebuildVertexNormalsHelper();
     this.updateOfferingTransform();
     this.refreshOfferingPresentation();
-    this.applyFireEffects(config.fire);
+    this.applyFireEffects(activeFire(config));
     // Re-read here rather than only on an engraving change, because switching
     // structure type comes through this path and brings a different family's
     // features with it.
@@ -685,7 +688,7 @@ export class MainScene {
 
   /** Retunes flames and glow lights without touching geometry. */
   updateFireEffects(config: StructureConfig): CompositionStats {
-    this.applyFireEffects(config.fire);
+    this.applyFireEffects(activeFire(config));
     return this.getStats();
   }
 

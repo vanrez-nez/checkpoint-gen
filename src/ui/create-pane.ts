@@ -17,6 +17,8 @@ import {
   type StructureDefinition,
 } from "../structure/definition";
 import {
+  activeFire,
+  activeFireBowl,
   restoreStructureConfig,
   sectionsForScopes,
   snapshotStructureConfig,
@@ -569,10 +571,19 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     page: TabPageApi,
     folders: Map<string, FolderApi>,
   ): void {
-    const bowl = bindControls(page, config.fireBowl, FIRE_BOWL_CONTROLS, dispatch, folders);
+    // The active structure's own bowl. Bound like a layout rather than like a
+    // shared prop, because the tab bar is rebuilt on a type change and each
+    // family keeps its own brazier.
+    const bowl = bindControls(
+      page,
+      activeFireBowl(config),
+      FIRE_BOWL_CONTROLS,
+      dispatch,
+      folders,
+    );
     visibility.addBlades(
       [findControl(bowl, "scale"), findControl(bowl, "radialSegments")],
-      () => config.fireBowl.enabled,
+      () => activeFireBowl(config).enabled,
     );
   }
 
@@ -580,28 +591,34 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
     page: TabPageApi,
     folders: Map<string, FolderApi>,
   ): void {
-    const fire = bindControls(page, config.fire, FIRE_CONTROLS, dispatch, folders);
+    const fire = bindControls(
+      page,
+      activeFire(config),
+      FIRE_CONTROLS,
+      dispatch,
+      folders,
+    );
     // Flames need a bowl to sit in, so the whole flame group follows the bowl.
     const flameKeys = ["enabled", "scale", "radius", "height", "baseHeight",
       "radialSegments", "speed", "noiseScale", "turbulence", "intensity"] as const;
     visibility.addBlade(
       findControl(fire, "enabled"),
-      () => config.fireBowl.enabled,
+      () => activeFireBowl(config).enabled,
     );
     visibility.addBlades(
       flameKeys.filter((key) => key !== "enabled").map((key) => findControl(fire, key)),
-      () => config.fireBowl.enabled && config.fire.enabled,
+      () => activeFireBowl(config).enabled && activeFire(config).enabled,
     );
     visibility.addBlade(
       findControl(fire, "glowEnabled"),
-      () => config.fireBowl.enabled && config.fire.enabled,
+      () => activeFireBowl(config).enabled && activeFire(config).enabled,
     );
     visibility.addBlade(
       findControl(fire, "glowCastShadow"),
       () => fireGlowShadowsSupported
-        && config.fireBowl.enabled
-        && config.fire.enabled
-        && config.fire.glowEnabled,
+        && activeFireBowl(config).enabled
+        && activeFire(config).enabled
+        && activeFire(config).glowEnabled,
     );
     visibility.addBlades(
       [
@@ -611,9 +628,9 @@ export function createControlPane(options: ControlPaneOptions): ControlPane {
         findControl(fire, "glowVerticalDistance"),
         findControl(fire, "glowFlicker"),
       ],
-      () => config.fireBowl.enabled
-        && config.fire.enabled
-        && config.fire.glowEnabled,
+      () => activeFireBowl(config).enabled
+        && activeFire(config).enabled
+        && activeFire(config).glowEnabled,
     );
   }
 

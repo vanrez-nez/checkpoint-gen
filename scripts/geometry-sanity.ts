@@ -39,6 +39,8 @@ import {
   circularCenterMetrics,
 } from "../src/structure/families/circular/shell";
 import {
+  activeFire,
+  activeFireBowl,
   createDefaultStructureConfig,
   restoreStructureConfig,
   sectionsForScopes,
@@ -346,7 +348,7 @@ const slottedMassGraph = resolveMassLayout(slottedMassLayout);
 const massBowlSlots = resolveMassFireBowlSlots(
   slottedMassLayout,
   slottedMassGraph,
-  slottedMassConfig.fireBowl,
+  slottedMassConfig.fireBowls.mass!,
 );
 // The foot of every flight keeps both of its own slots: the flights diverge on
 // the way down, so nothing there can collide.
@@ -380,7 +382,7 @@ for (const slot of massBowlSlots) {
   const outward = stairBasis(connector.direction).outward;
   const expectedWidth = parapet.width + parapet.cornice!.projection * 2;
   assert.ok(Math.abs(slot.availableWidth - expectedWidth) < 1e-9);
-  assert.equal(slot.bowlScale, Math.min(slottedMassConfig.fireBowl.scale, MAX_FIRE_BOWL_SLOT_FILL));
+  assert.equal(slot.bowlScale, Math.min(slottedMassConfig.fireBowls.mass!.scale, MAX_FIRE_BOWL_SLOT_FILL));
 
   if (slot.merged) {
     // A merged pier stands on a corner and belongs to neither flight, so it
@@ -395,7 +397,7 @@ for (const slot of massBowlSlots) {
     assert.equal(slot.outwardZ, outward.z);
   }
   const bowl = createFireBowlGeometry(
-    { ...slottedMassConfig.fireBowl, scale: slot.bowlScale },
+    { ...slottedMassConfig.fireBowls.mass!, scale: slot.bowlScale },
     slot.referenceWidth,
   );
   const bounds = bowl.geometry.boundingBox!;
@@ -478,7 +480,7 @@ assert.equal(
   resolveMassFireBowlSlots(
     bottomOnlyMassLayout,
     resolveMassLayout(bottomOnlyMassLayout),
-    slottedMassConfig.fireBowl,
+    slottedMassConfig.fireBowls.mass!,
   ).length,
   slottedMassGraph.connectors.length * 2,
 );
@@ -496,7 +498,7 @@ const steppedSlotGraph = resolveMassLayout(steppedSlotLayout);
 const steppedSlots = resolveMassFireBowlSlots(
   steppedSlotLayout,
   steppedSlotGraph,
-  slottedMassConfig.fireBowl,
+  slottedMassConfig.fireBowls.mass!,
 );
 assert.equal(steppedSlots.length, 4);
 const steppedConnector = steppedSlotGraph.connectors[0]!;
@@ -507,7 +509,7 @@ assert.ok(steppedSlots.filter((slot) => slot.level === "bottom").every((slot) =>
   ) < 1e-9));
 
 const disabledMassBowlConfig = structuredClone(slottedMassConfig);
-disabledMassBowlConfig.fireBowl.enabled = false;
+disabledMassBowlConfig.fireBowls[disabledMassBowlConfig.typeId]!.enabled = false;
 const disabledMassBowls = new StructureComposer().build(disabledMassBowlConfig);
 assert.equal(disabledMassBowls.sections.fireBowls.partCount, 0);
 assert.equal(disabledMassBowls.anchors.flames.length, 0);
@@ -522,7 +524,7 @@ assert.equal(
   resolveMassFireBowlSlots(
     crampedMassLayout,
     resolveMassLayout(crampedMassLayout),
-    slottedMassConfig.fireBowl,
+    slottedMassConfig.fireBowls.mass!,
   ).length,
   0,
   "A parapet terminal below the minimum usable square must expose no bowl slots.",
@@ -541,7 +543,7 @@ assert.equal(
   resolveMassFireBowlSlots(
     noCorniceMassLayout,
     resolveMassLayout(noCorniceMassLayout),
-    slottedMassConfig.fireBowl,
+    slottedMassConfig.fireBowls.mass!,
   ).length,
   0,
   "A parapet without a resolved cornice must expose no bowl slots.",
@@ -649,7 +651,7 @@ const circularRoundTripSource = createDefaultStructureConfig();
 (circularRoundTripSource.layouts.circular as { radius: number }).radius = 4.2;
 circularRoundTripSource.stones.circular!.seed = 314;
 circularRoundTripSource.pillar.height = 2.4;
-circularRoundTripSource.fireBowl.radialSegments = 32;
+circularRoundTripSource.fireBowls[circularRoundTripSource.typeId]!.radialSegments = 32;
 const circularRoundTripTarget = createDefaultStructureConfig();
 applyStructureHash(
   circularRoundTripTarget,
@@ -1668,7 +1670,7 @@ for (let vertex = 0; vertex < shell.vertexCount; vertex += 1) {
 // Bowls off drops the iron group along with every fire anchor; the surfaces that
 // did produce geometry keep their own groups.
 const noBowlConfig = createDefaultStructureConfig();
-noBowlConfig.fireBowl.enabled = false;
+noBowlConfig.fireBowls[noBowlConfig.typeId]!.enabled = false;
 const noBowlComposition = new StructureComposer().build(noBowlConfig);
 assert.deepEqual(
   noBowlComposition.geometry.groups.map((group) => group.materialIndex),
@@ -2015,13 +2017,13 @@ assertEveryControlParamIsValidated(
 assertEveryControlParamIsValidated(
   createDefaultStructureConfig,
   FIRE_BOWL_CONTROLS,
-  (current) => current.fireBowl,
+  (current) => current.fireBowls[current.typeId]!,
   "fire bowl",
 );
 assertEveryControlParamIsValidated(
   createDefaultStructureConfig,
   FIRE_CONTROLS,
-  (current) => current.fire,
+  (current) => current.fires[current.typeId]!,
   "fire",
 );
 assertEveryControlParamIsValidated(
@@ -2360,6 +2362,44 @@ assertSurfaceTextureScale(structureMesh.geometry, "pillar", 1);
   );
 }
 
+// Fire and its bowl belong to a structure, not to the sandbox.
+//
+// They are the only two props both families declare, so they were the only ones
+// that could be — and silently were — shared: tuning a pyramid's brazier
+// retuned the circular checkpoint's, and switching back showed someone else's
+// numbers. `pillar` and `offering` stay global because only the circular
+// checkpoint declares them, and nothing can observe a value it never reads.
+{
+  const tuned = createDefaultStructureConfig();
+  tuned.typeId = "mass";
+  activeFire(tuned).scale = 2.5;
+  activeFireBowl(tuned).scale = 1.4;
+
+  tuned.typeId = "circular";
+  assert.equal(
+    activeFire(tuned).scale,
+    DEFAULT_FIRE_CONFIG.scale,
+    "Tuning the mass fire must leave the circular one alone.",
+  );
+  assert.equal(activeFireBowl(tuned).scale, DEFAULT_FIRE_BOWL_CONFIG.scale);
+
+  tuned.typeId = "mass";
+  assert.equal(activeFire(tuned).scale, 2.5, "The mass fire must keep its own.");
+  assert.equal(activeFireBowl(tuned).scale, 1.4);
+
+  // A code still carries only the structure it was taken from, which is what
+  // keeps the wire schema the same size as when the two were shared.
+  const restored = createDefaultStructureConfig();
+  applyStructureHash(restored, encodeStructureHash(tuned));
+  assert.equal(activeFire(restored).scale, 2.5);
+  restored.typeId = "circular";
+  assert.equal(
+    activeFire(restored).scale,
+    DEFAULT_FIRE_CONFIG.scale,
+    "A mass code must not write the circular structure's fire.",
+  );
+}
+
 // Fire retuning must not rebuild geometry or recreate the flame batch.
 const firstGlowLight = scene.scene.children.find((child) => child.type === "PointLight");
 const firstPointLight = firstGlowLight as THREE.PointLight;
@@ -2386,15 +2426,15 @@ assert.ok(Math.abs(firstPointLight.position.z - firstGlowAnchor.z) < 1e-9);
 const flameObject = scene.scene.getObjectByName("Fire bowl flames") as THREE.Mesh;
 const flameGeometry = flameObject.geometry;
 const structureGeometry = structureMesh.geometry;
-sceneConfig.fire.speed = 5;
-sceneConfig.fire.noiseScale = 6;
-sceneConfig.fire.turbulence = 1.5;
-sceneConfig.fire.intensity = 2;
-sceneConfig.fire.glowIntensity = 1.2;
-sceneConfig.fire.glowDistance = 4.5;
-sceneConfig.fire.glowHorizontalDistance = 0.75;
-sceneConfig.fire.glowVerticalDistance = 0.6;
-sceneConfig.fire.glowCastShadow = true;
+sceneConfig.fires[sceneConfig.typeId]!.speed = 5;
+sceneConfig.fires[sceneConfig.typeId]!.noiseScale = 6;
+sceneConfig.fires[sceneConfig.typeId]!.turbulence = 1.5;
+sceneConfig.fires[sceneConfig.typeId]!.intensity = 2;
+sceneConfig.fires[sceneConfig.typeId]!.glowIntensity = 1.2;
+sceneConfig.fires[sceneConfig.typeId]!.glowDistance = 4.5;
+sceneConfig.fires[sceneConfig.typeId]!.glowHorizontalDistance = 0.75;
+sceneConfig.fires[sceneConfig.typeId]!.glowVerticalDistance = 0.6;
+sceneConfig.fires[sceneConfig.typeId]!.glowCastShadow = true;
 const tunedFireStats = scene.updateFireEffects(sceneConfig);
 assert.equal(tunedFireStats.flames.count, 8);
 assert.equal(scene.scene.getObjectByName("Fire bowl flames"), flameObject);
@@ -2415,8 +2455,8 @@ assert.ok(Math.abs(
   firstPointLight.position.y
     - (
       firstGlowAnchor.y
-      + sceneConfig.fire.baseHeight
-      + sceneConfig.fire.height * sceneConfig.fire.scale * 0.35
+      + sceneConfig.fires[sceneConfig.typeId]!.baseHeight
+      + sceneConfig.fires[sceneConfig.typeId]!.height * sceneConfig.fires[sceneConfig.typeId]!.scale * 0.35
       + 0.6
     ),
 ) < 1e-9);
@@ -2425,7 +2465,7 @@ assert.ok(Math.abs(
     - (firstGlowAnchor.z + (firstGlowAnchor.outwardZ ?? 0) * 0.75),
 ) < 1e-9);
 assert.equal(firstPointLight.castShadow, true);
-sceneConfig.fire.glowCastShadow = false;
+sceneConfig.fires[sceneConfig.typeId]!.glowCastShadow = false;
 scene.updateFireEffects(sceneConfig);
 assert.equal(
   scene.scene.children.find((child) => child.type === "PointLight"),
@@ -2446,7 +2486,7 @@ assert.equal(
 );
 
 const noFireConfig = createDefaultStructureConfig();
-noFireConfig.fireBowl.enabled = false;
+noFireConfig.fireBowls[noFireConfig.typeId]!.enabled = false;
 const noFireStats = scene.rebuild(noFireConfig);
 assert.equal(noFireStats.flames.count, 0);
 assert.equal(noFireStats.flames.drawCallCount, 0);
@@ -2459,7 +2499,7 @@ assert.equal(
 
 // Bowl size is independent of flame size.
 const scaledBowlConfig = createDefaultStructureConfig();
-scaledBowlConfig.fireBowl.scale = 2;
+scaledBowlConfig.fireBowls[scaledBowlConfig.typeId]!.scale = 2;
 const independentFireStats = scene.rebuild(scaledBowlConfig);
 assert.equal(independentFireStats.flames.vertexCount, 3_400);
 assert.equal(independentFireStats.flames.triangleCount, 6_016);
@@ -2479,14 +2519,14 @@ assert.equal(
 );
 
 const disabledFlameConfig = createDefaultStructureConfig();
-disabledFlameConfig.fire.enabled = false;
+disabledFlameConfig.fires[disabledFlameConfig.typeId]!.enabled = false;
 const explicitlyDisabledFireStats = scene.updateFireEffects(disabledFlameConfig);
 assert.equal(explicitlyDisabledFireStats.flames.count, 0);
 assert.equal(explicitlyDisabledFireStats.glowLightCount, 0);
 scene.dispose();
 
 const limitedShadowConfig = createDefaultStructureConfig();
-limitedShadowConfig.fire.glowCastShadow = true;
+limitedShadowConfig.fires[limitedShadowConfig.typeId]!.glowCastShadow = true;
 const limitedShadowScene = new MainScene(limitedShadowConfig, {
   fireGlowShadowsSupported: false,
 });
@@ -3009,14 +3049,14 @@ function hashControlSections(config: StructureConfig): HashControlSection[] {
       case "fireBowl":
         sections.push({
           label: "fireBowl",
-          target: config.fireBowl as unknown as Record<string, unknown>,
+          target: config.fireBowls[config.typeId] as unknown as Record<string, unknown>,
           specs: FIRE_BOWL_CONTROLS as unknown as readonly ControlSpec<object>[],
         });
         break;
       case "fire":
         sections.push({
           label: "fire",
-          target: config.fire as unknown as Record<string, unknown>,
+          target: config.fires[config.typeId] as unknown as Record<string, unknown>,
           specs: FIRE_CONTROLS as unknown as readonly ControlSpec<object>[],
         });
         break;

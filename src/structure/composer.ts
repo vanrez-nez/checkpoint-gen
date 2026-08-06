@@ -1,5 +1,6 @@
 import type * as THREE from "three";
 import {
+  activeFireBowl,
   validateActiveStructureConfig,
   type StructureConfig,
 } from "../config/structure-config";
@@ -111,7 +112,7 @@ export class StructureComposer {
       stone,
       bevel,
       pillar: config.pillar,
-      fireBowl: config.fireBowl,
+      fireBowl: activeFireBowl(config),
       debugSlots: config.view.slotDebug,
       detail,
       sections: requested,

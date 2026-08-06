@@ -244,8 +244,16 @@ function restoreGeometryHash(): void {
 }
 
 function applyRendererCapabilities(): void {
-  if (!fireGlowShadowsSupported && config.fire.glowCastShadow) {
-    config.fire.glowCastShadow = false;
+  // Every structure's fire, not just the active one: the limit belongs to the
+  // GPU, so a family switched to later must not come up asking for a shadow
+  // this device cannot cast.
+  const unsupported = Object.values(config.fires)
+    .filter((fire) => fire.glowCastShadow);
+
+  if (!fireGlowShadowsSupported && unsupported.length > 0) {
+    for (const fire of unsupported) {
+      fire.glowCastShadow = false;
+    }
     console.warn(
       "Fire glow shadows are unavailable because this GPU device does not expose "
       + "enough sampled-texture and sampler bindings.",
