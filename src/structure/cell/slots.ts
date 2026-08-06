@@ -94,41 +94,70 @@ export function resolveCellSlots(input: CellSlotInput): ResolvedCellSlots {
       )),
     ];
 
-    let head = 1;
+    // Which horizontal bands the grid offers, and which of them are stone.
+    //
+    // A field is drawable exactly when it fits inside one cell of the grid
+    // `profileWallPanels` cuts — one straddling a split belongs to no panel and
+    // is published, tinted by nothing, and never drawn. The bands are therefore
+    // the feature bounds, and the field takes the tallest one its own column
+    // leaves free.
+    //
+    // The tallest, not the lowest. Running the field up from the floor is the
+    // obvious rule and it is wrong on any wall whose features do not stand on
+    // the ground: a window floating in a side wall puts a split at its sill,
+    // and a field starting at the floor gets the strip underneath — a 0.17 m
+    // ledge where the 1.62 m panel beside the window was the field worth
+    // having.
+    const fragments = compiled.flatMap((entry) => entry.fragments);
 
-    for (const entry of compiled) {
-      for (const fragment of entry.fragments) {
-        // `profileWallPanels` cuts the wall into a grid at every feature's
-        // bounds, in *both* axes and across the whole face. A field is drawable
-        // exactly when it fits inside one cell of that grid: one straddling a
-        // split belongs to no panel, and is published, tinted by nothing, and
-        // never drawn. So the field is fitted to the grid here.
-        //
-        // A frieze hangs from the parapet and runs nearly the full width. It
-        // lowers the field's ceiling and takes no width — carving its `u` would
-        // leave slivers at the wall's ends and nothing in between, which is
-        // what published no fields at all the first time this was tried.
-        if (fragment.vMax >= 1 - EPS) {
-          head = Math.min(head, fragment.vMin);
-          continue;
-        }
+    // Stone that only exists because a window stopped short of the corner is a
+    // jamb, not a field.
+    //
+    // A window is anchored to neither the floor nor the parapet, so unlike a
+    // doorway or a frieze it splits the wall in both axes at once. What it
+    // leaves hard against itself is a remnant — on the default summit, 0.04 of
+    // the wall's width against its neighbour's 0.19 — and engraving it puts a
+    // stripe beside the opening that reads as a mistake. The stone further
+    // along the same wall is untouched by any of that and is a field like any
+    // other.
+    const floating = fragments.filter((fragment) =>
+      fragment.vMin > EPS && fragment.vMax < 1 - EPS);
+    const cuts = [...new Set([
+      0,
+      1,
+      ...fragments.flatMap((fragment) => [fragment.vMin, fragment.vMax]),
+    ])]
+      .filter((v) => v >= -EPS && v <= 1 + EPS)
+      .sort((left, right) => left - right);
 
-        // Everything else divides the wall across and is carved out of it: the
-        // entrance, the pilasters flanking it, a window floating in a side
-        // wall. Where the field's ceiling then falls depends on which end the
-        // feature is anchored to — a doorway is open to the floor, so the wall
-        // is whole up to its head, while a window has stone under it and the
-        // split is at its sill.
-        spans = spans.flatMap((span) =>
-          withoutRange(span, [fragment.uMin, fragment.uMax]));
-        head = Math.min(
-          head,
-          fragment.vMin > EPS ? fragment.vMin : fragment.vMax,
-        );
+    // A capping band — a frieze hanging off the parapet — spans nearly the
+    // whole face, so carving its width would leave slivers at the wall's ends
+    // and nothing between them. It takes a band instead, and the loop below
+    // finds it occupied. Everything else divides the wall across and is cut
+    // out of it: the entrance, the pilasters flanking it, the window.
+    for (const fragment of fragments) {
+      if (fragment.vMax >= 1 - EPS) {
+        continue;
       }
+
+      spans = spans.flatMap((span) =>
+        withoutRange(span, [fragment.uMin, fragment.uMax]));
     }
 
+    // Dropped after carving rather than before, because a remnant is only
+    // recognisable once the spans exist: it is a span that a floating feature
+    // put an edge on.
+    spans = spans.filter((span) => !floating.some((fragment) =>
+      Math.abs(span[0].at - fragment.uMax) <= EPS
+      || Math.abs(span[1].at - fragment.uMin) <= EPS));
+
     for (const [index, span] of spans.entries()) {
+      const band = tallestFreeBand(span, cuts, fragments);
+
+      if (!band) {
+        continue;
+      }
+
       const resolved = resolveFaceSlot({
         id: structurePath(
           input.cell.id,
@@ -144,10 +173,7 @@ export function resolveCellSlots(input: CellSlotInput): ResolvedCellSlots {
         bayId: null,
         patchId: patch.id,
         uEdges: span,
-        // Stone beside an entry stops at its head: `profileWallPanels` breaks
-        // the wall there, so the band above the opening is a panel of its own
-        // and a field reaching into it would belong to neither.
-        vRange: [0, head],
+        vRange: band,
         widthBottom: patch.dimensions.u,
         widthTop: patch.dimensions.u,
         faceHeight: patch.dimensions.v,
@@ -219,6 +245,59 @@ function drawnWallRange(
  * Keyed by the panel `cellPanels` gives that wall, so the builder can ask "does
  * this panel carry a field" without re-deriving where the field is.
  */
+/**
+ * The tallest unbroken run of stone in a column, or null if there is none.
+ *
+ * Runs, not single bands. A feature's bounds split the grid across the whole
+ * wall, so a window in one bay puts a sill and a head through every other bay
+ * too — and taking one band at a time gave the column beside a window a 1.26 m
+ * field where the same column on the opposite wall had 2.24 m. Consecutive
+ * bands that are both plain stone are one face, and are merged here.
+ *
+ * `profileWallPanels` merges the same runs when it emits the wall, and it has
+ * to: a field is drawable only if some panel contains it, so a run this joins
+ * and that leaves split is a field published and never drawn. Both test a
+ * cell's centre against the same fragments, which is what keeps them agreeing.
+ */
+function tallestFreeBand(
+  span: readonly [FaceEdgeSource, FaceEdgeSource],
+  cuts: readonly number[],
+  fragments: readonly { uMin: number; uMax: number; vMin: number; vMax: number }[],
+): readonly [number, number] | null {
+  const u = (span[0].at + span[1].at) * 0.5;
+  let best: readonly [number, number] | null = null;
+  let runFrom: number | null = null;
+
+  for (let index = 0; index < cuts.length - 1; index += 1) {
+    const bottom = cuts[index]!;
+    const top = cuts[index + 1]!;
+
+    if (top - bottom <= EPS) {
+      continue;
+    }
+
+    const v = (bottom + top) * 0.5;
+    const covered = fragments.some((fragment) =>
+      u > fragment.uMin + EPS
+      && u < fragment.uMax - EPS
+      && v > fragment.vMin + EPS
+      && v < fragment.vMax - EPS);
+
+    if (covered) {
+      runFrom = null;
+      continue;
+    }
+
+    runFrom ??= bottom;
+
+    if (!best || top - runFrom > best[1] - best[0]) {
+      best = [runFrom, top];
+    }
+  }
+
+  return best;
+}
+
 export interface PreparedCellField {
   readonly orientation: HorizontalOrientation;
   /** Along the wall: world X for a front or rear wall, world Z otherwise. */

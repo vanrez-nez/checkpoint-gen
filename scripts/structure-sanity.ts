@@ -6053,6 +6053,12 @@ for (const batterAngle of [0, 12, 25, 35]) {
 // stopped under the frieze rather than at the parapet. The pilasters divide the
 // wall exactly where the doorway already did, which is why the count matches
 // the plain case instead of exceeding it.
+//
+// `sidePositiveU` takes one, not two. It is the wall that gets the secondary
+// window, and a window is anchored to neither the floor nor the parapet, so it
+// splits the wall in both axes at once. The stone left hard against it is a
+// jamb rather than a field and is dropped; the stone further along the wall is
+// untouched by the opening and is a field like any other.
 for (const [label, overrides, expected] of [
   ["every approach", {}, { front: 2, rear: 2, sidePositiveU: 2, sideNegativeU: 2 }],
   [
@@ -6063,7 +6069,7 @@ for (const [label, overrides, expected] of [
   [
     "hierarchical facade",
     { facadeStyle: "hierarchical" as const },
-    { front: 2, rear: 2, sidePositiveU: 2, sideNegativeU: 2 },
+    { front: 2, rear: 2, sidePositiveU: 1, sideNegativeU: 2 },
   ],
 ] as const) {
   const layout = withMassSlots(

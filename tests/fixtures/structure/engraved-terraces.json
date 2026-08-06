@@ -8083,7 +8083,7 @@
           ],
           "vRange": [
             0.045,
-            0.605
+            0.955
           ],
           "priority": 10,
           "allowedOperations": [],
@@ -8105,7 +8105,7 @@
           ],
           "vRange": [
             0.045,
-            0.605
+            0.955
           ],
           "priority": 10,
           "allowedOperations": [],
@@ -8139,7 +8139,7 @@
           "id": "structure/summit_chamber/wall_front_slot_1/anchor",
           "kind": "ornament",
           "u": 0.226326,
-          "v": 0.325,
+          "v": 0.5,
           "d": 0,
           "regionId": "structure/summit_chamber/wall_front_slot_1/region",
           "orientation": "front"
@@ -8148,7 +8148,7 @@
           "id": "structure/summit_chamber/wall_front_slot_2/anchor",
           "kind": "ornament",
           "u": 0.773674,
-          "v": 0.325,
+          "v": 0.5,
           "d": 0,
           "regionId": "structure/summit_chamber/wall_front_slot_2/region",
           "orientation": "front"
@@ -11120,25 +11120,25 @@
             },
             {
               "u": 0.388258,
-              "v": 0.605
+              "v": 0.955
             },
             {
               "u": 0.064394,
-              "v": 0.605
+              "v": 0.955
             }
           ],
           "inscribed": {
             "uMin": 0.064394,
             "uMax": 0.388258,
             "vMin": 0.045,
-            "vMax": 0.605
+            "vMax": 0.955
           },
           "extent": {
             "uBottom": 3.42,
             "uTop": 3.42,
-            "v": 2.24
+            "v": 3.64
           },
-          "aspect": 1.526786,
+          "aspect": 0.93956,
           "faceOffset": 0,
           "textureScale": 1,
           "depthBudget": {
@@ -11179,25 +11179,25 @@
             },
             {
               "u": 0.935606,
-              "v": 0.605
+              "v": 0.955
             },
             {
               "u": 0.611742,
-              "v": 0.605
+              "v": 0.955
             }
           ],
           "inscribed": {
             "uMin": 0.611742,
             "uMax": 0.935606,
             "vMin": 0.045,
-            "vMax": 0.605
+            "vMax": 0.955
           },
           "extent": {
             "uBottom": 3.42,
             "uTop": 3.42,
-            "v": 2.24
+            "v": 3.64
           },
-          "aspect": 1.526786,
+          "aspect": 0.93956,
           "faceOffset": 0,
           "textureScale": 1,
           "depthBudget": {

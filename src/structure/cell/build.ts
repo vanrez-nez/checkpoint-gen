@@ -367,19 +367,59 @@ function profileWallPanels(input: ProfileWallInput): CellPanel[] {
   );
   const panels: CellPanel[] = [];
 
+  // A cell carrying no feature is plain stone, and a stack of plain cells is
+  // one face rather than several. They only became separate because some
+  // feature elsewhere on the wall put a split through this column: a window in
+  // one bay lays a sill and a head across every other bay too. Left unmerged,
+  // the column beside a window was three panels tall and could hold only a
+  // third of the field its neighbour held.
+  const isPlain = (u: number, v: number): boolean =>
+    surface[u]?.[v]?.operation === null;
+  const merged = new Set<string>();
+
   for (let u = 0; u < along.length - 1; u += 1) {
     for (let v = 0; v < vertical.length - 1; v += 1) {
       for (let d = 0; d < depths.length - 1; d += 1) {
-        if (occupied[u]?.[v]?.[d] !== true) {
+        if (occupied[u]?.[v]?.[d] !== true || merged.has(`${u}:${v}:${d}`)) {
           continue;
         }
+
+        let vTop = v;
+
+        if (isPlain(u, v)) {
+          while (
+            vTop + 1 < vertical.length - 1
+            && occupied[u]?.[vTop + 1]?.[d] === true
+            && isPlain(u, vTop + 1)
+          ) {
+            vTop += 1;
+            merged.add(`${u}:${vTop}:${d}`);
+          }
+        }
+
+        // A side is hidden only where every band of the run has a neighbour
+        // behind it. One band without is one strip of open stone, and hiding
+        // it would leave a hole rather than save a face.
+        const covered = (
+          test: (v: number) => boolean,
+        ): boolean => {
+          for (let band = v; band <= vTop; band += 1) {
+            if (!test(band)) {
+              return false;
+            }
+          }
+
+          return true;
+        };
         const neighbours = {
-          uMin: u > 0 && occupied[u - 1]?.[v]?.[d] === true,
-          uMax: u < along.length - 2 && occupied[u + 1]?.[v]?.[d] === true,
+          uMin: u > 0 && covered((band) => occupied[u - 1]?.[band]?.[d] === true),
+          uMax: u < along.length - 2
+            && covered((band) => occupied[u + 1]?.[band]?.[d] === true),
           vMin: v > 0 && occupied[u]?.[v - 1]?.[d] === true,
-          vMax: v < vertical.length - 2 && occupied[u]?.[v + 1]?.[d] === true,
-          dMin: d > 0 && occupied[u]?.[v]?.[d - 1] === true,
-          dMax: d < depths.length - 2 && occupied[u]?.[v]?.[d + 1] === true,
+          vMax: vTop < vertical.length - 2 && occupied[u]?.[vTop + 1]?.[d] === true,
+          dMin: d > 0 && covered((band) => occupied[u]?.[band]?.[d - 1] === true),
+          dMax: d < depths.length - 2
+            && covered((band) => occupied[u]?.[band]?.[d + 1] === true),
         };
         const sides = [...profileSides(input.direction, neighbours)] as [
           boolean,
@@ -414,7 +454,7 @@ function profileWallPanels(input: ProfileWallInput): CellPanel[] {
             depths[d + 1]!,
           ),
           vertical[v]!,
-          vertical[v + 1]!,
+          vertical[vTop + 1]!,
           sides,
           input.axis,
           !neighbours.vMax,
