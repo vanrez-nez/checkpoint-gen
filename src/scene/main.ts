@@ -73,6 +73,7 @@ import {
   DEFAULT_VIEW_CONFIG,
   validateIlluminationConfig,
   type IlluminationConfig,
+  type ShadowRefinement,
 } from "../config/sections";
 import {
   MATERIAL_SLOTS,
@@ -104,6 +105,25 @@ const MATERIAL_OUTPUT_RESOLUTION = 512;
  * direction must agree exactly, and deriving them from the same azimuth and
  * elevation twice is how they stop agreeing.
  */
+/**
+ * What a prepared geometry costs the GPU.
+ *
+ * Counted off the buffer rather than carried down from the composer, because
+ * the whole point of the number is that it differs from what the composer
+ * produced: the sun bake subdivides after the merge, and only the buffer knows
+ * how far.
+ */
+function measureDrawn(
+  geometry: THREE.BufferGeometry,
+): { vertexCount: number; triangleCount: number } {
+  const index = geometry.getIndex();
+
+  return {
+    vertexCount: geometry.getAttribute("position")?.count ?? 0,
+    triangleCount: Math.floor((index?.count ?? 0) / 3),
+  };
+}
+
 function sunDirectionOf(config: IlluminationConfig): THREE.Vector3 {
   return sunDirection(config.keyAzimuth, config.keyElevation);
 }
@@ -162,6 +182,15 @@ export interface CompositionStats {
   sunBakeMs: number;
   /** The level the resident geometry was generated at. */
   detail: DetailLevel;
+  /**
+   * The mesh actually uploaded, after the sun bake's subdivision.
+   *
+   * Reported beside `totals` rather than replacing it, because the difference
+   * between the two *is* the subdivision — 35 980 vertices become 167 635 on a
+   * default mass — and that is the number worth being able to see while
+   * deciding whether the subdivision earns its keep.
+   */
+  drawn: { vertexCount: number; triangleCount: number };
   flames: FlameStats;
   glowLightCount: number;
   offering: OfferingStats;
@@ -280,6 +309,7 @@ export class MainScene {
   private crackShadowStrength: number;
   private sunShadowStrength: number;
   private sunBakeMs = 0;
+  private drawnStats = { vertexCount: 0, triangleCount: 0 };
   private detail: DetailLevel = DEFAULT_DETAIL_LEVEL;
   /**
    * The direction the current bake was taken from. Re-baking is far too
@@ -407,8 +437,10 @@ export class MainScene {
       // The first frame is the one that gets looked at longest. Nothing is
       // dragging it, and nothing would come back to finish it.
       false,
+      config.view.shadowRefinement,
     );
     this.applyGeometryAttributes(initialGeometry);
+    this.drawnStats = measureDrawn(initialGeometry);
     // Every semantic slot remains addressable even when the current structure
     // does not emit it. This keeps group indices stable across structure types.
     this.structure = new THREE.Mesh(
@@ -633,9 +665,11 @@ export class MainScene {
       config.illumination,
       composition.detail,
       options.interim === true,
+      config.view.shadowRefinement,
     );
     this.applyGeometryAttributes(geometry);
     this.structure.geometry = geometry;
+    this.drawnStats = measureDrawn(geometry);
     this.anchors = composition.anchors;
     this.graph = composition.graph;
     this.sectionStats = composition.sections;
@@ -701,6 +735,7 @@ export class MainScene {
       generationMs: this.generationMs,
       sunBakeMs: this.sunBakeMs,
       detail: this.detail,
+      drawn: { ...this.drawnStats },
       flames: {
         count: flames.flameCount,
         vertexCount: flames.vertexCount,
@@ -992,6 +1027,7 @@ export class MainScene {
     illumination: IlluminationConfig,
     detail: DetailLevel,
     interim: boolean,
+    refinement: ShadowRefinement,
   ): THREE.BufferGeometry {
     // Scaled by the level, and this is what makes the ladder worth having.
     // Subdivision cost tracks total surface *area*, which barely changes
@@ -1000,7 +1036,13 @@ export class MainScene {
     // refined straight back into roughly the vertex count the full level
     // carries, and the cheapest level would cost the most to prepare.
     const bound = SUN_BAKE_MAX_EDGE * DETAIL_PROFILES[detail].edgeScale;
-    const refined = subdivideLongEdges(source, bound);
+    // `off` traces what the kernel built. Nothing downstream needs the mesh to
+    // have been refined — the bake writes one float per vertex whatever the
+    // vertex count is — so this is a genuine bypass rather than a bound set so
+    // wide it does nothing.
+    const refined = refinement === "off"
+      ? { geometry: source }
+      : subdivideLongEdges(source, bound);
 
     if (refined.geometry !== source) {
       source.dispose();
@@ -1035,6 +1077,10 @@ export class MainScene {
     // so everything below this index survives the next pass unchanged — in
     // position, in number, and therefore in visibility.
     const traced = refined.geometry.getAttribute("position").count;
+
+    if (refinement !== "sharp") {
+      return refined.geometry;
+    }
 
     // A second pass, now that there is a shadow to refine against.
     //

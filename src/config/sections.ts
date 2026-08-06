@@ -97,6 +97,20 @@ export interface ViewConfig {
    * construction. See `structure/kernel/detail.ts` for the ladder itself.
    */
   detailLevel: DetailLevel;
+  /**
+   * How much the sun bake is allowed to reshape the mesh before it traces.
+   *
+   * A gate on a decision that is not obviously right. Baking the sun per vertex
+   * means the mesh has to carry enough vertices to describe a shadow, and the
+   * structure kernel does not build one for that — it builds one out of stones.
+   * The answer so far has been to subdivide: once so a plain face has samples
+   * at all, then again along the shadow boundary the first bake found. It works,
+   * and it costs a 4.7x vertex count on a default mass.
+   *
+   * That trade is exposed rather than assumed, so the alternative can be looked
+   * at instead of argued about. See `prepareStructureGeometry`.
+   */
+  shadowRefinement: ShadowRefinement;
   materialScale: number;
   /**
    * How much texture memory the engravings may spend.
@@ -117,8 +131,37 @@ export const DEFAULT_VIEW_CONFIG: Readonly<ViewConfig> = {
   patchDebug: false,
   slotDebug: false,
   detailLevel: DEFAULT_DETAIL_LEVEL,
+  shadowRefinement: "sharp",
   materialScale: 1,
   engravingResolution: DEFAULT_ENGRAVING_RESOLUTION,
+};
+
+/**
+ * The subdivision the sun bake is allowed to do.
+ *
+ * - `sharp` refines twice: to `SUN_BAKE_MAX_EDGE` so every face carries
+ *   samples, then to `SHADOW_EDGE_BOUND` across the boundary the first bake
+ *   found. A cast shadow reads as an edge.
+ * - `coarse` refines once and skips the boundary pass. Shadows keep their
+ *   shape but their edges ramp across whatever the first bound left — about a
+ *   metre on a default mass — so they read as gradients.
+ * - `off` traces the mesh the kernel built. On dense stonework this is close to
+ *   `coarse`; on a plaza slab or a roof it is four vertices holding a whole
+ *   shadow, which is what the subdivision exists to prevent.
+ *
+ * `off` is not a shipping quality level. It is here so the cost of the other
+ * two can be seen against the thing they buy.
+ */
+export const SHADOW_REFINEMENTS = ["sharp", "coarse", "off"] as const;
+
+export type ShadowRefinement = (typeof SHADOW_REFINEMENTS)[number];
+
+export const SHADOW_REFINEMENT_OPTIONS: Readonly<
+  Record<string, ShadowRefinement>
+> = {
+  "Sharp edges": "sharp",
+  "Soft edges": "coarse",
+  "No subdivision": "off",
 };
 
 /** Lighting, plus the two baked-attribute strengths driven from userData. */
@@ -308,6 +351,18 @@ export const VIEW_CONTROLS: readonly ControlSpec<ViewConfig>[] = [
     name: "Detail level",
     group: "View",
     options: DETAIL_LEVEL_OPTIONS,
+    scopes: ["detail"],
+  }),
+  view.list({
+    key: "shadowRefinement",
+    label: "shadow detail",
+    name: "Shadow refinement",
+    group: "View",
+    options: SHADOW_REFINEMENT_OPTIONS,
+    // The detail scope: it invalidates no section, because the kernel builds
+    // the same stones either way — what changes is how the merged geometry is
+    // prepared afterwards, and `detail` is the scope that already means
+    // "recompose without regenerating".
     scopes: ["detail"],
   }),
   view.boolean({

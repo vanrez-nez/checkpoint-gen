@@ -774,8 +774,12 @@ function applyStats(
 
   const primary = section(primarySection);
   mirrors.structure.stones = primary.stoneCount;
-  mirrors.structure.vertices = primary.vertexCount;
-  mirrors.structure.triangles = primary.triangleCount;
+  // The resident mesh, not the section's own. The sun bake subdivides after the
+  // merge, so a per-section vertex count is a pre-subdivision number by
+  // construction — and a header that reported one could not move when the
+  // shadow detail changed, which is the only thing it was being read for.
+  mirrors.structure.vertices = stats.drawn.vertexCount;
+  mirrors.structure.triangles = stats.drawn.triangleCount;
   mirrors.structure.generationMs = Math.round(stats.generationMs * 100) / 100;
   mirrors.structure.sunBakeMs = Math.round(stats.sunBakeMs * 100) / 100;
   mirrors.structure.detail = stats.detail;

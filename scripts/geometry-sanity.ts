@@ -77,6 +77,7 @@ import {
   DEFAULT_ILLUMINATION_CONFIG,
   DEFAULT_STONE_CONFIG,
   DEFAULT_VIEW_CONFIG,
+  type ViewConfig,
   createBevelControls,
   createStoneControls,
 } from "../src/config/sections";
@@ -2360,6 +2361,69 @@ assertSurfaceTextureScale(structureMesh.geometry, "pillar", 1);
     true,
     "A surface disappearing must re-dress too.",
   );
+}
+
+// The sun bake's subdivision, and the gate on it.
+//
+// Baking per vertex needs a mesh dense enough to describe a shadow, and the
+// kernel does not build one for that — it builds one out of stones. The answer
+// has been to subdivide twice, and that is a decision worth being able to look
+// at rather than argue about, so it is a control. These assert the three
+// settings actually differ; what they cost is `npm run bench`.
+{
+  // On a mass, whose plain terraces and roof are exactly the faces the first
+  // pass exists for. The circular checkpoint is the wrong subject: its
+  // stonework is already finer than `SUN_BAKE_MAX_EDGE`, so that pass finds
+  // nothing to split and `coarse` and `off` are legitimately identical there.
+  const refinementConfig = createDefaultStructureConfig();
+  refinementConfig.typeId = "mass";
+  const verticesAt = (setting: ViewConfig["shadowRefinement"]): number => {
+    refinementConfig.view.shadowRefinement = setting;
+    scene.rebuild(refinementConfig);
+    return structureMesh.geometry.getAttribute("position").count;
+  };
+
+  const sharpVertices = verticesAt("sharp");
+  const sharpDrawn = scene.getStats().drawn;
+  const coarseVertices = verticesAt("coarse");
+  const rawVertices = verticesAt("off");
+  const rawDrawn = scene.getStats().drawn;
+
+  // The readout has to move with the setting, or the control looks inert. It
+  // did not at first: the header reported its section's own merged geometry,
+  // and the subdivision happens after the merge, so the only number a user
+  // could see was the one this cannot change.
+  assert.equal(
+    sharpDrawn.vertexCount,
+    sharpVertices,
+    "The drawn count must be the mesh on the GPU, not the one the kernel made.",
+  );
+  assert.ok(
+    sharpDrawn.vertexCount > rawDrawn.vertexCount,
+    "Changing shadow detail must change the drawn count.",
+  );
+  assert.ok(
+    sharpDrawn.triangleCount > rawDrawn.triangleCount,
+    "Changing shadow detail must change the drawn triangle count.",
+  );
+
+  assert.ok(
+    sharpVertices > coarseVertices,
+    "The boundary pass must add vertices, or it is not doing anything.",
+  );
+  assert.ok(
+    coarseVertices > rawVertices,
+    "The first pass must add vertices, or a plain face carries no samples.",
+  );
+  assert.equal(
+    (structureMesh.geometry.userData.sunVisibilityBase as Float32Array).length,
+    rawVertices,
+    "Every setting still bakes one sample per vertex; `off` bypasses the "
+    + "subdivision, not the bake.",
+  );
+
+  // Back to the circular structure the rest of this file is holding.
+  scene.rebuild(sceneConfig);
 }
 
 // Fire and its bowl belong to a structure, not to the sandbox.

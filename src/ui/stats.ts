@@ -5,10 +5,18 @@
  */
 export interface StatMirrors {
   /**
-   * The active structure's own geometry, read from its first declared section.
-   * Sections are declared in merge order and a structure's shell comes first, so
-   * this reports the circular checkpoint's paving and the mass structure's
-   * massing without either of them being named here.
+   * The active structure at the top of the pane.
+   *
+   * `stones` is read from its first declared section — sections are declared in
+   * merge order and a structure's shell comes first, so this reports the
+   * circular checkpoint's paving and the mass structure's massing without
+   * either being named here.
+   *
+   * `vertices` and `triangles` are the resident mesh instead, because there is
+   * no per-section answer to give: the sun bake subdivides the merged geometry,
+   * so every section count is a pre-subdivision one and none of them can move
+   * when the shadow detail does. The Composition folder still totals what the
+   * composer produced, which is what the section rows above it sum to.
    */
   structure: {
     stones: number;
